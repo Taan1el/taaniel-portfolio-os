@@ -25,6 +25,8 @@ window.PORTFOLIO_CONTENT = {
       },
     },
     buttons: {
+      contactMe: { et: "Kirjuta mulle", en: "Contact me" },
+      downloadCv: { et: "Laadi CV alla", en: "Download CV" },
       viewWork: { et: "Vaata t\u00f6id", en: "See work" },
       contact: { et: "V\u00f5ta \u00fchendust", en: "Contact" },
     },
@@ -49,9 +51,9 @@ window.PORTFOLIO_CONTENT = {
         et: "Disainin ja koodin veebilehti.",
         en: "I design & code websites.",
       },
-      intro: {
-        et: "Disainin ja ehitan landing page'e ja veebilehti, mis on modernsed, selged ja kiirelt teostatavad. Vajadusel aitan ka logo ja br\u00e4ndi visuaalse iseloomu paika panna.",
-        en: "I design and build landing pages and websites that feel modern, clear, and fast to launch. If needed, I also help shape logos and brand visuals that feel consistent.",
+      introHtml: {
+        et: "Teen <span class=\"copy-highlight\">landing page'e</span>, <span class=\"copy-highlight\">veebilehti</span> ja visuaale, mis liiguvad kiiresti ideest koodini. Praegu \u00f5pin <span class=\"copy-highlight\">Tallinna Pol\u00fctehnikumis</span> ja t\u00f6\u00f6tan praktikal <span class=\"copy-highlight\">Fiizy O\u00dc-s</span>.",
+        en: "I build <span class=\"copy-highlight\">landing pages</span>, <span class=\"copy-highlight\">websites</span>, and visuals that move quickly from idea to code. Right now I'm studying at <span class=\"copy-highlight\">Tallinn Polytechnic</span> and working as an intern at <span class=\"copy-highlight\">Fiizy O\u00dc</span>.",
       },
       proof: [
         {
@@ -91,8 +93,22 @@ window.PORTFOLIO_CONTENT = {
           en: "Selected work",
         },
         title: {
-          et: "Kolm projekti, mis n\u00e4itavad minu visuaalset suunda ja teostust.",
-          en: "Three projects that show my visual direction and execution.",
+          et: "Minu 3 viimast t\u00f6\u00f6d.",
+          en: "My 3 most recent works.",
+        },
+      },
+      tools: {
+        label: {
+          et: "T\u00f6\u00f6riistad",
+          en: "Tool stack",
+        },
+        title: {
+          et: "T\u00f6\u00f6riistad, millega tavaliselt disainin ja ehitan.",
+          en: "The tools I usually design and build with.",
+        },
+        text: {
+          et: "Figma, Adobe ja front-end t\u00f6\u00f6riistad, millega liigun kiiresti kavandist t\u00f6\u00f6tava tulemuseni.",
+          en: "Figma, Adobe, and front-end tools that help me move quickly from concept to a working result.",
         },
       },
     },
@@ -112,20 +128,12 @@ window.PORTFOLIO_CONTENT = {
         en: "Selected work",
       },
       title: {
-        et: "Valitud t\u00f6\u00f6d praktikast ja tiimiprojektidest.",
-        en: "Selected work from internship and team projects.",
+        et: "Viimased projektid praktikast ja tiimit\u00f6\u00f6st.",
+        en: "Recent work from internship and team projects.",
       },
       intro: {
-        et: "Need projektid on tehtud tiimis ning keskenduvad e-maili kampaaniatele, hero-visuaalidele ja selgele CTA-hierarhiale.",
-        en: "These projects were created in a team and focus on email campaigns, hero visuals, and clear CTA hierarchy.",
-      },
-      note: {
-        et: "See portfoolio on hetkel privaatne. T\u00f6\u00f6d on tehtud tiimis ning tulemuste numbrid on veel kogunemisel.",
-        en: "This portfolio is currently private. Work was done in a team and results are still being collected.",
-      },
-      noteLabel: {
-        et: "M\u00e4rkus",
-        en: "Note",
+        et: "Kolm viimast e-maili kampaaniat ja hero-visuaali, mille kallal olen tiimis t\u00f6\u00f6tanud.",
+        en: "Three recent email campaigns and hero visuals I worked on as part of a team.",
       },
       roleLabel: {
         et: "Roll",
@@ -136,8 +144,8 @@ window.PORTFOLIO_CONTENT = {
         en: "Goal",
       },
       emailLayoutLabel: {
-        et: "E-maili layout",
-        en: "Email layout",
+        et: "E-maili vaade",
+        en: "Email view",
       },
     },
     about: {
@@ -156,12 +164,12 @@ window.PORTFOLIO_CONTENT = {
         en: "About",
       },
       title: {
-        et: "T\u00f6\u00f6tan selge disaini, tugeva hierarhia ja kiire teostuse suunas.",
-        en: "I focus on clear design, strong hierarchy, and fast execution.",
+        et: "Selge disain, tugev hierarhia ja kiire teostus.",
+        en: "Clear design, strong hierarchy, and fast execution.",
       },
-      intro: {
-        et: "Olen veebidisainer ja arendaja, kes teeb landing page'e, veebilehti ja br\u00e4ndivisuaale ideest kuni koodini. Disainin minimalistlikult, aga iseloomuga, et s\u00f5num oleks kohe arusaadav ja CTA t\u00f6\u00f6taks. \u00d5pin Tallinna Pol\u00fctehnikumis ning teen praktikat Fiizy O\u00dc-s, kus t\u00f6\u00f6tan tiimis turundus- ja e-maili visuaalide kallal.",
-        en: "I'm a web designer and developer creating landing pages, websites, and brand visuals from idea to code. My style is minimal but still directional, with strong hierarchy and clear CTAs. I'm currently studying and doing an internship at Fiizy O\u00dc, working as a team member on marketing and email visuals.",
+      introHtml: {
+        et: "Olen veebidisainer ja arendaja, kes teeb <span class=\"copy-highlight\">landing page'e</span>, <span class=\"copy-highlight\">veebilehti</span> ja <span class=\"copy-highlight\">br\u00e4ndivisuaale</span> ideest kuni koodini. \u00d5pin <span class=\"copy-highlight\">Tallinna Pol\u00fctehnikumis</span> ning teen praktikat <span class=\"copy-highlight\">Fiizy O\u00dc-s</span>, kus t\u00f6\u00f6tan tiimis turundus- ja e-maili visuaalide kallal.",
+        en: "I'm a web designer and developer creating <span class=\"copy-highlight\">landing pages</span>, <span class=\"copy-highlight\">websites</span>, and <span class=\"copy-highlight\">brand visuals</span> from idea to code. I'm studying at <span class=\"copy-highlight\">Tallinn Polytechnic</span> and doing my internship at <span class=\"copy-highlight\">Fiizy O\u00dc</span>, where I work on marketing and email visuals in a team.",
       },
       details: {
         focusLabel: {
@@ -177,8 +185,8 @@ window.PORTFOLIO_CONTENT = {
           en: "How I work",
         },
         approachText: {
-          et: "Alustan alati eesm\u00e4rgist, mitte efektist. Hea leht peab tunduma lihtne, kiire ja loogiline enne, kui ta on ilus.",
-          en: "I always start from the goal, not the effect. A good page should feel simple, fast, and logical before it feels impressive.",
+          et: "Alustan eesm\u00e4rgist, hoian kompositsiooni puhta ning viin disaini kiiresti koodi.",
+          en: "I start from the goal, keep the composition clean, and move the design into code quickly.",
         },
       },
       photoSection: {
@@ -187,8 +195,8 @@ window.PORTFOLIO_CONTENT = {
           en: "Photography",
         },
         title: {
-          et: "Fotograafia aitab mul m\u00e4rgata valgust, r\u00fctmi ja kompositsiooni ka veebis.",
-          en: "Photography helps me notice light, rhythm, and composition in web work too.",
+          et: "Fotograafia aitab mul n\u00e4ha valgust, r\u00fctmi ja kompositsiooni ka veebis.",
+          en: "Photography helps me see light, rhythm, and composition in web work too.",
         },
         text: {
           et: "Lisaks veebile teen ka fotosid. See hoiab mu pilgu v\u00e4rskena ja m\u00f5jutab otseselt seda, kuidas ma m\u00f5tlen pildi, ruumi ja fookuse peale.",
@@ -220,8 +228,8 @@ window.PORTFOLIO_CONTENT = {
         en: "Get in touch.",
       },
       intro: {
-        et: "Kirjuta mulle e-mail v\u00f5i helista - vastan kiiresti.",
-        en: "Email or call me - I reply fast.",
+        et: "Kirjuta mulle e-mail v\u00f5i helista. Vastan kiiresti.",
+        en: "Email or call me. I reply fast.",
       },
       availabilityLabel: {
         et: "Fookus",

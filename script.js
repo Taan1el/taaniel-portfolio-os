@@ -3,6 +3,7 @@ const currentPage = document.body.dataset.page;
 const metaDescription = document.querySelector('meta[name="description"]');
 const langButtons = document.querySelectorAll("[data-lang-trigger]");
 const textNodes = document.querySelectorAll("[data-i18n]");
+const htmlNodes = document.querySelectorAll("[data-i18n-html]");
 const altNodes = document.querySelectorAll("[data-i18n-alt]");
 const ariaNodes = document.querySelectorAll("[data-i18n-aria-label]");
 const yearNode = document.getElementById("year");
@@ -45,6 +46,14 @@ function applyLanguage(lang) {
 
     if (typeof translated === "string") {
       node.textContent = translated;
+    }
+  });
+
+  htmlNodes.forEach((node) => {
+    const translated = getLocalized(node.dataset.i18nHtml, lang);
+
+    if (typeof translated === "string") {
+      node.innerHTML = translated;
     }
   });
 

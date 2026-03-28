@@ -54,19 +54,27 @@
         <h1 class="hero-title reveal" data-i18n="pages.home.title">
           Disainin ja koodin veebilehti.
         </h1>
-        <p class="hero-intro reveal" data-i18n="pages.home.intro">
-          Disainin ja ehitan landing page'e ja veebilehti, mis on modernsed,
-          selged ja kiirelt teostatavad. Vajadusel aitan ka logo ja br&auml;ndi
-          visuaalse iseloomu paika panna.
+        <p class="hero-intro reveal" data-i18n-html="pages.home.introHtml">
+          Teen <span class="copy-highlight">landing page'e</span>,
+          <span class="copy-highlight">veebilehti</span> ja visuaale, mis liiguvad kiiresti
+          ideest koodini. Praegu &otilde;pin
+          <span class="copy-highlight">Tallinna Pol&uuml;tehnikumis</span> ja t&ouml;&ouml;tan
+          praktikal <span class="copy-highlight">Fiizy O&Uuml;-s</span>.
         </p>
 
-        <div class="hero-links reveal">
-          <a class="text-link" href="work.html" data-i18n="shared.buttons.viewWork"
-            >Vaata t&ouml;id</a
+        <div class="button-row reveal">
+          <a class="button button-primary" href="contact.html">
+            <span class="button-label" data-i18n="shared.buttons.contactMe">Kirjuta mulle</span>
+            <span class="button-icon" aria-hidden="true">&#9993;</span>
+          </a>
+          <a
+            class="button button-secondary"
+            href="assets/Taaniel-Vananurm-CV.txt"
+            download="Taaniel-Vananurm-CV.txt"
           >
-          <a class="text-link" href="contact.html" data-i18n="shared.buttons.contact"
-            >V&otilde;ta &uuml;hendust</a
-          >
+            <span class="button-label" data-i18n="shared.buttons.downloadCv">Laadi CV alla</span>
+            <span class="button-icon" aria-hidden="true">&#8595;</span>
+          </a>
         </div>
       </section>
 
@@ -95,7 +103,7 @@
         <div class="section-head reveal">
           <p class="section-kicker" data-i18n="pages.home.featured.label">Valitud t&ouml;&ouml;d</p>
           <h2 class="section-title" data-i18n="pages.home.featured.title">
-            Kolm projekti, mis n&auml;itavad minu visuaalset suunda ja teostust.
+            Minu 3 viimast t&ouml;&ouml;d.
           </h2>
         </div>
 
@@ -172,6 +180,54 @@
           </article>
         </div>
       </section>
+
+      <section class="tools-section">
+        <div class="section-head reveal">
+          <p class="section-kicker" data-i18n="pages.home.tools.label">T&ouml;&ouml;riistad</p>
+          <h2 class="section-title tools-title" data-i18n="pages.home.tools.title">
+            T&ouml;&ouml;riistad, millega tavaliselt disainin ja ehitan.
+          </h2>
+          <p class="section-note tools-note" data-i18n="pages.home.tools.text">
+            Figma, Adobe ja front-end t&ouml;&ouml;riistad, millega liigun kiiresti kavandist
+            t&ouml;&ouml;tava tulemuseni.
+          </p>
+        </div>
+
+        <div class="tool-grid">
+          <article class="tool-item reveal">
+            <img src="assets/icons/figma.svg" alt="Figma logo" />
+            <span>Figma</span>
+          </article>
+          <article class="tool-item reveal">
+            <img src="assets/icons/photoshop.svg" alt="Adobe Photoshop logo" />
+            <span>Photoshop</span>
+          </article>
+          <article class="tool-item reveal">
+            <img src="assets/icons/illustrator.svg" alt="Adobe Illustrator logo" />
+            <span>Illustrator</span>
+          </article>
+          <article class="tool-item reveal">
+            <img src="assets/icons/wordpress.svg" alt="WordPress logo" />
+            <span>WordPress</span>
+          </article>
+          <article class="tool-item reveal">
+            <img src="assets/icons/html5.svg" alt="HTML5 logo" />
+            <span>HTML5</span>
+          </article>
+          <article class="tool-item reveal">
+            <img src="assets/icons/css3.svg" alt="CSS3 logo" />
+            <span>CSS3</span>
+          </article>
+          <article class="tool-item reveal">
+            <img src="assets/icons/javascript.svg" alt="JavaScript logo" />
+            <span>JavaScript</span>
+          </article>
+          <article class="tool-item reveal">
+            <img src="assets/icons/vscode.svg" alt="Visual Studio Code logo" />
+            <span>VS Code</span>
+          </article>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer">
@@ -187,6 +243,21 @@
           <a href="work.html" data-i18n="shared.nav.work">T&ouml;&ouml;d</a>
           <a href="about.html" data-i18n="shared.nav.about">Minust</a>
           <a href="contact.html" data-i18n="shared.nav.contact">Kontakt</a>
+        </div>
+
+        <div class="footer-socials" aria-label="Social links">
+          <a href="https://www.instagram.com/taaniel.vananurm/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <img src="assets/icons/instagram.svg" alt="" />
+          </a>
+          <a href="https://www.linkedin.com/in/taaniel-vananurm-1a203b3bb/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <img src="assets/icons/linkedin.svg" alt="" />
+          </a>
+          <a href="https://unsplash.com/@taanielv" target="_blank" rel="noopener noreferrer" aria-label="Unsplash">
+            <img src="assets/icons/unsplash.svg" alt="" />
+          </a>
+          <a href="https://dribbble.com/taaniel-vananurm" target="_blank" rel="noopener noreferrer" aria-label="Dribbble">
+            <img src="assets/icons/dribbble.svg" alt="" />
+          </a>
         </div>
 
         <p class="footer-year"><span id="year"></span></p>
