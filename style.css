@@ -316,6 +316,11 @@ button {
   margin-bottom: 2.4rem;
 }
 
+.section-head-lined {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
 .tools-title {
   max-width: 15ch;
 }
@@ -405,6 +410,9 @@ button {
 .tool-item img {
   width: 2.3rem;
   height: 2.3rem;
+  filter: brightness(0) saturate(100%) invert(95%) sepia(4%) saturate(506%) hue-rotate(323deg)
+    brightness(103%) contrast(92%);
+  opacity: 0.94;
 }
 
 .tool-item span {
@@ -501,7 +509,7 @@ button {
 
 .case-layout-frame {
   display: block;
-  width: min(100%, 22rem);
+  width: 100%;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -511,6 +519,28 @@ button {
 .case-layout-image {
   object-fit: contain;
   background: #fff;
+}
+
+.email-gallery-section {
+  margin-top: 0.5rem;
+}
+
+.email-gallery-title {
+  max-width: 16ch;
+}
+
+.email-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.email-gallery-card {
+  padding: 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
 }
 
 .detail-grid {
@@ -666,7 +696,8 @@ button {
 
 @media (max-width: 1040px) {
   .project-grid,
-  .tool-grid {
+  .tool-grid,
+  .email-gallery-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -728,7 +759,8 @@ button {
 
   .project-grid,
   .tool-grid,
-  .photo-grid {
+  .photo-grid,
+  .email-gallery-grid {
     grid-template-columns: 1fr;
   }
 

@@ -147,6 +147,14 @@ window.PORTFOLIO_CONTENT = {
         et: "E-maili vaade",
         en: "Email view",
       },
+      emailGalleryLabel: {
+        et: "E-maili vaated",
+        en: "Email views",
+      },
+      emailGalleryTitle: {
+        et: "Samade kampaaniate e-maili layout'id.",
+        en: "Email layouts from the same campaigns.",
+      },
     },
     about: {
       meta: {
