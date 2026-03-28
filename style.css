@@ -317,7 +317,9 @@ button {
 }
 
 .section-head-lined {
-  padding-top: 1.5rem;
+  max-width: none;
+  margin-top: 3.75rem;
+  padding-top: 1.8rem;
   border-top: 1px solid var(--border);
 }
 
