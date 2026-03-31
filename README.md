@@ -48,7 +48,7 @@ npm run build
 The Vite config is already set up for the project-site base path:
 
 ```text
-/taaniel-portfolio/
+/taaniel-portfolio-os/
 ```
 
 You can build and publish with:

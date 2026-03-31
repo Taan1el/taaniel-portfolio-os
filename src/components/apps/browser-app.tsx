@@ -4,8 +4,8 @@ import { profile, socialLinks } from "@/data/portfolio";
 import type { AppComponentProps } from "@/types/system";
 
 const defaultLinks = [
-  { label: "Portfolio Repo", url: "https://github.com/Taan1el/taaniel-portfolio" },
-  { label: "Live Portfolio", url: "https://taan1el.github.io/taaniel-portfolio/" },
+  { label: "Portfolio Repo", url: "https://github.com/Taan1el/taaniel-portfolio-os" },
+  { label: "Live Portfolio", url: "https://taan1el.github.io/taaniel-portfolio-os/" },
   ...socialLinks,
 ];
 
