@@ -4,10 +4,19 @@ Static bilingual portfolio for Taaniel Vananurm.
 
 ## Overview
 
-- Light editorial portfolio design
+- Dark editorial portfolio design
 - Estonian / English language toggle
 - Real project visuals for three email campaign case studies
 - Small photography section on the About page
+- Ambient motion and PDF CV download
+
+## Live site
+
+GitHub Pages project site:
+
+```text
+https://taan1el.github.io/taaniel-portfolio/
+```
 
 ## Pages
 
