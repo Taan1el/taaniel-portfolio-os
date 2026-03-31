@@ -1,3 +1,4 @@
+import { resolvePublicAssetUrl } from "@/lib/assets";
 import type { DesktopEntry, FeaturedProject, SocialLink, ThemePreset } from "@/types/system";
 
 export const profile = {
@@ -75,8 +76,8 @@ export const featuredProjects: FeaturedProject[] = [
       "Communicate the offer instantly while balancing conversion clarity, trust, and campaign personality inside an email-safe layout.",
     outcome:
       "Produced a high-contrast hero treatment and readable content structure that keeps the value proposition visible all the way to click.",
-    hero: "/assets/Dineromon_hero_v2.png",
-    layouts: ["/assets/Group 22.png"],
+    hero: resolvePublicAssetUrl("assets/Dineromon_hero_v2.png"),
+    layouts: [resolvePublicAssetUrl("assets/Group 22.png")],
     stack: ["Figma", "Photoshop", "Email layout systems"],
   },
   {
@@ -90,8 +91,8 @@ export const featuredProjects: FeaturedProject[] = [
       "Push urgency without making the visual system feel noisy or untrustworthy in a high-friction financial category.",
     outcome:
       "Created a campaign direction that highlights timing, keeps the CTA readable, and supports both acquisition and sign-up flows.",
-    hero: "/assets/Credito365_2605.jpg",
-    layouts: ["/assets/Group 1.png"],
+    hero: resolvePublicAssetUrl("assets/Credito365_2605.jpg"),
+    layouts: [resolvePublicAssetUrl("assets/Group 1.png")],
     stack: ["Figma", "Photoshop", "Marketing design"],
   },
   {
@@ -105,21 +106,21 @@ export const featuredProjects: FeaturedProject[] = [
       "Translate brand personality into a performance-oriented email that still explains the offer quickly.",
     outcome:
       "Delivered a more memorable campaign visual with enough structure to keep the financial message clear and actionable.",
-    hero: "/assets/Cozmo_2605.jpg",
-    layouts: ["/assets/Group 17.png"],
+    hero: resolvePublicAssetUrl("assets/Cozmo_2605.jpg"),
+    layouts: [resolvePublicAssetUrl("assets/Group 17.png")],
     stack: ["Figma", "Illustrator", "Campaign systems"],
   },
 ];
 
 export const photographyAssets = [
-  { title: "Clouds", src: "/assets/Clouds.jpg" },
-  { title: "Flower", src: "/assets/flower.jpg" },
-  { title: "Flowers", src: "/assets/flowers.jpg" },
-  { title: "Mountains", src: "/assets/mountains.jpg" },
-  { title: "Mushrooms", src: "/assets/mushrooms.jpg" },
+  { title: "Clouds", src: resolvePublicAssetUrl("assets/Clouds.jpg") },
+  { title: "Flower", src: resolvePublicAssetUrl("assets/flower.jpg") },
+  { title: "Flowers", src: resolvePublicAssetUrl("assets/flowers.jpg") },
+  { title: "Mountains", src: resolvePublicAssetUrl("assets/mountains.jpg") },
+  { title: "Mushrooms", src: resolvePublicAssetUrl("assets/mushrooms.jpg") },
 ];
 
-export const resumePdfPath = "/assets/Taaniel-Vananurm-CV.pdf";
+export const resumePdfPath = resolvePublicAssetUrl("assets/Taaniel-Vananurm-CV.pdf");
 
 export const themePresets: ThemePreset[] = [
   {
@@ -136,7 +137,7 @@ export const themePresets: ThemePreset[] = [
     id: "cloud-archive",
     name: "Cloud Archive",
     wallpaper:
-      "linear-gradient(rgba(6, 12, 20, 0.52), rgba(6, 12, 20, 0.78)), url('/assets/Clouds.jpg') center/cover no-repeat",
+      `linear-gradient(rgba(6, 12, 20, 0.52), rgba(6, 12, 20, 0.78)), url('${resolvePublicAssetUrl("assets/Clouds.jpg")}') center/cover no-repeat`,
     desktopTint: "rgba(6, 11, 21, 0.62)",
     glow: "rgba(153, 209, 255, 0.36)",
     shell: "rgba(5, 10, 17, 0.8)",

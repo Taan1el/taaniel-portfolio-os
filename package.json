@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:gh": "tsc && vite build --base=/taaniel-portfolio-os/",
     "preview": "vite preview",
-    "deploy:gh": "npm run build && npx gh-pages -d dist"
+    "deploy:gh": "npm run build:gh && npx gh-pages -d dist"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

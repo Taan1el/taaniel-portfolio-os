@@ -4,7 +4,7 @@ Immersive browser-desktop portfolio for Taaniel Vananurm.
 
 ## What it is
 
-This rebuild turns the portfolio into an operating-system-style experience.
+This rebuild turns the portfolio into an operating-system-style experience with a full browser desktop shell.
 
 Current implementation includes:
 
@@ -43,9 +43,11 @@ npm run dev
 npm run build
 ```
 
+For local production preview, use `npm run build` and then `npm run preview`.
+
 ## GitHub Pages
 
-The Vite config is already set up for the project-site base path:
+GitHub Pages uses the project-site base path:
 
 ```text
 /taaniel-portfolio-os/
@@ -54,5 +56,6 @@ The Vite config is already set up for the project-site base path:
 You can build and publish with:
 
 ```bash
+npm run build:gh
 npm run deploy:gh
 ```
