@@ -44,9 +44,20 @@ export interface AppWindow extends WindowBounds {
   createdAt: number;
 }
 
-export interface DesktopIconPosition {
-  x: number;
-  y: number;
+export interface DesktopGridPosition {
+  gridX: number;
+  gridY: number;
+}
+
+export interface DesktopGridMetrics {
+  columns: number;
+  rows: number;
+  cellWidth: number;
+  cellHeight: number;
+  paddingX: number;
+  paddingY: number;
+  width: number;
+  height: number;
 }
 
 export type DesktopEntryType = "app" | "file" | "folder" | "link";
@@ -59,7 +70,7 @@ export interface DesktopEntry {
   filePath?: string;
   directoryPath?: string;
   externalUrl?: string;
-  defaultPosition: DesktopIconPosition;
+  defaultGridPosition: DesktopGridPosition;
 }
 
 export interface ContextMenuAction {
@@ -95,6 +106,7 @@ export interface AppDefinition {
   accent: string;
   defaultBounds: WindowBounds;
   singleInstance?: boolean;
+  hidden?: boolean;
   component: LazyExoticComponent<ComponentType<AppComponentProps>>;
   resolveTitle?: (payload?: WindowPayload) => string;
 }

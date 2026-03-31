@@ -2,13 +2,15 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { desktopEntries, themePresets } from "@/data/portfolio";
 import { getAppDefinition } from "@/lib/app-registry";
+import { applyDesktopGridMove, reconcileDesktopGridPositions } from "@/lib/desktop-grid";
 import { clamp, createId } from "@/lib/utils";
 import type {
   AppId,
   AppWindow,
   ClipboardState,
   ContextMenuState,
-  DesktopIconPosition,
+  DesktopEntry,
+  DesktopGridPosition,
   WindowPayload,
 } from "@/types/system";
 
@@ -16,9 +18,9 @@ export const SYSTEM_STORAGE_KEY = "taaniel-os-system-v1";
 
 const TASKBAR_HEIGHT = 72;
 
-const initialIconPositions = desktopEntries.reduce<Record<string, DesktopIconPosition>>(
+const initialIconPositions = desktopEntries.reduce<Record<string, DesktopGridPosition>>(
   (positions, entry) => {
-    positions[entry.id] = entry.defaultPosition;
+    positions[entry.id] = entry.defaultGridPosition;
     return positions;
   },
   {}
@@ -42,7 +44,7 @@ interface SystemState {
   clipboard: ClipboardState | null;
   themeId: string;
   customWallpaperSource: string | null;
-  desktopIconPositions: Record<string, DesktopIconPosition>;
+  desktopIconPositions: Record<string, DesktopGridPosition>;
   launchApp: (options: LaunchAppOptions) => string;
   focusWindow: (windowId: string) => void;
   closeWindow: (windowId: string) => void;
@@ -63,7 +65,15 @@ interface SystemState {
   clearClipboard: () => void;
   setThemeId: (themeId: string) => void;
   setCustomWallpaperSource: (source: string | null) => void;
-  updateDesktopIconPosition: (iconId: string, position: DesktopIconPosition) => void;
+  moveDesktopIcon: (
+    iconId: string,
+    position: DesktopGridPosition,
+    metrics: { columns: number; rows: number }
+  ) => void;
+  reconcileDesktopIconPositions: (
+    entries: DesktopEntry[],
+    metrics: { columns: number; rows: number }
+  ) => void;
   hydrateForViewport: () => void;
   resetLayout: () => void;
 }
@@ -366,15 +376,22 @@ export const useSystemStore = create<SystemState>()(
       clearClipboard: () => set({ clipboard: null }),
       setThemeId: (themeId) => set({ themeId }),
       setCustomWallpaperSource: (customWallpaperSource) => set({ customWallpaperSource }),
-      updateDesktopIconPosition: (iconId, position) =>
+      moveDesktopIcon: (iconId, position, metrics) =>
         set((state) => ({
-          desktopIconPositions: {
-            ...state.desktopIconPositions,
-            [iconId]: {
-              x: Math.max(12, Math.round(position.x)),
-              y: Math.max(12, Math.round(position.y)),
-            },
-          },
+          desktopIconPositions: applyDesktopGridMove(
+            state.desktopIconPositions,
+            iconId,
+            position,
+            metrics
+          ),
+        })),
+      reconcileDesktopIconPositions: (entries, metrics) =>
+        set((state) => ({
+          desktopIconPositions: reconcileDesktopGridPositions(
+            entries,
+            state.desktopIconPositions,
+            metrics
+          ),
         })),
       hydrateForViewport: () => {
         if (typeof window === "undefined") {
@@ -422,7 +439,22 @@ export const useSystemStore = create<SystemState>()(
     }),
     {
       name: SYSTEM_STORAGE_KEY,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState, version) => {
+        if (!persistedState || version >= 2) {
+          return persistedState as SystemState;
+        }
+
+        const state = persistedState as Partial<SystemState> & {
+          desktopIconPositions?: Record<string, { x?: number; y?: number }>;
+        };
+
+        return {
+          ...state,
+          desktopIconPositions: initialIconPositions,
+        } as SystemState;
+      },
       partialize: (state) => ({
         windows: state.windows,
         nextZ: state.nextZ,

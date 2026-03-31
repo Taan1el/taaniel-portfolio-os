@@ -1,77 +1,59 @@
-import { useMemo, useRef, useState } from "react";
-import { desktopEntries } from "@/data/portfolio";
-import { listChildren, normalizePath } from "@/lib/filesystem";
+import type { RefObject } from "react";
+import { useState } from "react";
 import { DesktopIcon } from "@/components/shell/desktop-icon";
-import type { DesktopEntry } from "@/types/system";
-
-const DYNAMIC_ICON_START_X = Math.max(...desktopEntries.map((entry) => entry.defaultPosition.x)) + 104;
-
-function getDynamicIconPosition(index: number) {
-  const row = index % 5;
-  const column = Math.floor(index / 5);
-
-  return {
-    x: DYNAMIC_ICON_START_X + column * 104,
-    y: 28 + row * 104,
-  };
-}
+import type { DesktopEntry, DesktopGridMetrics, DesktopGridPosition, VirtualNode } from "@/types/system";
 
 function hasFilePayload(event: React.DragEvent<HTMLElement>) {
   return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 }
 
 interface DesktopSurfaceProps {
-  nodes: Record<string, import("@/types/system").VirtualNode>;
+  entries: DesktopEntry[];
+  nodes: Record<string, VirtualNode>;
   selectedIconId: string | null;
-  iconPositions: Record<string, import("@/types/system").DesktopIconPosition>;
+  iconPositions: Record<string, DesktopGridPosition>;
+  containerRef: RefObject<HTMLDivElement>;
+  gridMetrics: DesktopGridMetrics;
+  toPixels: (position: DesktopGridPosition) => { x: number; y: number };
   onSelectIcon: (iconId: string | null) => void;
   onActivateEntry: (entry: DesktopEntry) => void;
-  onUpdatePosition: (iconId: string, position: import("@/types/system").DesktopIconPosition) => void;
+  onMoveIcon: (iconId: string, position: DesktopGridPosition) => void;
   onDesktopContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
   onEntryContextMenu: (event: React.MouseEvent<HTMLButtonElement>, entry: DesktopEntry) => void;
   onImportFiles: (files: File[]) => Promise<void>;
 }
 
 export function DesktopSurface({
+  entries,
   nodes,
   selectedIconId,
   iconPositions,
+  containerRef,
+  gridMetrics,
+  toPixels,
   onSelectIcon,
   onActivateEntry,
-  onUpdatePosition,
+  onMoveIcon,
   onDesktopContextMenu,
   onEntryContextMenu,
   onImportFiles,
 }: DesktopSurfaceProps) {
   const [dragActive, setDragActive] = useState(false);
-  const dragDepthRef = useRef(0);
-  const staticDesktopPaths = useMemo(
-    () =>
-      new Set(
-        desktopEntries
-          .flatMap((entry) => [entry.filePath, entry.directoryPath].filter(Boolean))
-          .map((path) => normalizePath(path as string))
-      ),
-    []
-  );
-  const entries = useMemo(() => {
-    const dynamicEntries = listChildren(nodes, "/Desktop")
-      .filter((node) => !staticDesktopPaths.has(node.path))
-      .map<DesktopEntry>((node, index) => ({
-        id: `desktop-node:${node.path}`,
-        label: node.name,
-        type: node.kind === "directory" ? "folder" : "file",
-        filePath: node.kind === "file" ? node.path : undefined,
-        directoryPath: node.kind === "directory" ? node.path : undefined,
-        defaultPosition: getDynamicIconPosition(index),
-      }));
-
-    return [...desktopEntries, ...dynamicEntries];
-  }, [nodes, staticDesktopPaths]);
 
   return (
     <div
+      ref={containerRef}
       className="desktop-surface"
+      style={
+        {
+          "--desktop-columns": gridMetrics.columns,
+          "--desktop-rows": gridMetrics.rows,
+          "--desktop-cell-width": `${gridMetrics.cellWidth}px`,
+          "--desktop-cell-height": `${gridMetrics.cellHeight}px`,
+          "--desktop-grid-padding-x": `${gridMetrics.paddingX}px`,
+          "--desktop-grid-padding-y": `${gridMetrics.paddingY}px`,
+        } as React.CSSProperties
+      }
       onPointerDown={() => onSelectIcon(null)}
       onContextMenu={onDesktopContextMenu}
       onDragEnter={(event) => {
@@ -80,7 +62,6 @@ export function DesktopSurface({
         }
 
         event.preventDefault();
-        dragDepthRef.current += 1;
         setDragActive(true);
       }}
       onDragLeave={(event) => {
@@ -88,12 +69,14 @@ export function DesktopSurface({
           return;
         }
 
-        event.preventDefault();
-        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        const nextTarget = event.relatedTarget;
 
-        if (dragDepthRef.current === 0) {
-          setDragActive(false);
+        if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+          return;
         }
+
+        event.preventDefault();
+        setDragActive(false);
       }}
       onDragOver={(event) => {
         if (!hasFilePayload(event)) {
@@ -109,26 +92,30 @@ export function DesktopSurface({
         }
 
         event.preventDefault();
-        dragDepthRef.current = 0;
         setDragActive(false);
         void onImportFiles(Array.from(event.dataTransfer.files));
       }}
     >
       <div className="desktop-surface__grid">
         {entries.map((entry) => {
-          const node = entry.filePath ? nodes[normalizePath(entry.filePath)] : undefined;
+          const targetPath = entry.filePath ?? entry.directoryPath;
+          const node = targetPath ? nodes[targetPath] : undefined;
+          const position = iconPositions[entry.id] ?? entry.defaultGridPosition;
 
           return (
             <DesktopIcon
               key={entry.id}
               entry={entry}
               node={node}
-              position={iconPositions[entry.id] ?? entry.defaultPosition}
+              position={position}
+              pixelPosition={toPixels(position)}
+              gridMetrics={gridMetrics}
+              dragConstraintsRef={containerRef}
               selected={selectedIconId === entry.id}
               onSelect={() => onSelectIcon(entry.id)}
               onActivate={() => onActivateEntry(entry)}
               onContextMenu={(event) => onEntryContextMenu(event, entry)}
-              onPositionChange={(position) => onUpdatePosition(entry.id, position)}
+              onPositionChange={(nextPosition) => onMoveIcon(entry.id, nextPosition)}
             />
           );
         })}
@@ -136,7 +123,7 @@ export function DesktopSurface({
       {dragActive ? (
         <div className="desktop-surface__dropzone">
           <strong>Drop files to add them to the desktop</strong>
-          <small>Uploads are saved into the virtual file system and persist between sessions.</small>
+          <small>Uploads are saved into the virtual file system and snap into the desktop grid.</small>
         </div>
       ) : null}
       <div className="desktop-surface__overlay desktop-surface__overlay--top" />

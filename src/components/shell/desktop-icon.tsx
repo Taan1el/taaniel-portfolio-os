@@ -1,18 +1,22 @@
+import type { RefObject } from "react";
 import { FileCode2, FileText, Folder, Globe, Image, LucideIcon, UserSquare2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
-import type { DesktopEntry, DesktopIconPosition, VirtualNode } from "@/types/system";
+import type { DesktopEntry, DesktopGridMetrics, DesktopGridPosition, VirtualNode } from "@/types/system";
 
 interface DesktopIconProps {
   entry: DesktopEntry;
   node?: VirtualNode;
-  position: DesktopIconPosition;
+  position: DesktopGridPosition;
+  pixelPosition: { x: number; y: number };
+  gridMetrics: DesktopGridMetrics;
+  dragConstraintsRef: RefObject<HTMLDivElement>;
   selected: boolean;
   onActivate: () => void;
   onSelect: () => void;
   onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  onPositionChange: (position: DesktopIconPosition) => void;
+  onPositionChange: (position: DesktopGridPosition) => void;
 }
 
 function resolveIcon(entry: DesktopEntry, node?: VirtualNode): LucideIcon {
@@ -47,6 +51,9 @@ export function DesktopIcon({
   entry,
   node,
   position,
+  pixelPosition,
+  gridMetrics,
+  dragConstraintsRef,
   selected,
   onActivate,
   onSelect,
@@ -61,7 +68,16 @@ export function DesktopIcon({
       drag
       dragMomentum={false}
       dragElastic={0}
-      style={{ left: position.x, top: position.y }}
+      dragConstraints={dragConstraintsRef}
+      whileDrag={{ scale: 1.03, zIndex: 8 }}
+      style={
+        {
+          left: pixelPosition.x,
+          top: pixelPosition.y,
+          "--desktop-cell-width": `${gridMetrics.cellWidth}px`,
+          "--desktop-cell-height": `${gridMetrics.cellHeight}px`,
+        } as React.CSSProperties
+      }
       type="button"
       onPointerDown={(event) => {
         event.stopPropagation();
@@ -74,8 +90,8 @@ export function DesktopIcon({
       onContextMenu={onContextMenu}
       onDragEnd={(_, info) => {
         onPositionChange({
-          x: position.x + info.offset.x,
-          y: position.y + info.offset.y,
+          gridX: Math.round((pixelPosition.x + info.offset.x - gridMetrics.paddingX) / gridMetrics.cellWidth),
+          gridY: Math.round((pixelPosition.y + info.offset.y - gridMetrics.paddingY) / gridMetrics.cellHeight),
         });
       }}
     >

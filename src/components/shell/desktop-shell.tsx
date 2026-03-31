@@ -5,7 +5,7 @@ import { resolveAppIdForNode } from "@/lib/app-registry";
 import { clearPersistedFileSystem, downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
-import { DesktopSurface } from "@/components/shell/desktop-surface";
+import { DesktopManager } from "@/components/shell/desktop-manager";
 import { SearchPanel } from "@/components/shell/search-panel";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
@@ -46,7 +46,8 @@ export function DesktopShell() {
     setContextMenu,
     setClipboard,
     clearClipboard,
-    updateDesktopIconPosition,
+    moveDesktopIcon,
+    reconcileDesktopIconPositions,
     hydrateForViewport,
     resetLayout,
   } = useSystemStore();
@@ -405,13 +406,14 @@ export function DesktopShell() {
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
 
-      <DesktopSurface
+      <DesktopManager
         nodes={nodes}
         selectedIconId={selectedIconId}
         iconPositions={desktopIconPositions}
         onSelectIcon={setSelectedIconId}
         onActivateEntry={activateEntry}
-        onUpdatePosition={updateDesktopIconPosition}
+        onMoveIcon={moveDesktopIcon}
+        onReconcileIconPositions={reconcileDesktopIconPositions}
         onDesktopContextMenu={openDesktopContextMenu}
         onEntryContextMenu={openEntryContextMenu}
         onImportFiles={importFilesIntoDesktop}

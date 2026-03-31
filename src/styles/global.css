@@ -173,7 +173,7 @@ img {
   position: absolute;
   z-index: 2;
   display: flex;
-  width: 86px;
+  width: clamp(72px, calc(var(--desktop-cell-width) - 10px), 92px);
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
@@ -183,6 +183,7 @@ img {
   text-align: center;
   cursor: default;
   user-select: none;
+  will-change: transform;
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
@@ -197,8 +198,8 @@ img {
 
 .desktop-icon__glyph {
   display: grid;
-  width: 56px;
-  height: 56px;
+  width: clamp(50px, calc(var(--desktop-cell-width) * 0.72), 58px);
+  height: clamp(50px, calc(var(--desktop-cell-width) * 0.72), 58px);
   place-items: center;
   border-radius: 1.25rem;
   border: 1px solid var(--border);
@@ -211,6 +212,8 @@ img {
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-wrap: balance;
 }
 
