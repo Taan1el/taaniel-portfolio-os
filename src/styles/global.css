@@ -677,6 +677,20 @@ h3 {
   gap: 0.9rem;
 }
 
+.start-menu__empty,
+.explorer-empty {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+
+.explorer-empty {
+  max-width: 420px;
+}
+
 .explorer-item {
   display: grid;
   gap: 0.55rem;

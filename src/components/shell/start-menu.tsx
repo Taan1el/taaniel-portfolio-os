@@ -75,25 +75,32 @@ export function StartMenu({
         </div>
 
         <div className="start-menu__apps">
-          {filteredApps.map((app) => {
-            const Icon = app.icon;
-            return (
-              <button
-                key={app.id}
-                type="button"
-                className="start-menu__app"
-                onClick={() => onLaunchApp(app.id)}
-              >
-                <span className="start-menu__app-icon" style={{ "--app-accent": app.accent } as CSSProperties}>
-                  <Icon size={18} />
-                </span>
-                <span>
-                  <strong>{app.title}</strong>
-                  <small>{app.description}</small>
-                </span>
-              </button>
-            );
-          })}
+          {filteredApps.length > 0 ? (
+            filteredApps.map((app) => {
+              const Icon = app.icon;
+              return (
+                <button
+                  key={app.id}
+                  type="button"
+                  className="start-menu__app"
+                  onClick={() => onLaunchApp(app.id)}
+                >
+                  <span className="start-menu__app-icon" style={{ "--app-accent": app.accent } as CSSProperties}>
+                    <Icon size={18} />
+                  </span>
+                  <span>
+                    <strong>{app.title}</strong>
+                    <small>{app.description}</small>
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <div className="start-menu__empty">
+              <strong>No apps match your search</strong>
+              <small>Try “terminal”, “projects”, or “resume”.</small>
+            </div>
+          )}
         </div>
       </div>
 

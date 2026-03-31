@@ -185,27 +185,44 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         </aside>
 
         <section className="explorer-content">
-          <div className="explorer-grid">
-            {children.map((node) => {
-              const nodeLabel = node.kind === "directory" ? "DIR" : node.extension.toUpperCase();
+          {children.length > 0 ? (
+            <div className="explorer-grid">
+              {children.map((node) => {
+                const nodeLabel = node.kind === "directory" ? "DIR" : node.extension.toUpperCase();
 
-              return (
-                <button
-                  key={node.path}
-                  type="button"
-                  className={cn("explorer-item", selectedPath === node.path && "is-selected")}
-                  onClick={() => setSelectedPath(node.path)}
-                  onDoubleClick={() => openNode(node)}
-                >
-                  <div className="explorer-item__preview">
-                    {isImageFile(node) ? <img src={node.source} alt={node.name} /> : <span>{nodeLabel}</span>}
-                  </div>
-                  <strong>{node.name}</strong>
-                  <small>{node.kind === "directory" ? "Folder" : node.mimeType}</small>
+                return (
+                  <button
+                    key={node.path}
+                    type="button"
+                    className={cn("explorer-item", selectedPath === node.path && "is-selected")}
+                    onClick={() => setSelectedPath(node.path)}
+                    onDoubleClick={() => openNode(node)}
+                  >
+                    <div className="explorer-item__preview">
+                      {isImageFile(node) ? <img src={node.source} alt={node.name} /> : <span>{nodeLabel}</span>}
+                    </div>
+                    <strong>{node.name}</strong>
+                    <small>{node.kind === "directory" ? "Folder" : node.mimeType}</small>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="explorer-empty">
+              <strong>This folder is empty</strong>
+              <p>Create a folder or a new note to keep exploring the system.</p>
+              <div className="action-row">
+                <button type="button" className="pill-button" onClick={() => void createDirectory(currentPath)}>
+                  <FolderPlus size={15} />
+                  New folder
                 </button>
-              );
-            })}
-          </div>
+                <button type="button" className="pill-button" onClick={() => void createTextFile(currentPath)}>
+                  <FilePlus2 size={15} />
+                  New note
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>
