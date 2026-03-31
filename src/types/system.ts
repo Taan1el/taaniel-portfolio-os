@@ -124,6 +124,29 @@ export interface AppDefinition {
   resolveTitle?: (payload?: WindowPayload) => string;
 }
 
+export type StartMenuAction =
+  | { type: "app"; appId: AppId }
+  | { type: "directory"; directoryPath: string }
+  | { type: "file"; filePath: string }
+  | { type: "reset-session" };
+
+export interface StartMenuShortcut {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  description?: string;
+  action: StartMenuAction;
+  danger?: boolean;
+}
+
+export interface StartMenuCategoryDescriptor {
+  category: AppCategory;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  defaultExpanded: boolean;
+}
+
 export interface ThemePreset {
   id: string;
   name: string;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence } from "framer-motion";
 import { themePresets } from "@/data/portfolio";
 import { resolveAppIdForNode } from "@/lib/file-registry";
+import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { clearPersistedFileSystem, downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
@@ -10,6 +11,7 @@ import { SearchPanel } from "@/components/shell/search-panel";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
 import { WindowManager } from "@/components/shell/window-manager";
+import { useShellShortcuts } from "@/hooks/use-shell-shortcuts";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { SYSTEM_STORAGE_KEY, useSystemStore } from "@/stores/system-store";
 import type { DesktopEntry } from "@/types/system";
@@ -78,13 +80,15 @@ export function DesktopShell() {
     });
   };
 
-  const toggleFullscreen = async () => {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
+  const toggleFullscreen = () => {
+    void toggleDocumentFullscreen();
+  };
 
-    await document.documentElement.requestFullscreen();
+  const closeShellOverlays = () => {
+    setStartMenuOpen(false);
+    setSearchOpen(false);
+    setCalendarOpen(false);
+    setContextMenu(null);
   };
 
   const openPath = (path: string) => {
@@ -134,87 +138,35 @@ export function DesktopShell() {
     }
   };
 
+  useShellShortcuts({
+    activeWindowId,
+    onCloseOverlays: closeShellOverlays,
+    onToggleStartMenu: toggleStartMenu,
+    onToggleSearch: toggleSearch,
+    onCloseActiveWindow: closeWindow,
+    onOpenTerminal: () => launchApp({ appId: "terminal" }),
+    onToggleFullscreen: toggleFullscreen,
+    onOpenStartMenuWithLauncherKey: () => {
+      setStartMenuOpen(true);
+
+      if (!document.fullscreenElement) {
+        void toggleDocumentFullscreen();
+      }
+    },
+  });
+
   useEffect(() => {
     void initialize();
     hydrateForViewport();
 
     const handleResize = () => hydrateForViewport();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const loweredKey = event.key.toLowerCase();
-      const isLauncherMetaKey =
-        (event.key === "Meta" || event.key === "OS" || event.code === "MetaLeft" || event.code === "MetaRight") &&
-        !event.ctrlKey &&
-        !event.altKey;
-
-      if (event.key === "Escape") {
-        setStartMenuOpen(false);
-        setSearchOpen(false);
-        setCalendarOpen(false);
-        setContextMenu(null);
-      }
-
-      if (isLauncherMetaKey && !event.repeat) {
-        event.preventDefault();
-        setStartMenuOpen(true);
-
-        if (!document.fullscreenElement) {
-          void toggleFullscreen();
-        }
-
-        return;
-      }
-
-      if (event.ctrlKey && event.key === "Escape") {
-        event.preventDefault();
-        toggleStartMenu();
-      }
-
-      if ((event.ctrlKey || event.metaKey) && loweredKey === "k") {
-        event.preventDefault();
-        toggleSearch();
-      }
-
-      if (event.altKey && event.key === "F4" && activeWindowId) {
-        event.preventDefault();
-        closeWindow(activeWindowId);
-      }
-
-      if (event.key === "F11") {
-        event.preventDefault();
-        void toggleFullscreen();
-      }
-
-      if (event.shiftKey && event.key === "Escape") {
-        event.preventDefault();
-        toggleStartMenu();
-      }
-
-      if (event.shiftKey && event.key === "F10") {
-        event.preventDefault();
-        launchApp({ appId: "terminal" });
-      }
-    };
 
     window.addEventListener("resize", handleResize);
-    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [
-    activeWindowId,
-    closeWindow,
-    hydrateForViewport,
-    initialize,
-    launchApp,
-    setCalendarOpen,
-    setContextMenu,
-    setSearchOpen,
-    setStartMenuOpen,
-    toggleSearch,
-    toggleStartMenu,
-  ]);
+  }, [hydrateForViewport, initialize]);
 
   useEffect(() => {
     if (!initialized || windows.length > 0 || localStorage.getItem(FIRST_RUN_KEY)) {
