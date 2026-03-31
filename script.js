@@ -105,6 +105,18 @@ function initializeLanguage() {
   });
 }
 
+function initializeRevealSequence() {
+  const sequences = document.querySelectorAll(
+    ".hero-section, .page-intro, .proof-strip, .featured-section, .tools-section, .case-study-list, .email-gallery-section, .detail-grid, .photo-section, .contact-grid"
+  );
+
+  sequences.forEach((sequence) => {
+    sequence.querySelectorAll(".reveal").forEach((item, index) => {
+      item.style.setProperty("--reveal-delay", `${Math.min(index * 90, 420)}ms`);
+    });
+  });
+}
+
 function initializeReveal() {
   const revealItems = document.querySelectorAll(".reveal");
 
@@ -133,9 +145,60 @@ function initializeReveal() {
   revealItems.forEach((item) => observer.observe(item));
 }
 
+function initializeMediaParallax() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  const motionTargets = document.querySelectorAll(
+    ".project-image, .case-hero-image, .case-layout-image, .photo-card img"
+  );
+
+  if (!motionTargets.length) {
+    return;
+  }
+
+  let ticking = false;
+
+  const updateMotion = () => {
+    const viewportCenter = window.innerHeight / 2;
+
+    motionTargets.forEach((target) => {
+      const rect = target.getBoundingClientRect();
+
+      if (rect.bottom < 0 || rect.top > window.innerHeight) {
+        return;
+      }
+
+      const elementCenter = rect.top + rect.height / 2;
+      const distance = (elementCenter - viewportCenter) / viewportCenter;
+      const shift = Math.max(-14, Math.min(14, distance * -10));
+
+      target.style.setProperty("--media-shift", `${shift.toFixed(2)}px`);
+    });
+
+    ticking = false;
+  };
+
+  const requestTick = () => {
+    if (ticking) {
+      return;
+    }
+
+    ticking = true;
+    window.requestAnimationFrame(updateMotion);
+  };
+
+  updateMotion();
+  window.addEventListener("scroll", requestTick, { passive: true });
+  window.addEventListener("resize", requestTick);
+}
+
 if (yearNode) {
   yearNode.textContent = new Date().getFullYear();
 }
 
 initializeLanguage();
+initializeRevealSequence();
 initializeReveal();
+initializeMediaParallax();
