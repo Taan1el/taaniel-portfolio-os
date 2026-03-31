@@ -3,7 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { listChildren, normalizePath } from "@/lib/filesystem";
-import { openFileSystemPath } from "@/lib/launchers";
+import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
 import { profile, skills, socialLinks, themePresets } from "@/data/portfolio";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -85,6 +85,7 @@ export function TerminalApp({ window }: AppComponentProps) {
             "pwd          print current path",
             "cat <file>   print text file",
             "open <path>  open a file or folder",
+            "edit <path>  open a file in its edit app",
             "whoami       recruiter summary",
             "skills       show stack",
             "socials      show links",
@@ -146,6 +147,19 @@ export function TerminalApp({ window }: AppComponentProps) {
 
           openFileSystemPath(path, nodes, launchApp);
           terminal.writeln(`Opened ${path}`);
+          break;
+        }
+        case "edit": {
+          const path = resolvePath(arg, currentPathRef.current);
+          const node = nodes[path];
+
+          if (!node || node.kind !== "file") {
+            terminal.writeln(`Editable file not found: ${path}`);
+            break;
+          }
+
+          editFileSystemPath(path, nodes, launchApp);
+          terminal.writeln(`Editing ${path}`);
           break;
         }
         case "whoami":

@@ -2,6 +2,7 @@ import { lazy } from "react";
 import {
   BookText,
   BriefcaseBusiness,
+  Brush,
   Clapperboard,
   Code2,
   FolderOpen,
@@ -51,6 +52,9 @@ const BrowserApp = lazy(async () => ({
 }));
 const PdfViewerApp = lazy(async () => ({
   default: (await import("@/components/apps/pdf-viewer-app")).PdfViewerApp,
+}));
+const PaintApp = lazy(async () => ({
+  default: (await import("@/components/apps/paint-app")).PaintApp,
 }));
 
 const registry: Record<AppId, AppDefinition> = {
@@ -187,6 +191,17 @@ const registry: Record<AppId, AppDefinition> = {
     defaultBounds: { x: 208, y: 84, width: 920, height: 700 },
     component: PdfViewerApp,
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "PDF Viewer"),
+  },
+  paint: {
+    id: "paint",
+    title: "Paint",
+    description: "Minimal image editing workspace for portfolio assets and uploads.",
+    category: "Media",
+    icon: Brush,
+    accent: "#ffb680",
+    defaultBounds: { x: 198, y: 84, width: 960, height: 720 },
+    component: PaintApp,
+    resolveTitle: (payload) => (payload?.filePath ? `Paint - ${getBaseName(payload.filePath)}` : "Paint"),
   },
   resume: {
     id: "resume",

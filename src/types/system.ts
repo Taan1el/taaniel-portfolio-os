@@ -14,7 +14,8 @@ export type AppId =
   | "settings"
   | "browser"
   | "pdf"
-  | "resume";
+  | "resume"
+  | "paint";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System";
 
@@ -38,6 +39,7 @@ export interface AppWindow extends WindowBounds {
   appId: AppId;
   title: string;
   minimized: boolean;
+  minimizedByShowDesktop?: boolean;
   maximized: boolean;
   zIndex: number;
   restoreBounds?: WindowBounds;
@@ -147,6 +149,21 @@ export interface StartMenuCategoryDescriptor {
   defaultExpanded: boolean;
 }
 
+export interface TaskbarPreviewModel {
+  title: string;
+  subtitle: string;
+  status: "active" | "background" | "minimized";
+}
+
+export interface TaskbarWindowEntry {
+  id: string;
+  appId: AppId;
+  title: string;
+  active: boolean;
+  minimized: boolean;
+  preview: TaskbarPreviewModel;
+}
+
 export interface ThemePreset {
   id: string;
   name: string;
@@ -199,3 +216,24 @@ export interface VirtualFile extends VirtualNodeBase {
 }
 
 export type FileSystemRecord = Record<string, VirtualNode>;
+
+export type FileAssociationFamily =
+  | "document"
+  | "image"
+  | "text"
+  | "code"
+  | "video"
+  | "audio"
+  | "other";
+
+export interface FileAssociationDescriptor {
+  extension: string;
+  label: string;
+  mimeType: string;
+  family: FileAssociationFamily;
+  openWith: AppId;
+  editWith?: AppId;
+  browserRenderable?: boolean;
+  textLike?: boolean;
+  capabilities: Array<"open" | "edit" | "preview" | "inline-preview" | "print">;
+}

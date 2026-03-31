@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Printer, Search, SearchX } from "lucide-react";
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { Download, Printer, Search, SearchX } from "lucide-react";
 import { resumePdfPath } from "@/data/portfolio";
 import { getNodeByPath } from "@/lib/filesystem";
 import { formatBytes } from "@/lib/utils";
+import { usePdfViewer } from "@/hooks/use-pdf-viewer";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import type { AppComponentProps } from "@/types/system";
-
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 async function printPdfSource(source: string) {
   const printFrame = document.createElement("iframe");
@@ -34,121 +30,13 @@ export function PdfViewerApp({ window }: AppComponentProps) {
   const selectedFile = window.payload?.filePath ? getNodeByPath(nodes, window.payload.filePath) : undefined;
   const source =
     selectedFile && selectedFile.kind === "file" ? selectedFile.source ?? resumePdfPath : resumePdfPath;
-  const [pageCount, setPageCount] = useState(0);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(1.15);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
-  const documentRef = useRef<PDFDocumentProxy | null>(null);
+  const { canvasRef, errorMessage, loading, pageCount, pageNumber, scale, setPageNumber, setScale } =
+    usePdfViewer(source);
 
-  const fileSize = useMemo(() => {
-    if (selectedFile?.kind !== "file") {
-      return undefined;
-    }
-
-    if (selectedFile.size != null) {
-      return selectedFile.size;
-    }
-
-    if (selectedFile.content != null) {
-      return new Blob([selectedFile.content]).size;
-    }
-
-    return undefined;
-  }, [selectedFile]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setErrorMessage(null);
-
-    const loadingTask = getDocument(source);
-
-    loadingTask.promise
-      .then((documentProxy) => {
-        if (cancelled) {
-          void documentProxy.destroy();
-          return;
-        }
-
-        documentRef.current = documentProxy;
-        setPageCount(documentProxy.numPages);
-        setPageNumber((currentPage) => Math.min(Math.max(1, currentPage), documentProxy.numPages));
-      })
-      .catch((error: Error) => {
-        if (cancelled) {
-          return;
-        }
-
-        setErrorMessage(error.message || "Unable to load the PDF document.");
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      renderTaskRef.current?.cancel();
-      void loadingTask.destroy();
-      void documentRef.current?.destroy();
-      documentRef.current = null;
-    };
-  }, [source]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const documentProxy = documentRef.current;
-
-    if (!canvas || !documentProxy || errorMessage) {
-      return;
-    }
-
-    let disposed = false;
-
-    const renderPage = async () => {
-      setLoading(true);
-      const page = await documentProxy.getPage(pageNumber);
-      const viewport = page.getViewport({ scale });
-      const context = canvas.getContext("2d");
-
-      if (!context || disposed) {
-        return;
-      }
-
-      const outputScale = globalThis.window.devicePixelRatio || 1;
-      canvas.width = Math.floor(viewport.width * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-      context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
-
-      renderTaskRef.current?.cancel();
-      const renderTask = page.render({ canvas, canvasContext: context, viewport });
-      renderTaskRef.current = renderTask;
-
-      await renderTask.promise;
-
-      if (!disposed) {
-        setLoading(false);
-      }
-    };
-
-    void renderPage().catch((error: Error) => {
-      if (!disposed && error.name !== "RenderingCancelledException") {
-        setErrorMessage(error.message || "Unable to render the selected page.");
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      disposed = true;
-      renderTaskRef.current?.cancel();
-    };
-  }, [errorMessage, pageNumber, scale]);
+  const fileSize =
+    selectedFile?.kind === "file"
+      ? selectedFile.size ?? (selectedFile.content != null ? new Blob([selectedFile.content]).size : undefined)
+      : undefined;
 
   return (
     <div className="app-screen pdf-viewer">
@@ -156,8 +44,8 @@ export function PdfViewerApp({ window }: AppComponentProps) {
         <div className="app-toolbar__title">
           <strong>{selectedFile?.kind === "file" ? selectedFile.name : "Resume PDF"}</strong>
           <small>
-            PDF viewer{fileSize != null ? ` • ${formatBytes(fileSize)}` : ""}
-            {pageCount > 0 ? ` • ${pageCount} pages` : ""}
+            PDF viewer{fileSize != null ? ` | ${formatBytes(fileSize)}` : ""}
+            {pageCount > 0 ? ` | ${pageCount} pages` : ""}
           </small>
         </div>
         <div className="app-toolbar__group">
@@ -169,12 +57,7 @@ export function PdfViewerApp({ window }: AppComponentProps) {
           >
             <SearchX size={15} />
           </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Reset zoom"
-            onClick={() => setScale(1.15)}
-          >
+          <button type="button" className="icon-button" aria-label="Reset zoom" onClick={() => setScale(1.15)}>
             <Search size={15} />
           </button>
           <button
@@ -185,22 +68,22 @@ export function PdfViewerApp({ window }: AppComponentProps) {
           >
             <Search size={15} />
           </button>
-          <button
-            type="button"
-            className="icon-button"
-            disabled={pageNumber <= 1}
-            onClick={() => setPageNumber((currentPage) => Math.max(1, currentPage - 1))}
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            disabled={pageCount === 0 || pageNumber >= pageCount}
-            onClick={() => setPageNumber((currentPage) => Math.min(pageCount, currentPage + 1))}
-          >
-            <ChevronRight size={15} />
-          </button>
+          <label className="pdf-viewer__page-input">
+            <span>Page</span>
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, pageCount)}
+              value={pageNumber}
+              onChange={(event) => {
+                const nextPage = Number(event.target.value);
+
+                if (!Number.isNaN(nextPage)) {
+                  setPageNumber(Math.min(Math.max(1, nextPage), Math.max(1, pageCount)));
+                }
+              }}
+            />
+          </label>
           <button type="button" className="pill-button" onClick={() => void printPdfSource(source)}>
             <Printer size={15} />
             Print
@@ -231,7 +114,7 @@ export function PdfViewerApp({ window }: AppComponentProps) {
         ) : (
           <div className="pdf-viewer__canvas-wrap">
             <canvas ref={canvasRef} />
-            {loading ? <div className="pdf-viewer__loading">Rendering page…</div> : null}
+            {loading ? <div className="pdf-viewer__loading">Rendering page...</div> : null}
           </div>
         )}
       </div>

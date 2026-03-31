@@ -151,6 +151,7 @@ export const useSystemStore = create<SystemState>()(
               ? {
                   ...windowState,
                   minimized: false,
+                  minimizedByShowDesktop: false,
                   zIndex: nextZ,
                 }
               : windowState
@@ -206,6 +207,7 @@ export const useSystemStore = create<SystemState>()(
               ? {
                   ...windowState,
                   minimized: false,
+                  minimizedByShowDesktop: false,
                   zIndex: nextZ,
                 }
               : windowState
@@ -225,6 +227,7 @@ export const useSystemStore = create<SystemState>()(
             ? {
                 ...windowState,
                 minimized: !windowState.minimized,
+                minimizedByShowDesktop: false,
               }
             : windowState
         );
@@ -312,6 +315,7 @@ export const useSystemStore = create<SystemState>()(
           windows: state.windows.map((windowState) => ({
             ...windowState,
             minimized: true,
+            minimizedByShowDesktop: !windowState.minimized,
           })),
           activeWindowId: null,
           startMenuOpen: false,
@@ -323,10 +327,18 @@ export const useSystemStore = create<SystemState>()(
         const nextZStart = get().nextZ + 1;
         let zCounter = nextZStart;
         const windows = get().windows.map((windowState) => {
+          if (!windowState.minimizedByShowDesktop) {
+            return {
+              ...windowState,
+              minimizedByShowDesktop: false,
+            };
+          }
+
           zCounter += 1;
           return {
             ...windowState,
             minimized: false,
+            minimizedByShowDesktop: false,
             zIndex: zCounter,
           };
         });

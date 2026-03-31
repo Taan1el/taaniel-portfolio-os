@@ -213,6 +213,87 @@ export function updateTextFileRecord(nodes: FileSystemRecord, path: string, cont
   };
 }
 
+function getDataUrlByteSize(source: string) {
+  if (!source.startsWith("data:")) {
+    return undefined;
+  }
+
+  const payload = source.split(",")[1];
+
+  if (!payload) {
+    return undefined;
+  }
+
+  const normalizedPayload = payload.replace(/\s/g, "");
+  const padding = normalizedPayload.endsWith("==") ? 2 : normalizedPayload.endsWith("=") ? 1 : 0;
+
+  return Math.max(0, (normalizedPayload.length * 3) / 4 - padding);
+}
+
+export function createBinaryFileRecord(
+  nodes: FileSystemRecord,
+  directoryPath: string,
+  name: string,
+  source: string,
+  mimeType: string,
+  extension: string
+) {
+  const parent = normalizePath(directoryPath);
+  const uniqueName = ensureUniqueName(nodes, parent, name);
+  const path = joinPath(parent, uniqueName);
+  const now = Date.now();
+
+  const fileNode: VirtualFile = {
+    kind: "file",
+    path,
+    name: uniqueName,
+    extension,
+    mimeType,
+    source,
+    size: getDataUrlByteSize(source),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return {
+    nodes: {
+      ...nodes,
+      [path]: fileNode,
+    },
+    path,
+  };
+}
+
+export function updateBinaryFileRecord(
+  nodes: FileSystemRecord,
+  path: string,
+  source: string,
+  options: {
+    mimeType?: string;
+    extension?: string;
+  } = {}
+) {
+  const normalized = normalizePath(path);
+  const current = nodes[normalized];
+
+  if (!current || current.kind !== "file" || current.readonly) {
+    return nodes;
+  }
+
+  return {
+    ...nodes,
+    [normalized]: {
+      ...current,
+      source,
+      content: undefined,
+      mimeType: options.mimeType ?? current.mimeType,
+      extension: options.extension ?? current.extension,
+      size: getDataUrlByteSize(source),
+      updatedAt: Date.now(),
+    },
+  };
+}
+
 export function renameNodeRecord(nodes: FileSystemRecord, path: string, nextName: string) {
   const normalized = normalizePath(path);
   const target = nodes[normalized];

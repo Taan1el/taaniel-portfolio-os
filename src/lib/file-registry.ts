@@ -1,52 +1,308 @@
-import type { AppId, VirtualNode } from "@/types/system";
+import type { AppId, FileAssociationDescriptor, VirtualNode } from "@/types/system";
 
-export interface FileAssociation {
-  appId: AppId;
-  mimeType: string;
-  label: string;
-  browserRenderable?: boolean;
-  textLike?: boolean;
-}
-
-const fileAssociations: Record<string, FileAssociation> = {
-  ".bmp": { appId: "photos", mimeType: "image/bmp", label: "Bitmap image", browserRenderable: true },
-  ".gif": { appId: "photos", mimeType: "image/gif", label: "Animated image", browserRenderable: true },
-  ".heic": { appId: "photos", mimeType: "image/heic", label: "HEIC image" },
-  ".heif": { appId: "photos", mimeType: "image/heif", label: "HEIF image" },
-  ".ico": { appId: "photos", mimeType: "image/x-icon", label: "Icon image", browserRenderable: true },
-  ".jpg": { appId: "photos", mimeType: "image/jpeg", label: "JPEG image", browserRenderable: true },
-  ".jpeg": { appId: "photos", mimeType: "image/jpeg", label: "JPEG image", browserRenderable: true },
-  ".jxl": { appId: "photos", mimeType: "image/jxl", label: "JPEG XL image" },
-  ".png": { appId: "photos", mimeType: "image/png", label: "PNG image", browserRenderable: true },
-  ".qoi": { appId: "photos", mimeType: "image/qoi", label: "QOI image" },
-  ".tif": { appId: "photos", mimeType: "image/tiff", label: "TIFF image" },
-  ".tiff": { appId: "photos", mimeType: "image/tiff", label: "TIFF image" },
-  ".webp": { appId: "photos", mimeType: "image/webp", label: "WebP image", browserRenderable: true },
+const fileAssociations: Record<string, FileAssociationDescriptor> = {
+  ".bmp": {
+    extension: ".bmp",
+    openWith: "photos",
+    editWith: "paint",
+    mimeType: "image/bmp",
+    family: "image",
+    label: "Bitmap image",
+    browserRenderable: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
+  },
+  ".gif": {
+    extension: ".gif",
+    openWith: "photos",
+    editWith: "paint",
+    mimeType: "image/gif",
+    family: "image",
+    label: "GIF image",
+    browserRenderable: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
+  },
+  ".heic": {
+    extension: ".heic",
+    openWith: "photos",
+    mimeType: "image/heic",
+    family: "image",
+    label: "HEIC image",
+    capabilities: ["open", "preview"],
+  },
+  ".heif": {
+    extension: ".heif",
+    openWith: "photos",
+    mimeType: "image/heif",
+    family: "image",
+    label: "HEIF image",
+    capabilities: ["open", "preview"],
+  },
+  ".ico": {
+    extension: ".ico",
+    openWith: "photos",
+    editWith: "paint",
+    mimeType: "image/x-icon",
+    family: "image",
+    label: "Icon image",
+    browserRenderable: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
+  },
+  ".jpg": {
+    extension: ".jpg",
+    openWith: "photos",
+    editWith: "paint",
+    mimeType: "image/jpeg",
+    family: "image",
+    label: "JPEG image",
+    browserRenderable: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
+  },
+  ".jpeg": {
+    extension: ".jpeg",
+    openWith: "photos",
+    editWith: "paint",
+    mimeType: "image/jpeg",
+    family: "image",
+    label: "JPEG image",
+    browserRenderable: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
+  },
+  ".jxl": {
+    extension: ".jxl",
+    openWith: "photos",
+    mimeType: "image/jxl",
+    family: "image",
+    label: "JPEG XL image",
+    capabilities: ["open", "preview"],
+  },
+  ".png": {
+    extension: ".png",
+    openWith: "photos",
+    editWith: "paint",
+    mimeType: "image/png",
+    family: "image",
+    label: "PNG image",
+    browserRenderable: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
+  },
+  ".qoi": {
+    extension: ".qoi",
+    openWith: "photos",
+    mimeType: "image/qoi",
+    family: "image",
+    label: "QOI image",
+    capabilities: ["open", "preview"],
+  },
   ".svg": {
-    appId: "editor",
+    extension: ".svg",
+    openWith: "editor",
+    editWith: "editor",
     mimeType: "image/svg+xml",
+    family: "code",
     label: "SVG document",
     browserRenderable: true,
     textLike: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
   },
-  ".pdf": { appId: "pdf", mimeType: "application/pdf", label: "PDF document" },
-  ".md": { appId: "markdown", mimeType: "text/markdown", label: "Markdown document", textLike: true },
-  ".txt": { appId: "editor", mimeType: "text/plain", label: "Text file", textLike: true },
-  ".json": { appId: "editor", mimeType: "application/json", label: "JSON file", textLike: true },
-  ".js": { appId: "editor", mimeType: "text/javascript", label: "JavaScript file", textLike: true },
-  ".jsx": { appId: "editor", mimeType: "text/jsx", label: "JSX file", textLike: true },
-  ".ts": { appId: "editor", mimeType: "text/typescript", label: "TypeScript file", textLike: true },
-  ".tsx": { appId: "editor", mimeType: "text/tsx", label: "TSX file", textLike: true },
-  ".css": { appId: "editor", mimeType: "text/css", label: "Stylesheet", textLike: true },
-  ".html": { appId: "editor", mimeType: "text/html", label: "HTML document", textLike: true },
-  ".xml": { appId: "editor", mimeType: "application/xml", label: "XML document", textLike: true },
-  ".yml": { appId: "editor", mimeType: "application/yaml", label: "YAML document", textLike: true },
-  ".yaml": { appId: "editor", mimeType: "application/yaml", label: "YAML document", textLike: true },
-  ".mp4": { appId: "video", mimeType: "video/mp4", label: "MP4 video", browserRenderable: true },
-  ".mov": { appId: "video", mimeType: "video/quicktime", label: "QuickTime video", browserRenderable: true },
-  ".webm": { appId: "video", mimeType: "video/webm", label: "WebM video", browserRenderable: true },
-  ".mp3": { appId: "video", mimeType: "audio/mpeg", label: "MP3 audio", browserRenderable: true },
-  ".wav": { appId: "video", mimeType: "audio/wav", label: "WAV audio", browserRenderable: true },
+  ".tif": {
+    extension: ".tif",
+    openWith: "photos",
+    mimeType: "image/tiff",
+    family: "image",
+    label: "TIFF image",
+    capabilities: ["open", "preview"],
+  },
+  ".tiff": {
+    extension: ".tiff",
+    openWith: "photos",
+    mimeType: "image/tiff",
+    family: "image",
+    label: "TIFF image",
+    capabilities: ["open", "preview"],
+  },
+  ".webp": {
+    extension: ".webp",
+    openWith: "photos",
+    editWith: "paint",
+    mimeType: "image/webp",
+    family: "image",
+    label: "WebP image",
+    browserRenderable: true,
+    capabilities: ["open", "edit", "preview", "inline-preview"],
+  },
+  ".pdf": {
+    extension: ".pdf",
+    openWith: "pdf",
+    mimeType: "application/pdf",
+    family: "document",
+    label: "PDF document",
+    capabilities: ["open", "preview", "print"],
+  },
+  ".md": {
+    extension: ".md",
+    openWith: "markdown",
+    editWith: "editor",
+    mimeType: "text/markdown",
+    family: "text",
+    label: "Markdown document",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".txt": {
+    extension: ".txt",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/plain",
+    family: "text",
+    label: "Text file",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".json": {
+    extension: ".json",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "application/json",
+    family: "code",
+    label: "JSON file",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".js": {
+    extension: ".js",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/javascript",
+    family: "code",
+    label: "JavaScript file",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".jsx": {
+    extension: ".jsx",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/jsx",
+    family: "code",
+    label: "JSX file",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".ts": {
+    extension: ".ts",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/typescript",
+    family: "code",
+    label: "TypeScript file",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".tsx": {
+    extension: ".tsx",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/tsx",
+    family: "code",
+    label: "TSX file",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".css": {
+    extension: ".css",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/css",
+    family: "code",
+    label: "Stylesheet",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".html": {
+    extension: ".html",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/html",
+    family: "code",
+    label: "HTML document",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".xml": {
+    extension: ".xml",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "application/xml",
+    family: "code",
+    label: "XML document",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".yml": {
+    extension: ".yml",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "application/yaml",
+    family: "code",
+    label: "YAML document",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".yaml": {
+    extension: ".yaml",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "application/yaml",
+    family: "code",
+    label: "YAML document",
+    textLike: true,
+    capabilities: ["open", "edit", "preview"],
+  },
+  ".mp4": {
+    extension: ".mp4",
+    openWith: "video",
+    mimeType: "video/mp4",
+    family: "video",
+    label: "MP4 video",
+    browserRenderable: true,
+    capabilities: ["open", "preview", "inline-preview"],
+  },
+  ".mov": {
+    extension: ".mov",
+    openWith: "video",
+    mimeType: "video/quicktime",
+    family: "video",
+    label: "QuickTime video",
+    browserRenderable: true,
+    capabilities: ["open", "preview", "inline-preview"],
+  },
+  ".webm": {
+    extension: ".webm",
+    openWith: "video",
+    mimeType: "video/webm",
+    family: "video",
+    label: "WebM video",
+    browserRenderable: true,
+    capabilities: ["open", "preview", "inline-preview"],
+  },
+  ".mp3": {
+    extension: ".mp3",
+    openWith: "video",
+    mimeType: "audio/mpeg",
+    family: "audio",
+    label: "MP3 audio",
+    browserRenderable: true,
+    capabilities: ["open", "preview", "inline-preview"],
+  },
+  ".wav": {
+    extension: ".wav",
+    openWith: "video",
+    mimeType: "audio/wav",
+    family: "audio",
+    label: "WAV audio",
+    browserRenderable: true,
+    capabilities: ["open", "preview", "inline-preview"],
+  },
 };
 
 export function normalizeExtensionKey(extension: string) {
@@ -57,36 +313,37 @@ export function normalizeExtensionKey(extension: string) {
   return extension.startsWith(".") ? extension.toLowerCase() : `.${extension.toLowerCase()}`;
 }
 
-export function getFileAssociation(extension: string) {
+export function getFileAssociationDescriptor(extension: string) {
   return fileAssociations[normalizeExtensionKey(extension)];
 }
 
 export function inferMimeTypeFromExtension(extension: string) {
-  return getFileAssociation(extension)?.mimeType ?? "application/octet-stream";
+  return getFileAssociationDescriptor(extension)?.mimeType ?? "application/octet-stream";
 }
 
 export function isTextLikeExtension(extension: string) {
-  return Boolean(getFileAssociation(extension)?.textLike);
+  return Boolean(getFileAssociationDescriptor(extension)?.textLike);
+}
+
+export function supportsInlinePreview(extensionOrNode: string | VirtualNode | undefined) {
+  const association =
+    typeof extensionOrNode === "string"
+      ? getFileAssociationDescriptor(extensionOrNode)
+      : extensionOrNode?.kind === "file"
+        ? getFileAssociationDescriptor(extensionOrNode.extension)
+        : undefined;
+
+  return Boolean(association?.capabilities.includes("inline-preview"));
 }
 
 export function isBrowserRenderableImageExtension(extension: string) {
-  const association = getFileAssociation(extension);
-  return Boolean(association?.appId === "photos" && association.browserRenderable);
+  const association = getFileAssociationDescriptor(extension);
+  return Boolean(association?.family === "image" && association.browserRenderable);
 }
 
-export function resolveAppIdForNode(node?: VirtualNode): AppId {
-  if (!node) {
-    return "files";
-  }
-
+function resolveFallbackApp(node: VirtualNode) {
   if (node.kind === "directory") {
     return "files";
-  }
-
-  const association = getFileAssociation(node.extension);
-
-  if (association) {
-    return association.appId;
   }
 
   if (node.mimeType.startsWith("image/")) {
@@ -102,4 +359,28 @@ export function resolveAppIdForNode(node?: VirtualNode): AppId {
   }
 
   return "editor";
+}
+
+export function resolveOpenApp(node?: VirtualNode): AppId {
+  if (!node) {
+    return "files";
+  }
+
+  if (node.kind === "directory") {
+    return "files";
+  }
+
+  return getFileAssociationDescriptor(node.extension)?.openWith ?? resolveFallbackApp(node);
+}
+
+export function resolveEditApp(node?: VirtualNode): AppId | null {
+  if (!node || node.kind === "directory") {
+    return null;
+  }
+
+  return getFileAssociationDescriptor(node.extension)?.editWith ?? (isTextLikeExtension(node.extension) ? "editor" : null);
+}
+
+export function resolveAppIdForNode(node?: VirtualNode): AppId {
+  return resolveOpenApp(node);
 }

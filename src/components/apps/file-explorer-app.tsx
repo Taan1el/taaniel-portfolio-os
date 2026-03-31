@@ -5,6 +5,7 @@ import {
   ClipboardPaste,
   Copy,
   Download,
+  FilePenLine,
   FilePlus2,
   FolderPlus,
   FolderTree,
@@ -22,8 +23,8 @@ import {
   listChildren,
   normalizePath,
 } from "@/lib/filesystem";
-import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
-import { openFileSystemPath } from "@/lib/launchers";
+import { isBrowserRenderableImageExtension, resolveEditApp } from "@/lib/file-registry";
+import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
 import { cn, formatBytes } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -279,6 +280,18 @@ export function FileExplorerApp({ window }: AppComponentProps) {
             }}
           >
             <Download size={15} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            disabled={!selectedNode || !resolveEditApp(selectedNode)}
+            onClick={() => {
+              if (selectedNode) {
+                editFileSystemPath(selectedNode.path, nodes, launchApp);
+              }
+            }}
+          >
+            <FilePenLine size={15} />
           </button>
           <button type="button" className="icon-button" onClick={() => void createDirectory(currentPath)}>
             <FolderPlus size={15} />

@@ -650,6 +650,11 @@ h3 {
   color: #ffd3d3;
 }
 
+.pill-button.is-active {
+  background: color-mix(in srgb, var(--theme-accent) 18%, rgba(255, 255, 255, 0.06));
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 28%, rgba(255, 255, 255, 0.12));
+}
+
 .link-grid {
   margin-top: 1rem;
 }
@@ -916,6 +921,23 @@ h3 {
   font-size: 0.82rem;
 }
 
+.pdf-viewer__page-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pdf-viewer__page-input input {
+  width: 4.5rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-strong);
+}
+
 .pdf-viewer__canvas-wrap {
   position: relative;
   display: grid;
@@ -1005,6 +1027,80 @@ h3 {
   border: 0;
   border-radius: 1rem;
   background: white;
+}
+
+.paint-app {
+  gap: 0.9rem;
+  overflow: hidden;
+}
+
+.paint-app__status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.paint-app__stage {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 1.2rem;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.paint-app__canvas {
+  max-width: 100%;
+  max-height: 100%;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.paint-app__swatches {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.paint-app__swatch {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+
+.paint-app__swatch.is-active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent) 42%, rgba(255, 255, 255, 0.16));
+}
+
+.paint-app__size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+
+.paint-app__fallback {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
 }
 
 .markdown-viewer {
@@ -1134,6 +1230,22 @@ h3 {
 .taskbar__preview strong,
 .taskbar__preview small {
   display: block;
+}
+
+.taskbar__preview-status {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 0.55rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: capitalize;
+}
+
+.taskbar__preview-status.is-active {
+  color: color-mix(in srgb, var(--theme-accent) 72%, white 28%);
 }
 
 .taskbar__tray {

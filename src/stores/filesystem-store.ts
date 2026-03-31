@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import {
   clearPersistedFileSystem,
+  createBinaryFileRecord,
   createDirectoryRecord,
   createTextFileRecord,
   deleteNodeRecord,
@@ -11,6 +12,7 @@ import {
   pasteNodeRecord,
   renameNodeRecord,
   saveFileSystem,
+  updateBinaryFileRecord,
   updateTextFileRecord,
 } from "@/lib/filesystem";
 import type { FileSystemRecord } from "@/types/system";
@@ -21,9 +23,24 @@ interface FileSystemState {
   initialize: () => Promise<void>;
   createDirectory: (directoryPath: string, name?: string) => Promise<void>;
   createTextFile: (directoryPath: string, name?: string, content?: string) => Promise<void>;
+  createBinaryFile: (
+    directoryPath: string,
+    name: string,
+    source: string,
+    mimeType: string,
+    extension: string
+  ) => Promise<string>;
   renameNode: (path: string, nextName: string) => Promise<void>;
   deleteNode: (path: string) => Promise<void>;
   updateTextFile: (path: string, content: string) => Promise<void>;
+  updateBinaryFile: (
+    path: string,
+    source: string,
+    options?: {
+      mimeType?: string;
+      extension?: string;
+    }
+  ) => Promise<void>;
   pasteNode: (
     sourcePath: string,
     destinationDirectoryPath: string,
@@ -59,6 +76,13 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ nodes });
     await persistNodes(nodes);
   },
+  createBinaryFile: async (directoryPath, name, source, mimeType, extension) => {
+    const result = createBinaryFileRecord(get().nodes, directoryPath, name, source, mimeType, extension);
+    const nodes = result.nodes;
+    set({ nodes });
+    await persistNodes(nodes);
+    return result.path;
+  },
   renameNode: async (path, nextName) => {
     const nodes = renameNodeRecord(get().nodes, path, nextName);
     set({ nodes });
@@ -71,6 +95,11 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
   },
   updateTextFile: async (path, content) => {
     const nodes = updateTextFileRecord(get().nodes, path, content);
+    set({ nodes });
+    await persistNodes(nodes);
+  },
+  updateBinaryFile: async (path, source, options) => {
+    const nodes = updateBinaryFileRecord(get().nodes, path, source, options);
     set({ nodes });
     await persistNodes(nodes);
   },

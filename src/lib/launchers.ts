@@ -1,6 +1,6 @@
-import { resolveAppIdForNode } from "@/lib/file-registry";
+import { resolveEditApp, resolveOpenApp } from "@/lib/file-registry";
 import { normalizePath } from "@/lib/filesystem";
-import type { AppId, FileSystemRecord } from "@/types/system";
+import type { AppId, FileSystemRecord, VirtualNode } from "@/types/system";
 
 interface LaunchApp {
   (options: {
@@ -12,13 +12,9 @@ interface LaunchApp {
   }): string;
 }
 
-export function openFileSystemPath(path: string, nodes: FileSystemRecord, launchApp: LaunchApp) {
-  const node = nodes[normalizePath(path)];
+type LaunchMode = "open" | "edit" | "preview";
 
-  if (!node) {
-    return;
-  }
-
+function launchNode(node: VirtualNode, launchApp: LaunchApp, mode: LaunchMode) {
   if (node.kind === "directory") {
     launchApp({
       appId: "files",
@@ -29,11 +25,39 @@ export function openFileSystemPath(path: string, nodes: FileSystemRecord, launch
     return;
   }
 
-  const appId = resolveAppIdForNode(node);
+  const appId = mode === "edit" ? resolveEditApp(node) ?? resolveOpenApp(node) : resolveOpenApp(node);
+
   launchApp({
     appId,
     payload: {
       filePath: node.path,
     },
   });
+}
+
+export function launchFileSystemPath(
+  path: string,
+  nodes: FileSystemRecord,
+  launchApp: LaunchApp,
+  mode: LaunchMode = "open"
+) {
+  const node = nodes[normalizePath(path)];
+
+  if (!node) {
+    return;
+  }
+
+  launchNode(node, launchApp, mode);
+}
+
+export function openFileSystemPath(path: string, nodes: FileSystemRecord, launchApp: LaunchApp) {
+  launchFileSystemPath(path, nodes, launchApp, "open");
+}
+
+export function editFileSystemPath(path: string, nodes: FileSystemRecord, launchApp: LaunchApp) {
+  launchFileSystemPath(path, nodes, launchApp, "edit");
+}
+
+export function previewFileSystemPath(path: string, nodes: FileSystemRecord, launchApp: LaunchApp) {
+  launchFileSystemPath(path, nodes, launchApp, "preview");
 }

@@ -3,11 +3,10 @@ import { motion } from "framer-motion";
 import { Grid2x2, MonitorDown, Search, Sparkles } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
 import { formatClock, formatDateLabel } from "@/lib/utils";
-import type { AppWindow } from "@/types/system";
+import type { TaskbarWindowEntry } from "@/types/system";
 
 interface TaskbarProps {
-  windows: AppWindow[];
-  activeWindowId: string | null;
+  entries: TaskbarWindowEntry[];
   startMenuOpen: boolean;
   searchOpen: boolean;
   calendarOpen: boolean;
@@ -20,8 +19,7 @@ interface TaskbarProps {
 }
 
 export function Taskbar({
-  windows,
-  activeWindowId,
+  entries,
   startMenuOpen,
   searchOpen,
   calendarOpen,
@@ -60,19 +58,19 @@ export function Taskbar({
       </button>
 
       <div className="taskbar__windows">
-        {windows.map((windowState) => {
-          const definition = getAppDefinition(windowState.appId);
+        {entries.map((entry) => {
+          const definition = getAppDefinition(entry.appId);
           const Icon = definition.icon;
 
           return (
-            <div key={windowState.id} className="taskbar__item-wrap">
+            <div key={entry.id} className="taskbar__item-wrap">
               <button
-                className={`taskbar__item ${activeWindowId === windowState.id && !windowState.minimized ? "is-active" : ""}`}
+                className={`taskbar__item ${entry.active ? "is-active" : ""}`}
                 type="button"
-                onClick={() => onToggleWindow(windowState.id)}
+                onClick={() => onToggleWindow(entry.id)}
               >
                 <Icon size={14} />
-                <span>{windowState.title}</span>
+                <span>{entry.title}</span>
               </button>
               <motion.div
                 className="taskbar__preview"
@@ -80,8 +78,11 @@ export function Taskbar({
                 whileHover={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.16 }}
               >
-                <strong>{windowState.title}</strong>
-                <small>{definition.title}</small>
+                <strong>{entry.preview.title}</strong>
+                <small>{entry.preview.subtitle}</small>
+                <span className={`taskbar__preview-status is-${entry.preview.status}`}>
+                  {entry.preview.status}
+                </span>
               </motion.div>
             </div>
           );

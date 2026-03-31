@@ -1,9 +1,12 @@
 import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 import { themePresets } from "@/data/portfolio";
-import { resolveAppIdForNode } from "@/lib/file-registry";
+import { resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { clearPersistedFileSystem, downloadFileNode, normalizePath } from "@/lib/filesystem";
+import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
+import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
 import { DesktopManager } from "@/components/shell/desktop-manager";
@@ -52,7 +55,42 @@ export function DesktopShell() {
     reconcileDesktopIconPositions,
     hydrateForViewport,
     resetLayout,
-  } = useSystemStore();
+  } = useSystemStore(
+    useShallow((state) => ({
+      windows: state.windows,
+      activeWindowId: state.activeWindowId,
+      selectedIconId: state.selectedIconId,
+      startMenuOpen: state.startMenuOpen,
+      searchOpen: state.searchOpen,
+      calendarOpen: state.calendarOpen,
+      contextMenu: state.contextMenu,
+      clipboard: state.clipboard,
+      themeId: state.themeId,
+      customWallpaperSource: state.customWallpaperSource,
+      desktopIconPositions: state.desktopIconPositions,
+      launchApp: state.launchApp,
+      focusWindow: state.focusWindow,
+      closeWindow: state.closeWindow,
+      toggleMinimize: state.toggleMinimize,
+      toggleMaximize: state.toggleMaximize,
+      updateWindowBounds: state.updateWindowBounds,
+      toggleTaskbarWindow: state.toggleTaskbarWindow,
+      showDesktop: state.showDesktop,
+      setStartMenuOpen: state.setStartMenuOpen,
+      toggleStartMenu: state.toggleStartMenu,
+      setSearchOpen: state.setSearchOpen,
+      toggleSearch: state.toggleSearch,
+      setCalendarOpen: state.setCalendarOpen,
+      setSelectedIconId: state.setSelectedIconId,
+      setContextMenu: state.setContextMenu,
+      setClipboard: state.setClipboard,
+      clearClipboard: state.clearClipboard,
+      moveDesktopIcon: state.moveDesktopIcon,
+      reconcileDesktopIconPositions: state.reconcileDesktopIconPositions,
+      hydrateForViewport: state.hydrateForViewport,
+      resetLayout: state.resetLayout,
+    }))
+  );
   const {
     nodes,
     initialized,
@@ -63,11 +101,27 @@ export function DesktopShell() {
     pasteNode,
     canCutNode,
     reset: resetFileSystem,
-  } = useFileSystemStore();
+  } = useFileSystemStore(
+    useShallow((state) => ({
+      nodes: state.nodes,
+      initialized: state.initialized,
+      initialize: state.initialize,
+      createDirectory: state.createDirectory,
+      createTextFile: state.createTextFile,
+      importFiles: state.importFiles,
+      pasteNode: state.pasteNode,
+      canCutNode: state.canCutNode,
+      reset: state.reset,
+    }))
+  );
 
   const theme = useMemo(
     () => themePresets.find((preset) => preset.id === themeId) ?? themePresets[0],
     [themeId]
+  );
+  const taskbarEntries = useMemo(
+    () => buildTaskbarWindowEntries(windows, activeWindowId),
+    [activeWindowId, windows]
   );
 
   const openExternal = (url: string) => {
@@ -92,29 +146,11 @@ export function DesktopShell() {
   };
 
   const openPath = (path: string) => {
-    const node = nodes[normalizePath(path)];
+    openFileSystemPath(path, nodes, launchApp);
+  };
 
-    if (!node) {
-      return;
-    }
-
-    if (node.kind === "directory") {
-      launchApp({
-        appId: "files",
-        payload: {
-          directoryPath: node.path,
-        },
-      });
-      return;
-    }
-
-    const appId = resolveAppIdForNode(node);
-    launchApp({
-      appId,
-      payload: {
-        filePath: node.path,
-      },
-    });
+  const editPath = (path: string) => {
+    editFileSystemPath(path, nodes, launchApp);
   };
 
   const pasteIntoDirectory = async (directoryPath: string) => {
@@ -294,6 +330,14 @@ export function DesktopShell() {
         },
         targetPath
           ? {
+              id: "edit",
+              label: "Edit",
+              disabled: !resolveEditApp(targetNode ?? undefined),
+              onSelect: () => editPath(targetPath),
+            }
+          : null,
+        targetPath
+          ? {
               id: "copy",
               label: "Copy",
               onSelect: () => setClipboard({ path: targetPath, operation: "copy" }),
@@ -433,8 +477,7 @@ export function DesktopShell() {
       </AnimatePresence>
 
       <Taskbar
-        windows={windows}
-        activeWindowId={activeWindowId}
+        entries={taskbarEntries}
         startMenuOpen={startMenuOpen}
         searchOpen={searchOpen}
         calendarOpen={calendarOpen}
