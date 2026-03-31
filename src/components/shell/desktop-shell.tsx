@@ -124,21 +124,6 @@ export function DesktopShell() {
     [activeWindowId, windows]
   );
 
-  if (initialized === false) {
-    return (
-      <main
-        className="os-root"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        Initializing filesystem...
-      </main>
-    );
-  }
-
   const openExternal = (url: string) => {
     launchApp({
       appId: "browser",
@@ -417,6 +402,21 @@ export function DesktopShell() {
       ].filter(Boolean) as NonNullable<typeof contextMenu>["actions"],
     });
   };
+
+  if (initialized === false) {
+    return (
+      <main
+        className="os-root"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        Initializing filesystem...
+      </main>
+    );
+  }
 
   return (
     <main
