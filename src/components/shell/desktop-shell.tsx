@@ -141,12 +141,27 @@ export function DesktopShell() {
     const handleResize = () => hydrateForViewport();
     const handleKeyDown = (event: KeyboardEvent) => {
       const loweredKey = event.key.toLowerCase();
+      const isLauncherMetaKey =
+        (event.key === "Meta" || event.key === "OS" || event.code === "MetaLeft" || event.code === "MetaRight") &&
+        !event.ctrlKey &&
+        !event.altKey;
 
       if (event.key === "Escape") {
         setStartMenuOpen(false);
         setSearchOpen(false);
         setCalendarOpen(false);
         setContextMenu(null);
+      }
+
+      if (isLauncherMetaKey && !event.repeat) {
+        event.preventDefault();
+        setStartMenuOpen(true);
+
+        if (!document.fullscreenElement) {
+          void toggleFullscreen();
+        }
+
+        return;
       }
 
       if (event.ctrlKey && event.key === "Escape") {
@@ -443,6 +458,7 @@ export function DesktopShell() {
             onResetSession={() => {
               void resetSession();
             }}
+            onRequestClose={() => setStartMenuOpen(false)}
           />
         ) : null}
       </AnimatePresence>

@@ -132,6 +132,7 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     "/Portfolio/Case Studies": directory("/Portfolio/Case Studies"),
     "/Media": directory("/Media"),
     "/Media/Photography": directory("/Media/Photography"),
+    "/Media/Videos": directory("/Media/Videos"),
     "/Code": directory("/Code"),
   };
 
