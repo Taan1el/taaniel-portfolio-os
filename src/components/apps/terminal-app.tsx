@@ -33,7 +33,12 @@ export function TerminalApp({ window }: AppComponentProps) {
   const currentPathRef = useRef("/Desktop");
   const commandRef = useRef("");
   const nodes = useFileSystemStore((state) => state.nodes);
+  const nodesRef = useRef(nodes);
   const launchApp = useSystemStore((state) => state.launchApp);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) {
@@ -101,20 +106,20 @@ export function TerminalApp({ window }: AppComponentProps) {
           break;
         case "ls": {
           const path = resolvePath(arg, currentPathRef.current);
-          const node = nodes[path];
+          const node = nodesRef.current[path];
 
           if (!node || node.kind !== "directory") {
             terminal.writeln(`Path not found: ${path}`);
             break;
           }
 
-          const items = listChildren(nodes, path);
+          const items = listChildren(nodesRef.current, path);
           writeLines(items.map((item) => `${item.kind === "directory" ? "dir " : "file"}  ${item.name}`));
           break;
         }
         case "cd": {
           const path = resolvePath(arg, currentPathRef.current);
-          const node = nodes[path];
+          const node = nodesRef.current[path];
 
           if (!node || node.kind !== "directory") {
             terminal.writeln(`Directory not found: ${path}`);
@@ -126,7 +131,7 @@ export function TerminalApp({ window }: AppComponentProps) {
         }
         case "cat": {
           const path = resolvePath(arg, currentPathRef.current);
-          const node = nodes[path];
+          const node = nodesRef.current[path];
 
           if (!node || node.kind !== "file" || !node.content) {
             terminal.writeln(`Text file not found: ${path}`);
@@ -138,27 +143,27 @@ export function TerminalApp({ window }: AppComponentProps) {
         }
         case "open": {
           const path = resolvePath(arg, currentPathRef.current);
-          const node = nodes[path];
+          const node = nodesRef.current[path];
 
           if (!node) {
             terminal.writeln(`File not found: ${path}`);
             break;
           }
 
-          openFileSystemPath(path, nodes, launchApp);
+          openFileSystemPath(path, nodesRef.current, launchApp);
           terminal.writeln(`Opened ${path}`);
           break;
         }
         case "edit": {
           const path = resolvePath(arg, currentPathRef.current);
-          const node = nodes[path];
+          const node = nodesRef.current[path];
 
           if (!node || node.kind !== "file") {
             terminal.writeln(`Editable file not found: ${path}`);
             break;
           }
 
-          editFileSystemPath(path, nodes, launchApp);
+          editFileSystemPath(path, nodesRef.current, launchApp);
           terminal.writeln(`Editing ${path}`);
           break;
         }
@@ -210,7 +215,7 @@ export function TerminalApp({ window }: AppComponentProps) {
       terminal.dispose();
       terminalRef.current = null;
     };
-  }, [launchApp, nodes]);
+  }, [launchApp]);
 
   return <div className="terminal-app" ref={containerRef} />;
 }

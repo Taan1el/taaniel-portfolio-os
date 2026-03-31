@@ -124,6 +124,21 @@ export function DesktopShell() {
     [activeWindowId, windows]
   );
 
+  if (initialized === false) {
+    return (
+      <main
+        className="os-root"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        Initializing filesystem...
+      </main>
+    );
+  }
+
   const openExternal = (url: string) => {
     launchApp({
       appId: "browser",
@@ -210,7 +225,15 @@ export function DesktopShell() {
     }
 
     launchApp({ appId: "about" });
-    openPath("/Desktop/Welcome.md");
+    const freshNodes = useFileSystemStore.getState().nodes;
+
+    if (freshNodes["/Desktop/Welcome.md"]) {
+      launchApp({
+        appId: "markdown",
+        payload: { filePath: "/Desktop/Welcome.md" },
+      });
+    }
+
     localStorage.setItem(FIRST_RUN_KEY, "true");
   }, [initialized, launchApp, windows.length]);
 

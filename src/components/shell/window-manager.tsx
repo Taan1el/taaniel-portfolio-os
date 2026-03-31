@@ -29,7 +29,6 @@ export function WindowManager({
       <AnimatePresence>
         {windows
           .filter((windowState) => !windowState.minimized)
-          .sort((a, b) => a.zIndex - b.zIndex)
           .map((windowState) => (
             <WindowFrame
               key={windowState.id}

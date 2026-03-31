@@ -41,7 +41,6 @@ export function WindowFrame({
       disableDragging={window.maximized || isMobile}
       enableResizing={!window.maximized && !isMobile}
       dragHandleClassName="window-frame__header"
-      onMouseDown={onFocus}
       onDragStop={(_, data) => onBoundsChange({ x: data.x, y: data.y, width: window.width, height: window.height })}
       onResizeStop={(_, __, ref, ___, position) =>
         onBoundsChange({
@@ -56,6 +55,7 @@ export function WindowFrame({
     >
       <motion.section
         className={cn("window-frame", active && "is-active")}
+        onMouseDown={onFocus}
         initial={{ opacity: 0, scale: 0.97, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98, y: 14 }}

@@ -468,8 +468,6 @@ export const useSystemStore = create<SystemState>()(
         } as SystemState;
       },
       partialize: (state) => ({
-        windows: state.windows,
-        nextZ: state.nextZ,
         themeId: state.themeId,
         customWallpaperSource: state.customWallpaperSource,
         desktopIconPositions: state.desktopIconPositions,

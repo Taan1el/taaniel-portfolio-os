@@ -6,6 +6,7 @@ export type AppId =
   | "projects"
   | "contact"
   | "files"
+  | "notes"
   | "terminal"
   | "editor"
   | "photos"

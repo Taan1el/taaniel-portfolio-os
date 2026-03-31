@@ -103,6 +103,20 @@ const registry: Record<AppId, AppDefinition> = {
     resolveTitle: (payload) =>
       payload?.directoryPath ? `Explorer - ${getBaseName(payload.directoryPath)}` : "File Explorer",
   },
+  notes: {
+    id: "notes",
+    title: "Notes",
+    description: "Create and edit plain text notes and markdown files.",
+    category: "Workspace",
+    icon: BookText,
+    accent: "#ffe58f",
+    defaultBounds: { x: 200, y: 100, width: 780, height: 540 },
+    component: CodeEditorApp,
+    resolveTitle: (payload) =>
+      payload?.filePath
+        ? `Notes - ${getBaseName(payload.filePath)}`
+        : "Notes",
+  },
   terminal: {
     id: "terminal",
     title: "Terminal",
