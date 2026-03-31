@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Grid2x2, MonitorDown, Sparkles } from "lucide-react";
+import { Grid2x2, MonitorDown, Search, Sparkles } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
 import { formatClock, formatDateLabel } from "@/lib/utils";
 import type { AppWindow } from "@/types/system";
@@ -9,9 +9,11 @@ interface TaskbarProps {
   windows: AppWindow[];
   activeWindowId: string | null;
   startMenuOpen: boolean;
+  searchOpen: boolean;
   calendarOpen: boolean;
   themeName: string;
   onToggleStartMenu: () => void;
+  onToggleSearch: () => void;
   onToggleCalendar: () => void;
   onToggleWindow: (windowId: string) => void;
   onShowDesktop: () => void;
@@ -21,9 +23,11 @@ export function Taskbar({
   windows,
   activeWindowId,
   startMenuOpen,
+  searchOpen,
   calendarOpen,
   themeName,
   onToggleStartMenu,
+  onToggleSearch,
   onToggleCalendar,
   onToggleWindow,
   onShowDesktop,
@@ -44,6 +48,15 @@ export function Taskbar({
       >
         <Grid2x2 size={16} />
         Start
+      </button>
+
+      <button
+        className={`taskbar__search ${searchOpen ? "is-active" : ""}`}
+        type="button"
+        onClick={onToggleSearch}
+      >
+        <Search size={15} />
+        Search apps and files
       </button>
 
       <div className="taskbar__windows">

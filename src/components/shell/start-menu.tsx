@@ -1,9 +1,9 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
-import { FolderOpen, Mail, Power, Search, Settings2, TerminalSquare } from "lucide-react";
+import { FolderOpen, Github, Mail, Power, Search, Settings2, TerminalSquare } from "lucide-react";
 import { featuredProjects, profile, resumePdfPath, socialLinks } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
-import type { AppId } from "@/types/system";
+import type { AppCategory, AppId } from "@/types/system";
 
 interface StartMenuProps {
   onLaunchApp: (appId: AppId) => void;
@@ -20,6 +20,8 @@ export function StartMenu({
 }: StartMenuProps) {
   const [query, setQuery] = useState("");
   const apps = getAppRegistry();
+  const categoryOrder: AppCategory[] = ["Portfolio", "Workspace", "Media", "System"];
+
   const filteredApps = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -34,6 +36,18 @@ export function StartMenu({
         app.category.toLowerCase().includes(normalizedQuery)
     );
   }, [apps, query]);
+
+  const groupedApps = useMemo(
+    () =>
+      categoryOrder
+        .map((category) => ({
+          category,
+          items: filteredApps.filter((app) => app.category === category),
+        }))
+        .filter((group) => group.items.length > 0),
+    [categoryOrder, filteredApps]
+  );
+
   const firstResult = filteredApps[0];
 
   return (
@@ -67,38 +81,49 @@ export function StartMenu({
 
       <div className="start-menu__section">
         <div className="section-row">
-          <span className="section-title">Pinned apps</span>
+          <span className="section-title">{query ? "Search results" : "App launcher"}</span>
           <button type="button" className="ghost-button" onClick={() => onLaunchApp("settings")}>
             <Settings2 size={14} />
             Settings
           </button>
         </div>
 
-        <div className="start-menu__apps">
+        <div className="start-menu__catalog">
           {filteredApps.length > 0 ? (
-            filteredApps.map((app) => {
-              const Icon = app.icon;
-              return (
-                <button
-                  key={app.id}
-                  type="button"
-                  className="start-menu__app"
-                  onClick={() => onLaunchApp(app.id)}
-                >
-                  <span className="start-menu__app-icon" style={{ "--app-accent": app.accent } as CSSProperties}>
-                    <Icon size={18} />
-                  </span>
-                  <span>
-                    <strong>{app.title}</strong>
-                    <small>{app.description}</small>
-                  </span>
-                </button>
-              );
-            })
+            groupedApps.map((group) => (
+              <section key={group.category} className="start-menu__category">
+                <p className="section-title">{group.category}</p>
+                <div className="start-menu__apps">
+                  {group.items.map((app) => {
+                    const Icon = app.icon;
+
+                    return (
+                      <button
+                        key={app.id}
+                        type="button"
+                        className="start-menu__app"
+                        onClick={() => onLaunchApp(app.id)}
+                      >
+                        <span
+                          className="start-menu__app-icon"
+                          style={{ "--app-accent": app.accent } as CSSProperties}
+                        >
+                          <Icon size={18} />
+                        </span>
+                        <span>
+                          <strong>{app.title}</strong>
+                          <small>{app.description}</small>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))
           ) : (
             <div className="start-menu__empty">
               <strong>No apps match your search</strong>
-              <small>Try “terminal”, “projects”, or “resume”.</small>
+              <small>Try "terminal", "projects", or "resume".</small>
             </div>
           )}
         </div>
@@ -115,7 +140,15 @@ export function StartMenu({
             <FolderOpen size={15} />
             Portfolio files
           </button>
-          <button type="button" className="quick-link" onClick={() => onOpenFile("/Documents/Taaniel-Vananurm-CV.pdf")}>
+          <button type="button" className="quick-link" onClick={() => onOpenDirectory("/Users/Public/Blog")}>
+            <FolderOpen size={15} />
+            Blog
+          </button>
+          <button
+            type="button"
+            className="quick-link"
+            onClick={() => onOpenFile("/Documents/Taaniel-Vananurm-CV.pdf")}
+          >
             <Mail size={15} />
             Resume.pdf
           </button>
@@ -126,7 +159,7 @@ export function StartMenu({
         </div>
 
         <div className="start-menu__section">
-          <span className="section-title">Featured folders</span>
+          <span className="section-title">Featured folders and links</span>
           {featuredProjects.map((project) => (
             <button
               key={project.id}
@@ -138,6 +171,10 @@ export function StartMenu({
               {project.title}
             </button>
           ))}
+          <a className="quick-link" href="https://github.com/Taan1el" target="_blank" rel="noreferrer">
+            <Github size={15} />
+            GitHub profile
+          </a>
         </div>
       </div>
 

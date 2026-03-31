@@ -241,6 +241,14 @@ img {
   color: var(--text-strong);
 }
 
+.section-title {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .window-frame__title strong,
 .window-frame__title small {
   display: block;
@@ -294,6 +302,7 @@ img {
 .sidebar-link:hover,
 .quick-link:hover,
 .taskbar__item:hover,
+.taskbar__search:hover,
 .taskbar__start:hover,
 .taskbar__clock:hover,
 .taskbar__desktop:hover {
@@ -691,6 +700,19 @@ h3 {
   max-width: 420px;
 }
 
+.explorer-selection {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.explorer-selection small {
+  color: var(--text-muted);
+}
+
 .explorer-item {
   display: grid;
   gap: 0.55rem;
@@ -808,7 +830,7 @@ h3 {
   left: 12px;
   z-index: 60;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.7rem;
@@ -816,6 +838,7 @@ h3 {
 }
 
 .taskbar__start,
+.taskbar__search,
 .taskbar__item,
 .taskbar__clock,
 .taskbar__desktop,
@@ -828,10 +851,17 @@ h3 {
 }
 
 .taskbar__start.is-active,
+.taskbar__search.is-active,
 .taskbar__item.is-active,
 .taskbar__clock.is-active {
   background: color-mix(in srgb, var(--theme-accent) 16%, rgba(255, 255, 255, 0.06));
   border-color: color-mix(in srgb, var(--theme-accent) 32%, rgba(255, 255, 255, 0.14));
+}
+
+.taskbar__search {
+  min-width: 190px;
+  justify-content: flex-start;
+  color: var(--text-muted);
 }
 
 .taskbar__windows {
@@ -936,6 +966,12 @@ h3 {
   gap: 0.8rem;
 }
 
+.start-menu__catalog,
+.start-menu__category {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .start-menu__columns {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -966,6 +1002,89 @@ h3 {
   gap: 0.75rem;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.search-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 84px;
+  width: min(620px, calc(100vw - 32px));
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.4rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025));
+  box-shadow: var(--shadow-window);
+  backdrop-filter: blur(20px);
+  z-index: 72;
+}
+
+.search-panel__input {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.search-panel__input input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+}
+
+.search-panel__results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.search-panel__section {
+  display: grid;
+  align-content: start;
+  gap: 0.6rem;
+}
+
+.search-panel__empty {
+  padding: 0.8rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+}
+
+.search-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.search-result__icon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--app-accent, var(--theme-accent)) 22%, rgba(255, 255, 255, 0.06));
+}
+
+.search-result span:last-child {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.search-result small {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .calendar-popover {
@@ -1074,6 +1193,10 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .search-panel__results {
+    grid-template-columns: 1fr;
+  }
+
   .taskbar__windows {
     order: 3;
   }
@@ -1108,6 +1231,11 @@ h3 {
   }
 
   .start-menu {
+    right: 16px;
+    width: auto;
+  }
+
+  .search-panel {
     right: 16px;
     width: auto;
   }

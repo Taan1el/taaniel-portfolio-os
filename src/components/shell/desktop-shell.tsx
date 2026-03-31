@@ -3,9 +3,10 @@ import { AnimatePresence } from "framer-motion";
 import { themePresets } from "@/data/portfolio";
 import { resolveAppIdForNode } from "@/lib/app-registry";
 import { clearPersistedFileSystem, normalizePath } from "@/lib/filesystem";
-import { ContextMenu } from "@/components/system/context-menu";
 import { CalendarPopover } from "@/components/system/calendar-popover";
+import { ContextMenu } from "@/components/system/context-menu";
 import { DesktopSurface } from "@/components/shell/desktop-surface";
+import { SearchPanel } from "@/components/shell/search-panel";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
 import { WindowManager } from "@/components/shell/window-manager";
@@ -21,8 +22,10 @@ export function DesktopShell() {
     activeWindowId,
     selectedIconId,
     startMenuOpen,
+    searchOpen,
     calendarOpen,
     contextMenu,
+    clipboard,
     themeId,
     desktopIconPositions,
     launchApp,
@@ -35,62 +38,45 @@ export function DesktopShell() {
     showDesktop,
     setStartMenuOpen,
     toggleStartMenu,
+    setSearchOpen,
+    toggleSearch,
     setCalendarOpen,
     setSelectedIconId,
     setContextMenu,
-    setThemeId,
+    setClipboard,
+    clearClipboard,
     updateDesktopIconPosition,
     hydrateForViewport,
     resetLayout,
   } = useSystemStore();
-  const { nodes, initialized, initialize, reset: resetFileSystem } = useFileSystemStore();
+  const {
+    nodes,
+    initialized,
+    initialize,
+    createDirectory,
+    createTextFile,
+    pasteNode,
+    canCutNode,
+    reset: resetFileSystem,
+  } = useFileSystemStore();
 
   const theme = useMemo(
     () => themePresets.find((preset) => preset.id === themeId) ?? themePresets[0],
     [themeId]
   );
 
-  useEffect(() => {
-    void initialize();
-    hydrateForViewport();
+  const openExternal = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
-    const handleResize = () => hydrateForViewport();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setStartMenuOpen(false);
-        setCalendarOpen(false);
-        setContextMenu(null);
-      }
-
-      if (event.shiftKey && event.key === "Escape") {
-        event.preventDefault();
-        toggleStartMenu();
-      }
-
-      if (event.shiftKey && event.key === "F10") {
-        event.preventDefault();
-        launchApp({ appId: "terminal" });
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [hydrateForViewport, initialize, launchApp, setCalendarOpen, setContextMenu, setStartMenuOpen, toggleStartMenu]);
-
-  useEffect(() => {
-    if (!initialized || windows.length > 0 || localStorage.getItem(FIRST_RUN_KEY)) {
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
       return;
     }
 
-    launchApp({ appId: "about" });
-    openPath("/Desktop/Welcome.md");
-    localStorage.setItem(FIRST_RUN_KEY, "true");
-  }, [initialized, launchApp, windows.length]);
+    await document.documentElement.requestFullscreen();
+  };
 
   const openPath = (path: string) => {
     const node = nodes[normalizePath(path)];
@@ -118,6 +104,95 @@ export function DesktopShell() {
     });
   };
 
+  const pasteIntoDirectory = async (directoryPath: string) => {
+    if (!clipboard) {
+      return;
+    }
+
+    await pasteNode(clipboard.path, directoryPath, clipboard.operation);
+
+    if (clipboard.operation === "cut") {
+      clearClipboard();
+    }
+  };
+
+  useEffect(() => {
+    void initialize();
+    hydrateForViewport();
+
+    const handleResize = () => hydrateForViewport();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const loweredKey = event.key.toLowerCase();
+
+      if (event.key === "Escape") {
+        setStartMenuOpen(false);
+        setSearchOpen(false);
+        setCalendarOpen(false);
+        setContextMenu(null);
+      }
+
+      if (event.ctrlKey && event.key === "Escape") {
+        event.preventDefault();
+        toggleStartMenu();
+      }
+
+      if ((event.ctrlKey || event.metaKey) && loweredKey === "k") {
+        event.preventDefault();
+        toggleSearch();
+      }
+
+      if (event.altKey && event.key === "F4" && activeWindowId) {
+        event.preventDefault();
+        closeWindow(activeWindowId);
+      }
+
+      if (event.key === "F11") {
+        event.preventDefault();
+        void toggleFullscreen();
+      }
+
+      if (event.shiftKey && event.key === "Escape") {
+        event.preventDefault();
+        toggleStartMenu();
+      }
+
+      if (event.shiftKey && event.key === "F10") {
+        event.preventDefault();
+        launchApp({ appId: "terminal" });
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    activeWindowId,
+    closeWindow,
+    hydrateForViewport,
+    initialize,
+    launchApp,
+    setCalendarOpen,
+    setContextMenu,
+    setSearchOpen,
+    setStartMenuOpen,
+    toggleSearch,
+    toggleStartMenu,
+  ]);
+
+  useEffect(() => {
+    if (!initialized || windows.length > 0 || localStorage.getItem(FIRST_RUN_KEY)) {
+      return;
+    }
+
+    launchApp({ appId: "about" });
+    openPath("/Desktop/Welcome.md");
+    localStorage.setItem(FIRST_RUN_KEY, "true");
+  }, [initialized, launchApp, windows.length]);
+
   const activateEntry = (entry: DesktopEntry) => {
     if (entry.type === "app" && entry.appId) {
       launchApp({ appId: entry.appId });
@@ -140,7 +215,7 @@ export function DesktopShell() {
     }
 
     if (entry.type === "link" && entry.externalUrl) {
-      window.open(entry.externalUrl, "_blank", "noopener,noreferrer");
+      openExternal(entry.externalUrl);
     }
   };
 
@@ -160,6 +235,28 @@ export function DesktopShell() {
       y: event.clientY,
       title: "Desktop",
       actions: [
+        {
+          id: "new-folder",
+          label: "New Folder",
+          onSelect: () => {
+            void createDirectory("/Desktop");
+          },
+        },
+        {
+          id: "new-note",
+          label: "New Note",
+          onSelect: () => {
+            void createTextFile("/Desktop");
+          },
+        },
+        {
+          id: "paste",
+          label: clipboard ? "Paste" : "Paste",
+          disabled: !clipboard,
+          onSelect: () => {
+            void pasteIntoDirectory("/Desktop");
+          },
+        },
         {
           id: "open-about",
           label: "Open About",
@@ -196,6 +293,9 @@ export function DesktopShell() {
     event.preventDefault();
     event.stopPropagation();
     setSelectedIconId(entry.id);
+
+    const targetPath = entry.filePath ?? entry.directoryPath;
+
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
@@ -203,9 +303,24 @@ export function DesktopShell() {
       actions: [
         {
           id: "open",
-          label: "Open",
+          label: entry.type === "link" ? "Open link" : "Open",
           onSelect: () => activateEntry(entry),
         },
+        targetPath
+          ? {
+              id: "copy",
+              label: "Copy",
+              onSelect: () => setClipboard({ path: targetPath, operation: "copy" }),
+            }
+          : null,
+        targetPath
+          ? {
+              id: "cut",
+              label: "Cut",
+              disabled: !canCutNode(targetPath),
+              onSelect: () => setClipboard({ path: targetPath, operation: "cut" }),
+            }
+          : null,
         entry.type !== "app" && entry.directoryPath
           ? {
               id: "open-folder",
@@ -297,6 +412,17 @@ export function DesktopShell() {
         ) : null}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {searchOpen ? (
+          <SearchPanel
+            nodes={nodes}
+            onLaunchApp={(appId) => launchApp({ appId })}
+            onOpenPath={openPath}
+            onOpenExternal={openExternal}
+          />
+        ) : null}
+      </AnimatePresence>
+
       <AnimatePresence>{calendarOpen ? <CalendarPopover /> : null}</AnimatePresence>
 
       <AnimatePresence>
@@ -307,9 +433,11 @@ export function DesktopShell() {
         windows={windows}
         activeWindowId={activeWindowId}
         startMenuOpen={startMenuOpen}
+        searchOpen={searchOpen}
         calendarOpen={calendarOpen}
         themeName={theme.name}
         onToggleStartMenu={toggleStartMenu}
+        onToggleSearch={toggleSearch}
         onToggleCalendar={() => setCalendarOpen(!calendarOpen)}
         onToggleWindow={toggleTaskbarWindow}
         onShowDesktop={showDesktop}

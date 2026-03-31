@@ -49,6 +49,14 @@ export function listChildren(nodes: FileSystemRecord, directoryPath: string) {
     .sort(sortNodes);
 }
 
+export function listDescendants(nodes: FileSystemRecord, path: string) {
+  const normalized = normalizePath(path);
+
+  return Object.values(nodes)
+    .filter((node) => node.path === normalized || node.path.startsWith(`${normalized}/`))
+    .sort((a, b) => a.path.length - b.path.length);
+}
+
 export function sortNodes(a: VirtualNode, b: VirtualNode) {
   if (a.kind !== b.kind) {
     return a.kind === "directory" ? -1 : 1;
@@ -75,6 +83,39 @@ export function isMarkdownFile(node?: VirtualNode): node is VirtualFile {
 
 export function isPdfFile(node?: VirtualNode): node is VirtualFile {
   return Boolean(node && node.kind === "file" && node.extension === "pdf");
+}
+
+export function hasReadonlyContent(nodes: FileSystemRecord, path: string) {
+  return listDescendants(nodes, path).some(
+    (node) => node.kind === "file" && Boolean(node.readonly)
+  );
+}
+
+export function searchNodes(nodes: FileSystemRecord, query: string, limit = 10) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  return Object.values(nodes)
+    .filter((node) => node.path !== "/")
+    .filter((node) => {
+      const nameMatch = node.name.toLowerCase().includes(normalizedQuery);
+      const pathMatch = node.path.toLowerCase().includes(normalizedQuery);
+      return nameMatch || pathMatch;
+    })
+    .sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+      const bStarts = b.name.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+
+      if (aStarts !== bStarts) {
+        return aStarts - bStarts;
+      }
+
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, limit);
 }
 
 function ensureUniqueName(nodes: FileSystemRecord, directoryPath: string, desiredName: string) {
@@ -225,6 +266,86 @@ export function deleteNodeRecord(nodes: FileSystemRecord, path: string) {
   });
 
   return updatedNodes;
+}
+
+export function pasteNodeRecord(
+  nodes: FileSystemRecord,
+  sourcePath: string,
+  destinationDirectoryPath: string,
+  operation: "copy" | "cut"
+): FileSystemRecord {
+  const normalizedSourcePath = normalizePath(sourcePath);
+  const normalizedDestinationDirectoryPath = normalizePath(destinationDirectoryPath);
+  const sourceNode = nodes[normalizedSourcePath];
+  const destinationNode = nodes[normalizedDestinationDirectoryPath];
+
+  if (!sourceNode || !destinationNode || destinationNode.kind !== "directory") {
+    return nodes;
+  }
+
+  if (normalizedSourcePath === "/" || normalizedSourcePath === normalizedDestinationDirectoryPath) {
+    return nodes;
+  }
+
+  if (
+    sourceNode.kind === "directory" &&
+    normalizedDestinationDirectoryPath.startsWith(`${normalizedSourcePath}/`)
+  ) {
+    return nodes;
+  }
+
+  if (operation === "cut") {
+    if (hasReadonlyContent(nodes, normalizedSourcePath)) {
+      return nodes;
+    }
+
+    if (getParentPath(normalizedSourcePath) === normalizedDestinationDirectoryPath) {
+      return nodes;
+    }
+  }
+
+  const nextName = ensureUniqueName(nodes, normalizedDestinationDirectoryPath, sourceNode.name);
+  const nextRootPath = joinPath(normalizedDestinationDirectoryPath, nextName);
+  const subtree = listDescendants(nodes, normalizedSourcePath);
+  const now = Date.now();
+  const clonedNodes: FileSystemRecord = {};
+
+  subtree.forEach((node) => {
+    const nextPath =
+      node.path === normalizedSourcePath
+        ? nextRootPath
+        : node.path.replace(`${normalizedSourcePath}/`, `${nextRootPath}/`);
+
+    if (node.kind === "directory") {
+      clonedNodes[nextPath] = {
+        ...node,
+        path: nextPath,
+        name: nextPath.split("/").filter(Boolean).at(-1) ?? node.name,
+        updatedAt: now,
+      };
+      return;
+    }
+
+    clonedNodes[nextPath] = {
+      ...node,
+      path: nextPath,
+      name: nextPath.split("/").filter(Boolean).at(-1) ?? node.name,
+      createdAt: operation === "copy" ? now : node.createdAt,
+      updatedAt: now,
+    };
+  });
+
+  if (operation === "copy") {
+    return {
+      ...nodes,
+      ...clonedNodes,
+    };
+  }
+
+  return {
+    ...deleteNodeRecord(nodes, normalizedSourcePath),
+    ...clonedNodes,
+  };
 }
 
 export async function loadFileSystem() {

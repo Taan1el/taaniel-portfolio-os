@@ -95,11 +95,39 @@ const uiNotes = `export const portfolioPositioning = {
 };
 `;
 
+const buildJournalMarkdown = `# Building a Portfolio OS
+
+Turning a portfolio into a desktop-style product changes the expectation from "scroll and skim" to "explore and inspect".
+
+## Why it matters
+
+- It demonstrates interface architecture, not just visual taste.
+- It shows how content can live inside a system instead of beside it.
+- It gives recruiters more than screenshots. They can feel the product thinking directly.
+`;
+
+const frontendNotesMarkdown = `# Frontend Notes
+
+## Principles I care about
+
+- Interface clarity before visual noise
+- Motion that explains state, not motion for its own sake
+- Design systems that still feel authored
+- Fast iteration from concept to implementation
+
+## What this OS portfolio is trying to prove
+
+That frontend craft can be expressive, technical, and recruiter-friendly at the same time.
+`;
+
 export const buildSeedFileSystem = (): FileSystemRecord => {
   const nodes: FileSystemRecord = {
     "/": directory("/"),
     "/Desktop": directory("/Desktop"),
     "/Documents": directory("/Documents"),
+    "/Users": directory("/Users"),
+    "/Users/Public": directory("/Users/Public"),
+    "/Users/Public/Blog": directory("/Users/Public/Blog"),
     "/Portfolio": directory("/Portfolio"),
     "/Portfolio/Case Studies": directory("/Portfolio/Case Studies"),
     "/Media": directory("/Media"),
@@ -124,6 +152,20 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     "ts",
     "text/typescript",
     { content: uiNotes }
+  );
+
+  nodes["/Users/Public/Blog/Building-a-Portfolio-OS.md"] = file(
+    "/Users/Public/Blog/Building-a-Portfolio-OS.md",
+    "md",
+    "text/markdown",
+    { content: buildJournalMarkdown }
+  );
+
+  nodes["/Users/Public/Blog/Frontend-Notes.md"] = file(
+    "/Users/Public/Blog/Frontend-Notes.md",
+    "md",
+    "text/markdown",
+    { content: frontendNotesMarkdown }
   );
 
   nodes["/Documents/Taaniel-Vananurm-CV.pdf"] = file(

@@ -6,6 +6,7 @@ import { clamp, createId } from "@/lib/utils";
 import type {
   AppId,
   AppWindow,
+  ClipboardState,
   ContextMenuState,
   DesktopIconPosition,
   WindowPayload,
@@ -35,8 +36,10 @@ interface SystemState {
   activeWindowId: string | null;
   selectedIconId: string | null;
   startMenuOpen: boolean;
+  searchOpen: boolean;
   calendarOpen: boolean;
   contextMenu: ContextMenuState | null;
+  clipboard: ClipboardState | null;
   themeId: string;
   desktopIconPositions: Record<string, DesktopIconPosition>;
   launchApp: (options: LaunchAppOptions) => string;
@@ -50,9 +53,13 @@ interface SystemState {
   restoreDesktop: () => void;
   setStartMenuOpen: (open: boolean) => void;
   toggleStartMenu: () => void;
+  setSearchOpen: (open: boolean) => void;
+  toggleSearch: () => void;
   setCalendarOpen: (open: boolean) => void;
   setSelectedIconId: (iconId: string | null) => void;
   setContextMenu: (contextMenu: ContextMenuState | null) => void;
+  setClipboard: (clipboard: ClipboardState | null) => void;
+  clearClipboard: () => void;
   setThemeId: (themeId: string) => void;
   updateDesktopIconPosition: (iconId: string, position: DesktopIconPosition) => void;
   hydrateForViewport: () => void;
@@ -104,8 +111,10 @@ export const useSystemStore = create<SystemState>()(
       activeWindowId: null,
       selectedIconId: null,
       startMenuOpen: false,
+      searchOpen: false,
       calendarOpen: false,
       contextMenu: null,
+      clipboard: null,
       themeId: themePresets[0].id,
       desktopIconPositions: initialIconPositions,
       launchApp: ({ appId, payload, title }) => {
@@ -139,6 +148,7 @@ export const useSystemStore = create<SystemState>()(
             nextZ,
             activeWindowId: existingWindow.id,
             startMenuOpen: false,
+            searchOpen: false,
           });
 
           return existingWindow.id;
@@ -166,6 +176,7 @@ export const useSystemStore = create<SystemState>()(
           nextZ,
           activeWindowId: windowId,
           startMenuOpen: false,
+          searchOpen: false,
           calendarOpen: false,
           contextMenu: null,
         }));
@@ -291,6 +302,7 @@ export const useSystemStore = create<SystemState>()(
           })),
           activeWindowId: null,
           startMenuOpen: false,
+          searchOpen: false,
           calendarOpen: false,
         }));
       },
@@ -315,21 +327,40 @@ export const useSystemStore = create<SystemState>()(
       setStartMenuOpen: (open) =>
         set({
           startMenuOpen: open,
+          searchOpen: open ? false : get().searchOpen,
           calendarOpen: open ? false : get().calendarOpen,
         }),
       toggleStartMenu: () =>
         set((state) => ({
           startMenuOpen: !state.startMenuOpen,
+          searchOpen: state.startMenuOpen ? state.searchOpen : false,
           calendarOpen: state.startMenuOpen ? state.calendarOpen : false,
+          contextMenu: null,
+        })),
+      setSearchOpen: (open) =>
+        set({
+          searchOpen: open,
+          startMenuOpen: open ? false : get().startMenuOpen,
+          calendarOpen: open ? false : get().calendarOpen,
+          contextMenu: null,
+        }),
+      toggleSearch: () =>
+        set((state) => ({
+          searchOpen: !state.searchOpen,
+          startMenuOpen: state.searchOpen ? state.startMenuOpen : false,
+          calendarOpen: state.searchOpen ? state.calendarOpen : false,
           contextMenu: null,
         })),
       setCalendarOpen: (open) =>
         set({
           calendarOpen: open,
           startMenuOpen: open ? false : get().startMenuOpen,
+          searchOpen: open ? false : get().searchOpen,
         }),
       setSelectedIconId: (selectedIconId) => set({ selectedIconId }),
       setContextMenu: (contextMenu) => set({ contextMenu }),
+      setClipboard: (clipboard) => set({ clipboard }),
+      clearClipboard: () => set({ clipboard: null }),
       setThemeId: (themeId) => set({ themeId }),
       updateDesktopIconPosition: (iconId, position) =>
         set((state) => ({
@@ -376,8 +407,10 @@ export const useSystemStore = create<SystemState>()(
           activeWindowId: null,
           selectedIconId: null,
           startMenuOpen: false,
+          searchOpen: false,
           calendarOpen: false,
           contextMenu: null,
+          clipboard: null,
           themeId: themePresets[0].id,
           desktopIconPositions: initialIconPositions,
         }),

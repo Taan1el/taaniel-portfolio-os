@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FilePlus2, FolderPlus, FolderTree, Pencil, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ClipboardPaste,
+  Copy,
+  FilePlus2,
+  FolderPlus,
+  FolderTree,
+  Pencil,
+  Scissors,
+  Trash2,
+} from "lucide-react";
 import { getNodeByPath, getParentPath, isImageFile, listChildren, normalizePath } from "@/lib/filesystem";
 import { openFileSystemPath } from "@/lib/launchers";
 import { cn } from "@/lib/utils";
@@ -14,6 +25,7 @@ const quickPlaces = [
   { label: "Photography", path: "/Media/Photography" },
   { label: "Documents", path: "/Documents" },
   { label: "Code", path: "/Code" },
+  { label: "Blog", path: "/Users/Public/Blog" },
 ];
 
 function buildBreadcrumbs(path: string) {
@@ -39,7 +51,12 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const createTextFile = useFileSystemStore((state) => state.createTextFile);
   const renameNode = useFileSystemStore((state) => state.renameNode);
   const deleteNode = useFileSystemStore((state) => state.deleteNode);
+  const pasteNode = useFileSystemStore((state) => state.pasteNode);
+  const canCutNode = useFileSystemStore((state) => state.canCutNode);
   const launchApp = useSystemStore((state) => state.launchApp);
+  const clipboard = useSystemStore((state) => state.clipboard);
+  const setClipboard = useSystemStore((state) => state.setClipboard);
+  const clearClipboard = useSystemStore((state) => state.clearClipboard);
 
   const [currentPath, setCurrentPath] = useState(window.payload?.directoryPath ?? "/Portfolio");
   const [history, setHistory] = useState<string[]>([window.payload?.directoryPath ?? "/Portfolio"]);
@@ -59,6 +76,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const currentNode = getNodeByPath(nodes, currentPath);
   const children = useMemo(() => listChildren(nodes, currentPath), [currentPath, nodes]);
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentPath), [currentPath]);
+  const selectedNode = selectedPath ? nodes[selectedPath] : null;
 
   const navigate = (nextPath: string) => {
     const normalized = normalizePath(nextPath);
@@ -75,6 +93,18 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     }
 
     openFileSystemPath(node.path, nodes, launchApp);
+  };
+
+  const handlePaste = async () => {
+    if (!clipboard) {
+      return;
+    }
+
+    await pasteNode(clipboard.path, currentPath, clipboard.operation);
+
+    if (clipboard.operation === "cut") {
+      clearClipboard();
+    }
   };
 
   return (
@@ -129,6 +159,40 @@ export function FileExplorerApp({ window }: AppComponentProps) {
           </button>
           <button type="button" className="icon-button" onClick={() => void createTextFile(currentPath)}>
             <FilePlus2 size={15} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            disabled={!selectedPath}
+            onClick={() => {
+              if (selectedPath) {
+                setClipboard({ path: selectedPath, operation: "copy" });
+              }
+            }}
+          >
+            <Copy size={15} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            disabled={!selectedPath || !canCutNode(selectedPath)}
+            onClick={() => {
+              if (selectedPath && canCutNode(selectedPath)) {
+                setClipboard({ path: selectedPath, operation: "cut" });
+              }
+            }}
+          >
+            <Scissors size={15} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            disabled={!clipboard}
+            onClick={() => {
+              void handlePaste();
+            }}
+          >
+            <ClipboardPaste size={15} />
           </button>
           <button
             type="button"
@@ -202,10 +266,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
                       {isImageFile(node) ? <img src={node.source} alt={node.name} /> : <span>{nodeLabel}</span>}
                     </div>
                     <strong>{node.name}</strong>
-                    <small>{node.kind === "directory" ? "Folder" : node.mimeType}</small>
-                  </button>
-                );
-              })}
+                  <small>{node.kind === "directory" ? "Folder" : node.mimeType}</small>
+                </button>
+              );
+            })}
             </div>
           ) : (
             <div className="explorer-empty">
@@ -223,6 +287,13 @@ export function FileExplorerApp({ window }: AppComponentProps) {
               </div>
             </div>
           )}
+
+          {selectedNode ? (
+            <div className="explorer-selection">
+              <strong>Selected: {selectedNode.name}</strong>
+              <small>{selectedNode.kind === "directory" ? selectedNode.path : `${selectedNode.mimeType} - ${selectedNode.path}`}</small>
+            </div>
+          ) : null}
         </section>
       </div>
     </div>

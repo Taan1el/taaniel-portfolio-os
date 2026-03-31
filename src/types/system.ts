@@ -76,6 +76,11 @@ export interface ContextMenuState {
   actions: ContextMenuAction[];
 }
 
+export interface ClipboardState {
+  path: string;
+  operation: "copy" | "cut";
+}
+
 export interface AppComponentProps {
   window: AppWindow;
 }

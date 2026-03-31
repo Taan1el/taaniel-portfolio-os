@@ -211,4 +211,25 @@ export const desktopEntries: DesktopEntry[] = [
     appId: "terminal",
     defaultPosition: { x: 132, y: 340 },
   },
+  {
+    id: "blog-folder",
+    label: "Blog",
+    type: "folder",
+    directoryPath: "/Users/Public/Blog",
+    defaultPosition: { x: 236, y: 28 },
+  },
+  {
+    id: "github-link",
+    label: "GitHub",
+    type: "link",
+    externalUrl: "https://github.com/Taan1el",
+    defaultPosition: { x: 236, y: 132 },
+  },
+  {
+    id: "linkedin-link",
+    label: "LinkedIn",
+    type: "link",
+    externalUrl: "https://www.linkedin.com/in/taaniel-vananurm-1a203b3bb/",
+    defaultPosition: { x: 236, y: 236 },
+  },
 ];
