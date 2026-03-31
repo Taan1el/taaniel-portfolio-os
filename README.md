@@ -1,47 +1,70 @@
-# Taaniel Portfolio
+# Taaniel OS
 
-Static bilingual portfolio for Taaniel Vananurm.
+Immersive browser-desktop portfolio for Taaniel Vananurm.
 
-## Overview
+## What it is
 
-- Dark editorial portfolio design
-- Estonian / English language toggle
-- Real project visuals for three email campaign case studies
-- Small photography section on the About page
-- Ambient motion and PDF CV download
+This rebuild turns the portfolio into an operating-system-style experience inspired by browser desktop environments such as Dustin Brett's daedalOS approach.
 
-## Live site
+Current implementation includes:
 
-GitHub Pages project site:
+- desktop wallpaper and draggable desktop icons
+- window manager with focus, minimize, maximize, close, resize, and persisted bounds
+- taskbar, start menu, clock, calendar popup, and show-desktop behavior
+- virtual filesystem persisted with IndexedDB
+- file explorer with create, rename, delete, and open-with behavior
+- recruiter-facing apps for About, Projects, Contact, Resume, Settings
+- terminal powered by xterm.js
+- code editor powered by Monaco
+- markdown viewer and image/video viewers
 
-```text
-https://taan1el.github.io/taaniel-portfolio/
-```
+## Stack
 
-## Pages
+- React
+- TypeScript
+- Vite
+- Zustand
+- Framer Motion
+- react-rnd
+- IndexedDB via `idb-keyval`
+- xterm.js
+- Monaco Editor
 
-- `index.html` - homepage
-- `work.html` - selected project work
-- `about.html` - background and photography
-- `contact.html` - direct contact details and social links
-
-## Local preview
-
-Run a local server from this folder, for example:
+## Local development
 
 ```bash
-python -m http.server 8081
+npm install
+npm run dev
 ```
 
-Then open:
+## Production build
+
+```bash
+npm run build
+```
+
+## GitHub Pages
+
+The Vite config is already set up for the project-site base path:
 
 ```text
-http://localhost:8081
+/taaniel-portfolio/
 ```
 
-## Structure
+You can build and publish with:
 
-- `assets/` - only the images used in the final portfolio
-- `content.js` - bilingual authored copy
-- `script.js` - language toggle and small UI behavior
-- `style.css` - site styling
+```bash
+npm run deploy:gh
+```
+
+If the portfolio later needs server functions, AI features, or richer file handling, Vercel or Netlify will be a better deployment target than GitHub Pages.
+
+## Project structure
+
+- `docs/audit-and-architecture.md` - audit and rebuild rationale
+- `public/assets` - reused project images, icons, and CV
+- `src/components/shell` - desktop, taskbar, start menu, and window manager
+- `src/components/apps` - portfolio applications rendered inside windows
+- `src/stores` - shell/session state and virtual filesystem state
+- `src/lib` - app registry, filesystem helpers, and launch utilities
+- `src/data` - portfolio content, themes, and seeded filesystem content

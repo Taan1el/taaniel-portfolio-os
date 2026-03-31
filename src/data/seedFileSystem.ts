@@ -1,0 +1,215 @@
+import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
+import {
+  featuredProjects,
+  photographyAssets,
+  profile,
+  quickStats,
+  resumePdfPath,
+  skills,
+  socialLinks,
+} from "@/data/portfolio";
+
+const now = Date.now();
+
+const directory = (path: string): VirtualDirectory => {
+  const parts = path.split("/").filter(Boolean);
+  const name = parts.at(-1) ?? "/";
+
+  return {
+    kind: "directory",
+    path,
+    name,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+const file = (path: string, extension: string, mimeType: string, partial: Partial<VirtualFile>): VirtualFile => {
+  const name = path.split("/").filter(Boolean).at(-1) ?? path;
+
+  return {
+    kind: "file",
+    path,
+    name,
+    extension,
+    mimeType,
+    createdAt: now,
+    updatedAt: now,
+    ...partial,
+  };
+};
+
+const welcomeMarkdown = `# Welcome to Taaniel OS
+
+This portfolio is designed like a product instead of a landing page.
+
+## What to open first
+
+- **About** for background, strengths, and working style
+- **Projects** for featured case studies and visuals
+- **Resume.pdf** for a recruiter-friendly summary
+- **Terminal** for a more playful exploration path
+
+## Why this format exists
+
+I wanted the portfolio itself to prove product thinking, interface craft, and implementation range. The shell, windows, explorer, and apps are part of the portfolio story, not decoration around it.
+
+## Quick facts
+
+${quickStats.map((stat) => `- **${stat.label}:** ${stat.value}`).join("\n")}
+`;
+
+const aboutMarkdown = `# About Taaniel
+
+${profile.intro}
+
+## Current context
+
+${profile.current}
+
+## Strengths
+
+${skills.map((skill) => `- ${skill}`).join("\n")}
+
+## Availability
+
+${profile.availability}
+`;
+
+const contactMarkdown = `# Contact
+
+- **Email:** ${profile.emailText}
+- **Phone:** ${profile.phoneText}
+- **Location:** ${profile.location}
+
+## Links
+
+${socialLinks.map((link) => `- [${link.label}](${link.url})`).join("\n")}
+`;
+
+const uiNotes = `export const portfolioPositioning = {
+  productFeel: "portfolio as operating system",
+  designLanguage: "nostalgic desktop, modern interaction",
+  recruiterPriority: true,
+  focus: ["frontend", "design systems", "creative engineering"],
+};
+`;
+
+export const buildSeedFileSystem = (): FileSystemRecord => {
+  const nodes: FileSystemRecord = {
+    "/": directory("/"),
+    "/Desktop": directory("/Desktop"),
+    "/Documents": directory("/Documents"),
+    "/Portfolio": directory("/Portfolio"),
+    "/Portfolio/Case Studies": directory("/Portfolio/Case Studies"),
+    "/Media": directory("/Media"),
+    "/Media/Photography": directory("/Media/Photography"),
+    "/Code": directory("/Code"),
+  };
+
+  nodes["/Desktop/Welcome.md"] = file("/Desktop/Welcome.md", "md", "text/markdown", {
+    content: welcomeMarkdown,
+  });
+
+  nodes["/Portfolio/About.md"] = file("/Portfolio/About.md", "md", "text/markdown", {
+    content: aboutMarkdown,
+  });
+
+  nodes["/Portfolio/Contact.md"] = file("/Portfolio/Contact.md", "md", "text/markdown", {
+    content: contactMarkdown,
+  });
+
+  nodes["/Code/portfolio-positioning.ts"] = file(
+    "/Code/portfolio-positioning.ts",
+    "ts",
+    "text/typescript",
+    { content: uiNotes }
+  );
+
+  nodes["/Documents/Taaniel-Vananurm-CV.pdf"] = file(
+    "/Documents/Taaniel-Vananurm-CV.pdf",
+    "pdf",
+    "application/pdf",
+    {
+      source: resumePdfPath,
+      readonly: true,
+    }
+  );
+
+  featuredProjects.forEach((project) => {
+    const directoryPath = `/Portfolio/Case Studies/${project.title}`;
+    nodes[directoryPath] = directory(directoryPath);
+
+    nodes[`${directoryPath}/Overview.md`] = file(
+      `${directoryPath}/Overview.md`,
+      "md",
+      "text/markdown",
+      {
+        content: `# ${project.title}
+
+## Type
+
+${project.type}
+
+## Role
+
+${project.role}
+
+## One-line summary
+
+${project.oneLiner}
+
+## Challenge
+
+${project.challenge}
+
+## Outcome
+
+${project.outcome}
+
+## Stack
+
+${project.stack.map((item) => `- ${item}`).join("\n")}
+`,
+      }
+    );
+
+    nodes[`${directoryPath}/Hero.${project.hero.endsWith(".png") ? "png" : "jpg"}`] = file(
+      `${directoryPath}/Hero.${project.hero.endsWith(".png") ? "png" : "jpg"}`,
+      project.hero.endsWith(".png") ? "png" : "jpg",
+      project.hero.endsWith(".png") ? "image/png" : "image/jpeg",
+      {
+        source: project.hero,
+        readonly: true,
+      }
+    );
+
+    project.layouts.forEach((layout, index) => {
+      const extension = layout.endsWith(".png") ? "png" : "jpg";
+      nodes[`${directoryPath}/Layout-${index + 1}.${extension}`] = file(
+        `${directoryPath}/Layout-${index + 1}.${extension}`,
+        extension,
+        extension === "png" ? "image/png" : "image/jpeg",
+        {
+          source: layout,
+          readonly: true,
+        }
+      );
+    });
+  });
+
+  photographyAssets.forEach((asset) => {
+    const extension = asset.src.endsWith(".png") ? "png" : "jpg";
+    nodes[`/Media/Photography/${asset.title}.${extension}`] = file(
+      `/Media/Photography/${asset.title}.${extension}`,
+      extension,
+      extension === "png" ? "image/png" : "image/jpeg",
+      {
+        source: asset.src,
+        readonly: true,
+      }
+    );
+  });
+
+  return nodes;
+};
