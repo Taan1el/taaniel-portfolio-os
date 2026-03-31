@@ -14,7 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { getBaseName } from "@/lib/utils";
-import type { AppDefinition, AppId, VirtualNode } from "@/types/system";
+import type { AppDefinition, AppId } from "@/types/system";
 
 const AboutApp = lazy(async () => ({
   default: (await import("@/components/apps/about-app")).AboutApp,
@@ -34,8 +34,11 @@ const TerminalApp = lazy(async () => ({
 const CodeEditorApp = lazy(async () => ({
   default: (await import("@/components/apps/code-editor-app")).CodeEditorApp,
 }));
-const MediaViewerApp = lazy(async () => ({
+const VideoPlayerApp = lazy(async () => ({
   default: (await import("@/components/apps/media-viewer-app")).MediaViewerApp,
+}));
+const PhotoViewerApp = lazy(async () => ({
+  default: (await import("@/components/apps/photo-viewer-app")).PhotoViewerApp,
 }));
 const MarkdownViewerApp = lazy(async () => ({
   default: (await import("@/components/apps/markdown-viewer-app")).MarkdownViewerApp,
@@ -46,8 +49,8 @@ const SettingsApp = lazy(async () => ({
 const BrowserApp = lazy(async () => ({
   default: (await import("@/components/apps/browser-app")).BrowserApp,
 }));
-const ResumeApp = lazy(async () => ({
-  default: (await import("@/components/apps/resume-app")).ResumeApp,
+const PdfViewerApp = lazy(async () => ({
+  default: (await import("@/components/apps/pdf-viewer-app")).PdfViewerApp,
 }));
 
 const registry: Record<AppId, AppDefinition> = {
@@ -126,7 +129,7 @@ const registry: Record<AppId, AppDefinition> = {
     icon: Image,
     accent: "#f8a6ff",
     defaultBounds: { x: 216, y: 104, width: 900, height: 640 },
-    component: MediaViewerApp,
+    component: PhotoViewerApp,
     resolveTitle: (payload) => (payload?.filePath ? `Photos - ${getBaseName(payload.filePath)}` : "Photos"),
   },
   video: {
@@ -137,7 +140,7 @@ const registry: Record<AppId, AppDefinition> = {
     icon: Clapperboard,
     accent: "#84fff2",
     defaultBounds: { x: 238, y: 116, width: 920, height: 620 },
-    component: MediaViewerApp,
+    component: VideoPlayerApp,
     resolveTitle: (payload) => (payload?.filePath ? `Video - ${getBaseName(payload.filePath)}` : "Video Player"),
   },
   markdown: {
@@ -174,6 +177,17 @@ const registry: Record<AppId, AppDefinition> = {
     component: BrowserApp,
     resolveTitle: (payload) => payload?.externalUrl ?? "Browser",
   },
+  pdf: {
+    id: "pdf",
+    title: "PDF Viewer",
+    description: "Page-based PDF reading, zooming, and printing.",
+    category: "Workspace",
+    icon: BookText,
+    accent: "#ffe58f",
+    defaultBounds: { x: 208, y: 84, width: 920, height: 700 },
+    component: PdfViewerApp,
+    resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "PDF Viewer"),
+  },
   resume: {
     id: "resume",
     title: "Resume",
@@ -182,43 +196,16 @@ const registry: Record<AppId, AppDefinition> = {
     icon: BookText,
     accent: "#ffe58f",
     defaultBounds: { x: 208, y: 84, width: 880, height: 680 },
-    component: ResumeApp,
+    hidden: true,
+    component: PdfViewerApp,
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Resume"),
   },
 };
 
 export function getAppRegistry() {
-  return Object.values(registry);
+  return Object.values(registry).filter((app) => !app.hidden);
 }
 
 export function getAppDefinition(appId: AppId) {
   return registry[appId];
-}
-
-export function resolveAppIdForNode(node?: VirtualNode): AppId {
-  if (!node) {
-    return "files";
-  }
-
-  if (node.kind === "directory") {
-    return "files";
-  }
-
-  if (node.extension === "pdf") {
-    return "resume";
-  }
-
-  if (node.extension === "md") {
-    return "markdown";
-  }
-
-  if (node.mimeType.startsWith("image/")) {
-    return "photos";
-  }
-
-  if (node.mimeType.startsWith("video/")) {
-    return "video";
-  }
-
-  return "editor";
 }

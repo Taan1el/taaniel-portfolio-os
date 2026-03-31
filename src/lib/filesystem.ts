@@ -1,25 +1,9 @@
 import { del, get, set } from "idb-keyval";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
+import { inferMimeTypeFromExtension, isTextLikeExtension } from "@/lib/file-registry";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile, VirtualNode } from "@/types/system";
 
 export const FILESYSTEM_STORAGE_KEY = "taaniel-os-filesystem-v1";
-
-const TEXT_FILE_EXTENSIONS = new Set([
-  "txt",
-  "md",
-  "json",
-  "js",
-  "jsx",
-  "ts",
-  "tsx",
-  "css",
-  "scss",
-  "html",
-  "xml",
-  "yml",
-  "yaml",
-  "svg",
-]);
 
 export function normalizePath(path: string) {
   if (!path || path === "/") {
@@ -365,56 +349,6 @@ export function pasteNodeRecord(
   };
 }
 
-function inferMimeTypeFromExtension(extension: string) {
-  const normalizedExtension = extension.toLowerCase();
-
-  switch (normalizedExtension) {
-    case "md":
-      return "text/markdown";
-    case "txt":
-      return "text/plain";
-    case "json":
-      return "application/json";
-    case "js":
-      return "text/javascript";
-    case "jsx":
-      return "text/jsx";
-    case "ts":
-      return "text/typescript";
-    case "tsx":
-      return "text/tsx";
-    case "css":
-      return "text/css";
-    case "html":
-      return "text/html";
-    case "svg":
-      return "image/svg+xml";
-    case "pdf":
-      return "application/pdf";
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "webp":
-      return "image/webp";
-    case "gif":
-      return "image/gif";
-    case "mp4":
-      return "video/mp4";
-    case "mov":
-      return "video/quicktime";
-    case "webm":
-      return "video/webm";
-    case "mp3":
-      return "audio/mpeg";
-    case "wav":
-      return "audio/wav";
-    default:
-      return "application/octet-stream";
-  }
-}
-
 function shouldStoreAsText(mimeType: string, extension: string) {
   if (mimeType.startsWith("image/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/")) {
     return false;
@@ -428,7 +362,7 @@ function shouldStoreAsText(mimeType: string, extension: string) {
     return true;
   }
 
-  return TEXT_FILE_EXTENSIONS.has(extension.toLowerCase());
+  return isTextLikeExtension(extension);
 }
 
 function readFileAsDataUrl(file: File) {

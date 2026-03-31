@@ -40,7 +40,7 @@ function resolveIcon(entry: DesktopEntry, node?: VirtualNode): LucideIcon {
     return FileCode2;
   }
 
-  if (entry.filePath?.endsWith(".pdf")) {
+  if (node?.kind === "file" && node.extension === "pdf") {
     return UserSquare2;
   }
 

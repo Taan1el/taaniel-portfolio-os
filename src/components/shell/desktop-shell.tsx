@@ -1,7 +1,7 @@
 import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence } from "framer-motion";
 import { themePresets } from "@/data/portfolio";
-import { resolveAppIdForNode } from "@/lib/app-registry";
+import { resolveAppIdForNode } from "@/lib/file-registry";
 import { clearPersistedFileSystem, downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";

@@ -22,6 +22,7 @@ import {
   listChildren,
   normalizePath,
 } from "@/lib/filesystem";
+import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
 import { openFileSystemPath } from "@/lib/launchers";
 import { cn, formatBytes } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -33,6 +34,7 @@ const quickPlaces = [
   { label: "Portfolio", path: "/Portfolio" },
   { label: "Case Studies", path: "/Portfolio/Case Studies" },
   { label: "Photography", path: "/Media/Photography" },
+  { label: "Videos", path: "/Media/Videos" },
   { label: "Documents", path: "/Documents" },
   { label: "Code", path: "/Code" },
   { label: "Blog", path: "/Users/Public/Blog" },
@@ -435,7 +437,11 @@ export function FileExplorerApp({ window }: AppComponentProps) {
                     onDoubleClick={() => openNode(node)}
                   >
                     <div className="explorer-item__preview">
-                      {isImageFile(node) ? <img src={node.source} alt={node.name} /> : <span>{nodeLabel}</span>}
+                      {isImageFile(node) && isBrowserRenderableImageExtension(node.extension) ? (
+                        <img src={node.source} alt={node.name} />
+                      ) : (
+                        <span>{nodeLabel}</span>
+                      )}
                     </div>
                     <strong>{node.name}</strong>
                     <small>{node.kind === "directory" ? "Folder" : node.mimeType}</small>

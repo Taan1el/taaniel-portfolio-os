@@ -13,6 +13,7 @@ export type AppId =
   | "markdown"
   | "settings"
   | "browser"
+  | "pdf"
   | "resume";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System";

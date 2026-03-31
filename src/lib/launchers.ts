@@ -1,4 +1,4 @@
-import { resolveAppIdForNode } from "@/lib/app-registry";
+import { resolveAppIdForNode } from "@/lib/file-registry";
 import { normalizePath } from "@/lib/filesystem";
 import type { AppId, FileSystemRecord } from "@/types/system";
 
