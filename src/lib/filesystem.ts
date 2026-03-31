@@ -4,6 +4,23 @@ import type { FileSystemRecord, VirtualDirectory, VirtualFile, VirtualNode } fro
 
 export const FILESYSTEM_STORAGE_KEY = "taaniel-os-filesystem-v1";
 
+const TEXT_FILE_EXTENSIONS = new Set([
+  "txt",
+  "md",
+  "json",
+  "js",
+  "jsx",
+  "ts",
+  "tsx",
+  "css",
+  "scss",
+  "html",
+  "xml",
+  "yml",
+  "yaml",
+  "svg",
+]);
+
 export function normalizePath(path: string) {
   if (!path || path === "/") {
     return "/";
@@ -346,6 +363,167 @@ export function pasteNodeRecord(
     ...deleteNodeRecord(nodes, normalizedSourcePath),
     ...clonedNodes,
   };
+}
+
+function inferMimeTypeFromExtension(extension: string) {
+  const normalizedExtension = extension.toLowerCase();
+
+  switch (normalizedExtension) {
+    case "md":
+      return "text/markdown";
+    case "txt":
+      return "text/plain";
+    case "json":
+      return "application/json";
+    case "js":
+      return "text/javascript";
+    case "jsx":
+      return "text/jsx";
+    case "ts":
+      return "text/typescript";
+    case "tsx":
+      return "text/tsx";
+    case "css":
+      return "text/css";
+    case "html":
+      return "text/html";
+    case "svg":
+      return "image/svg+xml";
+    case "pdf":
+      return "application/pdf";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    case "mp4":
+      return "video/mp4";
+    case "mov":
+      return "video/quicktime";
+    case "webm":
+      return "video/webm";
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+function shouldStoreAsText(mimeType: string, extension: string) {
+  if (mimeType.startsWith("image/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/")) {
+    return false;
+  }
+
+  if (mimeType === "application/pdf") {
+    return false;
+  }
+
+  if (mimeType.startsWith("text/")) {
+    return true;
+  }
+
+  return TEXT_FILE_EXTENSIONS.has(extension.toLowerCase());
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function importFilesRecord(
+  nodes: FileSystemRecord,
+  directoryPath: string,
+  files: File[]
+) {
+  const normalizedDirectoryPath = normalizePath(directoryPath);
+  const directoryNode = nodes[normalizedDirectoryPath];
+
+  if (!directoryNode || directoryNode.kind !== "directory" || files.length === 0) {
+    return { nodes, importedPaths: [] as string[] };
+  }
+
+  let nextNodes = { ...nodes };
+  const importedPaths: string[] = [];
+
+  for (const uploadedFile of files) {
+    const fallbackName = uploadedFile.name?.trim() || `Upload-${Date.now()}`;
+    const uniqueName = ensureUniqueName(nextNodes, normalizedDirectoryPath, fallbackName);
+    const path = joinPath(normalizedDirectoryPath, uniqueName);
+    const extension = uniqueName.split(".").pop()?.toLowerCase() ?? "";
+    const mimeType = uploadedFile.type || inferMimeTypeFromExtension(extension);
+    const now = Date.now();
+
+    const fileNode: VirtualFile = {
+      kind: "file",
+      path,
+      name: uniqueName,
+      extension,
+      mimeType,
+      size: uploadedFile.size,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (shouldStoreAsText(mimeType, extension)) {
+      fileNode.content = await uploadedFile.text();
+    } else {
+      fileNode.source = await readFileAsDataUrl(uploadedFile);
+    }
+
+    nextNodes[path] = fileNode;
+    importedPaths.push(path);
+  }
+
+  return {
+    nodes: nextNodes,
+    importedPaths,
+  };
+}
+
+export async function downloadFileNode(node: VirtualFile) {
+  let downloadUrl = "";
+  let revokeUrl = "";
+
+  if (node.source) {
+    if (node.source.startsWith("data:")) {
+      downloadUrl = node.source;
+    } else {
+      const response = await fetch(node.source);
+      const blob = await response.blob();
+      revokeUrl = URL.createObjectURL(blob);
+      downloadUrl = revokeUrl;
+    }
+  } else {
+    revokeUrl = URL.createObjectURL(
+      new Blob([node.content ?? ""], {
+        type: node.mimeType || "text/plain",
+      })
+    );
+    downloadUrl = revokeUrl;
+  }
+
+  const anchor = document.createElement("a");
+  anchor.href = downloadUrl;
+  anchor.download = node.name;
+  anchor.rel = "noreferrer";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+
+  if (revokeUrl) {
+    URL.revokeObjectURL(revokeUrl);
+  }
 }
 
 export async function loadFileSystem() {

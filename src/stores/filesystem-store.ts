@@ -6,6 +6,7 @@ import {
   createTextFileRecord,
   deleteNodeRecord,
   hasReadonlyContent,
+  importFilesRecord,
   loadFileSystem,
   pasteNodeRecord,
   renameNodeRecord,
@@ -28,6 +29,7 @@ interface FileSystemState {
     destinationDirectoryPath: string,
     operation: "copy" | "cut"
   ) => Promise<void>;
+  importFiles: (directoryPath: string, files: File[]) => Promise<string[]>;
   canCutNode: (path: string) => boolean;
   reset: () => Promise<void>;
 }
@@ -76,6 +78,12 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     const nodes = pasteNodeRecord(get().nodes, sourcePath, destinationDirectoryPath, operation);
     set({ nodes });
     await persistNodes(nodes);
+  },
+  importFiles: async (directoryPath, files) => {
+    const { nodes, importedPaths } = await importFilesRecord(get().nodes, directoryPath, files);
+    set({ nodes });
+    await persistNodes(nodes);
+    return importedPaths;
   },
   canCutNode: (path) => !hasReadonlyContent(get().nodes, path),
   reset: async () => {

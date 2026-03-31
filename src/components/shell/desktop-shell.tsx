@@ -2,7 +2,7 @@ import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence } from "framer-motion";
 import { themePresets } from "@/data/portfolio";
 import { resolveAppIdForNode } from "@/lib/app-registry";
-import { clearPersistedFileSystem, normalizePath } from "@/lib/filesystem";
+import { clearPersistedFileSystem, downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
 import { DesktopSurface } from "@/components/shell/desktop-surface";
@@ -56,6 +56,7 @@ export function DesktopShell() {
     initialize,
     createDirectory,
     createTextFile,
+    importFiles,
     pasteNode,
     canCutNode,
     reset: resetFileSystem,
@@ -120,6 +121,15 @@ export function DesktopShell() {
 
     if (clipboard.operation === "cut") {
       clearClipboard();
+    }
+  };
+
+  const importFilesIntoDesktop = async (files: File[]) => {
+    const importedPaths = await importFiles("/Desktop", files);
+    const latestPath = importedPaths.at(-1);
+
+    if (latestPath) {
+      setSelectedIconId(`desktop-node:${latestPath}`);
     }
   };
 
@@ -302,6 +312,7 @@ export function DesktopShell() {
     setSelectedIconId(entry.id);
 
     const targetPath = entry.filePath ?? entry.directoryPath;
+    const targetNode = targetPath ? nodes[normalizePath(targetPath)] : null;
 
     setContextMenu({
       x: event.clientX,
@@ -326,6 +337,15 @@ export function DesktopShell() {
               label: "Cut",
               disabled: !canCutNode(targetPath),
               onSelect: () => setClipboard({ path: targetPath, operation: "cut" }),
+            }
+          : null,
+        targetNode?.kind === "file"
+          ? {
+              id: "download",
+              label: "Download",
+              onSelect: () => {
+                void downloadFileNode(targetNode);
+              },
             }
           : null,
         entry.type !== "app" && entry.directoryPath
@@ -394,6 +414,7 @@ export function DesktopShell() {
         onUpdatePosition={updateDesktopIconPosition}
         onDesktopContextMenu={openDesktopContextMenu}
         onEntryContextMenu={openEntryContextMenu}
+        onImportFiles={importFilesIntoDesktop}
       />
 
       <WindowManager

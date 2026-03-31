@@ -146,6 +146,7 @@ export interface VirtualFile extends VirtualNodeBase {
   extension: string;
   content?: string;
   source?: string;
+  size?: number;
   readonly?: boolean;
 }
 
