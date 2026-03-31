@@ -1,0 +1,200 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Mail } from "lucide-react";
+import { profile, socialLinks } from "@/data/portfolio";
+import { getAppRegistry } from "@/lib/app-registry";
+import { StartAppList } from "@/components/shell/start-menu/start-app-list";
+import {
+  startMenuCategories,
+  startMenuPowerActions,
+  startMenuQuickLinks,
+  startMenuSidebarLinks,
+} from "@/components/shell/start-menu/start-menu-data";
+import { StartMenuShell } from "@/components/shell/start-menu/start-menu-shell";
+import { StartQuickLinks } from "@/components/shell/start-menu/start-quick-links";
+import { StartSearch } from "@/components/shell/start-menu/start-search";
+import { StartSidebar } from "@/components/shell/start-menu/start-sidebar";
+import { updateStartMenuSpotlight } from "@/components/shell/start-menu/spotlight";
+import type { AppCategory, AppId, StartMenuShortcut } from "@/types/system";
+
+interface StartMenuProps {
+  onLaunchApp: (appId: AppId) => void;
+  onOpenDirectory: (directoryPath: string) => void;
+  onOpenFile: (filePath: string) => void;
+  onResetSession: () => void;
+  onRequestClose: () => void;
+}
+
+export function StartMenu({
+  onLaunchApp,
+  onOpenDirectory,
+  onOpenFile,
+  onResetSession,
+  onRequestClose,
+}: StartMenuProps) {
+  const [query, setQuery] = useState("");
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<AppCategory, boolean>>({
+    Portfolio: true,
+    Workspace: true,
+    Media: true,
+    System: false,
+  });
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLElement | null>(null);
+  const apps = getAppRegistry();
+
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+
+      if (!target) {
+        return;
+      }
+
+      if (menuRef.current?.contains(target) || target.closest(".taskbar__start")) {
+        return;
+      }
+
+      onRequestClose();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [onRequestClose]);
+
+  const filteredApps = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return apps;
+    }
+
+    return apps.filter(
+      (app) =>
+        app.title.toLowerCase().includes(normalizedQuery) ||
+        app.description.toLowerCase().includes(normalizedQuery) ||
+        app.category.toLowerCase().includes(normalizedQuery)
+    );
+  }, [apps, query]);
+
+  const appsByCategory = useMemo(
+    () =>
+      startMenuCategories
+        .map((category) => ({
+          category,
+          items: filteredApps.filter((app) => app.category === category.category),
+        }))
+        .filter((group) => group.items.length > 0),
+    [filteredApps]
+  );
+
+  const firstResult = filteredApps[0];
+  const showSearchResults = query.trim().length > 0;
+
+  const executeShortcut = (shortcut: StartMenuShortcut) => {
+    switch (shortcut.action.type) {
+      case "app":
+        onLaunchApp(shortcut.action.appId);
+        break;
+      case "directory":
+        onOpenDirectory(shortcut.action.directoryPath);
+        break;
+      case "file":
+        onOpenFile(shortcut.action.filePath);
+        break;
+      case "reset-session":
+        onResetSession();
+        break;
+    }
+  };
+
+  return (
+    <StartMenuShell menuRef={menuRef}>
+      <StartSidebar
+        expanded={sidebarExpanded}
+        shortcuts={[
+          {
+            id: "resume",
+            label: "Open Resume.pdf",
+            icon: Mail,
+            action: { type: "file", filePath: "/Documents/Taaniel-Vananurm-CV.pdf" },
+          },
+          ...startMenuSidebarLinks,
+        ]}
+        powerActions={startMenuPowerActions}
+        onToggleExpanded={() => setSidebarExpanded((expanded) => !expanded)}
+        onHoverExpandedChange={setSidebarExpanded}
+        onExecuteAction={executeShortcut}
+      />
+
+      <div className="start-menu__main">
+        <div className="start-menu__hero">
+          <div>
+            <p className="eyebrow">Portfolio OS</p>
+            <h2>{profile.name}</h2>
+            <p>{profile.headline}</p>
+          </div>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => onLaunchApp("contact")}
+            onMouseMove={updateStartMenuSpotlight}
+          >
+            <Mail size={14} />
+            Contact
+          </button>
+        </div>
+
+        <StartSearch
+          inputRef={searchInputRef}
+          query={query}
+          onQueryChange={setQuery}
+          onSubmitTopResult={() => {
+            if (firstResult) {
+              onLaunchApp(firstResult.id);
+            }
+          }}
+        />
+
+        <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
+
+        <StartAppList
+          categories={startMenuCategories}
+          appsByCategory={appsByCategory}
+          showSearchResults={showSearchResults}
+          expandedCategories={expandedCategories}
+          onToggleCategory={(category) =>
+            setExpandedCategories((current) => ({
+              ...current,
+              [category]: !current[category as AppCategory],
+            }))
+          }
+          onLaunchSettings={() => onLaunchApp("settings")}
+          onLaunchApp={onLaunchApp}
+        />
+
+        <div className="start-menu__footer">
+          <div className="start-menu__links">
+            {socialLinks.slice(0, 4).map((link) => (
+              <a key={link.label} href={link.url} target="_blank" rel="noreferrer">
+                {link.label}
+              </a>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="quick-link"
+            onClick={() => onOpenDirectory("/Portfolio/Case Studies")}
+            onMouseMove={updateStartMenuSpotlight}
+          >
+            Featured work
+          </button>
+        </div>
+      </div>
+    </StartMenuShell>
+  );
+}

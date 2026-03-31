@@ -1,0 +1,111 @@
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Grid2x2, MonitorDown, Search, Sparkles } from "lucide-react";
+import { getAppDefinition } from "@/lib/app-registry";
+import { formatClock, formatDateLabel } from "@/lib/utils";
+import type { TaskbarWindowEntry } from "@/types/system";
+
+interface TaskbarProps {
+  entries: TaskbarWindowEntry[];
+  startMenuOpen: boolean;
+  searchOpen: boolean;
+  calendarOpen: boolean;
+  themeName: string;
+  onToggleStartMenu: () => void;
+  onToggleSearch: () => void;
+  onToggleCalendar: () => void;
+  onToggleWindow: (windowId: string) => void;
+  onShowDesktop: () => void;
+}
+
+export function Taskbar({
+  entries,
+  startMenuOpen,
+  searchOpen,
+  calendarOpen,
+  themeName,
+  onToggleStartMenu,
+  onToggleSearch,
+  onToggleCalendar,
+  onToggleWindow,
+  onShowDesktop,
+}: TaskbarProps) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(new Date()), 1000 * 30);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <footer className="taskbar">
+      <button
+        className={`taskbar__start ${startMenuOpen ? "is-active" : ""}`}
+        type="button"
+        onClick={onToggleStartMenu}
+      >
+        <Grid2x2 size={16} />
+        Start
+      </button>
+
+      <button
+        className={`taskbar__search ${searchOpen ? "is-active" : ""}`}
+        type="button"
+        onClick={onToggleSearch}
+      >
+        <Search size={15} />
+        Search apps and files
+      </button>
+
+      <div className="taskbar__windows">
+        {entries.map((entry) => {
+          const definition = getAppDefinition(entry.appId);
+          const Icon = definition.icon;
+
+          return (
+            <div key={entry.id} className="taskbar__item-wrap">
+              <button
+                className={`taskbar__item ${entry.active ? "is-active" : ""}`}
+                type="button"
+                onClick={() => onToggleWindow(entry.id)}
+              >
+                <Icon size={14} />
+                <span>{entry.title}</span>
+              </button>
+              <motion.div
+                className="taskbar__preview"
+                initial={{ opacity: 0, y: 8 }}
+                whileHover={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.16 }}
+              >
+                <strong>{entry.preview.title}</strong>
+                <small>{entry.preview.subtitle}</small>
+                <span className={`taskbar__preview-status is-${entry.preview.status}`}>
+                  {entry.preview.status}
+                </span>
+              </motion.div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="taskbar__tray">
+        <span className="taskbar__theme">
+          <Sparkles size={14} />
+          {themeName}
+        </span>
+        <button
+          className={`taskbar__clock ${calendarOpen ? "is-active" : ""}`}
+          type="button"
+          onClick={onToggleCalendar}
+        >
+          <strong>{formatClock(now)}</strong>
+          <small>{formatDateLabel(now)}</small>
+        </button>
+        <button className="taskbar__desktop" type="button" onClick={onShowDesktop}>
+          <MonitorDown size={14} />
+        </button>
+      </div>
+    </footer>
+  );
+}

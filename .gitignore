@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+desktop.ini
+node_modules
+dist
+.vite
+.vercel
+*.tsbuildinfo
+.codex/
+.codex-vite.log
+.codex-vite.err
