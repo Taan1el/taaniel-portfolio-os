@@ -76,6 +76,13 @@ export function CodeEditorApp({ window }: AppComponentProps) {
             smoothScrolling: true,
             automaticLayout: true,
           }}
+          onMount={(editor, monaco) => {
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+              const nextValue = editor.getValue();
+              setValue(nextValue);
+              void updateTextFile(file.path, nextValue);
+            });
+          }}
           onChange={(nextValue) => setValue(nextValue ?? "")}
         />
       </div>

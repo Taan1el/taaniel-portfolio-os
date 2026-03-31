@@ -34,6 +34,7 @@ export function StartMenu({
         app.category.toLowerCase().includes(normalizedQuery)
     );
   }, [apps, query]);
+  const firstResult = filteredApps[0];
 
   return (
     <motion.aside
@@ -56,6 +57,11 @@ export function StartMenu({
           placeholder="Search apps, tools, files"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && firstResult) {
+              onLaunchApp(firstResult.id);
+            }
+          }}
         />
       </label>
 
