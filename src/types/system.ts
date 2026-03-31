@@ -12,6 +12,7 @@ export type AppId =
   | "video"
   | "markdown"
   | "settings"
+  | "browser"
   | "resume";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System";

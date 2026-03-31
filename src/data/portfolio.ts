@@ -212,6 +212,13 @@ export const desktopEntries: DesktopEntry[] = [
     defaultPosition: { x: 132, y: 340 },
   },
   {
+    id: "browser-app",
+    label: "Browser",
+    type: "app",
+    appId: "browser",
+    defaultPosition: { x: 236, y: 340 },
+  },
+  {
     id: "blog-folder",
     label: "Blog",
     type: "folder",

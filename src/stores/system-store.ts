@@ -41,6 +41,7 @@ interface SystemState {
   contextMenu: ContextMenuState | null;
   clipboard: ClipboardState | null;
   themeId: string;
+  customWallpaperSource: string | null;
   desktopIconPositions: Record<string, DesktopIconPosition>;
   launchApp: (options: LaunchAppOptions) => string;
   focusWindow: (windowId: string) => void;
@@ -61,6 +62,7 @@ interface SystemState {
   setClipboard: (clipboard: ClipboardState | null) => void;
   clearClipboard: () => void;
   setThemeId: (themeId: string) => void;
+  setCustomWallpaperSource: (source: string | null) => void;
   updateDesktopIconPosition: (iconId: string, position: DesktopIconPosition) => void;
   hydrateForViewport: () => void;
   resetLayout: () => void;
@@ -116,6 +118,7 @@ export const useSystemStore = create<SystemState>()(
       contextMenu: null,
       clipboard: null,
       themeId: themePresets[0].id,
+      customWallpaperSource: null,
       desktopIconPositions: initialIconPositions,
       launchApp: ({ appId, payload, title }) => {
         const definition = getAppDefinition(appId);
@@ -362,6 +365,7 @@ export const useSystemStore = create<SystemState>()(
       setClipboard: (clipboard) => set({ clipboard }),
       clearClipboard: () => set({ clipboard: null }),
       setThemeId: (themeId) => set({ themeId }),
+      setCustomWallpaperSource: (customWallpaperSource) => set({ customWallpaperSource }),
       updateDesktopIconPosition: (iconId, position) =>
         set((state) => ({
           desktopIconPositions: {
@@ -412,6 +416,7 @@ export const useSystemStore = create<SystemState>()(
           contextMenu: null,
           clipboard: null,
           themeId: themePresets[0].id,
+          customWallpaperSource: null,
           desktopIconPositions: initialIconPositions,
         }),
     }),
@@ -422,6 +427,7 @@ export const useSystemStore = create<SystemState>()(
         windows: state.windows,
         nextZ: state.nextZ,
         themeId: state.themeId,
+        customWallpaperSource: state.customWallpaperSource,
         desktopIconPositions: state.desktopIconPositions,
       }),
     }

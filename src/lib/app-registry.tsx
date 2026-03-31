@@ -5,6 +5,7 @@ import {
   Clapperboard,
   Code2,
   FolderOpen,
+  Globe2,
   Image,
   Mail,
   MonitorCog,
@@ -41,6 +42,9 @@ const MarkdownViewerApp = lazy(async () => ({
 }));
 const SettingsApp = lazy(async () => ({
   default: (await import("@/components/apps/settings-app")).SettingsApp,
+}));
+const BrowserApp = lazy(async () => ({
+  default: (await import("@/components/apps/browser-app")).BrowserApp,
 }));
 const ResumeApp = lazy(async () => ({
   default: (await import("@/components/apps/resume-app")).ResumeApp,
@@ -158,6 +162,17 @@ const registry: Record<AppId, AppDefinition> = {
     defaultBounds: { x: 248, y: 122, width: 780, height: 560 },
     singleInstance: true,
     component: SettingsApp,
+  },
+  browser: {
+    id: "browser",
+    title: "Browser",
+    description: "Embedded link workspace for external sites and bookmarks.",
+    category: "Workspace",
+    icon: Globe2,
+    accent: "#8be0ff",
+    defaultBounds: { x: 188, y: 82, width: 980, height: 700 },
+    component: BrowserApp,
+    resolveTitle: (payload) => payload?.externalUrl ?? "Browser",
   },
   resume: {
     id: "resume",

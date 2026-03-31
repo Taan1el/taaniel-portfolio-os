@@ -27,6 +27,7 @@ export function DesktopShell() {
     contextMenu,
     clipboard,
     themeId,
+    customWallpaperSource,
     desktopIconPositions,
     launchApp,
     focusWindow,
@@ -66,7 +67,13 @@ export function DesktopShell() {
   );
 
   const openExternal = (url: string) => {
-    window.open(url, "_blank", "noopener,noreferrer");
+    launchApp({
+      appId: "browser",
+      payload: {
+        externalUrl: url,
+      },
+      title: url,
+    });
   };
 
   const toggleFullscreen = async () => {
@@ -362,6 +369,11 @@ export function DesktopShell() {
       style={
         {
           "--desktop-wallpaper": theme.wallpaper,
+          ...(customWallpaperSource
+            ? {
+                "--desktop-custom-wallpaper": `linear-gradient(rgba(6, 11, 18, 0.42), rgba(6, 11, 18, 0.74)), url('${customWallpaperSource}') center/cover no-repeat`,
+              }
+            : {}),
           "--desktop-tint": theme.desktopTint,
           "--desktop-glow": theme.glow,
           "--shell-surface": theme.shell,

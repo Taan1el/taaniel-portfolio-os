@@ -11,6 +11,7 @@ const demoVideo = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos
 export function MediaViewerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const launchApp = useSystemStore((state) => state.launchApp);
+  const setCustomWallpaperSource = useSystemStore((state) => state.setCustomWallpaperSource);
   const filePath = normalizePath(window.payload?.filePath ?? "/Media/Photography/Clouds.jpg");
   const file = nodes[filePath];
   const directoryPath = getParentPath(filePath);
@@ -41,6 +42,15 @@ export function MediaViewerApp({ window }: AppComponentProps) {
           <small>{isVideo ? "Video player" : "Image viewer"}</small>
         </div>
         <div className="app-toolbar__group">
+          {!isVideo && file.source ? (
+            <button
+              type="button"
+              className="pill-button"
+              onClick={() => setCustomWallpaperSource(file.source ?? null)}
+            >
+              Set as wallpaper
+            </button>
+          ) : null}
           <button
             type="button"
             className="icon-button"

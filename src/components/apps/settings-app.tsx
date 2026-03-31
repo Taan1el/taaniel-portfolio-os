@@ -6,7 +6,9 @@ import type { AppComponentProps } from "@/types/system";
 export function SettingsApp({ window }: AppComponentProps) {
   void window;
   const themeId = useSystemStore((state) => state.themeId);
+  const customWallpaperSource = useSystemStore((state) => state.customWallpaperSource);
   const setThemeId = useSystemStore((state) => state.setThemeId);
+  const setCustomWallpaperSource = useSystemStore((state) => state.setCustomWallpaperSource);
   const resetLayout = useSystemStore((state) => state.resetLayout);
 
   return (
@@ -38,6 +40,26 @@ export function SettingsApp({ window }: AppComponentProps) {
           </button>
         ))}
       </div>
+
+      <article className="glass-card">
+        <div className="section-row">
+          <div>
+            <p className="eyebrow">Wallpaper source</p>
+            <h3>{customWallpaperSource ? "Custom image is active" : "Using theme wallpaper"}</h3>
+            <p>
+              {customWallpaperSource
+                ? "A photo or project image has overridden the preset wallpaper."
+                : "Select a preset above or open an image and use Set as wallpaper."}
+            </p>
+          </div>
+          {customWallpaperSource ? (
+            <button type="button" className="pill-button" onClick={() => setCustomWallpaperSource(null)}>
+              <Paintbrush size={15} />
+              Clear custom wallpaper
+            </button>
+          ) : null}
+        </div>
+      </article>
 
       <article className="glass-card">
         <div className="section-row">
