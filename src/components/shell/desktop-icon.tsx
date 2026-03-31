@@ -3,12 +3,18 @@ import { FileCode2, FileText, Folder, Globe, Image, LucideIcon, UserSquare2 } fr
 import { motion } from "framer-motion";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
-import type { DesktopEntry, DesktopGridMetrics, DesktopGridPosition, VirtualNode } from "@/types/system";
+import type { DesktopEntry, DesktopGridMetrics, VirtualNode } from "@/types/system";
+
+interface DesktopDragSnapshot {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 interface DesktopIconProps {
   entry: DesktopEntry;
   node?: VirtualNode;
-  position: DesktopGridPosition;
   pixelPosition: { x: number; y: number };
   gridMetrics: DesktopGridMetrics;
   dragConstraintsRef: RefObject<HTMLDivElement>;
@@ -16,7 +22,9 @@ interface DesktopIconProps {
   onActivate: () => void;
   onSelect: () => void;
   onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  onPositionChange: (position: DesktopGridPosition) => void;
+  onDragPreviewChange: (iconId: string, snapshot: DesktopDragSnapshot) => void;
+  onDragCommit: (iconId: string, snapshot: DesktopDragSnapshot) => void;
+  onDragCancel: () => void;
 }
 
 function resolveIcon(entry: DesktopEntry, node?: VirtualNode): LucideIcon {
@@ -50,7 +58,6 @@ function resolveIcon(entry: DesktopEntry, node?: VirtualNode): LucideIcon {
 export function DesktopIcon({
   entry,
   node,
-  position,
   pixelPosition,
   gridMetrics,
   dragConstraintsRef,
@@ -58,9 +65,28 @@ export function DesktopIcon({
   onActivate,
   onSelect,
   onContextMenu,
-  onPositionChange,
+  onDragPreviewChange,
+  onDragCommit,
+  onDragCancel,
 }: DesktopIconProps) {
   const Icon = resolveIcon(entry, node);
+
+  const getSnapshot = (event: MouseEvent | TouchEvent | PointerEvent): DesktopDragSnapshot | null => {
+    const element = (event.currentTarget as HTMLElement | null) ?? null;
+
+    if (!element) {
+      return null;
+    }
+
+    const rect = element.getBoundingClientRect();
+
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
 
   return (
     <motion.button
@@ -88,11 +114,29 @@ export function DesktopIcon({
         onActivate();
       }}
       onContextMenu={onContextMenu}
-      onDragEnd={(_, info) => {
-        onPositionChange({
-          gridX: Math.round((pixelPosition.x + info.offset.x - gridMetrics.paddingX) / gridMetrics.cellWidth),
-          gridY: Math.round((pixelPosition.y + info.offset.y - gridMetrics.paddingY) / gridMetrics.cellHeight),
-        });
+      onDragStart={(event) => {
+        const snapshot = getSnapshot(event);
+
+        if (snapshot) {
+          onDragPreviewChange(entry.id, snapshot);
+        }
+      }}
+      onDrag={(event) => {
+        const snapshot = getSnapshot(event);
+
+        if (snapshot) {
+          onDragPreviewChange(entry.id, snapshot);
+        }
+      }}
+      onDragEnd={(event) => {
+        const snapshot = getSnapshot(event);
+
+        if (snapshot) {
+          onDragCommit(entry.id, snapshot);
+          return;
+        }
+
+        onDragCancel();
       }}
     >
       <span className="desktop-icon__glyph">

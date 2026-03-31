@@ -126,6 +126,18 @@ img {
   inset: 0;
 }
 
+.desktop-surface__cell-preview {
+  position: absolute;
+  z-index: 1;
+  border: 1.5px solid color-mix(in srgb, var(--theme-accent) 58%, rgba(255, 255, 255, 0.16));
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent),
+    color-mix(in srgb, var(--theme-accent) 14%, rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
 .desktop-surface__overlay {
   position: absolute;
   inset-inline: 0;

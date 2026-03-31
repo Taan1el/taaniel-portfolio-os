@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { desktopEntries, themePresets } from "@/data/portfolio";
 import { getAppDefinition } from "@/lib/app-registry";
-import { applyDesktopGridMove, reconcileDesktopGridPositions } from "@/lib/desktop-grid";
+import { reconcileDesktopGridPositions, resolveDesktopGridPlacement } from "@/lib/desktop-grid";
 import { clamp, createId } from "@/lib/utils";
 import type {
   AppId,
@@ -378,12 +378,12 @@ export const useSystemStore = create<SystemState>()(
       setCustomWallpaperSource: (customWallpaperSource) => set({ customWallpaperSource }),
       moveDesktopIcon: (iconId, position, metrics) =>
         set((state) => ({
-          desktopIconPositions: applyDesktopGridMove(
+          desktopIconPositions: resolveDesktopGridPlacement(
             state.desktopIconPositions,
             iconId,
             position,
             metrics
-          ),
+          ).positions,
         })),
       reconcileDesktopIconPositions: (entries, metrics) =>
         set((state) => ({

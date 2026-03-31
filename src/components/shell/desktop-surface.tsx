@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { useState } from "react";
 import { DesktopIcon } from "@/components/shell/desktop-icon";
+import { getGridPositionFromRect } from "@/lib/desktop-grid";
 import type { DesktopEntry, DesktopGridMetrics, DesktopGridPosition, VirtualNode } from "@/types/system";
 
 function hasFilePayload(event: React.DragEvent<HTMLElement>) {
@@ -39,6 +40,27 @@ export function DesktopSurface({
   onImportFiles,
 }: DesktopSurfaceProps) {
   const [dragActive, setDragActive] = useState(false);
+  const [dragPreview, setDragPreview] = useState<{
+    iconId: string;
+    targetPosition: DesktopGridPosition;
+  } | null>(null);
+
+  const resolveGridTargetFromSnapshot = (snapshot: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  }) => {
+    const container = containerRef.current;
+
+    if (!container) {
+      return null;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+
+    return getGridPositionFromRect(snapshot, containerRect, gridMetrics);
+  };
 
   return (
     <div
@@ -97,6 +119,19 @@ export function DesktopSurface({
       }}
     >
       <div className="desktop-surface__grid">
+        {dragPreview ? (
+          <div
+            className="desktop-surface__cell-preview"
+            style={
+              {
+                left: toPixels(dragPreview.targetPosition).x,
+                top: toPixels(dragPreview.targetPosition).y,
+                width: `${gridMetrics.cellWidth}px`,
+                height: `${gridMetrics.cellHeight}px`,
+              } as React.CSSProperties
+            }
+          />
+        ) : null}
         {entries.map((entry) => {
           const targetPath = entry.filePath ?? entry.directoryPath;
           const node = targetPath ? nodes[targetPath] : undefined;
@@ -107,7 +142,6 @@ export function DesktopSurface({
               key={entry.id}
               entry={entry}
               node={node}
-              position={position}
               pixelPosition={toPixels(position)}
               gridMetrics={gridMetrics}
               dragConstraintsRef={containerRef}
@@ -115,7 +149,28 @@ export function DesktopSurface({
               onSelect={() => onSelectIcon(entry.id)}
               onActivate={() => onActivateEntry(entry)}
               onContextMenu={(event) => onEntryContextMenu(event, entry)}
-              onPositionChange={(nextPosition) => onMoveIcon(entry.id, nextPosition)}
+              onDragPreviewChange={(iconId, snapshot) => {
+                const targetPosition = resolveGridTargetFromSnapshot(snapshot);
+
+                if (!targetPosition) {
+                  return;
+                }
+
+                setDragPreview({
+                  iconId,
+                  targetPosition,
+                });
+              }}
+              onDragCommit={(iconId, snapshot) => {
+                const targetPosition = resolveGridTargetFromSnapshot(snapshot);
+
+                if (targetPosition) {
+                  onMoveIcon(iconId, targetPosition);
+                }
+
+                setDragPreview(null);
+              }}
+              onDragCancel={() => setDragPreview(null)}
             />
           );
         })}

@@ -50,6 +50,12 @@ export interface DesktopGridPosition {
   gridY: number;
 }
 
+export interface DesktopGridCell extends DesktopGridPosition {
+  key: string;
+}
+
+export type DesktopOccupancyMap = Record<string, string>;
+
 export interface DesktopGridMetrics {
   columns: number;
   rows: number;
@@ -59,6 +65,12 @@ export interface DesktopGridMetrics {
   paddingY: number;
   width: number;
   height: number;
+}
+
+export interface DesktopPlacementResult {
+  positions: Record<string, DesktopGridPosition>;
+  placedPosition: DesktopGridPosition;
+  displacedEntryId?: string;
 }
 
 export type DesktopEntryType = "app" | "file" | "folder" | "link";
