@@ -1,11 +1,14 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { desktopEntries, themePresets } from "@/data/portfolio";
+import { buildProcessesFromWindows } from "@/lib/taskbar-system";
 import { getAppDefinition } from "@/lib/app-registry";
 import { reconcileDesktopGridPositions, resolveDesktopGridPlacement } from "@/lib/desktop-grid";
+import { LEGACY_WELCOME_PATH } from "@/lib/system-workspace";
 import { clamp, createId } from "@/lib/utils";
 import type {
   AppId,
+  AppProcess,
   AppWindow,
   ClipboardState,
   ContextMenuState,
@@ -34,6 +37,7 @@ interface LaunchAppOptions {
 
 interface SystemState {
   windows: AppWindow[];
+  processes: AppProcess[];
   nextZ: number;
   activeWindowId: string | null;
   selectedIconId: string | null;
@@ -46,6 +50,7 @@ interface SystemState {
   customWallpaperSource: string | null;
   desktopIconPositions: Record<string, DesktopGridPosition>;
   launchApp: (options: LaunchAppOptions) => string;
+  bringToFront: (windowId: string) => void;
   focusWindow: (windowId: string) => void;
   closeWindow: (windowId: string) => void;
   toggleMinimize: (windowId: string) => void;
@@ -82,9 +87,26 @@ function getDesktopHeight() {
   return Math.max(480, window.innerHeight - TASKBAR_HEIGHT - 18);
 }
 
+function isCompactViewport() {
+  return typeof window !== "undefined" && window.innerWidth < 820;
+}
+
+function clampWindowBoundsToViewport(windowState: Pick<AppWindow, "x" | "y" | "width" | "height">) {
+  const desktopHeight = getDesktopHeight();
+  const width = clamp(windowState.width, 360, Math.max(360, window.innerWidth - 24));
+  const height = clamp(windowState.height, 280, Math.max(280, desktopHeight));
+
+  return {
+    width,
+    height,
+    x: clamp(windowState.x, 8, Math.max(8, window.innerWidth - width - 8)),
+    y: clamp(windowState.y, 8, Math.max(8, desktopHeight - height + 8)),
+  };
+}
+
 function getDefaultBounds(appId: AppId, index: number) {
   const definition = getAppDefinition(appId);
-  const isMobile = window.innerWidth < 820;
+  const isMobile = isCompactViewport();
   const desktopHeight = getDesktopHeight();
 
   if (isMobile) {
@@ -96,18 +118,47 @@ function getDefaultBounds(appId: AppId, index: number) {
     };
   }
 
-  const offset = index * 28;
-  const maxWidth = Math.min(window.innerWidth - 48, Math.floor(window.innerWidth * 0.88));
-  const maxHeight = Math.min(desktopHeight - 20, Math.floor(desktopHeight * 0.86));
-  const width = clamp(Math.min(definition.defaultBounds.width, maxWidth), 540, maxWidth);
-  const height = clamp(Math.min(definition.defaultBounds.height, maxHeight), 360, maxHeight);
+  const maxWidth = Math.min(window.innerWidth - 44, Math.floor(window.innerWidth * 0.84));
+  const maxHeight = Math.min(desktopHeight - 16, Math.floor(desktopHeight * 0.82));
+  const width = clamp(Math.min(definition.defaultBounds.width, maxWidth), 520, maxWidth);
+  const height = clamp(Math.min(definition.defaultBounds.height, maxHeight), 340, maxHeight);
+  const slotColumns = Math.max(1, Math.min(4, Math.floor((window.innerWidth - 80) / 260)));
+  const slotRows = Math.max(1, Math.min(3, Math.floor((desktopHeight - 72) / 180)));
+  const slotIndex = index % (slotColumns * slotRows);
+  const slotX = slotIndex % slotColumns;
+  const slotY = Math.floor(slotIndex / slotColumns);
+  const availableX = Math.max(0, window.innerWidth - width - 40);
+  const availableY = Math.max(0, desktopHeight - height - 28);
+  const baseX =
+    slotColumns > 1 ? 20 + Math.round((availableX / Math.max(1, slotColumns - 1)) * slotX) : 28;
+  const baseY =
+    slotRows > 1 ? 20 + Math.round((availableY / Math.max(1, slotRows - 1)) * slotY) : 24;
 
-  return {
-    x: clamp(definition.defaultBounds.x + offset, 18, window.innerWidth - width - 18),
-    y: clamp(definition.defaultBounds.y + offset, 18, desktopHeight - height + 18),
+  return clampWindowBoundsToViewport({
+    x: clamp(Math.max(baseX, definition.defaultBounds.x), 20, Math.max(20, window.innerWidth - width - 12)),
+    y: clamp(Math.max(baseY, definition.defaultBounds.y), 20, Math.max(20, desktopHeight - height + 16)),
     width,
     height,
-  };
+  });
+}
+
+function sanitizePersistedWindows(windows: AppWindow[]) {
+  return windows
+    .filter((windowState) => windowState.payload?.filePath !== LEGACY_WELCOME_PATH)
+    .map((windowState) => {
+      const clampedBounds = clampWindowBoundsToViewport(windowState);
+      const restoreBounds = windowState.restoreBounds
+        ? clampWindowBoundsToViewport(windowState.restoreBounds)
+        : undefined;
+
+      return {
+        ...windowState,
+        processId: windowState.processId ?? createId("process"),
+        focused: false,
+        ...clampedBounds,
+        restoreBounds,
+      };
+    });
 }
 
 function withFocusedWindow(windows: AppWindow[]) {
@@ -121,8 +172,30 @@ function withFocusedWindow(windows: AppWindow[]) {
 function createInitialWindowState() {
   return {
     windows: [] as AppWindow[],
+    processes: [] as AppProcess[],
     nextZ: 2,
     activeWindowId: null as string | null,
+  };
+}
+
+function syncFocusedWindows(windows: AppWindow[], activeWindowId: string | null) {
+  return windows.map((windowState) => ({
+    ...windowState,
+    focused: activeWindowId === windowState.id && !windowState.minimized,
+  }));
+}
+
+function createRuntimeSnapshot(windows: AppWindow[], requestedActiveWindowId: string | null) {
+  const nextActiveWindowId =
+    requestedActiveWindowId && windows.some((windowState) => windowState.id === requestedActiveWindowId && !windowState.minimized)
+      ? requestedActiveWindowId
+      : withFocusedWindow(windows);
+  const nextWindows = syncFocusedWindows(windows, nextActiveWindowId);
+
+  return {
+    windows: nextWindows,
+    processes: buildProcessesFromWindows(nextWindows, nextActiveWindowId),
+    activeWindowId: nextActiveWindowId,
   };
 }
 
@@ -150,7 +223,11 @@ export const useSystemStore = create<SystemState>()(
             return true;
           }
 
-          return windowState.payload?.filePath === payload?.filePath;
+          if (payload?.filePath) {
+            return windowState.payload?.filePath === payload.filePath;
+          }
+
+          return false;
         });
 
         if (existingWindow) {
@@ -172,13 +249,15 @@ export const useSystemStore = create<SystemState>()(
                 }
               : windowState
           );
+          const runtime = createRuntimeSnapshot(windows, existingWindow.id);
 
           set({
-            windows,
             nextZ,
-            activeWindowId: existingWindow.id,
+            ...runtime,
             startMenuOpen: false,
             searchOpen: false,
+            calendarOpen: false,
+            contextMenu: null,
           });
 
           return existingWindow.id;
@@ -187,54 +266,70 @@ export const useSystemStore = create<SystemState>()(
         const nextZ = get().nextZ + 1;
         const bounds = getDefaultBounds(appId, get().windows.length);
         const windowId = createId("window");
+        const processId = createId("process");
         const windowTitle = title ?? definition.resolveTitle?.(payload) ?? definition.title;
+        const compactViewport = isCompactViewport();
+        const desktopHeight = getDesktopHeight();
 
         const nextWindow: AppWindow = {
           id: windowId,
+          processId,
           appId,
           title: windowTitle,
           zIndex: nextZ,
           minimized: false,
-          maximized: false,
+          maximized: compactViewport,
+          focused: true,
           payload,
           createdAt: Date.now(),
-          ...bounds,
+          ...(compactViewport
+            ? {
+                x: 12,
+                y: 12,
+                width: window.innerWidth - 24,
+                height: desktopHeight,
+                restoreBounds: bounds,
+              }
+            : bounds),
         };
+        const runtime = createRuntimeSnapshot([...get().windows, nextWindow], windowId);
 
-        set((state) => ({
-          windows: [...state.windows, nextWindow],
+        set({
           nextZ,
-          activeWindowId: windowId,
+          ...runtime,
           startMenuOpen: false,
           searchOpen: false,
           calendarOpen: false,
           contextMenu: null,
-        }));
+        });
 
         return windowId;
       },
-      focusWindow: (windowId) => {
+      bringToFront: (windowId) => {
         const nextZ = get().nextZ + 1;
-        set((state) => ({
+        const windows = get().windows.map((windowState) =>
+          windowState.id === windowId
+            ? {
+                ...windowState,
+                minimized: false,
+                minimizedByShowDesktop: false,
+                zIndex: nextZ,
+              }
+            : windowState
+        );
+        const runtime = createRuntimeSnapshot(windows, windowId);
+
+        set({
           nextZ,
-          activeWindowId: windowId,
-          windows: state.windows.map((windowState) =>
-            windowState.id === windowId
-              ? {
-                  ...windowState,
-                  minimized: false,
-                  minimizedByShowDesktop: false,
-                  zIndex: nextZ,
-                }
-              : windowState
-          ),
-        }));
+          ...runtime,
+        });
       },
+      focusWindow: (windowId) => get().bringToFront(windowId),
       closeWindow: (windowId) => {
         const windows = get().windows.filter((windowState) => windowState.id !== windowId);
+        const runtime = createRuntimeSnapshot(windows, get().activeWindowId === windowId ? null : get().activeWindowId);
         set({
-          windows,
-          activeWindowId: withFocusedWindow(windows),
+          ...runtime,
         });
       },
       toggleMinimize: (windowId) => {
@@ -247,60 +342,68 @@ export const useSystemStore = create<SystemState>()(
               }
             : windowState
         );
+        const runtime = createRuntimeSnapshot(
+          windows,
+          get().activeWindowId === windowId ? null : get().activeWindowId
+        );
 
         set({
-          windows,
-          activeWindowId: withFocusedWindow(windows),
+          ...runtime,
         });
       },
       toggleMaximize: (windowId) => {
         const desktopHeight = getDesktopHeight();
+        const windows = get().windows.map((windowState) => {
+          if (windowState.id !== windowId) {
+            return windowState;
+          }
 
-        set((state) => ({
-          windows: state.windows.map((windowState) => {
-            if (windowState.id !== windowId) {
-              return windowState;
-            }
-
-            if (windowState.maximized) {
-              const fallbackBounds = getDefaultBounds(windowState.appId, 0);
-
-              return {
-                ...windowState,
-                ...(windowState.restoreBounds ?? fallbackBounds),
-                maximized: false,
-                restoreBounds: undefined,
-              };
-            }
+          if (windowState.maximized) {
+            const fallbackBounds = getDefaultBounds(windowState.appId, 0);
 
             return {
               ...windowState,
-              restoreBounds: {
-                x: windowState.x,
-                y: windowState.y,
-                width: windowState.width,
-                height: windowState.height,
-              },
-              x: 12,
-              y: 12,
-              width: window.innerWidth - 24,
-              height: desktopHeight,
-              maximized: true,
+              ...(windowState.restoreBounds ?? fallbackBounds),
+              maximized: false,
+              restoreBounds: undefined,
             };
-          }),
-        }));
+          }
+
+          return {
+            ...windowState,
+            restoreBounds: {
+              x: windowState.x,
+              y: windowState.y,
+              width: windowState.width,
+              height: windowState.height,
+            },
+            x: 12,
+            y: 12,
+            width: window.innerWidth - 24,
+            height: desktopHeight,
+            maximized: true,
+          };
+        });
+        const runtime = createRuntimeSnapshot(windows, windowId);
+
+        set({
+          ...runtime,
+        });
       },
       updateWindowBounds: (windowId, partial) => {
-        set((state) => ({
-          windows: state.windows.map((windowState) =>
-            windowState.id === windowId
-              ? {
-                  ...windowState,
-                  ...partial,
-                }
-              : windowState
-          ),
-        }));
+        const windows = get().windows.map((windowState) =>
+          windowState.id === windowId
+            ? {
+                ...windowState,
+                ...partial,
+              }
+            : windowState
+        );
+        const runtime = createRuntimeSnapshot(windows, get().activeWindowId);
+
+        set({
+          ...runtime,
+        });
       },
       toggleTaskbarWindow: (windowId) => {
         const windowState = get().windows.find((item) => item.id === windowId);
@@ -314,7 +417,7 @@ export const useSystemStore = create<SystemState>()(
           return;
         }
 
-        get().focusWindow(windowId);
+        get().bringToFront(windowId);
       },
       showDesktop: () => {
         const hasVisibleWindow = get().windows.some((windowState) => !windowState.minimized);
@@ -324,17 +427,19 @@ export const useSystemStore = create<SystemState>()(
           return;
         }
 
-        set((state) => ({
-          windows: state.windows.map((windowState) => ({
-            ...windowState,
-            minimized: true,
-            minimizedByShowDesktop: !windowState.minimized,
-          })),
-          activeWindowId: null,
+        const windows = get().windows.map((windowState) => ({
+          ...windowState,
+          minimized: true,
+          minimizedByShowDesktop: !windowState.minimized,
+        }));
+        const runtime = createRuntimeSnapshot(windows, null);
+
+        set({
+          ...runtime,
           startMenuOpen: false,
           searchOpen: false,
           calendarOpen: false,
-        }));
+        });
       },
       restoreDesktop: () => {
         const nextZStart = get().nextZ + 1;
@@ -355,11 +460,11 @@ export const useSystemStore = create<SystemState>()(
             zIndex: zCounter,
           };
         });
+        const runtime = createRuntimeSnapshot(windows, withFocusedWindow(windows));
 
         set({
-          windows,
           nextZ: zCounter,
-          activeWindowId: withFocusedWindow(windows),
+          ...runtime,
         });
       },
       setStartMenuOpen: (open) =>
@@ -424,27 +529,47 @@ export const useSystemStore = create<SystemState>()(
         }
 
         const desktopHeight = getDesktopHeight();
-        set((state) => ({
-          windows: state.windows.map((windowState) => {
-            if (windowState.maximized) {
-              return {
-                ...windowState,
-                x: 12,
-                y: 12,
-                width: window.innerWidth - 24,
-                height: desktopHeight,
-              };
-            }
+        const compactViewport = isCompactViewport();
+        const windows = get().windows.map((windowState) => {
+          if (compactViewport) {
+            const nextRestoreBounds = windowState.maximized
+              ? windowState.restoreBounds ?? clampWindowBoundsToViewport(windowState)
+              : clampWindowBoundsToViewport(windowState);
 
             return {
               ...windowState,
-              x: clamp(windowState.x, 8, Math.max(8, window.innerWidth - 120)),
-              y: clamp(windowState.y, 8, Math.max(8, desktopHeight - 80)),
-              width: clamp(windowState.width, 360, window.innerWidth - 24),
-              height: clamp(windowState.height, 280, desktopHeight),
+              x: 12,
+              y: 12,
+              width: window.innerWidth - 24,
+              height: desktopHeight,
+              maximized: true,
+              restoreBounds: nextRestoreBounds,
             };
-          }),
-        }));
+          }
+
+          if (windowState.maximized) {
+            return {
+              ...windowState,
+              x: 12,
+              y: 12,
+              width: window.innerWidth - 24,
+              height: desktopHeight,
+            };
+          }
+
+          return {
+            ...windowState,
+            ...clampWindowBoundsToViewport(windowState),
+            restoreBounds: windowState.restoreBounds
+              ? clampWindowBoundsToViewport(windowState.restoreBounds)
+              : undefined,
+          };
+        });
+        const runtime = createRuntimeSnapshot(windows, get().activeWindowId);
+
+        set({
+          ...runtime,
+        });
       },
       resetLayout: () =>
         set({
@@ -462,7 +587,7 @@ export const useSystemStore = create<SystemState>()(
     }),
     {
       name: SYSTEM_STORAGE_KEY,
-      version: 3,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState, version) => {
         if (!persistedState) {
@@ -488,12 +613,39 @@ export const useSystemStore = create<SystemState>()(
           } as SystemState;
         }
 
+        if (version < 4) {
+          const windows = sanitizePersistedWindows((state.windows ?? []) as AppWindow[]);
+          const runtime = createRuntimeSnapshot(
+            windows,
+            windows.some((windowState) => windowState.id === state.activeWindowId)
+              ? state.activeWindowId ?? withFocusedWindow(windows)
+              : withFocusedWindow(windows)
+          );
+
+          return {
+            ...state,
+            ...runtime,
+          } as SystemState;
+        }
+
+        if (version < 5) {
+          const windows = sanitizePersistedWindows((state.windows ?? []) as AppWindow[]);
+          return {
+            ...state,
+            ...createRuntimeSnapshot(windows, state.activeWindowId ?? withFocusedWindow(windows)),
+          } as SystemState;
+        }
+
+        const windows = sanitizePersistedWindows((state.windows ?? []) as AppWindow[]);
+
         return {
           ...state,
+          ...createRuntimeSnapshot(windows, state.activeWindowId ?? withFocusedWindow(windows)),
         } as SystemState;
       },
       partialize: (state) => ({
         windows: state.windows,
+        processes: state.processes,
         nextZ: state.nextZ,
         activeWindowId: state.activeWindowId,
         themeId: state.themeId,

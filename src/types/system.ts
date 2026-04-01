@@ -12,6 +12,7 @@ export type AppId =
   | "snake"
   | "tetris"
   | "dino"
+  | "v86"
   | "terminal"
   | "editor"
   | "photos"
@@ -33,6 +34,8 @@ export interface WindowPayload {
   externalUrl?: string;
 }
 
+export type ProcessState = "focused" | "running" | "minimized";
+
 export interface WindowBounds {
   x: number;
   y: number;
@@ -42,13 +45,25 @@ export interface WindowBounds {
 
 export interface AppWindow extends WindowBounds {
   id: string;
+  processId: string;
   appId: AppId;
   title: string;
   minimized: boolean;
   minimizedByShowDesktop?: boolean;
   maximized: boolean;
+  focused: boolean;
   zIndex: number;
   restoreBounds?: WindowBounds;
+  payload?: WindowPayload;
+  createdAt: number;
+}
+
+export interface AppProcess {
+  id: string;
+  appId: AppId;
+  windowId: string;
+  title: string;
+  state: ProcessState;
   payload?: WindowPayload;
   createdAt: number;
 }
@@ -163,6 +178,8 @@ export interface TaskbarPreviewModel {
 
 export interface TaskbarWindowEntry {
   id: string;
+  processId: string;
+  windowId: string;
   appId: AppId;
   title: string;
   active: boolean;

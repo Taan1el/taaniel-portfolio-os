@@ -66,13 +66,13 @@ describe("file-registry", () => {
   it("routes mp3 files into the music player", () => {
     const node = {
       kind: "file" as const,
-      path: "/Media/Music/Studio Loop.mp3",
-      name: "Studio Loop.mp3",
+      path: "/Media/Music/Black Star.mp3",
+      name: "Black Star.mp3",
       extension: "mp3",
       mimeType: "audio/mpeg",
       createdAt: 1,
       updatedAt: 1,
-      source: "/assets/studio-loop.mp3",
+      source: "/assets/Black Star.mp3",
     };
 
     expect(resolveOpenApp(node)).toBe("music");

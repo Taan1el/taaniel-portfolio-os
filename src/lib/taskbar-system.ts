@@ -1,27 +1,68 @@
 import { getAppDefinition } from "@/lib/app-registry";
-import type { AppWindow, TaskbarWindowEntry } from "@/types/system";
+import type { AppProcess, AppWindow, ProcessState, TaskbarWindowEntry } from "@/types/system";
 
-export function buildTaskbarWindowEntries(
+function resolveProcessState(windowState: AppWindow, activeWindowId: string | null): ProcessState {
+  if (windowState.minimized) {
+    return "minimized";
+  }
+
+  if (activeWindowId === windowState.id) {
+    return "focused";
+  }
+
+  return "running";
+}
+
+export function buildProcessesFromWindows(
   windows: AppWindow[],
   activeWindowId: string | null
-): TaskbarWindowEntry[] {
+): AppProcess[] {
   return [...windows]
     .sort((a, b) => a.createdAt - b.createdAt)
-    .map((windowState) => {
-      const definition = getAppDefinition(windowState.appId);
-      const active = activeWindowId === windowState.id && !windowState.minimized;
+    .map((windowState) => ({
+      id: windowState.processId,
+      appId: windowState.appId,
+      windowId: windowState.id,
+      title: windowState.title,
+      state: resolveProcessState(windowState, activeWindowId),
+      payload: windowState.payload,
+      createdAt: windowState.createdAt,
+    }));
+}
+
+export function buildTaskbarWindowEntries(
+  processes: AppProcess[],
+  windows: AppWindow[]
+): TaskbarWindowEntry[] {
+  const windowsById = new Map(windows.map((windowState) => [windowState.id, windowState]));
+
+  return processes
+    .filter((process) => windowsById.has(process.windowId))
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((process) => {
+      const windowState = windowsById.get(process.windowId);
+
+      if (!windowState) {
+        return null;
+      }
+
+      const definition = getAppDefinition(process.appId);
+      const active = process.state === "focused";
 
       return {
-        id: windowState.id,
-        appId: windowState.appId,
-        title: windowState.title,
+        id: process.id,
+        processId: process.id,
+        windowId: process.windowId,
+        appId: process.appId,
+        title: process.title,
         active,
         minimized: windowState.minimized,
         preview: {
-          title: windowState.title,
+          title: process.title,
           subtitle: definition.title,
           status: windowState.minimized ? "minimized" : active ? "active" : "background",
         },
       };
-    });
+    })
+    .filter((entry): entry is TaskbarWindowEntry => Boolean(entry));
 }

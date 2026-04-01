@@ -113,13 +113,18 @@ export const featuredProjects: FeaturedProject[] = [
 ];
 
 export const photographyAssets = [
+  { title: "Alps or the Dolomites", src: resolvePublicAssetUrl("assets/Alps_or_the_Dolomites_canon.jpg") },
   { title: "Austria Mountains", src: resolvePublicAssetUrl("assets/austria_mountains_canon.jpg") },
+  { title: "Blush of Spring", src: resolvePublicAssetUrl("assets/Blush_of_Spring_canon.jpg") },
   { title: "Clouds", src: resolvePublicAssetUrl("assets/Clouds.jpg") },
   { title: "Flower", src: resolvePublicAssetUrl("assets/flower.jpg") },
   { title: "Flower in Austria", src: resolvePublicAssetUrl("assets/flower_in_austria_canon.jpg") },
+  { title: "Flowers in a Field", src: resolvePublicAssetUrl("assets/Flowers_in_a_field_canon.jpg") },
   { title: "Flowers", src: resolvePublicAssetUrl("assets/flowers.jpg") },
+  { title: "Golden Wave", src: resolvePublicAssetUrl("assets/Golden_Wave_canon.jpg") },
   { title: "Mountains", src: resolvePublicAssetUrl("assets/mountains.jpg") },
   { title: "Mushrooms", src: resolvePublicAssetUrl("assets/mushrooms.jpg") },
+  { title: "The Red Cap", src: resolvePublicAssetUrl("assets/The_Red_Cap_canon.jpg") },
 ];
 
 export const resumePdfPath = resolvePublicAssetUrl("assets/Taaniel-Vananurm-CV.pdf");
@@ -211,17 +216,17 @@ export const desktopEntries: DesktopEntry[] = [
     defaultGridPosition: { gridX: 1, gridY: 2 },
   },
   {
-    id: "browser-app",
-    label: "Browser",
+    id: "music-app",
+    label: "Music",
     type: "app",
-    appId: "browser",
-    defaultGridPosition: { gridX: 2, gridY: 3 },
+    appId: "music",
+    defaultGridPosition: { gridX: 1, gridY: 1 },
   },
   {
-    id: "github-link",
-    label: "GitHub",
-    type: "link",
-    externalUrl: "https://github.com/Taan1el",
-    defaultGridPosition: { gridX: 2, gridY: 1 },
+    id: "games-app",
+    label: "Games",
+    type: "app",
+    appId: "games",
+    defaultGridPosition: { gridX: 1, gridY: 3 },
   },
 ];

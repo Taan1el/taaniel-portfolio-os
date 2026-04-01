@@ -9,6 +9,7 @@ import {
   Volume2,
 } from "lucide-react";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
+import { getParentPath, listChildren } from "@/lib/filesystem";
 import { openFileSystemPath } from "@/lib/launchers";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -27,6 +28,14 @@ function isAudioFile(node: VirtualFile) {
   return node.mimeType.startsWith("audio/");
 }
 
+function isImageFile(node: VirtualFile) {
+  return node.mimeType.startsWith("image/");
+}
+
+function normalizeMediaKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
 export function MusicPlayerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const launchApp = useSystemStore((state) => state.launchApp);
@@ -34,7 +43,7 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
   const shouldResumePlaybackRef = useRef(false);
   const { filePath, siblings, previous, next } = useMediaGallery(
     nodes,
-    window.payload?.filePath ?? "/Media/Music/Studio Loop.mp3",
+    window.payload?.filePath ?? "/Media/Music/Black Star.mp3",
     isAudioFile
   );
   const file = nodes[filePath];
@@ -48,6 +57,23 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
     () => siblings.filter((item) => item.kind === "file" && isAudioFile(item)),
     [siblings]
   );
+  const coverArt = useMemo(() => {
+    if (!currentTrack) {
+      return null;
+    }
+
+    const trackKey = normalizeMediaKey(currentTrack.name.replace(/\.[^.]+$/, ""));
+    const imageFiles = listChildren(nodes, getParentPath(currentTrack.path)).filter(
+      (node): node is VirtualFile => node.kind === "file" && isImageFile(node) && Boolean(node.source)
+    );
+
+    return (
+      imageFiles.find((item) => normalizeMediaKey(item.name).includes(trackKey)) ??
+      imageFiles.find((item) => normalizeMediaKey(item.name).includes("cover")) ??
+      imageFiles[0] ??
+      null
+    );
+  }, [currentTrack, nodes]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -83,7 +109,27 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
   }, [currentTrack?.path]);
 
   if (!currentTrack) {
-    return <div className="app-empty">No audio file selected for the music player.</div>;
+    return (
+      <div className="app-empty">
+        <div className="music-player__empty">
+          <strong>No tracks loaded yet</strong>
+          <p>Import MP3 or WAV files into `/Media/Music`, then open one to launch the player.</p>
+          <button
+            type="button"
+            className="pill-button"
+            onClick={() =>
+              launchApp({
+                appId: "files",
+                payload: { directoryPath: "/Media/Music" },
+              })
+            }
+          >
+            <FolderOpen size={15} />
+            Open music folder
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const togglePlayback = async () => {
@@ -162,7 +208,11 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
       <div className="music-player__layout">
         <section className="glass-card music-player__hero">
           <div className="music-player__cover">
-            <AudioWaveform size={42} />
+            {coverArt?.source ? (
+              <img src={coverArt.source} alt={`${currentTrack.name} cover art`} />
+            ) : (
+              <AudioWaveform size={42} />
+            )}
           </div>
           <div className="music-player__meta">
             <p className="eyebrow">Now playing</p>
@@ -184,9 +234,29 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
             </div>
 
             <div className="music-player__timeline">
-              <div className="music-player__progress">
-                <span style={{ width: `${progress}%` }} />
-              </div>
+              <label className="music-player__seek">
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(duration, 0)}
+                  step={0.1}
+                  value={Math.min(currentTime, duration || 0)}
+                  onChange={(event) => {
+                    const audio = audioRef.current;
+
+                    if (!audio) {
+                      return;
+                    }
+
+                    const nextTime = Number(event.target.value);
+                    audio.currentTime = nextTime;
+                    setCurrentTime(nextTime);
+                  }}
+                />
+                <span className="music-player__progress" aria-hidden="true">
+                  <span style={{ width: `${progress}%` }} />
+                </span>
+              </label>
               <div className="music-player__time">
                 <small>{formatTime(currentTime)}</small>
                 <small>{formatTime(duration)}</small>

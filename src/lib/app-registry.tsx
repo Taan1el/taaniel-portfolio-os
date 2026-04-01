@@ -14,6 +14,7 @@ import {
   Mail,
   MonitorCog,
   Music4,
+  Cpu,
   ScrollText,
   TerminalSquare,
   UserRound,
@@ -60,6 +61,9 @@ const TetrisApp = lazy(async () => ({
 }));
 const DinoApp = lazy(async () => ({
   default: (await import("@/components/apps/dino-app")).DinoApp,
+}));
+const VirtualX86App = lazy(async () => ({
+  default: (await import("@/components/apps/v86-app")).VirtualX86App,
 }));
 const PhotoViewerApp = lazy(async () => ({
   default: (await import("@/components/apps/photo-viewer-app")).PhotoViewerApp,
@@ -196,6 +200,18 @@ const registry: Record<AppId, AppDefinition> = {
     defaultBounds: { x: 252, y: 132, width: 760, height: 520 },
     singleInstance: true,
     component: DinoApp,
+  },
+  v86: {
+    id: "v86",
+    title: "Virtual x86",
+    description: "Boot imported .img and .iso files in a resizable browser emulator.",
+    category: "System",
+    icon: Cpu,
+    accent: "#7dd5ff",
+    defaultBounds: { x: 198, y: 86, width: 960, height: 720 },
+    component: VirtualX86App,
+    resolveTitle: (payload) =>
+      payload?.filePath ? `Virtual x86 - ${getBaseName(payload.filePath)}` : "Virtual x86",
   },
   terminal: {
     id: "terminal",

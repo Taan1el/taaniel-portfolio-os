@@ -1,7 +1,10 @@
+import { useRef } from "react";
 import { FileCode2, FileText, Folder, Globe, Image, UserSquare2 } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
 import type { DesktopEntry, DesktopGridMetrics, VirtualNode } from "@/types/system";
+
+const TOUCH_DRAG_DELAY_MS = 280;
 
 function resolveIcon(entry: DesktopEntry, node?: VirtualNode) {
   if (entry.type === "app" && entry.appId) {
@@ -60,7 +63,7 @@ interface DesktopIconProps {
   onSelect: () => void;
   onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPointerStart: (
-    event: React.PointerEvent<HTMLButtonElement>,
+    pointer: { clientX: number; clientY: number; pointerId: number },
     snapshot: { left: number; top: number; width: number; height: number }
   ) => void;
 }
@@ -77,6 +80,18 @@ export function DesktopIcon({
   onContextMenu,
   onPointerStart,
 }: DesktopIconProps) {
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
+  const clearLongPressTimeout = () => {
+    if (longPressTimeoutRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(longPressTimeoutRef.current);
+    longPressTimeoutRef.current = null;
+  };
+
   return (
     <button
       className={cn("desktop-icon", "desktop-icon-button", selected && "is-selected", dragging && "is-drag-source")}
@@ -98,12 +113,61 @@ export function DesktopIcon({
         }
 
         const element = event.currentTarget.getBoundingClientRect();
-        onPointerStart(event, {
+        const snapshot = {
           left: element.left,
           top: element.top,
           width: element.width,
           height: element.height,
-        });
+        };
+
+        if (event.pointerType === "touch") {
+          longPressTriggeredRef.current = false;
+          longPressTimeoutRef.current = window.setTimeout(() => {
+            longPressTriggeredRef.current = true;
+            onPointerStart(
+              {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                pointerId: event.pointerId,
+              },
+              snapshot
+            );
+          }, TOUCH_DRAG_DELAY_MS);
+          return;
+        }
+
+        onPointerStart(
+          {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            pointerId: event.pointerId,
+          },
+          snapshot
+        );
+      }}
+      onPointerUp={(event) => {
+        if (event.pointerType !== "touch") {
+          return;
+        }
+
+        clearLongPressTimeout();
+
+        if (!longPressTriggeredRef.current) {
+          onActivate();
+        }
+
+        longPressTriggeredRef.current = false;
+      }}
+      onPointerCancel={() => {
+        clearLongPressTimeout();
+        longPressTriggeredRef.current = false;
+      }}
+      onPointerLeave={() => {
+        if (dragging) {
+          return;
+        }
+
+        clearLongPressTimeout();
       }}
       onDoubleClick={(event) => {
         event.stopPropagation();

@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface MediaToolbarProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   canGoPrevious?: boolean;
   canGoNext?: boolean;
   onPrevious?: () => void;
@@ -23,7 +23,7 @@ export function MediaToolbar({
     <header className="app-toolbar">
       <div className="app-toolbar__title">
         <strong>{title}</strong>
-        <small>{subtitle}</small>
+        {subtitle ? <small>{subtitle}</small> : null}
       </div>
       <div className="app-toolbar__group">
         {actions}

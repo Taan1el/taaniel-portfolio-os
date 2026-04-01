@@ -121,6 +121,8 @@ export function DesktopSurface({
         onMoveIcon(currentDragState.iconId, currentDragState.targetPosition);
       }
 
+      delete document.body.dataset.desktopDragLock;
+      document.body.style.removeProperty("overflow");
       dragStateRef.current = null;
       setDragState(null);
     };
@@ -139,6 +141,8 @@ export function DesktopSurface({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      delete document.body.dataset.desktopDragLock;
+      document.body.style.removeProperty("overflow");
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerCancel);
@@ -255,7 +259,7 @@ export function DesktopSurface({
               onSelect={() => onSelectIcon(entry.id)}
               onActivate={() => onActivateEntry(entry)}
               onContextMenu={(event) => onEntryContextMenu(event, entry)}
-              onPointerStart={(event, snapshot) => {
+              onPointerStart={(pointer, snapshot) => {
                 const container = containerRef.current;
 
                 if (!container) {
@@ -263,6 +267,8 @@ export function DesktopSurface({
                 }
 
                 const containerRect = container.getBoundingClientRect();
+                document.body.dataset.desktopDragLock = "true";
+                document.body.style.overflow = "hidden";
 
                 setDragState({
                   iconId: entry.id,
@@ -270,10 +276,10 @@ export function DesktopSurface({
                   top: snapshot.top - containerRect.top,
                   width: snapshot.width,
                   height: snapshot.height,
-                  offsetX: event.clientX - snapshot.left,
-                  offsetY: event.clientY - snapshot.top,
-                  startClientX: event.clientX,
-                  startClientY: event.clientY,
+                  offsetX: pointer.clientX - snapshot.left,
+                  offsetY: pointer.clientY - snapshot.top,
+                  startClientX: pointer.clientX,
+                  startClientY: pointer.clientY,
                   moved: false,
                   targetPosition: position,
                 });
@@ -283,10 +289,10 @@ export function DesktopSurface({
                   top: snapshot.top - containerRect.top,
                   width: snapshot.width,
                   height: snapshot.height,
-                  offsetX: event.clientX - snapshot.left,
-                  offsetY: event.clientY - snapshot.top,
-                  startClientX: event.clientX,
-                  startClientY: event.clientY,
+                  offsetX: pointer.clientX - snapshot.left,
+                  offsetY: pointer.clientY - snapshot.top,
+                  startClientX: pointer.clientX,
+                  startClientY: pointer.clientY,
                   moved: false,
                   targetPosition: position,
                 };
