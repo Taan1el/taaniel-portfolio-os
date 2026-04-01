@@ -9,8 +9,8 @@ export function useMediaGallery(
   filePath: string,
   matcher: MediaFileMatcher
 ) {
-  const normalizedPath = normalizePath(filePath);
-  const directoryPath = getParentPath(normalizedPath);
+  const requestedPath = normalizePath(filePath);
+  const directoryPath = getParentPath(requestedPath);
   const siblings = useMemo(
     () =>
       listChildren(nodes, directoryPath).filter(
@@ -18,10 +18,13 @@ export function useMediaGallery(
       ),
     [directoryPath, matcher, nodes]
   );
-  const currentIndex = siblings.findIndex((item) => item.path === normalizedPath);
+  const resolvedPath = siblings.some((item) => item.path === requestedPath)
+    ? requestedPath
+    : siblings[0]?.path ?? requestedPath;
+  const currentIndex = siblings.findIndex((item) => item.path === resolvedPath);
 
   return {
-    filePath: normalizedPath,
+    filePath: resolvedPath,
     directoryPath,
     siblings,
     currentIndex,

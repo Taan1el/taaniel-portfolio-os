@@ -10,6 +10,17 @@ function formatSearchLink(url: string) {
   return url.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
 }
 
+function formatSearchPath(path: string) {
+  const normalizedPath = path.replace(/\/$/, "");
+  const parts = normalizedPath.split("/").filter(Boolean);
+
+  if (parts.length <= 3) {
+    return normalizedPath;
+  }
+
+  return `/${["...", ...parts.slice(-2)].join("/")}`;
+}
+
 interface SearchPanelProps {
   nodes: FileSystemRecord;
   onLaunchApp: (appId: AppId) => void;
@@ -140,7 +151,7 @@ export function SearchPanel({
                 </span>
                 <span className="search-result__meta">
                   <strong title={node.name}>{node.name}</strong>
-                  <small title={node.path}>{node.path}</small>
+                  <small title={node.path}>{formatSearchPath(node.path)}</small>
                 </span>
               </button>
             ))

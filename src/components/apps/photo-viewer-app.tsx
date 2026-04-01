@@ -54,7 +54,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
     <div className="app-screen photo-viewer">
       <MediaToolbar
         title={file.name}
-        subtitle={`${file.extension.toUpperCase()} image${fileSize != null ? ` | ${formatBytes(fileSize)}` : ""}`}
+        subtitle={fileSize != null ? formatBytes(fileSize) : undefined}
         canGoPrevious={Boolean(previous)}
         canGoNext={Boolean(next)}
         onPrevious={() => previous && openFileSystemPath(previous.path, nodes, launchApp)}
@@ -105,6 +105,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         ref={containerRef}
         className="photo-viewer__canvas"
         tabIndex={0}
+        onDoubleClick={() => containerRef.current?.requestFullscreen()}
         onKeyDown={(event) => {
           if (event.key === "ArrowLeft" && previous) {
             event.preventDefault();

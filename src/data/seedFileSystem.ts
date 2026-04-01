@@ -9,6 +9,7 @@ import {
 } from "@/data/portfolio";
 import { resolvePublicAssetUrl } from "@/lib/assets";
 import { DEFAULT_NOTE_CONTENT, DEFAULT_NOTE_NAME, NOTES_DIRECTORY_PATH } from "@/lib/notes";
+import { SNAPSHOTS_DIRECTORY_PATH } from "@/lib/system-workspace";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
 
 const now = Date.now();
@@ -40,26 +41,6 @@ const file = (path: string, extension: string, mimeType: string, partial: Partia
     ...partial,
   };
 };
-
-const welcomeMarkdown = `# Welcome to Taaniel OS
-
-This portfolio is designed like a product instead of a landing page.
-
-## What to open first
-
-- **About** for background, strengths, and working style
-- **Projects** for featured case studies and visuals
-- **Resume.pdf** for a recruiter-friendly summary
-- **Terminal** for a more playful exploration path
-
-## Why this format exists
-
-I wanted the portfolio itself to prove product thinking, interface craft, and implementation range. The shell, windows, explorer, and apps are part of the portfolio story, not decoration around it.
-
-## Quick facts
-
-${quickStats.map((stat) => `- **${stat.label}:** ${stat.value}`).join("\n")}
-`;
 
 const aboutMarkdown = `# About Taaniel
 
@@ -144,6 +125,7 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     "/Users": directory("/Users"),
     "/Users/Public": directory("/Users/Public"),
     "/Users/Public/Blog": directory("/Users/Public/Blog"),
+    [SNAPSHOTS_DIRECTORY_PATH]: directory(SNAPSHOTS_DIRECTORY_PATH),
     "/Portfolio": directory("/Portfolio"),
     "/Portfolio/Case Studies": directory("/Portfolio/Case Studies"),
     "/Games": directory("/Games"),
@@ -153,10 +135,6 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     "/Media/Videos": directory("/Media/Videos"),
     "/Code": directory("/Code"),
   };
-
-  nodes["/Desktop/Welcome.md"] = file("/Desktop/Welcome.md", "md", "text/markdown", {
-    content: welcomeMarkdown,
-  });
 
   nodes[`${NOTES_DIRECTORY_PATH}/${DEFAULT_NOTE_NAME}`] = file(
     `${NOTES_DIRECTORY_PATH}/${DEFAULT_NOTE_NAME}`,
@@ -210,22 +188,22 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     }
   );
 
-  nodes["/Media/Music/Studio Loop.mp3"] = file(
-    "/Media/Music/Studio Loop.mp3",
+  nodes["/Media/Music/Black Star.mp3"] = file(
+    "/Media/Music/Black Star.mp3",
     "mp3",
     "audio/mpeg",
     {
-      source: resolvePublicAssetUrl("assets/studio-loop.mp3"),
+      source: resolvePublicAssetUrl("assets/Black Star.mp3"),
       readonly: true,
     }
   );
 
-  nodes["/Media/Music/T-Rex Roar.mp3"] = file(
-    "/Media/Music/T-Rex Roar.mp3",
-    "mp3",
-    "audio/mpeg",
+  nodes["/Media/Music/Black Star Cover.jpg"] = file(
+    "/Media/Music/Black Star Cover.jpg",
+    "jpg",
+    "image/jpeg",
     {
-      source: resolvePublicAssetUrl("assets/trex-roar.mp3"),
+      source: resolvePublicAssetUrl("assets/blackstar_img.jpg"),
       readonly: true,
     }
   );

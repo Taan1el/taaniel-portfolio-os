@@ -1,9 +1,8 @@
-import { Suspense, useState, type CSSProperties } from "react";
+import { Suspense, useEffect, useState, type CSSProperties } from "react";
 import { Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { getAppDefinition } from "@/lib/app-registry";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import type { AppWindow } from "@/types/system";
 
@@ -29,8 +28,19 @@ export function WindowFrame({
   const definition = getAppDefinition(window.appId);
   const Icon = definition.icon;
   const WindowComponent = definition.component;
-  const isMobile = useMediaQuery("(max-width: 819px)");
   const [interacting, setInteracting] = useState(false);
+
+  const lockBodyScroll = () => {
+    document.body.dataset.windowDragLock = "true";
+    document.body.style.overflow = "hidden";
+  };
+
+  const unlockBodyScroll = () => {
+    delete document.body.dataset.windowDragLock;
+    document.body.style.removeProperty("overflow");
+  };
+
+  useEffect(() => () => unlockBodyScroll(), []);
 
   return (
     <Rnd
@@ -39,17 +49,26 @@ export function WindowFrame({
       position={{ x: window.x, y: window.y }}
       minWidth={320}
       minHeight={240}
-      disableDragging={window.maximized || isMobile}
-      enableResizing={!window.maximized && !isMobile}
-      dragHandleClassName="window-frame__header"
-      onDragStart={() => setInteracting(true)}
+      disableDragging={window.maximized}
+      enableResizing={!window.maximized}
+      dragHandleClassName="window-header"
+      cancel=".window-action-buttons, .window-frame__body button, .window-frame__body input, .window-frame__body textarea, .window-frame__body a"
+      onDragStart={() => {
+        setInteracting(true);
+        lockBodyScroll();
+      }}
       onDragStop={(_, data) => {
         setInteracting(false);
+        unlockBodyScroll();
         onBoundsChange({ x: data.x, y: data.y, width: window.width, height: window.height });
       }}
-      onResizeStart={() => setInteracting(true)}
+      onResizeStart={() => {
+        setInteracting(true);
+        lockBodyScroll();
+      }}
       onResizeStop={(_, __, ref, ___, position) => {
         setInteracting(false);
+        unlockBodyScroll();
         onBoundsChange({
           x: position.x,
           y: position.y,
@@ -64,6 +83,7 @@ export function WindowFrame({
         data-window-preview-id={window.id}
         className={cn("window-frame", active && "is-active")}
         onMouseDown={onFocus}
+        onTouchStart={onFocus}
         onAnimationComplete={() => setInteracting(false)}
         layout
         initial={{ opacity: 0, scale: 0.97, y: 16 }}
@@ -71,7 +91,7 @@ export function WindowFrame({
         exit={{ opacity: 0, scale: 0.94, y: 20 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
       >
-        <header className="window-frame__header" onDoubleClick={onMaximize}>
+        <header className="window-frame__header window-header" onDoubleClick={onMaximize}>
           <div className="window-frame__title">
             <span className="window-frame__title-icon" style={{ "--app-accent": definition.accent } as CSSProperties}>
               <Icon size={15} />
@@ -81,7 +101,7 @@ export function WindowFrame({
               <small>{definition.category}</small>
             </div>
           </div>
-          <div className="window-frame__actions">
+          <div className="window-frame__actions window-action-buttons">
             <button type="button" aria-label="Minimize" onClick={onMinimize}>
               <Minus size={14} />
             </button>

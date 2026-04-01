@@ -1,20 +1,36 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
-import { Grid2x2, MonitorDown, Search, Sparkles } from "lucide-react";
+import { Grid2x2, MonitorDown, Search } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { formatClock, formatDateLabel } from "@/lib/utils";
-import type { TaskbarWindowEntry } from "@/types/system";
+import type { AppId, TaskbarWindowEntry } from "@/types/system";
 
-const TASKBAR_PREVIEW_WIDTH = 220;
+const TASKBAR_PREVIEW_WIDTH = 256;
+const TASKBAR_PREVIEW_OFFSET = 12;
+const PREVIEW_FALLBACK_APPS = new Set<AppId>(["browser", "editor", "paint", "snake", "tetris", "dino", "terminal", "v86"]);
 
-function getPreviewLeft(container: HTMLDivElement, button: HTMLButtonElement) {
-  const containerRect = container.getBoundingClientRect();
+function getPreviewPlacement(button: HTMLButtonElement) {
   const buttonRect = button.getBoundingClientRect();
-  const centeredLeft =
-    buttonRect.left - containerRect.left + buttonRect.width / 2 - TASKBAR_PREVIEW_WIDTH / 2;
+  const left = Math.max(
+    16,
+    Math.min(
+      buttonRect.left + buttonRect.width / 2 - TASKBAR_PREVIEW_WIDTH / 2,
+      window.innerWidth - TASKBAR_PREVIEW_WIDTH - 16
+    )
+  );
 
-  return Math.max(0, Math.min(centeredLeft, Math.max(0, containerRect.width - TASKBAR_PREVIEW_WIDTH)));
+  return {
+    left,
+    bottom: window.innerHeight - buttonRect.top + TASKBAR_PREVIEW_OFFSET,
+  };
+}
+
+interface TaskbarPreviewEntry extends TaskbarWindowEntry {
+  left: number;
+  bottom: number;
 }
 
 interface TaskbarProps {
@@ -22,7 +38,6 @@ interface TaskbarProps {
   startMenuOpen: boolean;
   searchOpen: boolean;
   calendarOpen: boolean;
-  themeName: string;
   onToggleStartMenu: () => void;
   onToggleSearch: () => void;
   onToggleCalendar: () => void;
@@ -35,7 +50,6 @@ export function Taskbar({
   startMenuOpen,
   searchOpen,
   calendarOpen,
-  themeName,
   onToggleStartMenu,
   onToggleSearch,
   onToggleCalendar,
@@ -43,10 +57,11 @@ export function Taskbar({
   onShowDesktop,
 }: TaskbarProps) {
   const [now, setNow] = useState(() => new Date());
-  const [previewEntry, setPreviewEntry] = useState<(TaskbarWindowEntry & { left: number }) | null>(null);
+  const [previewEntry, setPreviewEntry] = useState<TaskbarPreviewEntry | null>(null);
   const [previewImages, setPreviewImages] = useState<Record<string, string | null>>({});
   const windowsRef = useRef<HTMLDivElement | null>(null);
   const captureQueueRef = useRef<Set<string>>(new Set());
+  const prefersTapPreview = useMediaQuery("(hover: none), (max-width: 819px)");
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 1000 * 30);
@@ -60,8 +75,31 @@ export function Taskbar({
   }, [entries, previewEntry]);
 
   useEffect(() => {
+    if (!prefersTapPreview || !previewEntry) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+
+      if (!target) {
+        return;
+      }
+
+      if (target.closest(".taskbar__item") || target.closest(".taskbar__preview")) {
+        return;
+      }
+
+      setPreviewEntry(null);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [prefersTapPreview, previewEntry]);
+
+  useEffect(() => {
     setPreviewImages((current) => {
-      const activeWindowIds = new Set(entries.map((entry) => entry.id));
+      const activeWindowIds = new Set(entries.map((entry) => entry.windowId));
       const nextEntries = Object.entries(current).filter(([windowId]) => activeWindowIds.has(windowId));
 
       if (nextEntries.length === Object.keys(current).length) {
@@ -73,187 +111,235 @@ export function Taskbar({
   }, [entries]);
 
   useEffect(() => {
-    if (!previewEntry || !windowsRef.current) {
+    if (!previewEntry) {
       return;
     }
 
-    const handleResize = () => {
-      const activeButton = windowsRef.current?.querySelector<HTMLButtonElement>(
-        `[data-window-id="${previewEntry.id}"]`
-      );
+      const syncPreviewPosition = () => {
+        const activeButton = windowsRef.current?.querySelector<HTMLButtonElement>(
+          `[data-window-id="${previewEntry.windowId}"]`
+        );
 
-      if (!windowsRef.current || !activeButton) {
+      if (!activeButton) {
         setPreviewEntry(null);
         return;
       }
 
-      setPreviewEntry((current) =>
-        current
-          ? {
-              ...current,
-              left: getPreviewLeft(windowsRef.current as HTMLDivElement, activeButton),
-            }
-          : current
-      );
+      const placement = getPreviewPlacement(activeButton);
+      setPreviewEntry((current) => (current ? { ...current, ...placement } : current));
     };
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("resize", syncPreviewPosition);
+    window.addEventListener("scroll", syncPreviewPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", syncPreviewPosition);
+      window.removeEventListener("scroll", syncPreviewPosition, true);
+    };
   }, [previewEntry]);
 
-  const capturePreview = async (windowId: string) => {
-    if (captureQueueRef.current.has(windowId)) {
+  const capturePreview = async (entry: TaskbarWindowEntry) => {
+    if (
+      entry.minimized ||
+      PREVIEW_FALLBACK_APPS.has(entry.appId) ||
+      captureQueueRef.current.has(entry.windowId)
+    ) {
+      setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));
       return;
     }
 
-    captureQueueRef.current.add(windowId);
+    captureQueueRef.current.add(entry.windowId);
 
     try {
-      const node = document.querySelector<HTMLElement>(`[data-window-preview-id="${windowId}"]`);
+      const node = document.querySelector<HTMLElement>(`[data-window-preview-id="${entry.windowId}"]`);
 
-      if (!node) {
-        setPreviewImages((current) => ({ ...current, [windowId]: null }));
+      if (!node || node.querySelector("iframe, canvas, .xterm")) {
+        setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));
         return;
       }
 
       const image = await toPng(node, {
         cacheBust: true,
-        pixelRatio: 0.75,
+        pixelRatio: 0.7,
         skipFonts: true,
-        backgroundColor: "#0b1421",
+        backgroundColor: "#09101a",
       });
 
-      setPreviewImages((current) => ({ ...current, [windowId]: image }));
+      setPreviewImages((current) => ({ ...current, [entry.windowId]: image }));
     } catch {
-      setPreviewImages((current) => ({ ...current, [windowId]: null }));
+      setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));
     } finally {
-      captureQueueRef.current.delete(windowId);
+      captureQueueRef.current.delete(entry.windowId);
     }
   };
 
+  const previewNode =
+    typeof document !== "undefined"
+      ? createPortal(
+          <AnimatePresence>
+            {previewEntry ? (
+              (() => {
+                const definition = getAppDefinition(previewEntry.appId);
+                const Icon = definition.icon;
+                const previewImage = previewImages[previewEntry.windowId];
+
+                return (
+                  <motion.div
+                    key={previewEntry.id}
+                    className="taskbar__preview"
+                    style={
+                      {
+                        left: previewEntry.left,
+                        bottom: previewEntry.bottom,
+                        width: TASKBAR_PREVIEW_WIDTH,
+                        "--app-accent": definition.accent,
+                      } as CSSProperties
+                    }
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.14 }}
+                  >
+                    <div className="taskbar__preview-frame">
+                      {previewImage ? (
+                        <img
+                          className="taskbar__preview-image"
+                          src={previewImage}
+                          alt={`${previewEntry.title} preview`}
+                        />
+                      ) : (
+                        <div className="taskbar__preview-fallback">
+                          <span className="taskbar__preview-fallback-icon">
+                            <Icon size={24} />
+                          </span>
+                          <small>
+                            {previewEntry.minimized
+                              ? "Preview unavailable while minimized"
+                              : "Using an app card because this window doesn't capture cleanly"}
+                          </small>
+                        </div>
+                      )}
+                    </div>
+                    <strong>{previewEntry.preview.title}</strong>
+                    <small>{previewEntry.preview.subtitle}</small>
+                    <span className={`taskbar__preview-status is-${previewEntry.preview.status}`}>
+                      {previewEntry.preview.status}
+                    </span>
+                  </motion.div>
+                );
+              })()
+            ) : null}
+          </AnimatePresence>,
+          document.body
+        )
+      : null;
+
   return (
-    <footer className="taskbar">
-      <button
-        className={`taskbar__start ${startMenuOpen ? "is-active" : ""}`}
-        type="button"
-        onClick={onToggleStartMenu}
-      >
-        <Grid2x2 size={16} />
-        Start
-      </button>
+    <>
+      <footer className="taskbar">
+        <button
+          className={`taskbar__start ${startMenuOpen ? "is-active" : ""}`}
+          type="button"
+          onClick={onToggleStartMenu}
+        >
+          <Grid2x2 size={16} />
+          Start
+        </button>
 
-      <button
-        className={`taskbar__search ${searchOpen ? "is-active" : ""}`}
-        type="button"
-        onClick={onToggleSearch}
-      >
-        <Search size={15} />
-        Search apps and files
-      </button>
+        <button
+          className={`taskbar__search ${searchOpen ? "is-active" : ""}`}
+          type="button"
+          onClick={onToggleSearch}
+        >
+          <Search size={15} />
+          Search apps and files
+        </button>
 
-      <div className="taskbar__windows" ref={windowsRef}>
-        <div className="taskbar__window-strip" onScroll={() => setPreviewEntry(null)}>
-          {entries.map((entry) => {
-            const definition = getAppDefinition(entry.appId);
-            const Icon = definition.icon;
-
-            return (
-              <button
-                key={entry.id}
-                data-window-id={entry.id}
-                className={`taskbar__item ${entry.active ? "is-active" : ""}`}
-                type="button"
-                onClick={() => onToggleWindow(entry.id)}
-                onMouseEnter={(event) => {
-                  if (!windowsRef.current) {
-                    return;
-                  }
-
-                  setPreviewEntry({
-                    ...entry,
-                    left: getPreviewLeft(windowsRef.current, event.currentTarget),
-                  });
-
-                  if (!entry.minimized) {
-                    void capturePreview(entry.id);
-                  }
-                }}
-                onMouseLeave={() =>
-                  setPreviewEntry((current) => (current?.id === entry.id ? null : current))
-                }
-              >
-                <Icon size={14} />
-                <span>{entry.title}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <AnimatePresence>
-          {previewEntry ? (
-            (() => {
-              const definition = getAppDefinition(previewEntry.appId);
+        <div className="taskbar__windows" ref={windowsRef}>
+          <div className="taskbar__window-strip" onScroll={() => setPreviewEntry(null)}>
+            {entries.map((entry) => {
+              const definition = getAppDefinition(entry.appId);
               const Icon = definition.icon;
-              const previewImage = previewImages[previewEntry.id];
 
               return (
-                <motion.div
-                  key={previewEntry.id}
-                  className="taskbar__preview"
-                  style={{ left: previewEntry.left, width: TASKBAR_PREVIEW_WIDTH }}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ duration: 0.14 }}
-                >
-                  <div className="taskbar__preview-frame">
-                    {previewImage ? (
-                      <img
-                        className="taskbar__preview-image"
-                        src={previewImage}
-                        alt={`${previewEntry.title} preview`}
-                      />
-                    ) : (
-                      <div className="taskbar__preview-fallback">
-                        <span
-                          className="taskbar__preview-fallback-icon"
-                          style={{ "--app-accent": definition.accent } as React.CSSProperties}
-                        >
-                          <Icon size={24} />
-                        </span>
-                        <small>{previewEntry.minimized ? "Preview unavailable while minimized" : "Live preview unavailable"}</small>
-                      </div>
-                    )}
-                  </div>
-                  <strong>{previewEntry.preview.title}</strong>
-                  <small>{previewEntry.preview.subtitle}</small>
-                  <span className={`taskbar__preview-status is-${previewEntry.preview.status}`}>
-                    {previewEntry.preview.status}
-                  </span>
-                </motion.div>
-              );
-            })()
-          ) : null}
-        </AnimatePresence>
-      </div>
+                <button
+                  key={entry.id}
+                  data-window-id={entry.windowId}
+                  className={`taskbar__item ${entry.active ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    if (prefersTapPreview) {
+                      const activeButton = windowsRef.current?.querySelector<HTMLButtonElement>(
+                        `[data-window-id="${entry.windowId}"]`
+                      );
 
-      <div className="taskbar__tray">
-        <span className="taskbar__theme">
-          <Sparkles size={14} />
-          {themeName}
-        </span>
-        <button
-          className={`taskbar__clock ${calendarOpen ? "is-active" : ""}`}
-          type="button"
-          onClick={onToggleCalendar}
-        >
-          <strong>{formatClock(now)}</strong>
-          <small>{formatDateLabel(now)}</small>
-        </button>
-        <button className="taskbar__desktop" type="button" onClick={onShowDesktop}>
-          <MonitorDown size={14} />
-        </button>
-      </div>
-    </footer>
+                      if (!activeButton) {
+                        onToggleWindow(entry.windowId);
+                        return;
+                      }
+
+                      const placement = getPreviewPlacement(activeButton);
+                      const nextPreviewEntry = {
+                        ...entry,
+                        ...placement,
+                      };
+
+                    if (previewEntry?.windowId !== entry.windowId) {
+                      setPreviewEntry(nextPreviewEntry);
+                      void capturePreview(entry);
+                      return;
+                    }
+                  }
+
+                  setPreviewEntry((current) =>
+                    current?.windowId === entry.windowId && prefersTapPreview ? null : current
+                  );
+                  onToggleWindow(entry.windowId);
+                  }}
+                  onMouseEnter={(event) => {
+                    if (prefersTapPreview) {
+                      return;
+                    }
+
+                    const placement = getPreviewPlacement(event.currentTarget);
+                    setPreviewEntry({
+                      ...entry,
+                      ...placement,
+                    });
+                    void capturePreview(entry);
+                  }}
+                  onMouseLeave={() => {
+                    if (prefersTapPreview) {
+                      return;
+                    }
+
+                    setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current));
+                  }}
+                >
+                  <Icon size={14} />
+                  <span>{entry.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="taskbar__tray">
+          <button
+            className={`taskbar__clock ${calendarOpen ? "is-active" : ""}`}
+            type="button"
+            onClick={onToggleCalendar}
+          >
+            <strong>{formatClock(now)}</strong>
+            <small>{formatDateLabel(now)}</small>
+          </button>
+          <button className="taskbar__desktop" type="button" onClick={onShowDesktop}>
+            <MonitorDown size={14} />
+          </button>
+        </div>
+      </footer>
+
+      {previewNode}
+    </>
   );
 }

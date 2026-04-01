@@ -304,6 +304,22 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     browserRenderable: true,
     capabilities: ["open", "preview", "inline-preview"],
   },
+  ".img": {
+    extension: ".img",
+    openWith: "v86",
+    mimeType: "application/octet-stream",
+    family: "other",
+    label: "Disk image",
+    capabilities: ["open"],
+  },
+  ".iso": {
+    extension: ".iso",
+    openWith: "v86",
+    mimeType: "application/x-iso9660-image",
+    family: "other",
+    label: "ISO image",
+    capabilities: ["open"],
+  },
 };
 
 export function normalizeExtensionKey(extension: string) {

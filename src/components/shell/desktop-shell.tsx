@@ -22,6 +22,7 @@ import type { DesktopEntry } from "@/types/system";
 export function DesktopShell() {
   const {
     windows,
+    processes,
     activeWindowId,
     selectedIconId,
     startMenuOpen,
@@ -56,6 +57,7 @@ export function DesktopShell() {
   } = useSystemStore(
     useShallow((state) => ({
       windows: state.windows,
+      processes: state.processes,
       activeWindowId: state.activeWindowId,
       selectedIconId: state.selectedIconId,
       startMenuOpen: state.startMenuOpen,
@@ -118,8 +120,8 @@ export function DesktopShell() {
     [themeId]
   );
   const taskbarEntries = useMemo(
-    () => buildTaskbarWindowEntries(windows, activeWindowId),
-    [activeWindowId, windows]
+    () => buildTaskbarWindowEntries(processes, windows),
+    [processes, windows]
   );
 
   const openExternal = (url: string) => {
@@ -477,7 +479,6 @@ export function DesktopShell() {
         startMenuOpen={startMenuOpen}
         searchOpen={searchOpen}
         calendarOpen={calendarOpen}
-        themeName={theme.name}
         onToggleStartMenu={toggleStartMenu}
         onToggleSearch={toggleSearch}
         onToggleCalendar={() => setCalendarOpen(!calendarOpen)}

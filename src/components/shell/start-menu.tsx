@@ -32,7 +32,6 @@ export function StartMenu({
   onRequestClose,
 }: StartMenuProps) {
   const [query, setQuery] = useState("");
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<AppCategory, boolean>>(() =>
     startMenuCategories.reduce<Record<AppCategory, boolean>>((state, category) => {
       state[category.category] = category.defaultExpanded;
@@ -115,7 +114,6 @@ export function StartMenu({
   return (
     <StartMenuShell menuRef={menuRef}>
       <StartSidebar
-        expanded={sidebarExpanded}
         shortcuts={[
           {
             id: "resume",
@@ -126,8 +124,6 @@ export function StartMenu({
           ...startMenuSidebarLinks,
         ]}
         powerActions={startMenuPowerActions}
-        onToggleExpanded={() => setSidebarExpanded((expanded) => !expanded)}
-        onHoverExpandedChange={setSidebarExpanded}
         onExecuteAction={executeShortcut}
       />
 

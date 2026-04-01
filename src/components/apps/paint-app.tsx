@@ -180,8 +180,8 @@ export function PaintApp({ window }: AppComponentProps) {
         title={canvasName}
         subtitle={
           activeFile
-            ? `${activeFile.extension.toUpperCase()} edit workspace${activeFile.readonly ? " | read only source" : ""}`
-            : "New canvas"
+            ? `${activeFile.extension.toUpperCase()} workspace${activeFile.readonly ? " | export to save" : ""}`
+            : "Blank canvas"
         }
         actions={
           <>
@@ -259,7 +259,6 @@ export function PaintApp({ window }: AppComponentProps) {
         <div className="paint-app__fallback">
           <strong>Paint cannot edit this source yet</strong>
           <p>{loadError}</p>
-          <p>Browser-native raster formats are fully editable. TIFF, HEIC, JPEG XL, and QOI stay staged for later decoders.</p>
         </div>
       ) : null}
 
@@ -301,13 +300,6 @@ export function PaintApp({ window }: AppComponentProps) {
           }}
         />
       </div>
-
-      {!canEditCanvas && !loadError ? (
-        <div className="paint-app__fallback">
-          <strong>Open an editable image to start drawing</strong>
-          <p>Paint supports PNG, JPG, JPEG, WebP, BMP, GIF, and ICO sources in this first implementation batch.</p>
-        </div>
-      ) : null}
     </div>
   );
 }
