@@ -34,6 +34,8 @@ const quickPlaces = [
   { label: "Desktop", path: "/Desktop" },
   { label: "Portfolio", path: "/Portfolio" },
   { label: "Case Studies", path: "/Portfolio/Case Studies" },
+  { label: "Games", path: "/Games" },
+  { label: "Music", path: "/Media/Music" },
   { label: "Photography", path: "/Media/Photography" },
   { label: "Videos", path: "/Media/Videos" },
   { label: "Documents", path: "/Documents" },

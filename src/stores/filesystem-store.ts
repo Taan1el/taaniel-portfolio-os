@@ -15,6 +15,7 @@ import {
   updateBinaryFileRecord,
   updateTextFileRecord,
 } from "@/lib/filesystem";
+import { ensureNotesWorkspace } from "@/lib/notes";
 import type { FileSystemRecord } from "@/types/system";
 
 interface FileSystemState {
@@ -63,7 +64,13 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       return;
     }
 
-    const nodes = await loadFileSystem();
+    const storedNodes = await loadFileSystem();
+    const nodes = ensureNotesWorkspace(storedNodes);
+
+    if (nodes !== storedNodes) {
+      await persistNodes(nodes);
+    }
+
     set({ nodes, initialized: true });
   },
   createDirectory: async (directoryPath, name) => {
@@ -116,7 +123,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
   },
   canCutNode: (path) => !hasReadonlyContent(get().nodes, path),
   reset: async () => {
-    const nodes = buildSeedFileSystem();
+    const nodes = ensureNotesWorkspace(buildSeedFileSystem());
     set({ nodes, initialized: true });
     await clearPersistedFileSystem();
     await persistNodes(nodes);

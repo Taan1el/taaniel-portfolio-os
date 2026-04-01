@@ -202,10 +202,29 @@ img {
     transform 160ms ease;
 }
 
+.desktop-icon-button {
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
 .desktop-icon:hover,
 .desktop-icon.is-selected {
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(18px);
+}
+
+.desktop-icon.is-drag-source {
+  opacity: 0.28;
+}
+
+.desktop-icon.desktop-drag-ghost {
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.96;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.28);
 }
 
 .desktop-icon__glyph {
@@ -239,13 +258,22 @@ img {
   pointer-events: auto !important;
 }
 
+.window-frame__rnd.is-animated {
+  transition:
+    transform 180ms ease,
+    left 180ms ease,
+    top 180ms ease,
+    width 180ms ease,
+    height 180ms ease;
+}
+
 .window-frame {
   display: flex;
   height: 100%;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 1.4rem;
+  border-radius: 1rem;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 24%),
     var(--shell-surface);
@@ -428,7 +456,6 @@ img {
 .action-row,
 .app-toolbar__group,
 .taskbar__tray,
-.taskbar__windows,
 .taskbar__theme,
 .footer-links,
 .token-list {
@@ -618,6 +645,31 @@ h3 {
 
 .contact-card h2 {
   font-size: 1.05rem;
+}
+
+.contact-app__hero {
+  align-items: center;
+}
+
+.contact-app__hero p:last-child,
+.contact-app__links small {
+  color: var(--text-muted);
+}
+
+.contact-app__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.contact-app__links {
+  display: grid;
+  gap: 1rem;
+}
+
+.contact-app__links .link-grid {
+  margin-top: 0;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .inline-link,
@@ -861,6 +913,116 @@ h3 {
   min-height: 0;
 }
 
+.notes-app {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+}
+
+.notes-app__sidebar {
+  display: grid;
+  min-height: 0;
+  align-content: start;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-right: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.notes-app__sidebar-head {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.notes-app__list {
+  display: grid;
+  min-height: 0;
+  gap: 0.65rem;
+  overflow: auto;
+}
+
+.notes-app__list-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.notes-app__list-item.is-active {
+  border-color: color-mix(in srgb, var(--theme-accent) 34%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--theme-accent) 12%, rgba(255, 255, 255, 0.03));
+}
+
+.notes-app__list-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--theme-accent) 18%, rgba(255, 255, 255, 0.06));
+  color: color-mix(in srgb, var(--theme-accent) 82%, white 18%);
+}
+
+.notes-app__list-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.notes-app__list-copy strong,
+.notes-app__list-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-app__list-copy small {
+  color: var(--text-muted);
+}
+
+.notes-app__editor {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.notes-app__editor-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.notes-app__editor-head small {
+  color: var(--text-muted);
+}
+
+.notes-app__textarea {
+  width: 100%;
+  min-height: 0;
+  padding: 1.15rem;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.65;
+}
+
+.notes-app__textarea::placeholder {
+  color: var(--text-muted);
+}
+
 .photo-viewer,
 .pdf-viewer,
 .media-viewer {
@@ -900,6 +1062,44 @@ h3 {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-muted);
   text-align: center;
+}
+
+.photo-viewer__filmstrip {
+  display: flex;
+  gap: 0.75rem;
+  overflow: auto hidden;
+  padding: 0 0.1rem 0.25rem;
+}
+
+.photo-viewer__thumb {
+  display: grid;
+  width: 112px;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+  padding: 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.photo-viewer__thumb.is-active {
+  border-color: color-mix(in srgb, var(--theme-accent) 38%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--theme-accent) 12%, rgba(255, 255, 255, 0.03));
+}
+
+.photo-viewer__thumb img {
+  aspect-ratio: 4 / 3;
+  border-radius: 0.7rem;
+  object-fit: cover;
+}
+
+.photo-viewer__thumb span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pdf-viewer__stage {
@@ -1103,6 +1303,282 @@ h3 {
   color: var(--text-muted);
 }
 
+.music-player__layout,
+.tetris-game__layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.music-player__layout {
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+}
+
+.music-player__hero,
+.music-player__playlist,
+.tetris-game__aside,
+.games-hub__card {
+  display: grid;
+  gap: 1rem;
+}
+
+.music-player__cover {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+  border-radius: 1.1rem;
+  background: color-mix(in srgb, var(--theme-accent) 18%, rgba(255, 255, 255, 0.08));
+  color: color-mix(in srgb, var(--theme-accent) 72%, white 28%);
+}
+
+.music-player__meta {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.music-player__meta p:last-child,
+.music-player__track-copy small,
+.arcade-game__footer small,
+.tetris-game__aside small {
+  color: var(--text-muted);
+}
+
+.music-player__controls,
+.music-player__timeline {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.music-player__transport,
+.music-player__volume {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.music-player__play {
+  display: grid;
+  width: 3.25rem;
+  height: 3.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-accent) 26%, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
+}
+
+.music-player__progress {
+  position: relative;
+  height: 0.4rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.music-player__progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--theme-accent), rgba(255, 255, 255, 0.85));
+}
+
+.music-player__time {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.music-player__volume input {
+  width: min(180px, 36vw);
+}
+
+.music-player__playlist-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.music-player__track {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.music-player__track.is-active {
+  border-color: color-mix(in srgb, var(--theme-accent) 38%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--theme-accent) 12%, rgba(255, 255, 255, 0.03));
+}
+
+.music-player__track-index,
+.music-player__track-status,
+.arcade-game__header-actions span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.music-player__track-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.18rem;
+}
+
+.music-player__track-copy strong,
+.music-player__track-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.games-hub__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.games-hub__card {
+  align-content: start;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent),
+    rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.games-hub__card-icon {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  place-items: center;
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--app-accent) 16%, rgba(255, 255, 255, 0.06));
+  color: color-mix(in srgb, var(--app-accent) 80%, white 20%);
+}
+
+.games-hub__card-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.games-hub__card-copy small {
+  color: var(--text-muted);
+}
+
+.arcade-game {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  padding: 1.1rem;
+}
+
+.arcade-game__header,
+.arcade-game__header-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.arcade-game__header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.snake-game__board,
+.tetris-game__board {
+  display: grid;
+  gap: 0.24rem;
+  padding: 0.65rem;
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    rgba(7, 13, 21, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.snake-game__cell,
+.tetris-game__cell {
+  aspect-ratio: 1;
+  border-radius: 0.32rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.snake-game__cell.is-snake {
+  background: color-mix(in srgb, var(--theme-accent) 38%, rgba(118, 255, 166, 0.28));
+}
+
+.snake-game__cell.is-head {
+  background: color-mix(in srgb, var(--theme-accent) 22%, rgba(255, 255, 255, 0.82));
+}
+
+.snake-game__cell.is-food {
+  background: #ff8a5c;
+}
+
+.tetris-game__layout {
+  grid-template-columns: minmax(0, 1fr) 180px;
+  align-items: start;
+}
+
+.tetris-game__cell.is-filled {
+  background: var(--tetris-cell);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.tetris-game__aside {
+  align-content: start;
+}
+
+.dino-game__track {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    linear-gradient(180deg, rgba(8, 14, 22, 0.92), rgba(8, 14, 22, 0.76));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dino-game__runner,
+.dino-game__obstacle,
+.dino-game__ground {
+  position: absolute;
+}
+
+.dino-game__runner {
+  left: 64px;
+  bottom: 28px;
+  width: 42px;
+  height: 42px;
+  border-radius: 0.6rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(202, 216, 239, 0.9));
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.16);
+}
+
+.dino-game__obstacle {
+  bottom: 28px;
+  border-radius: 0.4rem 0.4rem 0 0;
+  background: linear-gradient(180deg, #ffd27d, #ff8a5c);
+}
+
+.dino-game__ground {
+  right: 0;
+  bottom: 18px;
+  left: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .markdown-viewer {
   height: 100%;
   overflow: auto;
@@ -1165,7 +1641,7 @@ h3 {
   align-items: center;
   gap: 0.75rem;
   padding: 0.7rem;
-  border-radius: 1.35rem;
+  border-radius: 1rem;
 }
 
 .taskbar__start,
@@ -1178,7 +1654,7 @@ h3 {
   align-items: center;
   gap: 0.55rem;
   padding: 0.72rem 0.9rem;
-  border-radius: 1rem;
+  border-radius: 0.82rem;
 }
 
 .taskbar__start.is-active,
@@ -1196,40 +1672,94 @@ h3 {
 }
 
 .taskbar__windows {
+  position: relative;
   min-width: 0;
-  overflow: auto hidden;
+  overflow: visible;
 }
 
-.taskbar__item-wrap {
-  position: relative;
+.taskbar__window-strip {
+  display: flex;
+  min-width: 0;
+  gap: 0.75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.taskbar__window-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.taskbar__item {
+  max-width: 190px;
+  flex: 0 0 auto;
+}
+
+.taskbar__item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .taskbar__preview {
   position: absolute;
   bottom: calc(100% + 10px);
-  left: 0;
   min-width: 180px;
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--border);
   border-radius: 1rem;
   background: var(--surface-strong);
   box-shadow: var(--shadow-window);
-  opacity: 0;
   pointer-events: none;
-  transform: translateY(8px);
-  transition:
-    opacity 160ms ease,
-    transform 160ms ease;
-}
-
-.taskbar__item-wrap:hover .taskbar__preview {
-  opacity: 1;
-  transform: translateY(0);
+  z-index: 3;
 }
 
 .taskbar__preview strong,
 .taskbar__preview small {
   display: block;
+}
+
+.taskbar__preview-frame {
+  display: grid;
+  aspect-ratio: 16 / 10;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    rgba(6, 11, 18, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.taskbar__preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.taskbar__preview-fallback {
+  display: grid;
+  place-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.taskbar__preview-fallback-icon {
+  display: grid;
+  width: 3.2rem;
+  height: 3.2rem;
+  place-items: center;
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--app-accent) 22%, rgba(255, 255, 255, 0.06));
+  color: color-mix(in srgb, var(--app-accent) 82%, white 18%);
+}
+
+.taskbar__preview small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .taskbar__preview-status {
@@ -1537,6 +2067,7 @@ h3 {
   display: grid;
   align-content: start;
   gap: 0.6rem;
+  min-width: 0;
 }
 
 .search-panel__empty {
@@ -1547,9 +2078,11 @@ h3 {
 }
 
 .search-result {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.7rem;
+  min-width: 0;
   padding: 0.8rem;
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.03);
@@ -1566,16 +2099,21 @@ h3 {
   background: color-mix(in srgb, var(--app-accent, var(--theme-accent)) 22%, rgba(255, 255, 255, 0.06));
 }
 
-.search-result span:last-child {
+.search-result__meta {
   display: grid;
   gap: 0.15rem;
   min-width: 0;
 }
 
-.search-result small {
-  color: var(--text-muted);
+.search-result__meta strong,
+.search-result__meta small {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result__meta small {
+  color: var(--text-muted);
 }
 
 .calendar-popover {
@@ -1673,6 +2211,12 @@ h3 {
   }
 
   .browser-app__content {
+    grid-template-columns: 1fr;
+  }
+
+  .music-player__layout,
+  .games-hub__grid,
+  .tetris-game__layout {
     grid-template-columns: 1fr;
   }
 

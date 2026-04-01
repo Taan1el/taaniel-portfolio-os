@@ -113,8 +113,10 @@ export const featuredProjects: FeaturedProject[] = [
 ];
 
 export const photographyAssets = [
+  { title: "Austria Mountains", src: resolvePublicAssetUrl("assets/austria_mountains_canon.jpg") },
   { title: "Clouds", src: resolvePublicAssetUrl("assets/Clouds.jpg") },
   { title: "Flower", src: resolvePublicAssetUrl("assets/flower.jpg") },
+  { title: "Flower in Austria", src: resolvePublicAssetUrl("assets/flower_in_austria_canon.jpg") },
   { title: "Flowers", src: resolvePublicAssetUrl("assets/flowers.jpg") },
   { title: "Mountains", src: resolvePublicAssetUrl("assets/mountains.jpg") },
   { title: "Mushrooms", src: resolvePublicAssetUrl("assets/mushrooms.jpg") },
@@ -152,6 +154,16 @@ export const themePresets: ThemePreset[] = [
     glow: "rgba(255, 188, 112, 0.34)",
     shell: "rgba(24, 15, 20, 0.82)",
     accent: "#ffb26a",
+  },
+  {
+    id: "alpine-slate",
+    name: "Alpine Slate",
+    wallpaper:
+      `linear-gradient(rgba(6, 12, 20, 0.5), rgba(6, 12, 20, 0.78)), url('${resolvePublicAssetUrl("assets/austria_mountains_canon.jpg")}') center/cover no-repeat`,
+    desktopTint: "rgba(8, 13, 22, 0.6)",
+    glow: "rgba(151, 196, 255, 0.34)",
+    shell: "rgba(8, 14, 24, 0.84)",
+    accent: "#7db1ff",
   },
 ];
 
@@ -192,25 +204,11 @@ export const desktopEntries: DesktopEntry[] = [
     defaultGridPosition: { gridX: 1, gridY: 0 },
   },
   {
-    id: "welcome-file",
-    label: "Welcome.md",
-    type: "file",
-    filePath: "/Desktop/Welcome.md",
-    defaultGridPosition: { gridX: 1, gridY: 1 },
-  },
-  {
     id: "photo-folder",
     label: "Photography",
     type: "folder",
     directoryPath: "/Media/Photography",
     defaultGridPosition: { gridX: 1, gridY: 2 },
-  },
-  {
-    id: "terminal-app",
-    label: "Terminal",
-    type: "app",
-    appId: "terminal",
-    defaultGridPosition: { gridX: 1, gridY: 3 },
   },
   {
     id: "browser-app",
@@ -220,24 +218,10 @@ export const desktopEntries: DesktopEntry[] = [
     defaultGridPosition: { gridX: 2, gridY: 3 },
   },
   {
-    id: "blog-folder",
-    label: "Blog",
-    type: "folder",
-    directoryPath: "/Users/Public/Blog",
-    defaultGridPosition: { gridX: 2, gridY: 0 },
-  },
-  {
     id: "github-link",
     label: "GitHub",
     type: "link",
     externalUrl: "https://github.com/Taan1el",
     defaultGridPosition: { gridX: 2, gridY: 1 },
-  },
-  {
-    id: "linkedin-link",
-    label: "LinkedIn",
-    type: "link",
-    externalUrl: "https://www.linkedin.com/in/taaniel-vananurm-1a203b3bb/",
-    defaultGridPosition: { gridX: 2, gridY: 2 },
   },
 ];

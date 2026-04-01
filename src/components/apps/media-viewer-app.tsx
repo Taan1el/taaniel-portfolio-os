@@ -40,9 +40,21 @@ export function MediaViewerApp({ window }: AppComponentProps) {
 
       <div className="media-viewer__canvas">
         {file.mimeType.startsWith("audio/") ? (
-          <audio ref={mediaRef as React.RefObject<HTMLAudioElement>} controls src={file.source ?? demoVideo} />
+          <audio
+            ref={(element) => {
+              mediaRef.current = element;
+            }}
+            controls
+            src={file.source ?? demoVideo}
+          />
         ) : (
-          <video ref={mediaRef as React.RefObject<HTMLVideoElement>} controls src={file.source ?? demoVideo} />
+          <video
+            ref={(element) => {
+              mediaRef.current = element;
+            }}
+            controls
+            src={file.source ?? demoVideo}
+          />
         )}
       </div>
     </div>

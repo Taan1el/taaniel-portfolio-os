@@ -85,23 +85,26 @@ function getDesktopHeight() {
 function getDefaultBounds(appId: AppId, index: number) {
   const definition = getAppDefinition(appId);
   const isMobile = window.innerWidth < 820;
+  const desktopHeight = getDesktopHeight();
 
   if (isMobile) {
     return {
       x: 8,
       y: 8,
       width: window.innerWidth - 16,
-      height: getDesktopHeight() - 8,
+      height: desktopHeight - 8,
     };
   }
 
   const offset = index * 28;
-  const width = Math.min(definition.defaultBounds.width, window.innerWidth - 72);
-  const height = Math.min(definition.defaultBounds.height, getDesktopHeight() - 32);
+  const maxWidth = Math.min(window.innerWidth - 48, Math.floor(window.innerWidth * 0.88));
+  const maxHeight = Math.min(desktopHeight - 20, Math.floor(desktopHeight * 0.86));
+  const width = clamp(Math.min(definition.defaultBounds.width, maxWidth), 540, maxWidth);
+  const height = clamp(Math.min(definition.defaultBounds.height, maxHeight), 360, maxHeight);
 
   return {
     x: clamp(definition.defaultBounds.x + offset, 18, window.innerWidth - width - 18),
-    y: clamp(definition.defaultBounds.y + offset, 18, getDesktopHeight() - height + 18),
+    y: clamp(definition.defaultBounds.y + offset, 18, desktopHeight - height + 18),
     width,
     height,
   };
@@ -115,12 +118,18 @@ function withFocusedWindow(windows: AppWindow[]) {
   return topWindow?.id ?? null;
 }
 
+function createInitialWindowState() {
+  return {
+    windows: [] as AppWindow[],
+    nextZ: 2,
+    activeWindowId: null as string | null,
+  };
+}
+
 export const useSystemStore = create<SystemState>()(
   persist(
     (set, get) => ({
-      windows: [],
-      nextZ: 2,
-      activeWindowId: null,
+      ...createInitialWindowState(),
       selectedIconId: null,
       startMenuOpen: false,
       searchOpen: false,
@@ -146,12 +155,19 @@ export const useSystemStore = create<SystemState>()(
 
         if (existingWindow) {
           const nextZ = get().nextZ + 1;
+          const nextPayload = definition.singleInstance
+            ? payload ?? existingWindow.payload
+            : existingWindow.payload;
+          const nextTitle =
+            title ?? definition.resolveTitle?.(nextPayload) ?? existingWindow.title;
           const windows = get().windows.map((windowState) =>
             windowState.id === existingWindow.id
               ? {
                   ...windowState,
+                  title: nextTitle,
                   minimized: false,
                   minimizedByShowDesktop: false,
+                  payload: nextPayload,
                   zIndex: nextZ,
                 }
               : windowState
@@ -247,14 +263,11 @@ export const useSystemStore = create<SystemState>()(
             }
 
             if (windowState.maximized) {
+              const fallbackBounds = getDefaultBounds(windowState.appId, 0);
+
               return {
                 ...windowState,
-                ...(windowState.restoreBounds ?? {
-                  x: 120,
-                  y: 88,
-                  width: 920,
-                  height: 640,
-                }),
+                ...(windowState.restoreBounds ?? fallbackBounds),
                 maximized: false,
                 restoreBounds: undefined,
               };
@@ -427,17 +440,15 @@ export const useSystemStore = create<SystemState>()(
               ...windowState,
               x: clamp(windowState.x, 8, Math.max(8, window.innerWidth - 120)),
               y: clamp(windowState.y, 8, Math.max(8, desktopHeight - 80)),
-              width: clamp(windowState.width, 320, window.innerWidth - 8),
-              height: clamp(windowState.height, 240, desktopHeight),
+              width: clamp(windowState.width, 360, window.innerWidth - 24),
+              height: clamp(windowState.height, 280, desktopHeight),
             };
           }),
         }));
       },
       resetLayout: () =>
         set({
-          windows: [],
-          nextZ: 2,
-          activeWindowId: null,
+          ...createInitialWindowState(),
           selectedIconId: null,
           startMenuOpen: false,
           searchOpen: false,
@@ -451,10 +462,10 @@ export const useSystemStore = create<SystemState>()(
     }),
     {
       name: SYSTEM_STORAGE_KEY,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState, version) => {
-        if (!persistedState || version >= 2) {
+        if (!persistedState) {
           return persistedState as SystemState;
         }
 
@@ -462,12 +473,29 @@ export const useSystemStore = create<SystemState>()(
           desktopIconPositions?: Record<string, { x?: number; y?: number }>;
         };
 
+        if (version < 2) {
+          return {
+            ...state,
+            ...createInitialWindowState(),
+            desktopIconPositions: initialIconPositions,
+          } as SystemState;
+        }
+
+        if (version < 3) {
+          return {
+            ...state,
+            ...createInitialWindowState(),
+          } as SystemState;
+        }
+
         return {
           ...state,
-          desktopIconPositions: initialIconPositions,
         } as SystemState;
       },
       partialize: (state) => ({
+        windows: state.windows,
+        nextZ: state.nextZ,
+        activeWindowId: state.activeWindowId,
         themeId: state.themeId,
         customWallpaperSource: state.customWallpaperSource,
         desktopIconPositions: state.desktopIconPositions,

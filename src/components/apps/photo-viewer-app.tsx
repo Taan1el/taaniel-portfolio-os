@@ -18,7 +18,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
   const launchApp = useSystemStore((state) => state.launchApp);
   const setCustomWallpaperSource = useSystemStore((state) => state.setCustomWallpaperSource);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const { filePath, next, previous } = useMediaGallery(
+  const { filePath, next, previous, siblings } = useMediaGallery(
     nodes,
     window.payload?.filePath ?? "/Media/Photography/Clouds.jpg",
     isPhotoFile
@@ -149,6 +149,22 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
           </div>
         )}
       </div>
+
+      {siblings.length > 1 ? (
+        <div className="photo-viewer__filmstrip" role="list" aria-label="Image strip">
+          {siblings.map((item) => (
+            <button
+              key={item.path}
+              type="button"
+              className={`photo-viewer__thumb ${item.path === file.path ? "is-active" : ""}`}
+              onClick={() => openFileSystemPath(item.path, nodes, launchApp)}
+            >
+              {item.source ? <img src={item.source} alt={item.name} loading="lazy" /> : null}
+              <span>{item.name.replace(/\.[^.]+$/, "")}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Suspense, type CSSProperties } from "react";
+import { Suspense, useState, type CSSProperties } from "react";
 import { Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
@@ -30,6 +30,7 @@ export function WindowFrame({
   const Icon = definition.icon;
   const WindowComponent = definition.component;
   const isMobile = useMediaQuery("(max-width: 819px)");
+  const [interacting, setInteracting] = useState(false);
 
   return (
     <Rnd
@@ -41,24 +42,33 @@ export function WindowFrame({
       disableDragging={window.maximized || isMobile}
       enableResizing={!window.maximized && !isMobile}
       dragHandleClassName="window-frame__header"
-      onDragStop={(_, data) => onBoundsChange({ x: data.x, y: data.y, width: window.width, height: window.height })}
-      onResizeStop={(_, __, ref, ___, position) =>
+      onDragStart={() => setInteracting(true)}
+      onDragStop={(_, data) => {
+        setInteracting(false);
+        onBoundsChange({ x: data.x, y: data.y, width: window.width, height: window.height });
+      }}
+      onResizeStart={() => setInteracting(true)}
+      onResizeStop={(_, __, ref, ___, position) => {
+        setInteracting(false);
         onBoundsChange({
           x: position.x,
           y: position.y,
           width: ref.offsetWidth,
           height: ref.offsetHeight,
-        })
-      }
+        });
+      }}
       style={{ zIndex: window.zIndex }}
-      className="window-frame__rnd"
+      className={cn("window-frame__rnd", !interacting && "is-animated")}
     >
       <motion.section
+        data-window-preview-id={window.id}
         className={cn("window-frame", active && "is-active")}
         onMouseDown={onFocus}
+        onAnimationComplete={() => setInteracting(false)}
+        layout
         initial={{ opacity: 0, scale: 0.97, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.98, y: 14 }}
+        exit={{ opacity: 0, scale: 0.94, y: 20 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
       >
         <header className="window-frame__header" onDoubleClick={onMaximize}>

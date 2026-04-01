@@ -33,12 +33,12 @@ export function StartMenu({
 }: StartMenuProps) {
   const [query, setQuery] = useState("");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<AppCategory, boolean>>({
-    Portfolio: true,
-    Workspace: true,
-    Media: true,
-    System: false,
-  });
+  const [expandedCategories, setExpandedCategories] = useState<Record<AppCategory, boolean>>(() =>
+    startMenuCategories.reduce<Record<AppCategory, boolean>>((state, category) => {
+      state[category.category] = category.defaultExpanded;
+      return state;
+    }, {} as Record<AppCategory, boolean>)
+  );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLElement | null>(null);
   const apps = getAppRegistry();

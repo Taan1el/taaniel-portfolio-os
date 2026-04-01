@@ -26,7 +26,7 @@ export function WindowManager({
 }: WindowManagerProps) {
   return (
     <div className="window-manager">
-      <AnimatePresence>
+      <AnimatePresence initial={false} mode="popLayout">
         {windows
           .filter((windowState) => !windowState.minimized)
           .map((windowState) => (

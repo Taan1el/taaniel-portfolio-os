@@ -1,18 +1,23 @@
 import { lazy } from "react";
 import {
+  Bird,
   BookText,
+  Blocks,
   BriefcaseBusiness,
   Brush,
   Clapperboard,
   Code2,
   FolderOpen,
+  Gamepad2,
   Globe2,
   Image,
   Mail,
   MonitorCog,
+  Music4,
   ScrollText,
   TerminalSquare,
   UserRound,
+  Waypoints,
 } from "lucide-react";
 import { getBaseName } from "@/lib/utils";
 import type { AppDefinition, AppId } from "@/types/system";
@@ -35,8 +40,26 @@ const TerminalApp = lazy(async () => ({
 const CodeEditorApp = lazy(async () => ({
   default: (await import("@/components/apps/code-editor-app")).CodeEditorApp,
 }));
+const NotesApp = lazy(async () => ({
+  default: (await import("@/components/apps/notes-app")).NotesApp,
+}));
 const VideoPlayerApp = lazy(async () => ({
   default: (await import("@/components/apps/media-viewer-app")).MediaViewerApp,
+}));
+const MusicPlayerApp = lazy(async () => ({
+  default: (await import("@/components/apps/music-player-app")).MusicPlayerApp,
+}));
+const GamesApp = lazy(async () => ({
+  default: (await import("@/components/apps/games-app")).GamesApp,
+}));
+const SnakeApp = lazy(async () => ({
+  default: (await import("@/components/apps/snake-app")).SnakeApp,
+}));
+const TetrisApp = lazy(async () => ({
+  default: (await import("@/components/apps/tetris-app")).TetrisApp,
+}));
+const DinoApp = lazy(async () => ({
+  default: (await import("@/components/apps/dino-app")).DinoApp,
 }));
 const PhotoViewerApp = lazy(async () => ({
   default: (await import("@/components/apps/photo-viewer-app")).PhotoViewerApp,
@@ -87,7 +110,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Portfolio",
     icon: Mail,
     accent: "#ffd374",
-    defaultBounds: { x: 198, y: 118, width: 760, height: 560 },
+    defaultBounds: { x: 198, y: 118, width: 720, height: 520 },
     singleInstance: true,
     component: ContactApp,
   },
@@ -98,7 +121,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Workspace",
     icon: FolderOpen,
     accent: "#84b6ff",
-    defaultBounds: { x: 176, y: 84, width: 980, height: 680 },
+    defaultBounds: { x: 176, y: 84, width: 940, height: 640 },
     component: FileExplorerApp,
     resolveTitle: (payload) =>
       payload?.directoryPath ? `Explorer - ${getBaseName(payload.directoryPath)}` : "File Explorer",
@@ -110,12 +133,69 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Workspace",
     icon: BookText,
     accent: "#ffe58f",
-    defaultBounds: { x: 200, y: 100, width: 780, height: 540 },
-    component: CodeEditorApp,
+    defaultBounds: { x: 200, y: 100, width: 900, height: 600 },
+    component: NotesApp,
     resolveTitle: (payload) =>
       payload?.filePath
         ? `Notes - ${getBaseName(payload.filePath)}`
         : "Notes",
+  },
+  music: {
+    id: "music",
+    title: "Music Player",
+    description: "Mini player for local MP3 and WAV files with a folder-based playlist.",
+    category: "Media",
+    icon: Music4,
+    accent: "#82f4d7",
+    defaultBounds: { x: 218, y: 104, width: 860, height: 600 },
+    singleInstance: true,
+    component: MusicPlayerApp,
+    resolveTitle: (payload) =>
+      payload?.filePath ? `Music - ${getBaseName(payload.filePath)}` : "Music Player",
+  },
+  games: {
+    id: "games",
+    title: "Games",
+    description: "Arcade hub with lightweight browser games inside the desktop shell.",
+    category: "Media",
+    icon: Gamepad2,
+    accent: "#8ba8ff",
+    defaultBounds: { x: 212, y: 100, width: 900, height: 620 },
+    singleInstance: true,
+    component: GamesApp,
+  },
+  snake: {
+    id: "snake",
+    title: "Snake",
+    description: "Classic grid-based arcade game with keyboard controls.",
+    category: "Media",
+    icon: Waypoints,
+    accent: "#8bff9f",
+    defaultBounds: { x: 258, y: 126, width: 760, height: 560 },
+    singleInstance: true,
+    component: SnakeApp,
+  },
+  tetris: {
+    id: "tetris",
+    title: "Tetris",
+    description: "Stack, rotate, and clear lines in a compact windowed board.",
+    category: "Media",
+    icon: Blocks,
+    accent: "#84b6ff",
+    defaultBounds: { x: 244, y: 110, width: 780, height: 640 },
+    singleInstance: true,
+    component: TetrisApp,
+  },
+  dino: {
+    id: "dino",
+    title: "Dino",
+    description: "Offline runner-inspired game with click and keyboard jumps.",
+    category: "Media",
+    icon: Bird,
+    accent: "#ffd27d",
+    defaultBounds: { x: 252, y: 132, width: 760, height: 520 },
+    singleInstance: true,
+    component: DinoApp,
   },
   terminal: {
     id: "terminal",
@@ -124,7 +204,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Workspace",
     icon: TerminalSquare,
     accent: "#92ffb6",
-    defaultBounds: { x: 214, y: 126, width: 860, height: 540 },
+    defaultBounds: { x: 214, y: 126, width: 820, height: 520 },
     singleInstance: true,
     component: TerminalApp,
   },
@@ -135,7 +215,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Workspace",
     icon: Code2,
     accent: "#7fa2ff",
-    defaultBounds: { x: 186, y: 92, width: 940, height: 660 },
+    defaultBounds: { x: 186, y: 92, width: 900, height: 620 },
     component: CodeEditorApp,
     resolveTitle: (payload) => (payload?.filePath ? `Editor - ${getBaseName(payload.filePath)}` : "Code Editor"),
   },
@@ -168,7 +248,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Workspace",
     icon: ScrollText,
     accent: "#ffcf8f",
-    defaultBounds: { x: 178, y: 92, width: 840, height: 620 },
+    defaultBounds: { x: 178, y: 92, width: 820, height: 600 },
     component: MarkdownViewerApp,
     resolveTitle: (payload) =>
       payload?.filePath ? `Document - ${getBaseName(payload.filePath)}` : "Markdown Viewer",
@@ -191,7 +271,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Workspace",
     icon: Globe2,
     accent: "#8be0ff",
-    defaultBounds: { x: 188, y: 82, width: 980, height: 700 },
+    defaultBounds: { x: 188, y: 82, width: 940, height: 660 },
     component: BrowserApp,
     resolveTitle: (payload) => payload?.externalUrl ?? "Browser",
   },
@@ -202,7 +282,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Workspace",
     icon: BookText,
     accent: "#ffe58f",
-    defaultBounds: { x: 208, y: 84, width: 920, height: 700 },
+    defaultBounds: { x: 208, y: 84, width: 880, height: 660 },
     component: PdfViewerApp,
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "PDF Viewer"),
   },
@@ -213,7 +293,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Media",
     icon: Brush,
     accent: "#ffb680",
-    defaultBounds: { x: 198, y: 84, width: 960, height: 720 },
+    defaultBounds: { x: 198, y: 84, width: 900, height: 640 },
     component: PaintApp,
     resolveTitle: (payload) => (payload?.filePath ? `Paint - ${getBaseName(payload.filePath)}` : "Paint"),
   },
@@ -224,7 +304,7 @@ const registry: Record<AppId, AppDefinition> = {
     category: "Portfolio",
     icon: BookText,
     accent: "#ffe58f",
-    defaultBounds: { x: 208, y: 84, width: 880, height: 680 },
+    defaultBounds: { x: 208, y: 84, width: 860, height: 640 },
     hidden: true,
     component: PdfViewerApp,
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Resume"),

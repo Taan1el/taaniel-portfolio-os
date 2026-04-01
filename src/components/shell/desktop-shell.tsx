@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { themePresets } from "@/data/portfolio";
 import { resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
-import { clearPersistedFileSystem, downloadFileNode, normalizePath } from "@/lib/filesystem";
+import { downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { CalendarPopover } from "@/components/system/calendar-popover";
@@ -16,10 +16,8 @@ import { Taskbar } from "@/components/shell/taskbar";
 import { WindowManager } from "@/components/shell/window-manager";
 import { useShellShortcuts } from "@/hooks/use-shell-shortcuts";
 import { useFileSystemStore } from "@/stores/filesystem-store";
-import { SYSTEM_STORAGE_KEY, useSystemStore } from "@/stores/system-store";
+import { useSystemStore } from "@/stores/system-store";
 import type { DesktopEntry } from "@/types/system";
-
-const FIRST_RUN_KEY = "taaniel-os-first-run-v1";
 
 export function DesktopShell() {
   const {
@@ -182,13 +180,6 @@ export function DesktopShell() {
     onCloseActiveWindow: closeWindow,
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
-    onOpenStartMenuWithLauncherKey: () => {
-      setStartMenuOpen(true);
-
-      if (!document.fullscreenElement) {
-        void toggleDocumentFullscreen();
-      }
-    },
   });
 
   useEffect(() => {
@@ -203,24 +194,6 @@ export function DesktopShell() {
       window.removeEventListener("resize", handleResize);
     };
   }, [hydrateForViewport, initialize]);
-
-  useEffect(() => {
-    if (!initialized || windows.length > 0 || localStorage.getItem(FIRST_RUN_KEY)) {
-      return;
-    }
-
-    launchApp({ appId: "about" });
-    const freshNodes = useFileSystemStore.getState().nodes;
-
-    if (freshNodes["/Desktop/Welcome.md"]) {
-      launchApp({
-        appId: "markdown",
-        payload: { filePath: "/Desktop/Welcome.md" },
-      });
-    }
-
-    localStorage.setItem(FIRST_RUN_KEY, "true");
-  }, [initialized, launchApp, windows.length]);
 
   const activateEntry = (entry: DesktopEntry) => {
     if (entry.type === "app" && entry.appId) {
@@ -249,11 +222,11 @@ export function DesktopShell() {
   };
 
   const resetSession = async () => {
-    resetLayout();
-    await clearPersistedFileSystem();
+    closeShellOverlays();
+    clearClipboard();
+    setSelectedIconId(null);
     await resetFileSystem();
-    localStorage.removeItem(FIRST_RUN_KEY);
-    window.localStorage.removeItem(SYSTEM_STORAGE_KEY);
+    resetLayout();
   };
 
   const openDesktopContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
