@@ -6,6 +6,10 @@ import { getAppRegistry } from "@/lib/app-registry";
 import { searchNodes } from "@/lib/filesystem";
 import type { AppId, FileSystemRecord } from "@/types/system";
 
+function formatSearchLink(url: string) {
+  return url.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
+}
+
 interface SearchPanelProps {
   nodes: FileSystemRecord;
   onLaunchApp: (appId: AppId) => void;
@@ -112,9 +116,9 @@ export function SearchPanel({
                 <span className="search-result__icon" style={{ "--app-accent": app.accent } as CSSProperties}>
                   <Icon size={16} />
                 </span>
-                <span>
-                  <strong>{app.title}</strong>
-                  <small>{app.category}</small>
+                <span className="search-result__meta">
+                  <strong title={app.title}>{app.title}</strong>
+                  <small title={app.category}>{app.category}</small>
                 </span>
               </button>
             );
@@ -134,9 +138,9 @@ export function SearchPanel({
                 <span className="search-result__icon">
                   {node.kind === "directory" ? <Folder size={16} /> : <FileText size={16} />}
                 </span>
-                <span>
-                  <strong>{node.name}</strong>
-                  <small>{node.path}</small>
+                <span className="search-result__meta">
+                  <strong title={node.name}>{node.name}</strong>
+                  <small title={node.path}>{node.path}</small>
                 </span>
               </button>
             ))
@@ -157,9 +161,9 @@ export function SearchPanel({
               <span className="search-result__icon">
                 <ExternalLink size={16} />
               </span>
-              <span>
-                <strong>{link.label}</strong>
-                <small>{link.url.replace(/^https?:\/\//, "")}</small>
+              <span className="search-result__meta">
+                <strong title={link.label}>{link.label}</strong>
+                <small title={formatSearchLink(link.url)}>{formatSearchLink(link.url)}</small>
               </span>
             </button>
           ))}

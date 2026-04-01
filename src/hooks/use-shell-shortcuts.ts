@@ -8,19 +8,6 @@ interface UseShellShortcutsOptions {
   onCloseActiveWindow: (windowId: string) => void;
   onOpenTerminal: () => void;
   onToggleFullscreen: () => void;
-  onOpenStartMenuWithLauncherKey: () => void;
-}
-
-function isLauncherMetaKey(event: KeyboardEvent) {
-  return (
-    (event.key === "Meta" ||
-      event.key === "OS" ||
-      event.code === "MetaLeft" ||
-      event.code === "MetaRight") &&
-    !event.ctrlKey &&
-    !event.altKey &&
-    !event.shiftKey
-  );
 }
 
 export function useShellShortcuts({
@@ -31,7 +18,6 @@ export function useShellShortcuts({
   onCloseActiveWindow,
   onOpenTerminal,
   onToggleFullscreen,
-  onOpenStartMenuWithLauncherKey,
 }: UseShellShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -45,12 +31,6 @@ export function useShellShortcuts({
 
       if (event.key === "Escape") {
         onCloseOverlays();
-        return;
-      }
-
-      if (isLauncherMetaKey(event) && !event.repeat) {
-        event.preventDefault();
-        onOpenStartMenuWithLauncherKey();
         return;
       }
 
@@ -84,7 +64,6 @@ export function useShellShortcuts({
     activeWindowId,
     onCloseActiveWindow,
     onCloseOverlays,
-    onOpenStartMenuWithLauncherKey,
     onOpenTerminal,
     onToggleFullscreen,
     onToggleSearch,

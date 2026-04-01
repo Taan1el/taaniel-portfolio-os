@@ -46,4 +46,37 @@ describe("file-registry", () => {
     expect(resolveOpenApp(node)).toBe("markdown");
     expect(resolveEditApp(node)).toBe("editor");
   });
+
+  it("routes notes workspace files into the inline notes app", () => {
+    const node = {
+      kind: "file" as const,
+      path: "/Documents/Notes/To-do list.txt",
+      name: "To-do list.txt",
+      extension: "txt",
+      mimeType: "text/plain",
+      createdAt: 1,
+      updatedAt: 1,
+      content: "Buy milk",
+    };
+
+    expect(resolveOpenApp(node)).toBe("notes");
+    expect(resolveEditApp(node)).toBe("notes");
+  });
+
+  it("routes mp3 files into the music player", () => {
+    const node = {
+      kind: "file" as const,
+      path: "/Media/Music/Studio Loop.mp3",
+      name: "Studio Loop.mp3",
+      extension: "mp3",
+      mimeType: "audio/mpeg",
+      createdAt: 1,
+      updatedAt: 1,
+      source: "/assets/studio-loop.mp3",
+    };
+
+    expect(resolveOpenApp(node)).toBe("music");
+    expect(resolveEditApp(node)).toBeNull();
+    expect(supportsInlinePreview("mp3")).toBe(true);
+  });
 });

@@ -1,4 +1,5 @@
 import type { AppId, FileAssociationDescriptor, VirtualNode } from "@/types/system";
+import { isNotesNode } from "@/lib/notes";
 
 const fileAssociations: Record<string, FileAssociationDescriptor> = {
   ".bmp": {
@@ -287,7 +288,7 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
   },
   ".mp3": {
     extension: ".mp3",
-    openWith: "video",
+    openWith: "music",
     mimeType: "audio/mpeg",
     family: "audio",
     label: "MP3 audio",
@@ -296,7 +297,7 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
   },
   ".wav": {
     extension: ".wav",
-    openWith: "video",
+    openWith: "music",
     mimeType: "audio/wav",
     family: "audio",
     label: "WAV audio",
@@ -350,7 +351,11 @@ function resolveFallbackApp(node: VirtualNode) {
     return "photos";
   }
 
-  if (node.mimeType.startsWith("video/") || node.mimeType.startsWith("audio/")) {
+  if (node.mimeType.startsWith("audio/")) {
+    return "music";
+  }
+
+  if (node.mimeType.startsWith("video/")) {
     return "video";
   }
 
@@ -370,12 +375,20 @@ export function resolveOpenApp(node?: VirtualNode): AppId {
     return "files";
   }
 
+  if (isNotesNode(node)) {
+    return "notes";
+  }
+
   return getFileAssociationDescriptor(node.extension)?.openWith ?? resolveFallbackApp(node);
 }
 
 export function resolveEditApp(node?: VirtualNode): AppId | null {
   if (!node || node.kind === "directory") {
     return null;
+  }
+
+  if (isNotesNode(node)) {
+    return "notes";
   }
 
   return getFileAssociationDescriptor(node.extension)?.editWith ?? (isTextLikeExtension(node.extension) ? "editor" : null);

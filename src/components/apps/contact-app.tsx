@@ -11,15 +11,19 @@ export function ContactApp({ window }: AppComponentProps) {
 
   return (
     <div className="app-screen contact-app">
-      <section className="hero-panel">
+      <section className="glass-card contact-app__hero">
         <div>
-          <p className="eyebrow">Get in touch</p>
-          <h1>Available for thoughtful frontend and UI work</h1>
-          <p className="lead">{profile.availability}</p>
+          <p className="eyebrow">Contact</p>
+          <h1>{profile.name}</h1>
+          <p>{profile.location}</p>
         </div>
+        <a className="ghost-button" href={profile.email}>
+          <Mail size={15} />
+          Compose email
+        </a>
       </section>
 
-      <div className="dashboard-grid">
+      <div className="contact-app__grid">
         <article className="glass-card contact-card">
           <div className="section-row">
             <div>
@@ -55,13 +59,16 @@ export function ContactApp({ window }: AppComponentProps) {
         </article>
       </div>
 
-      <article className="glass-card">
-        <p className="eyebrow">Links</p>
+      <article className="glass-card contact-app__links">
+        <div className="section-row">
+          <p className="eyebrow">Links</p>
+          <small>{socialLinks.length} profiles</small>
+        </div>
         <div className="link-grid">
           {socialLinks.map((link) => (
             <a key={link.label} href={link.url} target="_blank" rel="noreferrer" className="contact-link-card">
               <strong>{link.label}</strong>
-              <span>{link.url.replace(/^https?:\/\//, "")}</span>
+              <span>{link.url.replace(/^https?:\/\/(www\.)?/i, "")}</span>
               <ExternalLink size={15} />
             </a>
           ))}

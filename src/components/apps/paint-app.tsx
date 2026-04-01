@@ -71,8 +71,8 @@ export function PaintApp({ window }: AppComponentProps) {
     }
 
     const initializeBlankCanvas = () => {
-      canvas.width = 1280;
-      canvas.height = 900;
+      canvas.width = 960;
+      canvas.height = 640;
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, canvas.width, canvas.height);
     };
@@ -92,8 +92,8 @@ export function PaintApp({ window }: AppComponentProps) {
 
     void loadImage(activeFile.source)
       .then((image) => {
-        canvas.width = image.naturalWidth || 1280;
-        canvas.height = image.naturalHeight || 900;
+        canvas.width = image.naturalWidth || 960;
+        canvas.height = image.naturalHeight || 640;
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
       })
