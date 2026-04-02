@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Brush, Download, Eraser, PaintBucket, Save } from "lucide-react";
-import { AppContent, AppFooter, AppScaffold } from "@/components/apps/app-layout";
-import { MediaToolbar } from "@/components/apps/media-toolbar";
+import {
+  AppContent,
+  AppFooter,
+  AppScaffold,
+  AppToolbar,
+  Button,
+  IconButton,
+} from "@/components/apps/app-layout";
 import { getNodeByPath, getParentPath } from "@/lib/filesystem";
 import { getBaseName } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -28,6 +34,14 @@ function loadImage(source: string) {
   });
 }
 
+function fillCanvasWhite(context: CanvasRenderingContext2D, width: number, height: number) {
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.restore();
+}
+
 export function PaintApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const updateBinaryFile = useFileSystemStore((state) => state.updateBinaryFile);
@@ -51,15 +65,9 @@ export function PaintApp({ window }: AppComponentProps) {
   const canSaveInPlace =
     Boolean(activeFile && !activeFile.readonly && activeFile.extension in DIRECT_SAVE_TYPES && activeFile.source);
 
-  const canvasName = useMemo(() => {
-    if (activeFile) {
-      return activeFile.name;
-    }
+  const canvasName = useMemo(() => activeFile?.name ?? "Untitled canvas", [activeFile]);
 
-    return "Untitled canvas";
-  }, [activeFile]);
-
-  const resizeCanvasToStage = (preserveDrawing: boolean) => {
+  const syncCanvasResolution = (preserveDrawing: boolean) => {
     const canvas = canvasRef.current;
     const stage = stageRef.current;
 
@@ -74,8 +82,11 @@ export function PaintApp({ window }: AppComponentProps) {
     }
 
     const rect = stage.getBoundingClientRect();
-    const nextWidth = Math.max(1, Math.floor(rect.width));
-    const nextHeight = Math.max(1, Math.floor(rect.height));
+    const cssWidth = Math.max(1, Math.floor(rect.width));
+    const cssHeight = Math.max(1, Math.floor(rect.height));
+    const dpr = Math.max(1, globalThis.window.devicePixelRatio || 1);
+    const nextWidth = Math.max(1, Math.floor(cssWidth * dpr));
+    const nextHeight = Math.max(1, Math.floor(cssHeight * dpr));
 
     if (canvas.width === nextWidth && canvas.height === nextHeight) {
       return;
@@ -92,12 +103,26 @@ export function PaintApp({ window }: AppComponentProps) {
 
     canvas.width = nextWidth;
     canvas.height = nextHeight;
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, nextWidth, nextHeight);
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+
+    fillCanvasWhite(context, nextWidth, nextHeight);
 
     if (snapshot) {
       context.drawImage(snapshot, 0, 0, nextWidth, nextHeight);
     }
+  };
+
+  const clearCanvasSurface = (message = "Canvas cleared") => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+
+    if (!canvas || !context) {
+      return;
+    }
+
+    fillCanvasWhite(context, canvas.width, canvas.height);
+    setStatusMessage(message);
   };
 
   const drawImageToCanvas = (image: HTMLImageElement) => {
@@ -116,8 +141,7 @@ export function PaintApp({ window }: AppComponentProps) {
     const offsetX = Math.floor((canvas.width - drawWidth) / 2);
     const offsetY = Math.floor((canvas.height - drawHeight) / 2);
 
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    fillCanvasWhite(context, canvas.width, canvas.height);
     context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
   };
 
@@ -125,58 +149,49 @@ export function PaintApp({ window }: AppComponentProps) {
     const stage = stageRef.current;
 
     if (!stage || typeof ResizeObserver === "undefined") {
-      resizeCanvasToStage(true);
+      syncCanvasResolution(true);
       return;
     }
 
     const observer = new ResizeObserver(() => {
-      resizeCanvasToStage(true);
+      syncCanvasResolution(true);
     });
 
     observer.observe(stage);
-    resizeCanvasToStage(true);
+    syncCanvasResolution(true);
 
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
 
-    if (!canvas) {
+    if (!canvas || !context) {
       return;
     }
-
-    const context = canvas.getContext("2d");
-
-    if (!context) {
-      return;
-    }
-
-    const initializeBlankCanvas = () => {
-      resizeCanvasToStage(false);
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-    };
 
     setLoadError(null);
-    setStatusMessage("Ready");
-    initializeBlankCanvas();
+    syncCanvasResolution(false);
+    clearCanvasSurface("Ready");
 
     if (!activeFile?.source) {
       return;
     }
 
     if (!isPaintEditable(activeFile)) {
-      setLoadError("This image can be viewed in Paint later, but editing for this format is staged.");
+      setLoadError("This image format can be viewed here later, but editing support is still limited.");
       return;
     }
 
     void loadImage(activeFile.source)
       .then((image) => {
-        resizeCanvasToStage(false);
+        syncCanvasResolution(false);
         drawImageToCanvas(image);
+        setStatusMessage(`Loaded ${activeFile.name}`);
       })
       .catch((error: Error) => {
+        clearCanvasSurface("Ready");
         setLoadError(error.message);
       });
   }, [activeFile]);
@@ -185,7 +200,7 @@ export function PaintApp({ window }: AppComponentProps) {
     const canvas = canvasRef.current;
 
     if (!canvas) {
-      return { x: 0, y: 0 };
+      return { x: 0, y: 0, scale: 1 };
     }
 
     const rect = canvas.getBoundingClientRect();
@@ -195,10 +210,11 @@ export function PaintApp({ window }: AppComponentProps) {
     return {
       x: (event.clientX - rect.left) * scaleX,
       y: (event.clientY - rect.top) * scaleY,
+      scale: (scaleX + scaleY) / 2,
     };
   };
 
-  const drawLine = (fromX: number, fromY: number, toX: number, toY: number) => {
+  const drawLine = (fromX: number, fromY: number, toX: number, toY: number, scale = 1) => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
 
@@ -209,7 +225,7 @@ export function PaintApp({ window }: AppComponentProps) {
     context.save();
     context.lineCap = "round";
     context.lineJoin = "round";
-    context.lineWidth = brushSize;
+    context.lineWidth = brushSize * scale;
     context.strokeStyle = tool === "eraser" ? "#ffffff" : color;
     context.beginPath();
     context.moveTo(fromX, fromY);
@@ -255,85 +271,70 @@ export function PaintApp({ window }: AppComponentProps) {
 
   return (
     <AppScaffold className="paint-app">
-      <MediaToolbar
-        title={canvasName}
-        subtitle={
-          activeFile
-            ? `${activeFile.extension.toUpperCase()} workspace${activeFile.readonly ? " | export to save" : ""}`
-            : "Blank canvas"
-        }
-        actions={
-          <>
-            <button
-              type="button"
-              className={`pill-button ${tool === "brush" ? "is-active" : ""}`}
-              onClick={() => setTool("brush")}
-            >
-              <Brush size={15} />
-              Brush
-            </button>
-            <button
-              type="button"
-              className={`pill-button ${tool === "eraser" ? "is-active" : ""}`}
-              onClick={() => setTool("eraser")}
-            >
-              <Eraser size={15} />
-              Eraser
-            </button>
-            <button
-              type="button"
-              className="pill-button"
-              onClick={() => {
-                const canvas = canvasRef.current;
-                const context = canvas?.getContext("2d");
+      <AppToolbar className="paint-app__toolbar">
+        <div className="app-toolbar__title">
+          <strong>{canvasName}</strong>
+          <small>
+            {activeFile
+              ? `${activeFile.extension.toUpperCase()} workspace${activeFile.readonly ? " | export to keep edits" : ""}`
+              : "Blank canvas"}
+          </small>
+        </div>
 
-                if (!canvas || !context) {
-                  return;
-                }
-
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                context.fillStyle = "#ffffff";
-                context.fillRect(0, 0, canvas.width, canvas.height);
-                setStatusMessage("Canvas cleared");
-              }}
-            >
-              <PaintBucket size={15} />
-              Clear
-            </button>
-            <label className="paint-app__size">
-              <span>Brush {brushSize}px</span>
-              <input
-                type="range"
-                min={2}
-                max={28}
-                step={1}
-                value={brushSize}
-                onChange={(event) => setBrushSize(Number(event.target.value))}
+        <div className="app-toolbar__group paint-app__toolbar-group">
+          <IconButton
+            type="button"
+            className={tool === "brush" ? "is-active" : undefined}
+            onClick={() => setTool("brush")}
+            aria-label="Brush"
+          >
+            <Brush size={15} />
+          </IconButton>
+          <IconButton
+            type="button"
+            className={tool === "eraser" ? "is-active" : undefined}
+            onClick={() => setTool("eraser")}
+            aria-label="Eraser"
+          >
+            <Eraser size={15} />
+          </IconButton>
+          <Button type="button" variant="ghost" onClick={() => clearCanvasSurface()}>
+            <PaintBucket size={15} />
+            Clear
+          </Button>
+          <label className="paint-app__size" title={`Brush size ${brushSize}px`}>
+            <span>{brushSize}px</span>
+            <input
+              type="range"
+              min={2}
+              max={28}
+              step={1}
+              value={brushSize}
+              onChange={(event) => setBrushSize(Number(event.target.value))}
+            />
+          </label>
+          <div className="paint-app__swatches">
+            {COLOR_SWATCHES.map((swatch) => (
+              <button
+                key={swatch}
+                type="button"
+                className={`paint-app__swatch ${color === swatch ? "is-active" : ""}`}
+                style={{ background: swatch }}
+                onClick={() => setColor(swatch)}
+                aria-label={`Select ${swatch}`}
               />
-            </label>
-            <div className="paint-app__swatches">
-              {COLOR_SWATCHES.map((swatch) => (
-                <button
-                  key={swatch}
-                  type="button"
-                  className={`paint-app__swatch ${color === swatch ? "is-active" : ""}`}
-                  style={{ background: swatch }}
-                  onClick={() => setColor(swatch)}
-                  aria-label={`Select ${swatch}`}
-                />
-              ))}
-            </div>
-            <button type="button" className="pill-button" disabled={!canSaveInPlace} onClick={() => void saveCanvas()}>
-              <Save size={15} />
-              Save
-            </button>
-            <button type="button" className="pill-button" onClick={() => void exportPng()}>
-              <Download size={15} />
-              Export PNG
-            </button>
-          </>
-        }
-      />
+            ))}
+          </div>
+          <Button type="button" variant="ghost" disabled={!canSaveInPlace} onClick={() => void saveCanvas()}>
+            <Save size={15} />
+            Save
+          </Button>
+          <Button type="button" variant="panel" onClick={() => void exportPng()}>
+            <Download size={15} />
+            Export PNG
+          </Button>
+        </div>
+      </AppToolbar>
 
       <AppContent className="paint-app__content" padded={false} scrollable={false} stacked={false}>
         {loadError ? (
@@ -362,7 +363,7 @@ export function PaintApp({ window }: AppComponentProps) {
               }
 
               const point = getCanvasCoordinates(event);
-              drawLine(pointerRef.current.x, pointerRef.current.y, point.x, point.y);
+              drawLine(pointerRef.current.x, pointerRef.current.y, point.x, point.y, point.scale);
               pointerRef.current = {
                 drawing: true,
                 x: point.x,
@@ -371,6 +372,7 @@ export function PaintApp({ window }: AppComponentProps) {
             }}
             onPointerUp={(event) => {
               pointerRef.current.drawing = false;
+              setStatusMessage(`${tool === "eraser" ? "Erased" : "Drew"} on canvas`);
               if (event.currentTarget.hasPointerCapture(event.pointerId)) {
                 event.currentTarget.releasePointerCapture(event.pointerId);
               }
@@ -387,7 +389,8 @@ export function PaintApp({ window }: AppComponentProps) {
 
       <AppFooter className="paint-app__footer">
         <span>{statusMessage}</span>
-        {activeFile?.readonly ? <span>Read-only source. Use Export PNG to keep edits.</span> : null}
+        <span>{tool === "brush" ? "Brush" : "Eraser"} • {brushSize}px</span>
+        {activeFile?.readonly ? <span>Read-only source • export to keep edits</span> : null}
       </AppFooter>
     </AppScaffold>
   );

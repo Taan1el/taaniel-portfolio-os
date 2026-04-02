@@ -1,12 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, ExternalLink, Globe2, RefreshCcw, ShieldAlert } from "lucide-react";
-import { AppContent, AppFooter, AppScaffold, AppToolbar } from "@/components/apps/app-layout";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ExternalLink,
+  Globe2,
+  RefreshCcw,
+  ShieldAlert,
+  Star,
+} from "lucide-react";
+import {
+  AppContent,
+  AppFooter,
+  AppScaffold,
+  AppSidebar,
+  AppToolbar,
+  Button,
+  IconButton,
+  SearchInput,
+} from "@/components/apps/app-layout";
 import { profile, socialLinks } from "@/data/portfolio";
+import { cn } from "@/lib/utils";
 import type { AppComponentProps } from "@/types/system";
 
-const defaultLinks = [
-  { label: "Portfolio Repo", url: "https://github.com/Taan1el/taaniel-portfolio-os" },
-  { label: "Live Portfolio", url: "https://taaniel.github.io/taaniel-portfolio-os/" },
+const bookmarks = [
+  { label: "GitHub profile", url: "https://github.com/Taan1el" },
+  { label: "Portfolio repo", url: "https://github.com/Taan1el/taaniel-portfolio-os" },
+  { label: "Live portfolio", url: "https://taaniel.github.io/taaniel-portfolio-os/" },
   ...socialLinks,
 ];
 
@@ -30,11 +49,15 @@ function normalizeUrl(input: string) {
     return "";
   }
 
-  if (/^(https?:\/\/|\/)/i.test(trimmed)) {
-    return new URL(trimmed, window.location.href).toString();
-  }
+  try {
+    if (/^(https?:\/\/|\/)/i.test(trimmed)) {
+      return new URL(trimmed, window.location.href).toString();
+    }
 
-  return `https://${trimmed}`;
+    return new URL(`https://${trimmed}`).toString();
+  } catch {
+    return trimmed;
+  }
 }
 
 function resolveYouTubeEmbed(url: URL) {
@@ -88,14 +111,14 @@ function resolveBrowserView(rawUrl: string): BrowserView {
       url: parsedUrl.toString(),
       title: parsedUrl.hostname.replace(/^www\./i, ""),
       reason:
-        "This site blocks iframe embedding, so the browser shows a safe launcher card instead of a broken page.",
+        "This site blocks iframe embedding, so the browser shows a launcher state instead of pretending the page loaded.",
     };
   } catch {
     return {
       mode: "fallback",
       url: rawUrl,
       title: "Invalid address",
-      reason: "Enter a full URL or hostname to open the site.",
+      reason: "Enter a valid full URL or hostname to open the site in a new tab.",
     };
   }
 }
@@ -118,6 +141,11 @@ export function BrowserApp({ window }: AppComponentProps) {
   }, [initialUrl]);
 
   const currentUrl = history[historyIndex] ?? initialUrl;
+
+  useEffect(() => {
+    setAddress(currentUrl);
+  }, [currentUrl]);
+
   const view = useMemo(() => resolveBrowserView(currentUrl), [currentUrl]);
   const canOpenExternally = /^https?:\/\//i.test(view.url);
   const footerMessage = view.mode === "embed" ? view.note : view.reason;
@@ -129,119 +157,156 @@ export function BrowserApp({ window }: AppComponentProps) {
       return;
     }
 
+    setRefreshToken(0);
     setAddress(normalizedUrl);
-    setHistory((previousHistory) => [...previousHistory.slice(0, historyIndex + 1), normalizedUrl]);
-    setHistoryIndex((index) => index + 1);
+    setHistory((previousHistory) => {
+      const nextHistory = previousHistory.slice(0, historyIndex + 1);
+      const lastUrl = nextHistory.at(-1);
+
+      if (lastUrl === normalizedUrl) {
+        return nextHistory;
+      }
+
+      return [...nextHistory, normalizedUrl];
+    });
+    setHistoryIndex((index) => {
+      const currentHistoryUrl = history[index];
+      return currentHistoryUrl === normalizedUrl ? index : index + 1;
+    });
+  };
+
+  const openCurrentInNewTab = () => {
+    if (!canOpenExternally) {
+      return;
+    }
+
+    globalThis.window.open(view.url, "_blank", "noopener,noreferrer");
   };
 
   return (
     <AppScaffold className="browser-app">
-      <AppToolbar className="app-toolbar browser-app__toolbar">
+      <AppToolbar className="browser-app__toolbar">
         <div className="app-toolbar__group">
-          <button
+          <IconButton
             type="button"
-            className="icon-button"
             disabled={historyIndex <= 0}
             onClick={() => setHistoryIndex((index) => Math.max(0, index - 1))}
+            aria-label="Back"
           >
             <ArrowLeft size={15} />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             type="button"
-            className="icon-button"
             disabled={historyIndex >= history.length - 1}
             onClick={() => setHistoryIndex((index) => Math.min(history.length - 1, index + 1))}
+            aria-label="Forward"
           >
             <ArrowRight size={15} />
-          </button>
-          <button type="button" className="icon-button" onClick={() => setRefreshToken((token) => token + 1)}>
+          </IconButton>
+          <IconButton
+            type="button"
+            onClick={() => setRefreshToken((token) => token + 1)}
+            aria-label="Reload"
+          >
             <RefreshCcw size={15} />
-          </button>
+          </IconButton>
         </div>
 
         <form
-          className="browser-app__address"
+          className="browser-app__address-form"
           onSubmit={(event) => {
             event.preventDefault();
             visit(address);
           }}
         >
-          <Globe2 size={15} />
-          <input value={address} onChange={(event) => setAddress(event.target.value)} />
+          <SearchInput
+            containerClassName="browser-app__address"
+            placeholder="Enter a URL or hostname"
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+            icon={<Globe2 size={14} />}
+          />
         </form>
 
-        <a
-          className={`pill-button ${!canOpenExternally ? "is-disabled" : ""}`}
-          href={canOpenExternally ? currentUrl : undefined}
-          target="_blank"
-          rel="noreferrer"
-          aria-disabled={!canOpenExternally}
-          onClick={(event) => {
-            if (!canOpenExternally) {
-              event.preventDefault();
-            }
-          }}
+        <Button
+          type="button"
+          variant="panel"
+          onClick={openCurrentInNewTab}
+          disabled={!canOpenExternally}
         >
           <ExternalLink size={15} />
           Open in new tab
-        </a>
+        </Button>
       </AppToolbar>
 
       <AppContent className="browser-app__content" padded={false} scrollable={false} stacked={false}>
-        <aside className="browser-app__sidebar">
-          <p className="eyebrow">Bookmarks</p>
-          {defaultLinks.map((link) => (
-            <button key={link.label} type="button" className="quick-link" onClick={() => visit(link.url)}>
-              <Globe2 size={15} />
-              {link.label}
-            </button>
-          ))}
-          <div className="browser-app__note">
-            <strong>How this browser works</strong>
-            <p>Embeddable pages stay in-window. Blocked HTTPS pages open honestly as launch cards.</p>
-            <p>{profile.name} uses this as a clean OS browser, not a proxy-based full internet clone.</p>
+        <AppSidebar className="browser-app__sidebar">
+          <div className="browser-app__sidebar-group">
+            <p className="eyebrow">Bookmarks</p>
+            <div className="browser-app__bookmark-list">
+              {bookmarks.map((bookmark) => {
+                const normalizedBookmark = normalizeUrl(bookmark.url);
+                const isActive = currentUrl === normalizedBookmark;
+
+                return (
+                  <button
+                    key={bookmark.label}
+                    type="button"
+                    className={cn("browser-app__bookmark", isActive && "is-active")}
+                    onClick={() => visit(bookmark.url)}
+                  >
+                    <Star size={14} />
+                    <span>{bookmark.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </aside>
+
+          <div className="browser-app__note">
+            <strong>Embedded browser rules</strong>
+            <p>Only same-origin pages, local dev pages, and supported video embeds stay inside the desktop shell.</p>
+            <p>{profile.name} keeps blocked sites honest by routing them to a safe launcher state.</p>
+          </div>
+        </AppSidebar>
 
         <section className="browser-app__viewport">
           {view.mode === "embed" ? (
-            <>
-              <div className="browser-app__frame-shell">
-                <iframe
-                  key={`${view.url}:${refreshToken}`}
-                  src={view.url}
-                  title={view.url}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            </>
+            <div className="browser-app__frame-shell">
+              <iframe
+                key={`${view.url}:${refreshToken}`}
+                src={view.url}
+                title={view.url}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
           ) : (
             <div className="browser-app__fallback">
               <span className="browser-app__fallback-icon">
                 <ShieldAlert size={22} />
               </span>
               <div className="browser-app__fallback-copy">
-                <p className="eyebrow">Browser fallback</p>
+                <p className="eyebrow">External site</p>
                 <h2>{view.title}</h2>
                 <p>{view.reason}</p>
                 <code>{view.url}</code>
               </div>
-              <a
-                className={`pill-button ${!canOpenExternally ? "is-disabled" : ""}`}
-                href={canOpenExternally ? view.url : undefined}
-                target="_blank"
-                rel="noreferrer"
-                aria-disabled={!canOpenExternally}
-                onClick={(event) => {
-                  if (!canOpenExternally) {
-                    event.preventDefault();
-                  }
-                }}
-              >
-                <ExternalLink size={15} />
-                Open site
-              </a>
+              <div className="browser-app__fallback-actions">
+                <Button
+                  type="button"
+                  variant="panel"
+                  onClick={openCurrentInNewTab}
+                  disabled={!canOpenExternally}
+                >
+                  <ExternalLink size={15} />
+                  Open in new tab
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => visit(bookmarks[0]?.url ?? initialUrl)}>
+                  <Globe2 size={15} />
+                  Open bookmark
+                </Button>
+              </div>
             </div>
           )}
         </section>
