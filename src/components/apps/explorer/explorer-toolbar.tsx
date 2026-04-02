@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, FilePlus2, FolderPlus, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, FilePlus2, FolderPlus, LayoutGrid, List, Upload } from "lucide-react";
 import { AppToolbar, IconButton, SearchInput } from "@/components/apps/app-layout";
 
 export interface ExplorerBreadcrumb {
@@ -18,6 +18,8 @@ interface ExplorerToolbarProps {
   onUpload: () => void;
   onCreateFolder: () => void;
   onCreateNote: () => void;
+  viewMode: "grid" | "list";
+  onViewModeChange: (viewMode: "grid" | "list") => void;
 }
 
 export function ExplorerToolbar({
@@ -32,6 +34,8 @@ export function ExplorerToolbar({
   onUpload,
   onCreateFolder,
   onCreateNote,
+  viewMode,
+  onViewModeChange,
 }: ExplorerToolbarProps) {
   return (
     <AppToolbar className="explorer-window__toolbar">
@@ -99,6 +103,26 @@ export function ExplorerToolbar({
         >
           <FilePlus2 size={14} />
         </IconButton>
+        <div className="explorer-window__view-toggle" role="group" aria-label="View mode">
+          <IconButton
+            type="button"
+            className={`explorer-window__action ${viewMode === "grid" ? "is-active" : ""}`}
+            variant="panel"
+            onClick={() => onViewModeChange("grid")}
+            aria-label="Grid view"
+          >
+            <LayoutGrid size={14} />
+          </IconButton>
+          <IconButton
+            type="button"
+            className={`explorer-window__action ${viewMode === "list" ? "is-active" : ""}`}
+            variant="panel"
+            onClick={() => onViewModeChange("list")}
+            aria-label="List view"
+          >
+            <List size={14} />
+          </IconButton>
+        </div>
       </div>
     </AppToolbar>
   );

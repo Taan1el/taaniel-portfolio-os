@@ -38,6 +38,8 @@ interface ExplorerGridItemProps {
   onSelect: (path: string) => void;
 }
 
+interface ExplorerListItemProps extends ExplorerGridItemProps {}
+
 const explorerLocations: ExplorerSidebarLocation[] = [
   { label: "Desktop", path: "/Desktop", icon: Monitor },
   { label: "Documents", path: "/Documents", icon: FolderOpen },
@@ -72,6 +74,38 @@ function hasFilePayload(event: React.DragEvent<HTMLElement>) {
 
 function getFileNodeSearchText(node: FileNode) {
   return [node.name, node.path, node.type, node.mimeType ?? "", node.extension ?? ""].join(" ").toLowerCase();
+}
+
+function getNodeMeta(node: FileNode) {
+  if (node.type === "folder") {
+    return "Folder";
+  }
+
+  if (node.mimeType?.startsWith("image/")) {
+    return node.mimeType.replace("image/", "").toUpperCase();
+  }
+
+  if (node.mimeType?.startsWith("audio/")) {
+    return node.mimeType.replace("audio/", "").toUpperCase();
+  }
+
+  if (node.extension) {
+    return node.extension.toUpperCase();
+  }
+
+  return "File";
+}
+
+function getNodeIcon(node: FileNode) {
+  if (node.type === "folder") {
+    return <Folder size={22} />;
+  }
+
+  if (node.mimeType?.startsWith("image/")) {
+    return <FileImage size={20} />;
+  }
+
+  return <FileText size={20} />;
 }
 
 const ExplorerGridItem = memo(function ExplorerGridItem({
@@ -127,6 +161,43 @@ const ExplorerGridItem = memo(function ExplorerGridItem({
   );
 });
 
+const ExplorerListItem = memo(function ExplorerListItem({
+  node,
+  selected,
+  onOpen,
+  onSelect,
+}: ExplorerListItemProps) {
+  const canRenderThumbnail =
+    node.type === "file" &&
+    Boolean(node.mimeType?.startsWith("image/")) &&
+    Boolean(node.extension && isBrowserRenderableImageExtension(node.extension)) &&
+    Boolean(node.source);
+
+  return (
+    <button
+      type="button"
+      className={cn("explorer-list-item", selected && "is-selected")}
+      onClick={() => {
+        onSelect(node.path);
+        onOpen(node);
+      }}
+      onFocus={() => onSelect(node.path)}
+      title={node.name}
+    >
+      <span className="explorer-list-item__thumb">
+        {canRenderThumbnail ? <img src={node.source} alt={node.name} loading="lazy" decoding="async" /> : getNodeIcon(node)}
+      </span>
+      <span className="explorer-list-item__copy">
+        <strong>{node.name}</strong>
+        <small title={node.path}>{getNodeMeta(node)}</small>
+      </span>
+      <span className="explorer-list-item__path" title={node.path}>
+        {node.path}
+      </span>
+    </button>
+  );
+});
+
 export function FileExplorerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const listDirectory = useFileSystemStore((state) => state.listDirectory);
@@ -142,6 +213,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     goForward,
     setSelectedPath,
     setSearchQuery,
+    setViewMode,
   } = useExplorerStore(
     useShallow((state) => ({
       session: state.sessions[window.id],
@@ -151,6 +223,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       goForward: state.goForward,
       setSelectedPath: state.setSelectedPath,
       setSearchQuery: state.setSearchQuery,
+      setViewMode: state.setViewMode,
     }))
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -164,6 +237,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const currentPath = session?.currentPath ?? normalizePath(initialPath);
   const searchQuery = session?.searchQuery ?? "";
   const selectedPath = session?.selectedPath ?? null;
+  const viewMode = session?.viewMode ?? "grid";
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const currentNode = nodes[currentPath];
   const currentDirectoryPath =
@@ -257,6 +331,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         onUpload={() => fileInputRef.current?.click()}
         onCreateFolder={() => void createFolder()}
         onCreateNote={() => void createNote()}
+        viewMode={viewMode}
+        onViewModeChange={(nextViewMode) => setViewMode(window.id, nextViewMode)}
       />
 
       <AppContent className="explorer-window__layout" padded={false} scrollable={false} stacked={false}>
@@ -317,22 +393,36 @@ export function FileExplorerApp({ window }: AppComponentProps) {
 
           <ScrollArea className="explorer-window__scroll-area" padded>
             {filteredChildren.length > 0 ? (
-              <GridView
-                className="explorer-grid"
-                minItemWidth={108}
-                role="list"
-                aria-label={`${currentDirectoryPath} contents`}
-              >
-                {filteredChildren.map((node) => (
-                  <ExplorerGridItem
-                    key={node.path}
-                    node={node}
-                    selected={selectedPath === node.path}
-                    onOpen={openNode}
-                    onSelect={(path) => setSelectedPath(window.id, path)}
-                  />
-                ))}
-              </GridView>
+              viewMode === "grid" ? (
+                <GridView
+                  className="explorer-grid"
+                  minItemWidth={108}
+                  role="list"
+                  aria-label={`${currentDirectoryPath} contents`}
+                >
+                  {filteredChildren.map((node) => (
+                    <ExplorerGridItem
+                      key={node.path}
+                      node={node}
+                      selected={selectedPath === node.path}
+                      onOpen={openNode}
+                      onSelect={(path) => setSelectedPath(window.id, path)}
+                    />
+                  ))}
+                </GridView>
+              ) : (
+                <div className="explorer-list" role="list" aria-label={`${currentDirectoryPath} contents`}>
+                  {filteredChildren.map((node) => (
+                    <ExplorerListItem
+                      key={node.path}
+                      node={node}
+                      selected={selectedPath === node.path}
+                      onOpen={openNode}
+                      onSelect={(path) => setSelectedPath(window.id, path)}
+                    />
+                  ))}
+                </div>
+              )
             ) : children.length === 0 ? (
               <EmptyState
                 className="explorer-window__empty"
@@ -352,6 +442,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
 
       <StatusBar className="explorer-window__statusbar">
         <span>{itemCountLabel}</span>
+        <span>{viewMode === "grid" ? "Grid view" : "List view"}</span>
         <span className="explorer-window__status-path" title={selectedNode?.path ?? currentDirectoryPath}>
           {selectedNode?.name ?? currentDirectoryPath}
         </span>
