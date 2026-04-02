@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type CSSProperties } from "react";
+import { useDeferredValue, useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { themePresets } from "@/data/portfolio";
@@ -136,7 +136,11 @@ export function DesktopShell() {
     [processes, windows]
   );
   const searchIndex = useMemo(() => buildShellSearchIndex(nodes), [nodes]);
-  const searchSections = useMemo(() => queryShellSearch(searchIndex, searchQuery), [searchIndex, searchQuery]);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const searchSections = useMemo(
+    () => queryShellSearch(searchIndex, deferredSearchQuery),
+    [deferredSearchQuery, searchIndex]
+  );
 
   const openExternal = (url: string) => {
     launchApp({
