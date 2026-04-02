@@ -6,6 +6,7 @@ import { resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
+import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
@@ -31,6 +32,7 @@ export function DesktopShell() {
     selectedIconId,
     startMenuOpen,
     searchOpen,
+    searchQuery,
     calendarOpen,
     contextMenu,
     clipboard,
@@ -38,6 +40,7 @@ export function DesktopShell() {
     toggleStartMenu,
     setSearchOpen,
     toggleSearch,
+    setSearchQuery,
     setCalendarOpen,
     setSelectedIconId,
     setContextMenu,
@@ -54,6 +57,7 @@ export function DesktopShell() {
       selectedIconId: state.selectedIconId,
       startMenuOpen: state.startMenuOpen,
       searchOpen: state.searchOpen,
+      searchQuery: state.searchQuery,
       calendarOpen: state.calendarOpen,
       contextMenu: state.contextMenu,
       clipboard: state.clipboard,
@@ -65,6 +69,7 @@ export function DesktopShell() {
       toggleStartMenu: state.toggleStartMenu,
       setSearchOpen: state.setSearchOpen,
       toggleSearch: state.toggleSearch,
+      setSearchQuery: state.setSearchQuery,
       setCalendarOpen: state.setCalendarOpen,
       setSelectedIconId: state.setSelectedIconId,
       setContextMenu: state.setContextMenu,
@@ -125,6 +130,8 @@ export function DesktopShell() {
     () => buildTaskbarWindowEntries(processes, windows),
     [processes, windows]
   );
+  const searchIndex = useMemo(() => buildShellSearchIndex(nodes), [nodes]);
+  const searchSections = useMemo(() => queryShellSearch(searchIndex, searchQuery), [searchIndex, searchQuery]);
 
   const openExternal = (url: string) => {
     launchApp({
@@ -134,6 +141,25 @@ export function DesktopShell() {
       },
       title: url,
     });
+  };
+
+  const runSearchAction = (action: ShellSearchAction) => {
+    closeShellOverlays();
+
+    switch (action.type) {
+      case "launch-app":
+        launchApp({
+          appId: action.appId,
+          payload: action.payload,
+          title: action.title,
+        });
+        return;
+      case "open-path":
+        openPath(action.path);
+        return;
+      case "open-external":
+        openExternal(action.url);
+    }
   };
 
   const toggleFullscreen = () => {
@@ -443,6 +469,10 @@ export function DesktopShell() {
               })
             }
             onOpenFile={openPath}
+            onOpenSearch={() => {
+              setSearchQuery("");
+              setSearchOpen(true);
+            }}
             onResetSession={() => {
               void resetSession();
             }}
@@ -454,10 +484,11 @@ export function DesktopShell() {
       <AnimatePresence>
         {searchOpen ? (
           <SearchPanel
-            nodes={nodes}
-            onLaunchApp={(appId) => launchApp({ appId })}
-            onOpenPath={openPath}
-            onOpenExternal={openExternal}
+            query={searchQuery}
+            sections={searchSections}
+            onQueryChange={setSearchQuery}
+            onSelectResult={runSearchAction}
+            onRequestClose={() => setSearchOpen(false)}
           />
         ) : null}
       </AnimatePresence>

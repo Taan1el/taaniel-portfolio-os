@@ -20,6 +20,7 @@ interface ShellStoreState {
   selectedIconId: string | null;
   startMenuOpen: boolean;
   searchOpen: boolean;
+  searchQuery: string;
   calendarOpen: boolean;
   contextMenu: ContextMenuState | null;
   clipboard: ClipboardState | null;
@@ -33,6 +34,7 @@ interface ShellStoreState {
   toggleStartMenu: () => void;
   setSearchOpen: (open: boolean) => void;
   toggleSearch: () => void;
+  setSearchQuery: (query: string) => void;
   setCalendarOpen: (open: boolean) => void;
   setSelectedIconId: (iconId: string | null) => void;
   setContextMenu: (contextMenu: ContextMenuState | null) => void;
@@ -64,6 +66,7 @@ const initialShellState = {
   selectedIconId: null,
   startMenuOpen: false,
   searchOpen: false,
+  searchQuery: "",
   calendarOpen: false,
   contextMenu: null,
   clipboard: null,
@@ -105,6 +108,14 @@ export const useShellStore = create<ShellStoreState>()(
           startMenuOpen: state.searchOpen ? state.startMenuOpen : false,
           calendarOpen: state.searchOpen ? state.calendarOpen : false,
           contextMenu: null,
+        })),
+      setSearchQuery: (searchQuery) =>
+        set((state) => ({
+          searchQuery,
+          searchOpen: state.searchOpen || searchQuery.trim().length > 0,
+          startMenuOpen: searchQuery.trim().length > 0 ? false : state.startMenuOpen,
+          calendarOpen: searchQuery.trim().length > 0 ? false : state.calendarOpen,
+          contextMenu: searchQuery.trim().length > 0 ? null : state.contextMenu,
         })),
       setCalendarOpen: (open) =>
         set((state) => ({
@@ -156,6 +167,7 @@ export const useShellStore = create<ShellStoreState>()(
         set({
           startMenuOpen: false,
           searchOpen: false,
+          searchQuery: "",
           calendarOpen: false,
           contextMenu: null,
         }),

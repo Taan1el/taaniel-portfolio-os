@@ -1,31 +1,17 @@
-import { SearchInput } from "@/components/apps/app-layout";
+import { Search } from "lucide-react";
 
 interface StartSearchProps {
-  inputRef: React.RefObject<HTMLInputElement>;
-  query: string;
-  onQueryChange: (query: string) => void;
-  onSubmitTopResult: () => void;
+  onOpenSearch: () => void;
 }
 
-export function StartSearch({
-  inputRef,
-  query,
-  onQueryChange,
-  onSubmitTopResult,
-}: StartSearchProps) {
+export function StartSearch({ onOpenSearch }: StartSearchProps) {
   return (
-    <SearchInput
-      ref={inputRef}
-      containerClassName="start-menu__search"
-      type="text"
-      placeholder="Search apps, tools, and system folders"
-      value={query}
-      onChange={(event) => onQueryChange(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          onSubmitTopResult();
-        }
-      }}
-    />
+    <button type="button" className="start-menu__search-launcher" onClick={onOpenSearch}>
+      <span className="search-input__icon" aria-hidden="true">
+        <Search size={16} />
+      </span>
+      <span>Search apps, files, links, and portfolio content</span>
+      <kbd>Ctrl+K</kbd>
+    </button>
   );
 }
