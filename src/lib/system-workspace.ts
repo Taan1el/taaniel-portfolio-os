@@ -8,6 +8,7 @@ import {
   GAMES_README_CONTENT,
   GAMES_README_PATH,
   LEGACY_GAMES_README_CONTENT,
+  PORTS_GAMES_README_CONTENT,
 } from "@/lib/games";
 import { ensureNotesWorkspace } from "@/lib/notes";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
@@ -167,7 +168,8 @@ export function ensureSystemWorkspace(nodes: FileSystemRecord) {
     changed = true;
   } else if (
     gamesReadmeNode.kind === "file" &&
-    gamesReadmeNode.content === LEGACY_GAMES_README_CONTENT
+    (gamesReadmeNode.content === LEGACY_GAMES_README_CONTENT ||
+      gamesReadmeNode.content === PORTS_GAMES_README_CONTENT)
   ) {
     nextNodes = {
       ...nextNodes,

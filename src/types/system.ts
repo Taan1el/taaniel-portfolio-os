@@ -9,6 +9,8 @@ export type AppId =
   | "notes"
   | "music"
   | "games"
+  | "snake"
+  | "tetris"
   | "dino"
   | "doom"
   | "hextris"
@@ -234,6 +236,13 @@ export interface WallpaperPreset {
   desktopTint?: string;
   glow?: string;
   shell?: string;
+}
+
+export interface ImageWallpaperPreset {
+  id: string;
+  name: string;
+  source: string;
+  preview: string;
 }
 
 export interface SocialLink {

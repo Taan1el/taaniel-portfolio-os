@@ -1,8 +1,10 @@
 import type {
   DesktopWallpaperState,
+  ImageWallpaperPreset,
   ThemePreset,
   WallpaperPreset,
 } from "@/types/system";
+import { photographyAssets } from "@/data/portfolio";
 
 export const defaultDesktopWallpaper: DesktopWallpaperState = {
   mode: "theme",
@@ -80,6 +82,32 @@ export const gradientWallpaperPresets = wallpaperPresets.filter(
 export const animatedWallpaperPresets = wallpaperPresets.filter(
   (preset) => preset.mode === "animated"
 );
+
+const imageWallpaperTitles = [
+  "Clouds",
+  "Austria Mountains",
+  "Alps or the Dolomites",
+  "Golden Wave",
+  "Flowers in a Field",
+  "The Red Cap",
+];
+
+export const imageWallpaperPresets: ImageWallpaperPreset[] = imageWallpaperTitles
+  .map((title) => {
+    const asset = photographyAssets.find((entry) => entry.title === title);
+
+    if (!asset) {
+      return null;
+    }
+
+    return {
+      id: title.toLowerCase().replace(/[^\w]+/g, "-"),
+      name: asset.title,
+      source: asset.src,
+      preview: asset.src,
+    };
+  })
+  .filter((preset): preset is ImageWallpaperPreset => Boolean(preset));
 
 export function getWallpaperPreset(presetId?: string | null) {
   return wallpaperPresets.find((preset) => preset.id === presetId) ?? null;
