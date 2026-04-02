@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink, FileText, Folder } from "lucide-react";
-import { SearchInput } from "@/components/apps/app-layout";
-import type { ShellSearchAction, ShellSearchResult, ShellSearchSection } from "@/lib/shell-search";
+import { SearchInput, StatusBar } from "@/components/apps/app-layout";
+import {
+  flattenShellSearchResults,
+  getTopSearchResult,
+  type ShellSearchAction,
+  type ShellSearchResult,
+  type ShellSearchSection,
+} from "@/lib/shell-search";
+import { cn } from "@/lib/utils";
 
 function SearchResultIcon({ result }: { result: ShellSearchResult }) {
   if (result.icon) {
@@ -17,8 +24,59 @@ function SearchResultIcon({ result }: { result: ShellSearchResult }) {
 
   return (
     <span className="search-result__icon">
-      {result.type === "folder" ? <Folder size={16} /> : result.type === "link" ? <ExternalLink size={16} /> : <FileText size={16} />}
+      {result.type === "folder" ? (
+        <Folder size={16} />
+      ) : result.type === "link" ? (
+        <ExternalLink size={16} />
+      ) : (
+        <FileText size={16} />
+      )}
     </span>
+  );
+}
+
+function matchModeLabel(result: ShellSearchResult) {
+  switch (result.matchMode) {
+    case "exact":
+      return "Exact";
+    case "semantic":
+      return "Smart";
+    default:
+      return "Match";
+  }
+}
+
+interface SearchResultButtonProps {
+  result: ShellSearchResult;
+  active: boolean;
+  onHover: () => void;
+  onSelect: () => void;
+}
+
+function SearchResultButton({ result, active, onHover, onSelect }: SearchResultButtonProps) {
+  return (
+    <button
+      type="button"
+      className={cn("search-result", active && "is-active")}
+      onMouseEnter={onHover}
+      onFocus={onHover}
+      onClick={onSelect}
+    >
+      <SearchResultIcon result={result} />
+      <span className="search-result__meta">
+        <strong title={result.title}>{result.title}</strong>
+        <small title={result.subtitle}>{result.subtitle}</small>
+        {result.preview ? (
+          <span className="search-result__preview" title={result.preview}>
+            {result.preview}
+          </span>
+        ) : null}
+        <span className="search-result__badges">
+          <span>{result.actionLabel}</span>
+          <span>{matchModeLabel(result)}</span>
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -39,17 +97,17 @@ export function SearchPanel({
 }: SearchPanelProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
-  const topResult = useMemo(
-    () =>
-      sections
-        .flatMap((section) => section.results)
-        .sort((a, b) => b.score - a.score)[0] ?? null,
-    [sections]
-  );
+  const flatResults = useMemo(() => flattenShellSearchResults(sections), [sections]);
+  const topResult = useMemo(() => getTopSearchResult(sections), [sections]);
+  const [activeResultId, setActiveResultId] = useState<string | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    setActiveResultId(flatResults[0]?.id ?? null);
+  }, [flatResults, query]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -70,6 +128,30 @@ export function SearchPanel({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [onRequestClose]);
 
+  const activeIndex = flatResults.findIndex((result) => result.id === activeResultId);
+  const activeResult =
+    (activeIndex >= 0 ? flatResults[activeIndex] : null) ?? topResult ?? null;
+
+  const displaySections = useMemo(() => {
+    if (!query.trim() || !topResult) {
+      return sections;
+    }
+
+    return sections.map((section) => ({
+      ...section,
+      results: section.results.filter((result) => result.id !== topResult.id),
+    }));
+  }, [query, sections, topResult]);
+
+  const moveSelection = (offset: number) => {
+    if (flatResults.length === 0) {
+      return;
+    }
+
+    const nextIndex = activeIndex < 0 ? 0 : (activeIndex + offset + flatResults.length) % flatResults.length;
+    setActiveResultId(flatResults[nextIndex]?.id ?? null);
+  };
+
   return (
     <motion.section
       ref={panelRef}
@@ -83,42 +165,75 @@ export function SearchPanel({
         <SearchInput
           ref={inputRef}
           containerClassName="search-panel__input"
-          placeholder="Search apps, files, links, and portfolio content"
+          placeholder="Search apps, files, links, notes, and portfolio content"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && topResult) {
-              onSelectResult(topResult.action);
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              moveSelection(1);
+              return;
+            }
+
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              moveSelection(-1);
+              return;
+            }
+
+            if (event.key === "Enter" && activeResult) {
+              event.preventDefault();
+              onSelectResult(activeResult.action);
+              return;
+            }
+
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onRequestClose();
             }
           }}
         />
         <small className="search-panel__hint">
-          Foundation for future semantic and AI-powered search. Right now this uses a shared shell index.
+          Local smart search only. Exact matches, semantic ranking, and action routing stay contained to the launcher.
         </small>
       </div>
 
+      {query.trim() && topResult ? (
+        <div className="search-panel__best-match">
+          <div className="section-row">
+            <p className="section-title">Best match</p>
+            <small>{topResult.actionLabel}</small>
+          </div>
+          <SearchResultButton
+            result={topResult}
+            active={activeResultId === topResult.id}
+            onHover={() => setActiveResultId(topResult.id)}
+            onSelect={() => onSelectResult(topResult.action)}
+          />
+        </div>
+      ) : null}
+
       <div className="search-panel__results">
-        {sections.map((section) => (
+        {displaySections.map((section) => (
           <section key={section.id} className="search-panel__section">
             <div className="section-row">
               <p className="section-title">{section.label}</p>
-              <small>{section.results.length > 0 ? `${section.results.length} result${section.results.length === 1 ? "" : "s"}` : "Ready"}</small>
+              <small>
+                {section.results.length > 0
+                  ? `${section.results.length} result${section.results.length === 1 ? "" : "s"}`
+                  : "Ready"}
+              </small>
             </div>
 
             {section.results.length > 0 ? (
               section.results.map((result) => (
-                <button
+                <SearchResultButton
                   key={result.id}
-                  type="button"
-                  className="search-result"
-                  onClick={() => onSelectResult(result.action)}
-                >
-                  <SearchResultIcon result={result} />
-                  <span className="search-result__meta">
-                    <strong title={result.title}>{result.title}</strong>
-                    <small title={result.subtitle}>{result.subtitle}</small>
-                  </span>
-                </button>
+                  result={result}
+                  active={activeResultId === result.id}
+                  onHover={() => setActiveResultId(result.id)}
+                  onSelect={() => onSelectResult(result.action)}
+                />
               ))
             ) : (
               <div className="search-panel__empty">{section.emptyLabel}</div>
@@ -126,7 +241,12 @@ export function SearchPanel({
           </section>
         ))}
       </div>
+
+      <StatusBar className="search-panel__status">
+        <span>{flatResults.length} indexed match{flatResults.length === 1 ? "" : "es"}</span>
+        <span>{activeResult ? activeResult.title : "Type to search"}</span>
+        <span>Enter opens • Arrows move • Esc closes</span>
+      </StatusBar>
     </motion.section>
   );
 }
-
