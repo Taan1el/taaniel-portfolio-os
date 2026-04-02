@@ -105,7 +105,7 @@ img {
 }
 
 .os-root__wallpaper {
-  background: var(--desktop-custom-wallpaper, var(--desktop-wallpaper));
+  background: var(--desktop-wallpaper);
 }
 
 .os-root__wallpaper::before,
@@ -138,6 +138,37 @@ img {
     radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px);
   background-size: auto, 8px 8px;
   opacity: 0.8;
+}
+
+.os-root.is-animated-wallpaper .os-root__wallpaper {
+  background-size: 120% 120%;
+  animation: wallpaper-pan 22s ease-in-out infinite alternate;
+}
+
+.os-root.is-animated-wallpaper .os-root__wallpaper::before {
+  animation: wallpaper-breathe 18s ease-in-out infinite alternate;
+}
+
+@keyframes wallpaper-pan {
+  from {
+    background-position: 0% 0%;
+  }
+
+  to {
+    background-position: 100% 100%;
+  }
+}
+
+@keyframes wallpaper-breathe {
+  from {
+    transform: scale(1);
+    opacity: 0.82;
+  }
+
+  to {
+    transform: scale(1.08);
+    opacity: 1;
+  }
 }
 
 .desktop-surface {
@@ -1919,8 +1950,8 @@ h3 {
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.7rem;
+  gap: 0.5rem;
+  padding: 0.55rem;
 }
 
 .music-player__content {
@@ -2178,13 +2209,19 @@ h3 {
 
 .games-hub__grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.85rem;
 }
 
 .games-hub__card {
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
   align-content: start;
-  padding: 0.85rem;
+  padding: 0.78rem;
   border: 1px solid var(--border);
   border-radius: 0.85rem;
   background:
@@ -2195,21 +2232,51 @@ h3 {
 
 .games-hub__card-icon {
   display: grid;
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 2.5rem;
+  height: 2.5rem;
   place-items: center;
-  border-radius: 0.85rem;
+  border-radius: 0.75rem;
   background: color-mix(in srgb, var(--app-accent) 16%, rgba(255, 255, 255, 0.06));
   color: color-mix(in srgb, var(--app-accent) 80%, white 20%);
 }
 
 .games-hub__card-copy {
   display: grid;
-  gap: 0.35rem;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.games-hub__card-copy strong,
+.games-hub__card-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .games-hub__card-copy small {
   color: var(--text-muted);
+}
+
+.games-hub__toolbar,
+.games-hub__statusbar {
+  gap: 0.7rem;
+}
+
+.games-hub__content {
+  gap: 0.9rem;
+}
+
+.games-hub__intro {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.games-hub__chip {
+  padding: 0.35rem 0.58rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .v86-app {
@@ -2294,6 +2361,7 @@ h3 {
 
 .embedded-game__viewport {
   position: relative;
+  display: grid;
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -2307,6 +2375,8 @@ h3 {
 
 .embedded-game__frame {
   display: block;
+  min-width: 0;
+  min-height: 0;
   width: 100%;
   height: 100%;
   border: 0;
@@ -2339,7 +2409,14 @@ h3 {
 }
 
 .embedded-game__footer {
-  gap: 0.85rem;
+  gap: 0.65rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.embedded-game__footer small {
+  color: var(--text-muted);
 }
 
 .arcade-game {

@@ -25,6 +25,16 @@ const FRAME_STYLE_TEXT = `
     background: #05080c !important;
   }
 
+  body {
+    display: grid !important;
+    place-items: stretch !important;
+  }
+
+  body > * {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+
   body.offline.arcade-mode {
     display: grid !important;
     place-items: center !important;
@@ -53,6 +63,17 @@ const FRAME_STYLE_TEXT = `
     max-width: 100% !important;
   }
 
+  #main-frame-error,
+  #main-content,
+  #gameoverscreen,
+  #container,
+  #bottomContainer,
+  #buttonCont,
+  #overlay,
+  #helpScreen {
+    max-width: 100% !important;
+  }
+
   #canvas {
     position: absolute !important;
     inset: 0 !important;
@@ -60,6 +81,12 @@ const FRAME_STYLE_TEXT = `
     height: 100% !important;
     display: block !important;
     background: #05080c !important;
+  }
+
+  canvas {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 auto !important;
   }
 
   #jsdos,
@@ -76,7 +103,8 @@ const FRAME_STYLE_TEXT = `
   #openSideBar,
   #socialShare,
   #badges,
-  .rrssb-buttons {
+  .rrssb-buttons,
+  #helpScreen {
     display: none !important;
   }
 
@@ -84,6 +112,12 @@ const FRAME_STYLE_TEXT = `
   #restartBtn {
     width: 56px !important;
     height: 56px !important;
+  }
+
+  #gameoverscreen {
+    inset: 0 !important;
+    padding: 12px !important;
+    overflow: auto !important;
   }
 `;
 
@@ -178,6 +212,26 @@ export function EmbeddedGameApp({
     return () => globalThis.window.clearTimeout(frameFocusId);
   }, [activeWindowId, appWindow.id, loaded]);
 
+  useEffect(() => {
+    if (!loaded || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const viewport = frameRef.current?.parentElement;
+
+    if (!viewport) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      syncEmbeddedLayout();
+    });
+
+    observer.observe(viewport);
+
+    return () => observer.disconnect();
+  }, [loaded, reloadToken, src]);
+
   return (
     <AppScaffold className="embedded-game">
       <MediaToolbar
@@ -236,10 +290,15 @@ export function EmbeddedGameApp({
             tabIndex={0}
             allow="autoplay; fullscreen; gamepad"
             onLoad={() => {
-              syncEmbeddedLayout();
-              setLoaded(true);
-              setTimedOut(false);
-              focusFrame();
+              globalThis.window.requestAnimationFrame(() => {
+                syncEmbeddedLayout();
+                setLoaded(true);
+                setTimedOut(false);
+                focusFrame();
+              });
+              globalThis.window.setTimeout(() => {
+                syncEmbeddedLayout();
+              }, 180);
             }}
           />
         </div>

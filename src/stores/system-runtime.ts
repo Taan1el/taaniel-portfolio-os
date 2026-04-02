@@ -1,4 +1,5 @@
 import { desktopEntries, themePresets } from "@/data/portfolio";
+import { defaultDesktopWallpaper } from "@/data/wallpapers";
 import { getAppDefinition } from "@/lib/app-registry";
 import { LEGACY_WELCOME_PATH } from "@/lib/system-workspace";
 import { clamp, createId } from "@/lib/utils";
@@ -325,7 +326,13 @@ export function getLegacyShellSeed() {
 
   return {
     themeId,
-    customWallpaperSource: legacyState?.customWallpaperSource ?? null,
+    wallpaper: legacyState?.customWallpaperSource
+      ? {
+          mode: "image" as const,
+          imageSource: legacyState.customWallpaperSource,
+          presetId: null,
+        }
+      : defaultDesktopWallpaper,
     desktopIconPositions: legacyState?.desktopIconPositions ?? initialIconPositions,
   };
 }
