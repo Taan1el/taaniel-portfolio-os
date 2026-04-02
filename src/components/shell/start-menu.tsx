@@ -22,6 +22,7 @@ interface StartMenuProps {
   onLaunchApp: (appId: AppId) => void;
   onOpenDirectory: (directoryPath: string) => void;
   onOpenFile: (filePath: string) => void;
+  onOpenSearch: () => void;
   onResetSession: () => void;
   onRequestClose: () => void;
 }
@@ -30,23 +31,18 @@ export function StartMenu({
   onLaunchApp,
   onOpenDirectory,
   onOpenFile,
+  onOpenSearch,
   onResetSession,
   onRequestClose,
 }: StartMenuProps) {
-  const [query, setQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Record<AppCategory, boolean>>(() =>
     startMenuCategories.reduce<Record<AppCategory, boolean>>((state, category) => {
       state[category.category] = category.defaultExpanded;
       return state;
     }, {} as Record<AppCategory, boolean>)
   );
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLElement | null>(null);
   const apps = getAppRegistry();
-
-  useEffect(() => {
-    searchInputRef.current?.focus();
-  }, []);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -67,34 +63,16 @@ export function StartMenu({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [onRequestClose]);
 
-  const filteredApps = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return apps;
-    }
-
-    return apps.filter(
-      (app) =>
-        app.title.toLowerCase().includes(normalizedQuery) ||
-        app.description.toLowerCase().includes(normalizedQuery) ||
-        app.category.toLowerCase().includes(normalizedQuery)
-    );
-  }, [apps, query]);
-
   const appsByCategory = useMemo(
     () =>
       startMenuCategories
         .map((category) => ({
           category,
-          items: filteredApps.filter((app) => app.category === category.category),
+          items: apps.filter((app) => app.category === category.category),
         }))
         .filter((group) => group.items.length > 0),
-    [filteredApps]
+    [apps]
   );
-
-  const firstResult = filteredApps[0];
-  const showSearchResults = query.trim().length > 0;
 
   const executeShortcut = (shortcut: StartMenuShortcut) => {
     switch (shortcut.action.type) {
@@ -134,16 +112,7 @@ export function StartMenu({
           </Button>
         </div>
 
-        <StartSearch
-          inputRef={searchInputRef}
-          query={query}
-          onQueryChange={setQuery}
-          onSubmitTopResult={() => {
-            if (firstResult) {
-              onLaunchApp(firstResult.id);
-            }
-          }}
-        />
+        <StartSearch onOpenSearch={onOpenSearch} />
       </div>
 
       <div className="start-menu__body">
@@ -167,7 +136,6 @@ export function StartMenu({
             <StartAppList
               categories={startMenuCategories}
               appsByCategory={appsByCategory}
-              showSearchResults={showSearchResults}
               expandedCategories={expandedCategories}
               onToggleCategory={(category) =>
                 setExpandedCategories((current) => ({

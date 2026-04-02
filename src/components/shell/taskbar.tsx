@@ -4,7 +4,6 @@ import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
 import { Grid2x2, MonitorDown, Search } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { formatClock, formatDateLabel } from "@/lib/utils";
 import type { AppId, TaskbarWindowEntry } from "@/types/system";
 
@@ -61,7 +60,6 @@ export function Taskbar({
   const [previewImages, setPreviewImages] = useState<Record<string, string | null>>({});
   const windowsRef = useRef<HTMLDivElement | null>(null);
   const captureQueueRef = useRef<Set<string>>(new Set());
-  const prefersTapPreview = useMediaQuery("(hover: none), (max-width: 819px)");
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 1000 * 30);
@@ -75,7 +73,7 @@ export function Taskbar({
   }, [entries, previewEntry]);
 
   useEffect(() => {
-    if (!prefersTapPreview || !previewEntry) {
+    if (!previewEntry) {
       return;
     }
 
@@ -95,7 +93,7 @@ export function Taskbar({
 
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [prefersTapPreview, previewEntry]);
+  }, [previewEntry]);
 
   useEffect(() => {
     setPreviewImages((current) => {
@@ -115,10 +113,10 @@ export function Taskbar({
       return;
     }
 
-      const syncPreviewPosition = () => {
-        const activeButton = windowsRef.current?.querySelector<HTMLButtonElement>(
-          `[data-window-id="${previewEntry.windowId}"]`
-        );
+    const syncPreviewPosition = () => {
+      const activeButton = windowsRef.current?.querySelector<HTMLButtonElement>(
+        `[data-window-id="${previewEntry.windowId}"]`
+      );
 
       if (!activeButton) {
         setPreviewEntry(null);
@@ -252,7 +250,7 @@ export function Taskbar({
           onClick={onToggleSearch}
         >
           <Search size={15} />
-          Search apps and files
+          Search
         </button>
 
         <div className="taskbar__windows" ref={windowsRef}>
@@ -265,42 +263,19 @@ export function Taskbar({
                 <button
                   key={entry.id}
                   data-window-id={entry.windowId}
-                  className={`taskbar__item ${entry.active ? "is-active" : ""}`}
+                  className={`taskbar__item ${entry.active ? "is-active" : ""} ${entry.minimized ? "is-minimized" : ""}`}
                   type="button"
-                  onClick={() => {
-                    if (prefersTapPreview) {
-                      const activeButton = windowsRef.current?.querySelector<HTMLButtonElement>(
-                        `[data-window-id="${entry.windowId}"]`
-                      );
-
-                      if (!activeButton) {
-                        onToggleWindow(entry.windowId);
-                        return;
-                      }
-
-                      const placement = getPreviewPlacement(activeButton);
-                      const nextPreviewEntry = {
-                        ...entry,
-                        ...placement,
-                      };
-
-                    if (previewEntry?.windowId !== entry.windowId) {
-                      setPreviewEntry(nextPreviewEntry);
-                      void capturePreview(entry);
-                      return;
-                    }
-                  }
-
-                  setPreviewEntry((current) =>
-                    current?.windowId === entry.windowId && prefersTapPreview ? null : current
-                  );
-                  onToggleWindow(entry.windowId);
-                  }}
+                  aria-pressed={entry.active && !entry.minimized}
+                  onClick={() => onToggleWindow(entry.windowId)}
                   onMouseEnter={(event) => {
-                    if (prefersTapPreview) {
-                      return;
-                    }
-
+                    const placement = getPreviewPlacement(event.currentTarget);
+                    setPreviewEntry({
+                      ...entry,
+                      ...placement,
+                    });
+                    void capturePreview(entry);
+                  }}
+                  onFocus={(event) => {
                     const placement = getPreviewPlacement(event.currentTarget);
                     setPreviewEntry({
                       ...entry,
@@ -309,15 +284,15 @@ export function Taskbar({
                     void capturePreview(entry);
                   }}
                   onMouseLeave={() => {
-                    if (prefersTapPreview) {
-                      return;
-                    }
-
+                    setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current));
+                  }}
+                  onBlur={() => {
                     setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current));
                   }}
                 >
                   <Icon size={14} />
-                  <span>{entry.title}</span>
+                  <span className="taskbar__item-copy">{entry.title}</span>
+                  <span className="taskbar__item-indicator" aria-hidden="true" />
                 </button>
               );
             })}

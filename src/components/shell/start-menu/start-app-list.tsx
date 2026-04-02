@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Settings2 } from "lucide-react";
+import { Button } from "@/components/apps/app-layout";
 import { cn } from "@/lib/utils";
 import type { AppDefinition, StartMenuCategoryDescriptor } from "@/types/system";
 import { updateStartMenuSpotlight } from "@/components/shell/start-menu/spotlight";
@@ -7,7 +8,6 @@ import { updateStartMenuSpotlight } from "@/components/shell/start-menu/spotligh
 interface StartAppListProps {
   categories: StartMenuCategoryDescriptor[];
   appsByCategory: Array<{ category: StartMenuCategoryDescriptor; items: AppDefinition[] }>;
-  showSearchResults: boolean;
   expandedCategories: Record<string, boolean>;
   onToggleCategory: (category: string) => void;
   onLaunchSettings: () => void;
@@ -17,7 +17,6 @@ interface StartAppListProps {
 export function StartAppList({
   categories,
   appsByCategory,
-  showSearchResults,
   expandedCategories,
   onToggleCategory,
   onLaunchSettings,
@@ -28,11 +27,11 @@ export function StartAppList({
   return (
     <div className="start-menu__section">
       <div className="section-row">
-        <span className="section-title">{showSearchResults ? "Search results" : "Apps"}</span>
-        <button type="button" className="ghost-button" onClick={onLaunchSettings}>
+        <span className="section-title">Apps</span>
+        <Button type="button" variant="ghost" className="ghost-button" onClick={onLaunchSettings}>
           <Settings2 size={14} />
           Settings
-        </button>
+        </Button>
       </div>
 
       <div className="start-menu__catalog">
@@ -40,7 +39,7 @@ export function StartAppList({
           appsByCategory.map((group) => {
             const meta = group.category;
             const FolderIcon = meta.icon;
-            const expanded = showSearchResults ? true : expandedCategories[group.category.category];
+            const expanded = expandedCategories[group.category.category];
 
             return (
               <section key={group.category.category} className="start-menu__folder">
