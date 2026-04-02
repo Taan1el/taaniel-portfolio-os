@@ -1,18 +1,12 @@
 import type { StartMenuShortcut } from "@/types/system";
-import { StartPowerSection } from "@/components/shell/start-menu/start-power-section";
 import { updateStartMenuSpotlight } from "@/components/shell/start-menu/spotlight";
 
 interface StartSidebarProps {
   shortcuts: StartMenuShortcut[];
-  powerActions: StartMenuShortcut[];
   onExecuteAction: (shortcut: StartMenuShortcut) => void;
 }
 
-export function StartSidebar({
-  shortcuts,
-  powerActions,
-  onExecuteAction,
-}: StartSidebarProps) {
+export function StartSidebar({ shortcuts, onExecuteAction }: StartSidebarProps) {
   return (
     <aside className="start-menu__rail">
       <div className="start-menu__rail-heading">
@@ -38,8 +32,6 @@ export function StartSidebar({
           );
         })}
       </div>
-
-      <StartPowerSection actions={powerActions} onExecuteAction={onExecuteAction} />
     </aside>
   );
 }

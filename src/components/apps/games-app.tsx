@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
-import { Bird, Blocks, Gamepad2, Waypoints } from "lucide-react";
+import { Bird, Gamepad2, Hexagon, Skull } from "lucide-react";
 import { motion } from "framer-motion";
+import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps, AppId } from "@/types/system";
 
@@ -12,25 +13,25 @@ const gameCards: Array<{
   accent: string;
 }> = [
   {
-    id: "snake",
-    title: "Snake",
-    description: "Classic grid chase with quick keyboard controls.",
-    icon: Waypoints,
+    id: "dino",
+    title: "Dino",
+    description: "The real Chromium runner, bundled locally for same-origin play.",
+    icon: Bird,
     accent: "#8bff9f",
   },
   {
-    id: "tetris",
-    title: "Tetris",
-    description: "Rotate, stack, and clear lines in a compact well.",
-    icon: Blocks,
-    accent: "#84b6ff",
+    id: "doom",
+    title: "Doom",
+    description: "Freedoom content running inside a local js-dos bundle.",
+    icon: Skull,
+    accent: "#ff8a5c",
   },
   {
-    id: "dino",
-    title: "Dino",
-    description: "Jump cacti and keep pace as the desert speeds up.",
-    icon: Bird,
-    accent: "#ffd27d",
+    id: "hextris",
+    title: "Hextris",
+    description: "A polished open-source hex puzzler shipped as a local static build.",
+    icon: Hexagon,
+    accent: "#84b6ff",
   },
 ];
 
@@ -40,17 +41,18 @@ export function GamesApp({ window }: AppComponentProps) {
   const launchApp = useSystemStore((state) => state.launchApp);
 
   return (
-    <div className="app-screen games-hub">
+    <AppScaffold className="games-hub">
+      <AppContent padded>
       <section className="hero-panel">
         <div>
           <p className="eyebrow">Arcade</p>
-          <h1>In-browser games inside the OS shell</h1>
-          <p className="lead">Each title launches in its own window and stays lightweight enough for the desktop shell.</p>
+          <h1>Real open-source games inside the OS shell</h1>
+          <p className="lead">Each title launches in its own window from a vendored same-origin build so the lineup works locally and on GitHub Pages.</p>
         </div>
         <div className="token-list">
-          <span>Keyboard-first</span>
+          <span>Vendored locally</span>
           <span>Windowed</span>
-          <span>Browser-native</span>
+          <span>Keyboard-first</span>
         </div>
       </section>
 
@@ -81,6 +83,7 @@ export function GamesApp({ window }: AppComponentProps) {
           );
         })}
       </div>
-    </div>
+      </AppContent>
+    </AppScaffold>
   );
 }

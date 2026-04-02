@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Brush, Download, Eraser, PaintBucket, Save } from "lucide-react";
+import { AppContent, AppFooter, AppScaffold } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { getNodeByPath, getParentPath } from "@/lib/filesystem";
 import { getBaseName } from "@/lib/utils";
@@ -32,6 +33,7 @@ export function PaintApp({ window }: AppComponentProps) {
   const updateBinaryFile = useFileSystemStore((state) => state.updateBinaryFile);
   const createBinaryFile = useFileSystemStore((state) => state.createBinaryFile);
   const file = window.payload?.filePath ? getNodeByPath(nodes, window.payload.filePath) : undefined;
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerRef = useRef<{ drawing: boolean; x: number; y: number }>({
     drawing: false,
@@ -57,6 +59,86 @@ export function PaintApp({ window }: AppComponentProps) {
     return "Untitled canvas";
   }, [activeFile]);
 
+  const resizeCanvasToStage = (preserveDrawing: boolean) => {
+    const canvas = canvasRef.current;
+    const stage = stageRef.current;
+
+    if (!canvas || !stage) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return;
+    }
+
+    const rect = stage.getBoundingClientRect();
+    const nextWidth = Math.max(1, Math.floor(rect.width));
+    const nextHeight = Math.max(1, Math.floor(rect.height));
+
+    if (canvas.width === nextWidth && canvas.height === nextHeight) {
+      return;
+    }
+
+    let snapshot: HTMLCanvasElement | null = null;
+
+    if (preserveDrawing && canvas.width > 0 && canvas.height > 0) {
+      snapshot = document.createElement("canvas");
+      snapshot.width = canvas.width;
+      snapshot.height = canvas.height;
+      snapshot.getContext("2d")?.drawImage(canvas, 0, 0);
+    }
+
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, nextWidth, nextHeight);
+
+    if (snapshot) {
+      context.drawImage(snapshot, 0, 0, nextWidth, nextHeight);
+    }
+  };
+
+  const drawImageToCanvas = (image: HTMLImageElement) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+
+    if (!canvas || !context) {
+      return;
+    }
+
+    const imageWidth = image.naturalWidth || image.width || canvas.width;
+    const imageHeight = image.naturalHeight || image.height || canvas.height;
+    const scale = Math.min(canvas.width / imageWidth, canvas.height / imageHeight);
+    const drawWidth = Math.max(1, Math.floor(imageWidth * scale));
+    const drawHeight = Math.max(1, Math.floor(imageHeight * scale));
+    const offsetX = Math.floor((canvas.width - drawWidth) / 2);
+    const offsetY = Math.floor((canvas.height - drawHeight) / 2);
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+  };
+
+  useEffect(() => {
+    const stage = stageRef.current;
+
+    if (!stage || typeof ResizeObserver === "undefined") {
+      resizeCanvasToStage(true);
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      resizeCanvasToStage(true);
+    });
+
+    observer.observe(stage);
+    resizeCanvasToStage(true);
+
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
 
@@ -71,8 +153,7 @@ export function PaintApp({ window }: AppComponentProps) {
     }
 
     const initializeBlankCanvas = () => {
-      canvas.width = 960;
-      canvas.height = 640;
+      resizeCanvasToStage(false);
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, canvas.width, canvas.height);
     };
@@ -92,10 +173,8 @@ export function PaintApp({ window }: AppComponentProps) {
 
     void loadImage(activeFile.source)
       .then((image) => {
-        canvas.width = image.naturalWidth || 960;
-        canvas.height = image.naturalHeight || 640;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resizeCanvasToStage(false);
+        drawImageToCanvas(image);
       })
       .catch((error: Error) => {
         setLoadError(error.message);
@@ -175,7 +254,7 @@ export function PaintApp({ window }: AppComponentProps) {
   };
 
   return (
-    <div className="app-screen paint-app">
+    <AppScaffold className="paint-app">
       <MediaToolbar
         title={canvasName}
         subtitle={
@@ -212,6 +291,7 @@ export function PaintApp({ window }: AppComponentProps) {
                   return;
                 }
 
+                context.clearRect(0, 0, canvas.width, canvas.height);
                 context.fillStyle = "#ffffff";
                 context.fillRect(0, 0, canvas.width, canvas.height);
                 setStatusMessage("Canvas cleared");
@@ -255,51 +335,60 @@ export function PaintApp({ window }: AppComponentProps) {
         }
       />
 
-      {loadError ? (
-        <div className="paint-app__fallback">
-          <strong>Paint cannot edit this source yet</strong>
-          <p>{loadError}</p>
+      <AppContent className="paint-app__content" padded={false} scrollable={false} stacked={false}>
+        {loadError ? (
+          <div className="paint-app__fallback">
+            <strong>Paint cannot edit this source yet</strong>
+            <p>{loadError}</p>
+          </div>
+        ) : null}
+
+        <div ref={stageRef} className="paint-app__stage">
+          <canvas
+            ref={canvasRef}
+            className="paint-app__canvas"
+            onPointerDown={(event) => {
+              const point = getCanvasCoordinates(event);
+              event.currentTarget.setPointerCapture(event.pointerId);
+              pointerRef.current = {
+                drawing: true,
+                x: point.x,
+                y: point.y,
+              };
+            }}
+            onPointerMove={(event) => {
+              if (!pointerRef.current.drawing) {
+                return;
+              }
+
+              const point = getCanvasCoordinates(event);
+              drawLine(pointerRef.current.x, pointerRef.current.y, point.x, point.y);
+              pointerRef.current = {
+                drawing: true,
+                x: point.x,
+                y: point.y,
+              };
+            }}
+            onPointerUp={(event) => {
+              pointerRef.current.drawing = false;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+            }}
+            onPointerLeave={(event) => {
+              pointerRef.current.drawing = false;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+            }}
+          />
         </div>
-      ) : null}
+      </AppContent>
 
-      <div className="paint-app__status">
+      <AppFooter className="paint-app__footer">
         <span>{statusMessage}</span>
-        {activeFile?.readonly ? <span>Source is read only, so use Export PNG.</span> : null}
-      </div>
-
-      <div className="paint-app__stage">
-        <canvas
-          ref={canvasRef}
-          className="paint-app__canvas"
-          onPointerDown={(event) => {
-            const point = getCanvasCoordinates(event);
-            pointerRef.current = {
-              drawing: true,
-              x: point.x,
-              y: point.y,
-            };
-          }}
-          onPointerMove={(event) => {
-            if (!pointerRef.current.drawing) {
-              return;
-            }
-
-            const point = getCanvasCoordinates(event);
-            drawLine(pointerRef.current.x, pointerRef.current.y, point.x, point.y);
-            pointerRef.current = {
-              drawing: true,
-              x: point.x,
-              y: point.y,
-            };
-          }}
-          onPointerUp={() => {
-            pointerRef.current.drawing = false;
-          }}
-          onPointerLeave={() => {
-            pointerRef.current.drawing = false;
-          }}
-        />
-      </div>
-    </div>
+        {activeFile?.readonly ? <span>Read-only source. Use Export PNG to keep edits.</span> : null}
+      </AppFooter>
+    </AppScaffold>
   );
 }

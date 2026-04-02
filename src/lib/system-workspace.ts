@@ -1,25 +1,30 @@
+import {
+  bundledWorkspaceAssets,
+  bundledWorkspaceDirectories,
+} from "@/data/bundled-assets";
 import { photographyAssets } from "@/data/portfolio";
-import { resolvePublicAssetUrl } from "@/lib/assets";
+import {
+  GAMES_DIRECTORY_PATH,
+  GAMES_README_CONTENT,
+  GAMES_README_PATH,
+  LEGACY_GAMES_README_CONTENT,
+} from "@/lib/games";
 import { ensureNotesWorkspace } from "@/lib/notes";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
 
 export const LEGACY_WELCOME_PATH = "/Desktop/Welcome.md";
 export const SNAPSHOTS_DIRECTORY_PATH = "/Users/Public/Snapshots";
 const LEGACY_MUSIC_PATHS = ["/Media/Music/Studio Loop.mp3", "/Media/Music/T-Rex Roar.mp3"];
-const REQUIRED_DIRECTORIES = ["/Media", "/Media/Music", "/Media/Photography", SNAPSHOTS_DIRECTORY_PATH];
-const BUNDLED_MEDIA_FILES = [
-  {
-    path: "/Media/Music/Black Star.mp3",
-    extension: "mp3",
-    mimeType: "audio/mpeg",
-    source: resolvePublicAssetUrl("assets/Black Star.mp3"),
-  },
-  {
-    path: "/Media/Music/Black Star Cover.jpg",
-    extension: "jpg",
-    mimeType: "image/jpeg",
-    source: resolvePublicAssetUrl("assets/blackstar_img.jpg"),
-  },
+const REQUIRED_DIRECTORIES = [
+  GAMES_DIRECTORY_PATH,
+  "/Media",
+  "/Media/Music",
+  "/Media/Photography",
+  SNAPSHOTS_DIRECTORY_PATH,
+  ...bundledWorkspaceDirectories,
+];
+const BUNDLED_READONLY_FILES = [
+  ...bundledWorkspaceAssets,
   ...photographyAssets.map((asset) => ({
     path: `/Media/Photography/${asset.title}.${asset.src.endsWith(".png") ? "png" : "jpg"}`,
     extension: asset.src.endsWith(".png") ? "png" : "jpg",
@@ -73,6 +78,28 @@ function createFileNode(
   };
 }
 
+function createTextFileNode(
+  path: string,
+  extension: string,
+  mimeType: string,
+  content: string,
+  timestamp: number
+): VirtualFile {
+  const normalizedPath = normalizePath(path);
+  const name = normalizedPath.split("/").filter(Boolean).at(-1) ?? normalizedPath;
+
+  return {
+    kind: "file",
+    path: normalizedPath,
+    name,
+    extension,
+    mimeType,
+    content,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 export function ensureSystemWorkspace(nodes: FileSystemRecord) {
   let nextNodes = ensureNotesWorkspace(nodes);
   let changed = nextNodes !== nodes;
@@ -106,7 +133,7 @@ export function ensureSystemWorkspace(nodes: FileSystemRecord) {
     changed = true;
   });
 
-  BUNDLED_MEDIA_FILES.forEach((asset) => {
+  BUNDLED_READONLY_FILES.forEach((asset) => {
     if (nextNodes[asset.path]) {
       return;
     }
@@ -123,6 +150,35 @@ export function ensureSystemWorkspace(nodes: FileSystemRecord) {
     };
     changed = true;
   });
+
+  const gamesReadmeNode = nextNodes[GAMES_README_PATH];
+
+  if (!gamesReadmeNode) {
+    nextNodes = {
+      ...nextNodes,
+      [GAMES_README_PATH]: createTextFileNode(
+        GAMES_README_PATH,
+        "md",
+        "text/markdown",
+        GAMES_README_CONTENT,
+        timestamp
+      ),
+    };
+    changed = true;
+  } else if (
+    gamesReadmeNode.kind === "file" &&
+    gamesReadmeNode.content === LEGACY_GAMES_README_CONTENT
+  ) {
+    nextNodes = {
+      ...nextNodes,
+      [GAMES_README_PATH]: {
+        ...gamesReadmeNode,
+        content: GAMES_README_CONTENT,
+        updatedAt: timestamp,
+      },
+    };
+    changed = true;
+  }
 
   if (changed) {
     return nextNodes;

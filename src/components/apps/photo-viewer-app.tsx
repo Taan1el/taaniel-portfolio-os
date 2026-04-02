@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Expand, Search, SearchX } from "lucide-react";
+import { AppContent, AppFooter, AppScaffold, ScrollArea } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
 import { openFileSystemPath } from "@/lib/launchers";
@@ -15,6 +16,7 @@ function isPhotoFile(node: VirtualFile) {
 
 export function PhotoViewerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
+  const readFile = useFileSystemStore((state) => state.readFile);
   const launchApp = useSystemStore((state) => state.launchApp);
   const setCustomWallpaperSource = useSystemStore((state) => state.setCustomWallpaperSource);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -23,7 +25,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
     window.payload?.filePath ?? "/Media/Photography/Clouds.jpg",
     isPhotoFile
   );
-  const file = nodes[filePath];
+  const file = readFile(filePath);
   const [zoom, setZoom] = useState(1);
   const [renderFailed, setRenderFailed] = useState(false);
 
@@ -42,16 +44,20 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
     element.focus();
   }, [filePath]);
 
-  if (!file || file.kind !== "file") {
+  if (!file || file.type !== "file") {
     return <div className="app-empty">No image file selected.</div>;
   }
 
   const fileSize =
-    file.size != null ? file.size : file.content != null ? new Blob([file.content]).size : undefined;
-  const canRenderInline = isBrowserRenderableImageExtension(file.extension) && !renderFailed;
+    file.size != null
+      ? file.size
+      : typeof file.content === "string"
+        ? new Blob([file.content]).size
+        : undefined;
+  const canRenderInline = Boolean(file.extension && isBrowserRenderableImageExtension(file.extension) && !renderFailed);
 
   return (
-    <div className="app-screen photo-viewer">
+    <AppScaffold className="photo-viewer">
       <MediaToolbar
         title={file.name}
         subtitle={fileSize != null ? formatBytes(fileSize) : undefined}
@@ -101,71 +107,75 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         }
       />
 
-      <div
-        ref={containerRef}
-        className="photo-viewer__canvas"
-        tabIndex={0}
-        onDoubleClick={() => containerRef.current?.requestFullscreen()}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft" && previous) {
-            event.preventDefault();
-            openFileSystemPath(previous.path, nodes, launchApp);
-          }
+      <AppContent className="photo-viewer__content" padded={false} scrollable={false}>
+        <ScrollArea
+          ref={containerRef}
+          className="photo-viewer__canvas"
+          tabIndex={0}
+          onDoubleClick={() => containerRef.current?.requestFullscreen()}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft" && previous) {
+              event.preventDefault();
+              openFileSystemPath(previous.path, nodes, launchApp);
+            }
 
-          if (event.key === "ArrowRight" && next) {
-            event.preventDefault();
-            openFileSystemPath(next.path, nodes, launchApp);
-          }
+            if (event.key === "ArrowRight" && next) {
+              event.preventDefault();
+              openFileSystemPath(next.path, nodes, launchApp);
+            }
 
-          if (event.key === "+" || event.key === "=") {
-            event.preventDefault();
-            setZoom((currentZoom) => Math.min(3, currentZoom + 0.2));
-          }
+            if (event.key === "+" || event.key === "=") {
+              event.preventDefault();
+              setZoom((currentZoom) => Math.min(3, currentZoom + 0.2));
+            }
 
-          if (event.key === "-") {
-            event.preventDefault();
-            setZoom((currentZoom) => Math.max(0.4, currentZoom - 0.2));
-          }
+            if (event.key === "-") {
+              event.preventDefault();
+              setZoom((currentZoom) => Math.max(0.4, currentZoom - 0.2));
+            }
 
-          if (event.key.toLowerCase() === "f") {
-            event.preventDefault();
-            void containerRef.current?.requestFullscreen();
-          }
-        }}
-      >
-        {file.source && canRenderInline ? (
-          <img
-            src={file.source}
-            alt={file.name}
-            style={{ transform: `scale(${zoom})` }}
-            onError={() => setRenderFailed(true)}
-          />
-        ) : (
-          <div className="photo-viewer__fallback">
-            <strong>Inline preview unavailable</strong>
-            <p>
-              This image format is routed through the photo viewer, but the browser cannot render it inline yet.
-            </p>
-            <p>Use Paint export, download the file, or convert it to PNG, JPG, WebP, GIF, BMP, or ICO.</p>
-          </div>
-        )}
-      </div>
+            if (event.key.toLowerCase() === "f") {
+              event.preventDefault();
+              void containerRef.current?.requestFullscreen();
+            }
+          }}
+        >
+          {file.source && canRenderInline ? (
+            <img
+              src={file.source}
+              alt={file.name}
+              style={{ transform: `scale(${zoom})` }}
+              onError={() => setRenderFailed(true)}
+            />
+          ) : (
+            <div className="photo-viewer__fallback">
+              <strong>Inline preview unavailable</strong>
+              <p>
+                This image format is routed through the photo viewer, but the browser cannot render it inline yet.
+              </p>
+              <p>Use Paint export, download the file, or convert it to PNG, JPG, WebP, GIF, BMP, or ICO.</p>
+            </div>
+          )}
+        </ScrollArea>
+      </AppContent>
 
       {siblings.length > 1 ? (
-        <div className="photo-viewer__filmstrip" role="list" aria-label="Image strip">
-          {siblings.map((item) => (
-            <button
-              key={item.path}
-              type="button"
-              className={`photo-viewer__thumb ${item.path === file.path ? "is-active" : ""}`}
-              onClick={() => openFileSystemPath(item.path, nodes, launchApp)}
-            >
-              {item.source ? <img src={item.source} alt={item.name} loading="lazy" /> : null}
-              <span>{item.name.replace(/\.[^.]+$/, "")}</span>
-            </button>
-          ))}
-        </div>
+        <AppFooter className="photo-viewer__footer">
+          <div className="photo-viewer__filmstrip" role="list" aria-label="Image strip">
+            {siblings.map((item) => (
+              <button
+                key={item.path}
+                type="button"
+                className={`photo-viewer__thumb ${item.path === file.path ? "is-active" : ""}`}
+                onClick={() => openFileSystemPath(item.path, nodes, launchApp)}
+              >
+                {item.source ? <img src={item.source} alt={item.name} loading="lazy" /> : null}
+                <span>{item.name.replace(/\.[^.]+$/, "")}</span>
+              </button>
+            ))}
+          </div>
+        </AppFooter>
       ) : null}
-    </div>
+    </AppScaffold>
   );
 }

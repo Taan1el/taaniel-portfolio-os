@@ -1,4 +1,4 @@
-import type { ComponentType, LazyExoticComponent } from "react";
+import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 
 export type AppId =
@@ -9,9 +9,9 @@ export type AppId =
   | "notes"
   | "music"
   | "games"
-  | "snake"
-  | "tetris"
   | "dino"
+  | "doom"
+  | "hextris"
   | "v86"
   | "terminal"
   | "editor"
@@ -43,29 +43,32 @@ export interface WindowBounds {
   height: number;
 }
 
-export interface AppWindow extends WindowBounds {
+export interface WindowRecord extends WindowBounds {
   id: string;
   processId: string;
-  appId: AppId;
-  title: string;
   minimized: boolean;
   minimizedByShowDesktop?: boolean;
   maximized: boolean;
-  focused: boolean;
   zIndex: number;
   restoreBounds?: WindowBounds;
-  payload?: WindowPayload;
   createdAt: number;
 }
 
 export interface AppProcess {
   id: string;
   appId: AppId;
-  windowId: string;
+  status: ProcessState;
+  windowId: string | null;
   title: string;
-  state: ProcessState;
   payload?: WindowPayload;
   createdAt: number;
+}
+
+export interface AppWindow extends WindowRecord {
+  appId: AppId;
+  title: string;
+  focused: boolean;
+  payload?: WindowPayload;
 }
 
 export interface DesktopGridPosition {
@@ -133,17 +136,34 @@ export interface AppComponentProps {
   window: AppWindow;
 }
 
+export interface AppModule {
+  default: ComponentType<AppComponentProps>;
+}
+
 export interface AppDefinition {
   id: AppId;
   title: string;
+  icon: LucideIcon;
+  load: () => Promise<AppModule>;
+  defaultSize: {
+    width: number;
+    height: number;
+  };
+  minSize?: {
+    width: number;
+    height: number;
+  };
+  resizable?: boolean;
+  multiple?: boolean;
+  mobileMaximized?: boolean;
   description: string;
   category: AppCategory;
-  icon: LucideIcon;
   accent: string;
-  defaultBounds: WindowBounds;
-  singleInstance?: boolean;
   hidden?: boolean;
-  component: LazyExoticComponent<ComponentType<AppComponentProps>>;
+  defaultPosition?: {
+    x: number;
+    y: number;
+  };
   resolveTitle?: (payload?: WindowPayload) => string;
 }
 
@@ -239,6 +259,20 @@ export interface VirtualFile extends VirtualNodeBase {
 }
 
 export type FileSystemRecord = Record<string, VirtualNode>;
+
+export interface FileNode {
+  path: string;
+  name: string;
+  type: "file" | "folder";
+  mimeType?: string;
+  content?: unknown;
+  createdAt: number;
+  updatedAt: number;
+  extension?: string;
+  source?: string;
+  size?: number;
+  readonly?: boolean;
+}
 
 export type FileAssociationFamily =
   | "document"

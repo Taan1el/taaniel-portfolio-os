@@ -10,7 +10,7 @@ import type { AppId, TaskbarWindowEntry } from "@/types/system";
 
 const TASKBAR_PREVIEW_WIDTH = 256;
 const TASKBAR_PREVIEW_OFFSET = 12;
-const PREVIEW_FALLBACK_APPS = new Set<AppId>(["browser", "editor", "paint", "snake", "tetris", "dino", "terminal", "v86"]);
+const PREVIEW_FALLBACK_APPS = new Set<AppId>(["browser", "dino", "doom", "editor", "hextris", "paint", "terminal", "v86"]);
 
 function getPreviewPlacement(button: HTMLButtonElement) {
   const buttonRect = button.getBoundingClientRect();

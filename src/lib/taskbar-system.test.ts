@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildProcessesFromWindows, buildTaskbarWindowEntries } from "@/lib/taskbar-system";
-import type { AppWindow } from "@/types/system";
+import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
+import type { AppProcess, AppWindow } from "@/types/system";
 
 describe("taskbar-system", () => {
   it("creates stable taskbar entries with preview metadata", () => {
@@ -36,7 +36,24 @@ describe("taskbar-system", () => {
         createdAt: 2,
       },
     ];
-    const processes = buildProcessesFromWindows(windows, "window-a");
+    const processes: AppProcess[] = [
+      {
+        id: "process-a",
+        appId: "about",
+        status: "focused",
+        windowId: "window-a",
+        title: "About",
+        createdAt: 1,
+      },
+      {
+        id: "process-b",
+        appId: "projects",
+        status: "minimized",
+        windowId: "window-b",
+        title: "Projects",
+        createdAt: 2,
+      },
+    ];
     const entries = buildTaskbarWindowEntries(processes, windows);
 
     expect(entries).toHaveLength(2);

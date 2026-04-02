@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cpu, FolderOpen, Play, RotateCcw, Save } from "lucide-react";
 import { V86 } from "v86";
+import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { clamp, getBaseName } from "@/lib/utils";
 import { getNodeByPath } from "@/lib/filesystem";
@@ -277,7 +278,7 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
   ]);
 
   return (
-    <div className="app-screen v86-app">
+    <AppScaffold className="v86-app">
       <MediaToolbar
         title={diskFile ? getBaseName(diskFile.path) : "Virtual x86"}
         subtitle={snapshotFile ? "Snapshot-aware emulator session" : "In-browser x86 emulator"}
@@ -330,39 +331,41 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
         }
       />
 
-      <div className="glass-card v86-app__hero">
-        <span className="v86-app__hero-icon">
-          <Cpu size={24} />
-        </span>
-        <div className="v86-app__hero-copy">
-          <p className="eyebrow">Virtual x86</p>
-          <h2>{diskFile ? diskFile.name : "Import a disk image to begin"}</h2>
-          <p>{status}</p>
+      <AppContent className="v86-app__content" padded={false} scrollable={false}>
+        <div className="glass-card v86-app__hero">
+          <span className="v86-app__hero-icon">
+            <Cpu size={24} />
+          </span>
+          <div className="v86-app__hero-copy">
+            <p className="eyebrow">Virtual x86</p>
+            <h2>{diskFile ? diskFile.name : "Import a disk image to begin"}</h2>
+            <p>{status}</p>
+          </div>
         </div>
-      </div>
 
-      <div className="v86-app__status-row">
-        <span>{saveMessage}</span>
-        <small>Snapshots live in `{SNAPSHOTS_DIRECTORY_PATH}`.</small>
-      </div>
+        <div className="v86-app__status-row">
+          <span>{saveMessage}</span>
+          <small>Snapshots live in `{SNAPSHOTS_DIRECTORY_PATH}`.</small>
+        </div>
 
-      {!hasDiskImage ? (
-        <div className="v86-app__empty">
-          <strong>No disk image is mounted</strong>
-          <p>Import a `.img` or `.iso` into Explorer or onto the desktop, then open it to launch Virtual x86.</p>
-        </div>
-      ) : (
-        <div className="v86-app__viewport">
-          <div ref={screenRef} className="v86-app__screen" />
-        </div>
-      )}
+        {!hasDiskImage ? (
+          <div className="v86-app__empty">
+            <strong>No disk image is mounted</strong>
+            <p>Import a `.img` or `.iso` into Explorer or onto the desktop, then open it to launch Virtual x86.</p>
+          </div>
+        ) : (
+          <div className="v86-app__viewport">
+            <div ref={screenRef} className="v86-app__screen" />
+          </div>
+        )}
 
-      {errorMessage ? (
-        <div className="v86-app__error">
-          <strong>Virtual x86 hit a problem</strong>
-          <p>{errorMessage}</p>
-        </div>
-      ) : null}
-    </div>
+        {errorMessage ? (
+          <div className="v86-app__error">
+            <strong>Virtual x86 hit a problem</strong>
+            <p>{errorMessage}</p>
+          </div>
+        ) : null}
+      </AppContent>
+    </AppScaffold>
   );
 }

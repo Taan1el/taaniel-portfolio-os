@@ -1,7 +1,7 @@
 import { del, get, set } from "idb-keyval";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { inferMimeTypeFromExtension, isTextLikeExtension } from "@/lib/file-registry";
-import type { FileSystemRecord, VirtualDirectory, VirtualFile, VirtualNode } from "@/types/system";
+import type { FileNode, FileSystemRecord, VirtualDirectory, VirtualFile, VirtualNode } from "@/types/system";
 
 export const FILESYSTEM_STORAGE_KEY = "taaniel-os-filesystem-v1";
 
@@ -34,12 +34,62 @@ export function getParentPath(path: string) {
   return `/${parts.slice(0, -1).join("/")}`;
 }
 
+export function getPathName(path: string) {
+  const normalized = normalizePath(path);
+
+  if (normalized === "/") {
+    return "/";
+  }
+
+  return normalized.split("/").filter(Boolean).at(-1) ?? normalized;
+}
+
 export function joinPath(...segments: string[]) {
   return normalizePath(segments.join("/"));
 }
 
 export function getNodeByPath(nodes: FileSystemRecord, path: string) {
   return nodes[normalizePath(path)];
+}
+
+export function toFileNode(node: VirtualNode): FileNode {
+  if (node.kind === "directory") {
+    return {
+      path: node.path,
+      name: node.name,
+      type: "folder",
+      createdAt: node.createdAt,
+      updatedAt: node.updatedAt,
+    };
+  }
+
+  return {
+    path: node.path,
+    name: node.name,
+    type: "file",
+    mimeType: node.mimeType,
+    content: node.content,
+    createdAt: node.createdAt,
+    updatedAt: node.updatedAt,
+    extension: node.extension,
+    source: node.source,
+    size: node.size,
+    readonly: node.readonly,
+  };
+}
+
+export function listDirectory(nodes: FileSystemRecord, directoryPath: string) {
+  return listChildren(nodes, directoryPath).map(toFileNode);
+}
+
+export function readFile(nodes: FileSystemRecord, path: string) {
+  const node = getNodeByPath(nodes, path);
+
+  if (!node || node.kind !== "file") {
+    return null;
+  }
+
+  return toFileNode(node);
 }
 
 export function listChildren(nodes: FileSystemRecord, directoryPath: string) {
@@ -141,6 +191,56 @@ function ensureUniqueName(nodes: FileSystemRecord, directoryPath: string, desire
   return candidate;
 }
 
+interface CreateNodeOptions {
+  uniqueName?: boolean;
+}
+
+export function mkdirRecord(
+  nodes: FileSystemRecord,
+  path: string,
+  options: CreateNodeOptions = {}
+) {
+  const normalizedPath = normalizePath(path);
+
+  if (normalizedPath === "/" || nodes[normalizedPath]) {
+    return {
+      nodes,
+      path: normalizedPath,
+    };
+  }
+
+  const parentPath = getParentPath(normalizedPath);
+  const parentNode = nodes[parentPath];
+
+  if (!parentNode || parentNode.kind !== "directory") {
+    return {
+      nodes,
+      path: normalizedPath,
+    };
+  }
+
+  const requestedName = getPathName(normalizedPath);
+  const nextName = options.uniqueName ? ensureUniqueName(nodes, parentPath, requestedName) : requestedName;
+  const nextPath = joinPath(parentPath, nextName);
+  const timestamp = Date.now();
+
+  const directoryNode: VirtualDirectory = {
+    kind: "directory",
+    path: nextPath,
+    name: nextName,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  return {
+    nodes: {
+      ...nodes,
+      [nextPath]: directoryNode,
+    },
+    path: nextPath,
+  };
+}
+
 export function createDirectoryRecord(
   nodes: FileSystemRecord,
   directoryPath: string,
@@ -192,6 +292,78 @@ export function createTextFileRecord(
   return {
     ...nodes,
     [path]: fileNode,
+  };
+}
+
+interface WriteFileOptions extends CreateNodeOptions {
+  mimeType?: string;
+  extension?: string;
+  source?: string;
+}
+
+export function writeFileRecord(
+  nodes: FileSystemRecord,
+  path: string,
+  content: string,
+  options: WriteFileOptions = {}
+) {
+  const normalizedPath = normalizePath(path);
+  const current = nodes[normalizedPath];
+
+  if (current?.kind === "file") {
+    if (current.readonly) {
+      return {
+        nodes,
+        path: normalizedPath,
+      };
+    }
+
+    if (options.source || current.source) {
+      return {
+        nodes: updateBinaryFileRecord(nodes, normalizedPath, options.source ?? String(content), {
+          mimeType: options.mimeType,
+          extension: options.extension,
+        }),
+        path: normalizedPath,
+      };
+    }
+
+    return {
+      nodes: updateTextFileRecord(nodes, normalizedPath, String(content)),
+      path: normalizedPath,
+    };
+  }
+
+  const parentPath = getParentPath(normalizedPath);
+  const parentNode = nodes[parentPath];
+
+  if (!parentNode || parentNode.kind !== "directory") {
+    return {
+      nodes,
+      path: normalizedPath,
+    };
+  }
+
+  const requestedName = getPathName(normalizedPath);
+  const nextName = options.uniqueName ? ensureUniqueName(nodes, parentPath, requestedName) : requestedName;
+  const nextPath = joinPath(parentPath, nextName);
+  const extension = options.extension ?? nextName.split(".").pop()?.toLowerCase() ?? "txt";
+  const mimeType = options.mimeType ?? inferMimeTypeFromExtension(extension);
+
+  if (options.source || !shouldStoreAsText(mimeType, extension)) {
+    return createBinaryFileRecord(
+      nodes,
+      parentPath,
+      nextName,
+      options.source ?? String(content),
+      mimeType,
+      extension
+    );
+  }
+
+  return {
+    nodes: createTextFileRecord(nodes, parentPath, nextName, String(content)),
+    path: nextPath,
   };
 }
 
@@ -335,6 +507,27 @@ export function renameNodeRecord(nodes: FileSystemRecord, path: string, nextName
   }
 
   return updatedNodes;
+}
+
+export function renameRecord(nodes: FileSystemRecord, path: string, nextName: string) {
+  const normalizedPath = normalizePath(path);
+  const target = nodes[normalizedPath];
+
+  if (!target) {
+    return {
+      nodes,
+      path: normalizedPath,
+    };
+  }
+
+  const parentPath = getParentPath(normalizedPath);
+  const uniqueName = ensureUniqueName(nodes, parentPath, nextName);
+  const nextPath = joinPath(parentPath, uniqueName);
+
+  return {
+    nodes: renameNodeRecord(nodes, normalizedPath, uniqueName),
+    path: nextPath,
+  };
 }
 
 export function deleteNodeRecord(nodes: FileSystemRecord, path: string) {

@@ -1,43 +1,47 @@
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ChevronLeft,
-  ChevronRight,
+  BookText,
+  BriefcaseBusiness,
   FileImage,
   FileText,
-  FilePlus2,
   Folder,
-  FolderPlus,
-  Search,
-  Upload,
+  FolderOpen,
+  Gamepad2,
+  Image,
+  Monitor,
+  Music4,
 } from "lucide-react";
-import {
-  getNodeByPath,
-  isImageFile,
-  listChildren,
-  normalizePath,
-} from "@/lib/filesystem";
+import { AppContent, AppFooter, AppScaffold } from "@/components/apps/app-layout";
+import { ExplorerSidebar, type ExplorerSidebarLocation } from "@/components/apps/explorer/explorer-sidebar";
+import { ExplorerToolbar, type ExplorerBreadcrumb } from "@/components/apps/explorer/explorer-toolbar";
+import { joinPath, normalizePath } from "@/lib/filesystem";
 import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
 import { openFileSystemPath } from "@/lib/launchers";
 import { cn } from "@/lib/utils";
 import { useExplorerStore } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
-import type { AppComponentProps, VirtualNode } from "@/types/system";
-
-interface BreadcrumbItem {
-  label: string;
-  path: string;
-}
+import type { AppComponentProps, FileNode } from "@/types/system";
 
 interface ExplorerGridItemProps {
-  node: VirtualNode;
+  node: FileNode;
   selected: boolean;
-  onOpen: (node: VirtualNode) => void;
+  onOpen: (node: FileNode) => void;
   onSelect: (path: string) => void;
 }
 
-function buildBreadcrumbs(path: string): BreadcrumbItem[] {
+const explorerLocations: ExplorerSidebarLocation[] = [
+  { label: "Desktop", path: "/Desktop", icon: Monitor },
+  { label: "Documents", path: "/Documents", icon: FolderOpen },
+  { label: "Notes", path: "/Documents/Notes", icon: BookText },
+  { label: "Portfolio", path: "/Portfolio", icon: BriefcaseBusiness },
+  { label: "Photography", path: "/Media/Photography", icon: Image },
+  { label: "Music", path: "/Media/Music", icon: Music4 },
+  { label: "Games", path: "/Games", icon: Gamepad2 },
+];
+
+function buildBreadcrumbs(path: string): ExplorerBreadcrumb[] {
   const normalized = normalizePath(path);
 
   if (normalized === "/") {
@@ -59,15 +63,8 @@ function hasFilePayload(event: React.DragEvent<HTMLElement>) {
   return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 }
 
-function getNodeSearchText(node: VirtualNode) {
-  return [
-    node.name,
-    node.path,
-    node.kind === "file" ? node.mimeType : "folder",
-    node.kind === "file" ? node.extension : "",
-  ]
-    .join(" ")
-    .toLowerCase();
+function getFileNodeSearchText(node: FileNode) {
+  return [node.name, node.path, node.type, node.mimeType ?? "", node.extension ?? ""].join(" ").toLowerCase();
 }
 
 const ExplorerGridItem = memo(function ExplorerGridItem({
@@ -77,8 +74,9 @@ const ExplorerGridItem = memo(function ExplorerGridItem({
   onSelect,
 }: ExplorerGridItemProps) {
   const canRenderThumbnail =
-    isImageFile(node) &&
-    isBrowserRenderableImageExtension(node.extension) &&
+    node.type === "file" &&
+    Boolean(node.mimeType?.startsWith("image/")) &&
+    Boolean(node.extension && isBrowserRenderableImageExtension(node.extension)) &&
     Boolean(node.source);
 
   return (
@@ -109,9 +107,9 @@ const ExplorerGridItem = memo(function ExplorerGridItem({
             loading="lazy"
             decoding="async"
           />
-        ) : node.kind === "directory" ? (
+        ) : node.type === "folder" ? (
           <Folder size={26} />
-        ) : isImageFile(node) ? (
+        ) : node.mimeType?.startsWith("image/") ? (
           <FileImage size={24} />
         ) : (
           <FileText size={24} />
@@ -124,8 +122,9 @@ const ExplorerGridItem = memo(function ExplorerGridItem({
 
 export function FileExplorerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
-  const createDirectory = useFileSystemStore((state) => state.createDirectory);
-  const createTextFile = useFileSystemStore((state) => state.createTextFile);
+  const listDirectory = useFileSystemStore((state) => state.listDirectory);
+  const mkdir = useFileSystemStore((state) => state.mkdir);
+  const writeFile = useFileSystemStore((state) => state.writeFile);
   const importFiles = useFileSystemStore((state) => state.importFiles);
   const launchApp = useSystemStore((state) => state.launchApp);
   const {
@@ -159,10 +158,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const searchQuery = session?.searchQuery ?? "";
   const selectedPath = session?.selectedPath ?? null;
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const currentNode = getNodeByPath(nodes, currentPath);
+  const currentNode = nodes[currentPath];
   const currentDirectoryPath =
     currentNode?.kind === "directory" ? currentNode.path : "/";
-  const children = useMemo(() => listChildren(nodes, currentDirectoryPath), [currentDirectoryPath, nodes]);
+  const children = useMemo(() => listDirectory(currentDirectoryPath), [currentDirectoryPath, listDirectory, nodes]);
   const filteredChildren = useMemo(() => {
     const normalizedQuery = deferredSearchQuery.trim().toLowerCase();
 
@@ -170,7 +169,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       return children;
     }
 
-    return children.filter((node) => getNodeSearchText(node).includes(normalizedQuery));
+    return children.filter((node) => getFileNodeSearchText(node).includes(normalizedQuery));
   }, [children, deferredSearchQuery]);
   const selectedNode = selectedPath ? nodes[selectedPath] ?? null : null;
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDirectoryPath), [currentDirectoryPath]);
@@ -190,8 +189,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
 
   const itemCountLabel = `${filteredChildren.length} item${filteredChildren.length === 1 ? "" : "s"}`;
 
-  const openNode = (node: VirtualNode) => {
-    if (node.kind === "directory") {
+  const openNode = (node: FileNode) => {
+    if (node.type === "folder") {
       navigate(window.id, node.path);
       return;
     }
@@ -208,8 +207,22 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     }
   };
 
+  const createFolder = async () => {
+    const createdPath = await mkdir(joinPath(currentDirectoryPath, "New Folder"), { uniqueName: true });
+    setSelectedPath(window.id, createdPath);
+  };
+
+  const createNote = async () => {
+    const createdPath = await writeFile(joinPath(currentDirectoryPath, "New Note.txt"), "", {
+      mimeType: "text/plain",
+      extension: "txt",
+      uniqueName: true,
+    });
+    setSelectedPath(window.id, createdPath);
+  };
+
   return (
-    <div className="explorer-window">
+    <AppScaffold className="explorer-window">
       <input
         ref={fileInputRef}
         type="file"
@@ -225,157 +238,108 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         }}
       />
 
-      <header className="explorer-window__toolbar">
-        <div className="explorer-window__nav">
-          <button
-            type="button"
-            className="icon-button explorer-window__nav-button"
-            disabled={!session || session.historyIndex <= 0}
-            onClick={() => goBack(window.id)}
-            aria-label="Go back"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <button
-            type="button"
-            className="icon-button explorer-window__nav-button"
-            disabled={!session || session.historyIndex >= session.history.length - 1}
-            onClick={() => goForward(window.id)}
-            aria-label="Go forward"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
+      <ExplorerToolbar
+        breadcrumbs={breadcrumbs}
+        canGoBack={Boolean(session && session.historyIndex > 0)}
+        canGoForward={Boolean(session && session.historyIndex < session.history.length - 1)}
+        searchQuery={searchQuery}
+        onGoBack={() => goBack(window.id)}
+        onGoForward={() => goForward(window.id)}
+        onNavigate={(path) => navigate(window.id, path)}
+        onSearchChange={(query) => setSearchQuery(window.id, query)}
+        onUpload={() => fileInputRef.current?.click()}
+        onCreateFolder={() => void createFolder()}
+        onCreateNote={() => void createNote()}
+      />
 
-        <div className="explorer-window__path" aria-label="Current path">
-          {breadcrumbs.map((crumb, index) => (
-            <div key={crumb.path} className="explorer-window__crumb">
-              <button type="button" onClick={() => navigate(window.id, crumb.path)}>
-                {crumb.label}
-              </button>
-              {index < breadcrumbs.length - 1 ? <span>/</span> : null}
-            </div>
-          ))}
-        </div>
+      <AppContent className="explorer-window__layout" padded={false} scrollable={false} stacked={false}>
+        <ExplorerSidebar
+          locations={explorerLocations}
+          activePath={currentDirectoryPath}
+          onNavigate={(path) => navigate(window.id, path)}
+        />
 
-        <div className="explorer-window__controls">
-          <label className="explorer-window__search">
-            <Search size={13} />
-            <input
-              type="search"
-              placeholder="Search folder"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(window.id, event.target.value)}
-            />
-          </label>
+        <section
+          className={cn("explorer-window__content", isDropTarget && "is-drop-target")}
+          onDragEnter={(event) => {
+            if (!hasFilePayload(event)) {
+              return;
+            }
 
-          <button
-            type="button"
-            className="icon-button explorer-window__action"
-            onClick={() => fileInputRef.current?.click()}
-            aria-label="Upload files"
-          >
-            <Upload size={14} />
-          </button>
-          <button
-            type="button"
-            className="icon-button explorer-window__action"
-            onClick={() => void createDirectory(currentDirectoryPath)}
-            aria-label="Create folder"
-          >
-            <FolderPlus size={14} />
-          </button>
-          <button
-            type="button"
-            className="icon-button explorer-window__action"
-            onClick={() => void createTextFile(currentDirectoryPath)}
-            aria-label="Create note"
-          >
-            <FilePlus2 size={14} />
-          </button>
-        </div>
-      </header>
+            event.preventDefault();
+            dragDepthRef.current += 1;
+            setIsDropTarget(true);
+          }}
+          onDragLeave={(event) => {
+            if (!hasFilePayload(event)) {
+              return;
+            }
 
-      <section
-        className={cn("explorer-window__content", isDropTarget && "is-drop-target")}
-        onDragEnter={(event) => {
-          if (!hasFilePayload(event)) {
-            return;
-          }
+            event.preventDefault();
+            dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
 
-          event.preventDefault();
-          dragDepthRef.current += 1;
-          setIsDropTarget(true);
-        }}
-        onDragLeave={(event) => {
-          if (!hasFilePayload(event)) {
-            return;
-          }
+            if (dragDepthRef.current === 0) {
+              setIsDropTarget(false);
+            }
+          }}
+          onDragOver={(event) => {
+            if (!hasFilePayload(event)) {
+              return;
+            }
 
-          event.preventDefault();
-          dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+          }}
+          onDrop={(event) => {
+            if (!hasFilePayload(event)) {
+              return;
+            }
 
-          if (dragDepthRef.current === 0) {
+            event.preventDefault();
+            dragDepthRef.current = 0;
             setIsDropTarget(false);
-          }
-        }}
-        onDragOver={(event) => {
-          if (!hasFilePayload(event)) {
-            return;
-          }
+            void uploadIntoCurrentDirectory(event.dataTransfer.files);
+          }}
+        >
+          {isDropTarget ? (
+            <div className="explorer-window__dropzone">
+              <strong>Drop files to add them here</strong>
+              <small>Images, notes, and other files are saved into the IndexedDB filesystem.</small>
+            </div>
+          ) : null}
 
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "copy";
-        }}
-        onDrop={(event) => {
-          if (!hasFilePayload(event)) {
-            return;
-          }
+          {filteredChildren.length > 0 ? (
+            <div className="explorer-grid" role="list" aria-label={`${currentDirectoryPath} contents`}>
+              {filteredChildren.map((node) => (
+                <ExplorerGridItem
+                  key={node.path}
+                  node={node}
+                  selected={selectedPath === node.path}
+                  onOpen={openNode}
+                  onSelect={(path) => setSelectedPath(window.id, path)}
+                />
+              ))}
+            </div>
+          ) : children.length === 0 ? (
+            <div className="explorer-window__empty">
+              <strong>This folder is empty</strong>
+              <p>Upload files or create a folder to keep building out the workspace.</p>
+            </div>
+          ) : (
+            <div className="explorer-window__empty">
+              <strong>No items match "{deferredSearchQuery.trim()}"</strong>
+              <p>Try another search or clear the filter to see everything in this folder.</p>
+            </div>
+          )}
+        </section>
+      </AppContent>
 
-          event.preventDefault();
-          dragDepthRef.current = 0;
-          setIsDropTarget(false);
-          void uploadIntoCurrentDirectory(event.dataTransfer.files);
-        }}
-      >
-        {isDropTarget ? (
-          <div className="explorer-window__dropzone">
-            <strong>Drop files to add them here</strong>
-            <small>Images, notes, and other files are saved into the IndexedDB filesystem.</small>
-          </div>
-        ) : null}
-
-        {filteredChildren.length > 0 ? (
-          <div className="explorer-grid" role="list" aria-label={`${currentDirectoryPath} contents`}>
-            {filteredChildren.map((node) => (
-              <ExplorerGridItem
-                key={node.path}
-                node={node}
-                selected={selectedPath === node.path}
-                onOpen={openNode}
-                onSelect={(path) => setSelectedPath(window.id, path)}
-              />
-            ))}
-          </div>
-        ) : children.length === 0 ? (
-          <div className="explorer-window__empty">
-            <strong>This folder is empty</strong>
-            <p>Upload files or create a folder to keep building out the workspace.</p>
-          </div>
-        ) : (
-          <div className="explorer-window__empty">
-            <strong>No items match "{deferredSearchQuery.trim()}"</strong>
-            <p>Try another search or clear the filter to see everything in this folder.</p>
-          </div>
-        )}
-      </section>
-
-      <footer className="explorer-window__statusbar">
+      <AppFooter className="explorer-window__statusbar">
         <span>{itemCountLabel}</span>
         <span className="explorer-window__status-path" title={selectedNode?.path ?? currentDirectoryPath}>
           {selectedNode?.name ?? currentDirectoryPath}
         </span>
-      </footer>
-    </div>
+      </AppFooter>
+    </AppScaffold>
   );
 }
