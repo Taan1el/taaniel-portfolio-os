@@ -1,38 +1,28 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
+import { FolderOpen, RotateCcw } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
-import { listChildren, normalizePath } from "@/lib/filesystem";
-import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
-import { profile, skills, socialLinks, themePresets } from "@/data/portfolio";
+import { AppContent, AppScaffold, AppToolbar, Button, StatusBar } from "@/components/apps/app-layout";
+import { openFileSystemPath } from "@/lib/launchers";
+import { executeTerminalCommand, TERMINAL_HOME_PATH } from "@/lib/terminal-shell";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps } from "@/types/system";
 
-function resolvePath(input: string | undefined, currentPath: string) {
-  if (!input || input === ".") {
-    return currentPath;
-  }
-
-  if (input === "..") {
-    const parent = currentPath.split("/").filter(Boolean).slice(0, -1).join("/");
-    return parent ? `/${parent}` : "/";
-  }
-
-  if (input.startsWith("/")) {
-    return normalizePath(input);
-  }
-
-  return normalizePath(`${currentPath}/${input}`);
-}
-
 export function TerminalApp({ window }: AppComponentProps) {
-  void window;
+  const initialPath = window.payload?.directoryPath ?? TERMINAL_HOME_PATH;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
-  const currentPathRef = useRef("/Desktop");
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const currentPathRef = useRef(initialPath);
   const commandRef = useRef("");
+  const commandHistoryRef = useRef<string[]>([]);
+  const historyIndexRef = useRef(-1);
+  const [currentPath, setCurrentPath] = useState(initialPath);
   const nodes = useFileSystemStore((state) => state.nodes);
+  const listDirectory = useFileSystemStore((state) => state.listDirectory);
+  const readFile = useFileSystemStore((state) => state.readFile);
   const nodesRef = useRef(nodes);
   const launchApp = useSystemStore((state) => state.launchApp);
 
@@ -61,134 +51,72 @@ export function TerminalApp({ window }: AppComponentProps) {
     terminal.loadAddon(fitAddon);
     terminal.open(containerRef.current);
     fitAddon.fit();
+    fitAddonRef.current = fitAddon;
+
+    const getPrompt = () => `taaniel@portfolio:${currentPathRef.current} $ `;
 
     const printPrompt = () => {
-      terminal.write(`\r\n${currentPathRef.current} $ `);
+      terminal.write(getPrompt());
     };
 
     const writeLines = (lines: string[]) => {
-      lines.forEach((line) => terminal.writeln(line));
+      lines.forEach((line) => terminal.writeln(line || ""));
+    };
+
+    const redrawInput = () => {
+      terminal.write("\x1b[2K\r");
+      terminal.write(getPrompt());
+      terminal.write(commandRef.current);
+    };
+
+    const runCommand = (input: string) => {
+      const result = executeTerminalCommand(input, {
+        currentPath: currentPathRef.current,
+        nodes: nodesRef.current,
+        listDirectory,
+        readFile,
+      });
+
+      if (result.clear) {
+        terminal.clear();
+      } else if (result.lines.length > 0) {
+        writeLines(result.lines);
+      }
+
+      if (result.nextPath && result.nextPath !== currentPathRef.current) {
+        currentPathRef.current = result.nextPath;
+        setCurrentPath(result.nextPath);
+      }
+
+      result.actions?.forEach((action) => {
+        if (action.type === "open-path") {
+          openFileSystemPath(action.path, nodesRef.current, launchApp);
+          return;
+        }
+
+        launchApp({
+          appId: action.appId,
+          payload: action.payload,
+          title: action.title,
+        });
+      });
     };
 
     terminal.writeln("Taaniel OS Terminal");
-    terminal.writeln("Type `help` to explore the portfolio.");
+    terminal.writeln("Use `help` for commands. This terminal explores the portfolio shell safely.");
     printPrompt();
-
-    const executeCommand = (input: string) => {
-      const [command = "", ...args] = input.trim().split(/\s+/);
-      const arg = args[0];
-
-      switch (command) {
-        case "":
-          break;
-        case "help":
-          writeLines([
-            "",
-            "help         list commands",
-            "ls [path]    list files",
-            "cd [path]    change folder",
-            "pwd          print current path",
-            "cat <file>   print text file",
-            "open <path>  open a file or folder",
-            "edit <path>  open a file in its edit app",
-            "whoami       recruiter summary",
-            "skills       show stack",
-            "socials      show links",
-            "themes       list desktop themes",
-            "clear        clear terminal",
-          ]);
-          break;
-        case "clear":
-          terminal.clear();
-          break;
-        case "pwd":
-          terminal.writeln(currentPathRef.current);
-          break;
-        case "ls": {
-          const path = resolvePath(arg, currentPathRef.current);
-          const node = nodesRef.current[path];
-
-          if (!node || node.kind !== "directory") {
-            terminal.writeln(`Path not found: ${path}`);
-            break;
-          }
-
-          const items = listChildren(nodesRef.current, path);
-          writeLines(items.map((item) => `${item.kind === "directory" ? "dir " : "file"}  ${item.name}`));
-          break;
-        }
-        case "cd": {
-          const path = resolvePath(arg, currentPathRef.current);
-          const node = nodesRef.current[path];
-
-          if (!node || node.kind !== "directory") {
-            terminal.writeln(`Directory not found: ${path}`);
-            break;
-          }
-
-          currentPathRef.current = path;
-          break;
-        }
-        case "cat": {
-          const path = resolvePath(arg, currentPathRef.current);
-          const node = nodesRef.current[path];
-
-          if (!node || node.kind !== "file" || !node.content) {
-            terminal.writeln(`Text file not found: ${path}`);
-            break;
-          }
-
-          writeLines(node.content.split("\n"));
-          break;
-        }
-        case "open": {
-          const path = resolvePath(arg, currentPathRef.current);
-          const node = nodesRef.current[path];
-
-          if (!node) {
-            terminal.writeln(`File not found: ${path}`);
-            break;
-          }
-
-          openFileSystemPath(path, nodesRef.current, launchApp);
-          terminal.writeln(`Opened ${path}`);
-          break;
-        }
-        case "edit": {
-          const path = resolvePath(arg, currentPathRef.current);
-          const node = nodesRef.current[path];
-
-          if (!node || node.kind !== "file") {
-            terminal.writeln(`Editable file not found: ${path}`);
-            break;
-          }
-
-          editFileSystemPath(path, nodesRef.current, launchApp);
-          terminal.writeln(`Editing ${path}`);
-          break;
-        }
-        case "whoami":
-          writeLines([profile.name, profile.role, profile.intro]);
-          break;
-        case "skills":
-          writeLines(skills.map((skill) => `- ${skill}`));
-          break;
-        case "socials":
-          writeLines(socialLinks.map((link) => `${link.label}: ${link.url}`));
-          break;
-        case "themes":
-          writeLines(themePresets.map((theme) => `${theme.name} (${theme.id})`));
-          break;
-        default:
-          terminal.writeln(`Unknown command: ${command}`);
-      }
-    };
 
     terminal.onData((data) => {
       switch (data) {
         case "\r":
           terminal.write("\r\n");
-          executeCommand(commandRef.current);
+
+          if (commandRef.current.trim()) {
+            commandHistoryRef.current.push(commandRef.current);
+          }
+
+          historyIndexRef.current = commandHistoryRef.current.length;
+          runCommand(commandRef.current);
           commandRef.current = "";
           printPrompt();
           break;
@@ -198,6 +126,32 @@ export function TerminalApp({ window }: AppComponentProps) {
             terminal.write("\b \b");
           }
           break;
+        case "\u001b[A": {
+          if (commandHistoryRef.current.length === 0) {
+            break;
+          }
+
+          historyIndexRef.current = Math.max(0, historyIndexRef.current - 1);
+          commandRef.current = commandHistoryRef.current[historyIndexRef.current] ?? "";
+          redrawInput();
+          break;
+        }
+        case "\u001b[B": {
+          if (commandHistoryRef.current.length === 0) {
+            break;
+          }
+
+          historyIndexRef.current = Math.min(
+            commandHistoryRef.current.length,
+            historyIndexRef.current + 1
+          );
+          commandRef.current =
+            historyIndexRef.current >= commandHistoryRef.current.length
+              ? ""
+              : commandHistoryRef.current[historyIndexRef.current] ?? "";
+          redrawInput();
+          break;
+        }
         default:
           if (data >= String.fromCharCode(0x20)) {
             commandRef.current += data;
@@ -214,8 +168,50 @@ export function TerminalApp({ window }: AppComponentProps) {
       resizeObserver.disconnect();
       terminal.dispose();
       terminalRef.current = null;
+      fitAddonRef.current = null;
     };
-  }, [launchApp]);
+  }, [launchApp, listDirectory, readFile]);
 
-  return <div className="terminal-app" ref={containerRef} />;
+  return (
+    <AppScaffold className="terminal-app">
+      <AppToolbar className="terminal-app__toolbar">
+        <div className="app-toolbar__title">
+          <strong>Portfolio Terminal</strong>
+          <small>Filesystem-safe commands with quick launch hooks into the OS.</small>
+        </div>
+        <div className="app-toolbar__group terminal-app__meta">
+          <span className="games-hub__chip">{currentPath}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              terminalRef.current?.clear();
+              terminalRef.current?.writeln("Screen cleared.");
+              terminalRef.current?.write(`taaniel@portfolio:${currentPathRef.current} $ `);
+            }}
+          >
+            <RotateCcw size={15} />
+            Clear
+          </Button>
+          <Button
+            type="button"
+            variant="panel"
+            onClick={() => openFileSystemPath(currentPathRef.current, nodesRef.current, launchApp)}
+          >
+            <FolderOpen size={15} />
+            Open folder
+          </Button>
+        </div>
+      </AppToolbar>
+
+      <AppContent className="terminal-app__content" padded={false} scrollable={false} stacked={false}>
+        <div className="terminal-app__viewport" ref={containerRef} />
+      </AppContent>
+
+      <StatusBar className="terminal-app__status">
+        <span>Commands: help, ls, cd, pwd, cat, open, clear, whoami, about, projects, contact</span>
+        <span>Up/Down recall history</span>
+      </StatusBar>
+    </AppScaffold>
+  );
 }
