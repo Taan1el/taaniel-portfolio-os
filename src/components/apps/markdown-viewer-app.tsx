@@ -4,6 +4,33 @@ import { getNodeByPath } from "@/lib/filesystem";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps } from "@/types/system";
+import { sanitizeHTML } from "@/utils/sanitize";
+
+const SAFE_MARKDOWN_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+
+function sanitizeMarkdownUrl(url: string) {
+  const trimmed = url.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../")
+  ) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed, window.location.origin);
+    return SAFE_MARKDOWN_PROTOCOLS.has(parsed.protocol) ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
 
 export function MarkdownViewerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
@@ -13,6 +40,9 @@ export function MarkdownViewerApp({ window }: AppComponentProps) {
   if (!file || file.kind !== "file") {
     return <div className="app-empty">No document selected.</div>;
   }
+
+  // Filesystem-backed markdown is treated as untrusted content, so strip embedded HTML before rendering.
+  const sanitizedMarkdown = sanitizeHTML(file.content ?? "");
 
   return (
     <article className="markdown-viewer">
@@ -35,7 +65,9 @@ export function MarkdownViewerApp({ window }: AppComponentProps) {
           </button>
         ) : null}
       </header>
-      <ReactMarkdown>{file.content ?? ""}</ReactMarkdown>
+      <ReactMarkdown skipHtml urlTransform={sanitizeMarkdownUrl}>
+        {sanitizedMarkdown}
+      </ReactMarkdown>
     </article>
   );
 }
