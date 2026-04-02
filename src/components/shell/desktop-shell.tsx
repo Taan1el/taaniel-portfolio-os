@@ -16,6 +16,7 @@ import { SearchPanel } from "@/components/shell/search-panel";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
 import { WindowHost } from "@/components/shell/window-host";
+import { useShellAiSearch } from "@/hooks/use-shell-ai-search";
 import { useShellShortcuts } from "@/hooks/use-shell-shortcuts";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
@@ -141,6 +142,10 @@ export function DesktopShell() {
     () => queryShellSearch(searchIndex, deferredSearchQuery),
     [deferredSearchQuery, searchIndex]
   );
+  const { sections: smartSearchSections, aiStatus, aiEnabled } = useShellAiSearch({
+    query: deferredSearchQuery,
+    sections: searchSections,
+  });
 
   const openExternal = (url: string) => {
     launchApp({
@@ -489,7 +494,9 @@ export function DesktopShell() {
         {searchOpen ? (
           <SearchPanel
             query={searchQuery}
-            sections={searchSections}
+            sections={smartSearchSections}
+            aiStatus={aiStatus}
+            aiEnabled={aiEnabled}
             onQueryChange={setSearchQuery}
             onSelectResult={runSearchAction}
             onRequestClose={() => setSearchOpen(false)}

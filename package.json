@@ -12,6 +12,7 @@
     "deploy:gh": "npm run build:gh && npx gh-pages -d dist"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.0.1",
     "@monaco-editor/react": "^4.7.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
