@@ -177,7 +177,7 @@ const registry: Record<AppId, AppDefinition> = {
   v86: defineApp({
     id: "v86",
     title: "Virtual x86",
-    description: "Boot imported .img and .iso files in a resizable browser emulator.",
+    description: "Experimental x86 emulator with isolated, basic disk boot support.",
     category: "System",
     icon: Cpu,
     accent: "#7dd5ff",

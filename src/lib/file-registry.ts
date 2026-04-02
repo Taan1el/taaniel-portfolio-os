@@ -317,7 +317,7 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     openWith: "v86",
     mimeType: "application/octet-stream",
     family: "other",
-    label: "Disk image",
+    label: "Disk image (experimental)",
     capabilities: ["open"],
   },
   ".iso": {
@@ -325,7 +325,7 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     openWith: "v86",
     mimeType: "application/x-iso9660-image",
     family: "other",
-    label: "ISO image",
+    label: "ISO image (experimental)",
     capabilities: ["open"],
   },
 };
