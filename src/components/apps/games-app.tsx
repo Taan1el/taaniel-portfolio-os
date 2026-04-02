@@ -28,9 +28,9 @@ const gameSections: GameSectionDefinition[] = [
     gameIds: primaryGameIds,
   },
   {
-    id: "bonus-ports",
-    title: "Bonus bundled ports",
-    description: "Larger local ports that still launch through the same registry and taskbar flow.",
+    id: "reviewed-ports",
+    title: "Ports under review",
+    description: "These launchers stay visible, but unsafe third-party bundles have been disabled until safer local replacements are ready.",
     gameIds: bonusGameIds,
   },
 ];
@@ -66,8 +66,9 @@ export function GamesApp({ window }: AppComponentProps) {
           <p className="eyebrow">Arcade</p>
           <h2>Launch a game without leaving the desktop</h2>
           <p className="lead">
-            Every title opens through the app registry, keeps the same shell controls, and stays
-            local so the lineup behaves the same in development and on the published site.
+            Every title opens through the app registry and keeps the same shell controls. Arcade
+            games stay playable, while older third-party ports are paused during the current
+            security hardening pass.
           </p>
         </section>
 
@@ -120,7 +121,7 @@ export function GamesApp({ window }: AppComponentProps) {
       <StatusBar className="games-hub__statusbar">
         <span>{bundledGames.length} bundled games</span>
         <span>Launches through the app registry</span>
-        <span>Boards and canvases scale to each window automatically</span>
+        <span>Unsafe third-party bundles are disabled instead of silently executing</span>
       </StatusBar>
     </AppScaffold>
   );

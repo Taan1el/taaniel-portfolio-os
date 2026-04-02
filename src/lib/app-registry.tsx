@@ -144,7 +144,7 @@ const registry: Record<AppId, AppDefinition> = {
   dino: defineApp({
     id: "dino",
     title: "Dino",
-    description: "The Chromium offline runner bundled locally for desktop-window play.",
+    description: "Runner port currently paused while a safer local version is prepared.",
     category: "Media",
     icon: Bird,
     accent: "#ffd27d",
@@ -155,7 +155,7 @@ const registry: Record<AppId, AppDefinition> = {
   doom: defineApp({
     id: "doom",
     title: "Doom",
-    description: "Freedoom content packaged into a local js-dos bundle.",
+    description: "Experimental port currently paused during the security hardening pass.",
     category: "Media",
     icon: Skull,
     accent: "#ff8a5c",
@@ -166,7 +166,7 @@ const registry: Record<AppId, AppDefinition> = {
   hextris: defineApp({
     id: "hextris",
     title: "Hextris",
-    description: "Open-source puzzle game bundled into the desktop shell.",
+    description: "Puzzle port currently paused while a safer local replacement is prepared.",
     category: "Media",
     icon: Hexagon,
     accent: "#84b6ff",
