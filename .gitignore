@@ -9,3 +9,4 @@ dist
 .codex/
 .codex-vite.log
 .codex-vite.err
+vite-dev.log
