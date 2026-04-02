@@ -160,7 +160,7 @@ const intentGroups = [
   },
   {
     tag: "games",
-    terms: ["game", "games", "play", "arcade", "dino", "doom", "hextris"],
+    terms: ["game", "games", "play", "arcade", "snake", "tetris", "dino", "doom", "hextris"],
   },
   {
     tag: "browser",
@@ -183,6 +183,7 @@ const appAliases: Partial<Record<AppId, string[]>> = {
   doom: ["freedoom", "fps"],
   files: ["explorer", "folders", "directory", "filesystem"],
   games: ["arcade", "play"],
+  snake: ["arcade", "retro", "classic snake"],
   music: ["songs", "tracks", "playlist", "audio"],
   notes: ["memo", "sticky notes", "to do", "todo list", "notepad"],
   paint: ["drawing", "canvas", "image editor"],
@@ -191,6 +192,7 @@ const appAliases: Partial<Record<AppId, string[]>> = {
   projects: ["work", "case studies", "portfolio work"],
   settings: ["theme", "wallpaper", "preferences"],
   terminal: ["console", "command line", "shell"],
+  tetris: ["blocks", "falling blocks", "arcade puzzle"],
   v86: ["emulator", "virtual machine", "x86"],
   video: ["videos", "video player", "reel"],
 };

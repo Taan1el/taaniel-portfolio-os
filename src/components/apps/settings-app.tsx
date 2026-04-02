@@ -1,9 +1,10 @@
-import { Paintbrush, RotateCcw, Sparkles, Waves } from "lucide-react";
+import { Image as ImageIcon, Paintbrush, RotateCcw, Sparkles, Waves } from "lucide-react";
 import { AppContent, AppScaffold, Button } from "@/components/apps/app-layout";
 import { themePresets } from "@/data/portfolio";
 import {
   animatedWallpaperPresets,
   gradientWallpaperPresets,
+  imageWallpaperPresets,
 } from "@/data/wallpapers";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps } from "@/types/system";
@@ -14,6 +15,7 @@ export function SettingsApp({ window }: AppComponentProps) {
   const wallpaper = useSystemStore((state) => state.wallpaper);
   const setThemeId = useSystemStore((state) => state.setThemeId);
   const setWallpaperPreset = useSystemStore((state) => state.setWallpaperPreset);
+  const setWallpaperImage = useSystemStore((state) => state.setWallpaperImage);
   const resetWallpaper = useSystemStore((state) => state.resetWallpaper);
   const resetLayout = useSystemStore((state) => state.resetLayout);
 
@@ -73,6 +75,40 @@ export function SettingsApp({ window }: AppComponentProps) {
             <Paintbrush size={15} />
             Use theme wallpaper
           </Button>
+        </div>
+      </article>
+
+      <article className="glass-card">
+        <div className="section-row">
+          <div>
+            <p className="eyebrow">Static images</p>
+            <h3>Photography as wallpaper</h3>
+          </div>
+          <div className="action-row">
+            <ImageIcon size={16} />
+            <small>Bundled local images</small>
+          </div>
+        </div>
+        <div className="theme-grid">
+          {imageWallpaperPresets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={`theme-card ${wallpaper.mode === "image" && wallpaper.imageSource === preset.source ? "is-active" : ""}`}
+              onClick={() => setWallpaperImage(preset.source)}
+            >
+              <span
+                className="theme-card__preview"
+                style={{
+                  background: `linear-gradient(rgba(6, 12, 20, 0.22), rgba(6, 12, 20, 0.58)), url('${preset.preview}') center/cover no-repeat`,
+                }}
+              />
+              <span className="theme-card__meta">
+                <strong>{preset.name}</strong>
+                <small>Static image</small>
+              </span>
+            </button>
+          ))}
         </div>
       </article>
 

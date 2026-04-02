@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Play, RotateCcw } from "lucide-react";
+import { ArcadeGameShell } from "@/components/apps/arcade-game-shell";
+import { Button } from "@/components/apps/app-layout";
+import { useArcadeBoardSize } from "@/hooks/use-arcade-board-size";
 import type { AppComponentProps } from "@/types/system";
 
 const SNAKE_COLUMNS = 18;
@@ -37,13 +40,19 @@ export function SnakeApp({ window: appWindow }: AppComponentProps) {
   void appWindow;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { viewportRef, boardStyle } = useArcadeBoardSize(SNAKE_COLUMNS, SNAKE_ROWS, {
+    minCellSize: 16,
+    maxCellSize: 38,
+  });
   const [snake, setSnake] = useState(START_SNAKE);
   const [direction, setDirection] = useState(START_DIRECTION);
   const [queuedDirection, setQueuedDirection] = useState(START_DIRECTION);
   const [food, setFood] = useState(() => createFood(START_SNAKE));
   const [running, setRunning] = useState(false);
   const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(() => Number(localStorage.getItem("taaniel-os-snake-best") ?? 0));
+  const [bestScore, setBestScore] = useState(() =>
+    Number(localStorage.getItem("taaniel-os-snake-best") ?? 0)
+  );
 
   useEffect(() => {
     containerRef.current?.focus();
@@ -101,10 +110,7 @@ export function SnakeApp({ window: appWindow }: AppComponentProps) {
     return () => globalThis.window.clearInterval(intervalId);
   }, [food, queuedDirection, running, score]);
 
-  const snakeCells = useMemo(
-    () => new Set(snake.map((segment) => `${segment.x}:${segment.y}`)),
-    [snake]
-  );
+  const snakeCells = useMemo(() => new Set(snake.map((segment) => `${segment.x}:${segment.y}`)), [snake]);
 
   const resetGame = () => {
     setSnake(START_SNAKE);
@@ -117,83 +123,90 @@ export function SnakeApp({ window: appWindow }: AppComponentProps) {
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="arcade-game snake-game"
-      tabIndex={0}
-      onKeyDown={(event) => {
-        const nextDirection =
-          event.key === "ArrowUp" || event.key.toLowerCase() === "w"
-            ? { x: 0, y: -1 }
-            : event.key === "ArrowDown" || event.key.toLowerCase() === "s"
-              ? { x: 0, y: 1 }
-              : event.key === "ArrowLeft" || event.key.toLowerCase() === "a"
-                ? { x: -1, y: 0 }
-                : event.key === "ArrowRight" || event.key.toLowerCase() === "d"
-                  ? { x: 1, y: 0 }
-                  : null;
-
-        if (!nextDirection) {
-          if (event.key === " ") {
-            event.preventDefault();
-            setRunning((current) => !current);
-          }
-
-          return;
-        }
-
-        event.preventDefault();
-
-        if (!isOppositeDirection(direction, nextDirection)) {
-          setQueuedDirection(nextDirection);
-        }
-      }}
-    >
-      <header className="arcade-game__header">
-        <div>
-          <p className="eyebrow">Snake</p>
-          <h1>{score} pts</h1>
-        </div>
-        <div className="arcade-game__header-actions">
-          <span>Best {bestScore}</span>
-          <button type="button" className="ghost-button" onClick={resetGame}>
-            <RotateCcw size={15} />
-            Restart
-          </button>
-          <button type="button" className="ghost-button" onClick={() => setRunning((current) => !current)}>
+    <ArcadeGameShell
+      className="snake-game"
+      title="Snake"
+      subtitle="Arrow keys or WASD to steer. Space pauses."
+      actions={
+        <>
+          <span className="games-hub__chip">Score {score}</span>
+          <span className="games-hub__chip">Best {bestScore}</span>
+          <Button type="button" variant="ghost" onClick={() => setRunning((current) => !current)}>
             <Play size={15} />
             {running ? "Pause" : "Play"}
-          </button>
-        </div>
-      </header>
-
+          </Button>
+          <Button type="button" variant="panel" onClick={resetGame}>
+            <RotateCcw size={15} />
+            Restart
+          </Button>
+        </>
+      }
+      footer={
+        <>
+          <span>{running ? "Avoid walls and your own tail." : "Press Play to start a run."}</span>
+          <small>Each apple adds 10 points.</small>
+        </>
+      }
+    >
       <div
-        className="snake-game__board"
-        style={
-          {
-            gridTemplateColumns: `repeat(${SNAKE_COLUMNS}, minmax(0, 1fr))`,
-          } as CSSProperties
-        }
+        ref={containerRef}
+        className="arcade-game-shell__interactive"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          const nextDirection =
+            event.key === "ArrowUp" || event.key.toLowerCase() === "w"
+              ? { x: 0, y: -1 }
+              : event.key === "ArrowDown" || event.key.toLowerCase() === "s"
+                ? { x: 0, y: 1 }
+                : event.key === "ArrowLeft" || event.key.toLowerCase() === "a"
+                  ? { x: -1, y: 0 }
+                  : event.key === "ArrowRight" || event.key.toLowerCase() === "d"
+                    ? { x: 1, y: 0 }
+                    : null;
+
+          if (!nextDirection) {
+            if (event.key === " ") {
+              event.preventDefault();
+              setRunning((current) => !current);
+            }
+
+            return;
+          }
+
+          event.preventDefault();
+
+          if (!isOppositeDirection(direction, nextDirection)) {
+            setQueuedDirection(nextDirection);
+          }
+        }}
       >
-        {Array.from({ length: SNAKE_COLUMNS * SNAKE_ROWS }).map((_, index) => {
-          const x = index % SNAKE_COLUMNS;
-          const y = Math.floor(index / SNAKE_COLUMNS);
-          const key = `${x}:${y}`;
-          const isHead = snake[0].x === x && snake[0].y === y;
-          const isFood = food.x === x && food.y === y;
+        <div ref={viewportRef} className="arcade-game-shell__viewport snake-game__viewport">
+          <div
+            className="snake-game__board"
+            style={
+              {
+                ...boardStyle,
+                gridTemplateColumns: `repeat(${SNAKE_COLUMNS}, minmax(0, 1fr))`,
+              } as CSSProperties
+            }
+          >
+            {Array.from({ length: SNAKE_COLUMNS * SNAKE_ROWS }).map((_, index) => {
+              const x = index % SNAKE_COLUMNS;
+              const y = Math.floor(index / SNAKE_COLUMNS);
+              const key = `${x}:${y}`;
+              const isHead = snake[0].x === x && snake[0].y === y;
+              const isFood = food.x === x && food.y === y;
 
-          return (
-            <span
-              key={key}
-              className={`snake-game__cell ${snakeCells.has(key) ? "is-snake" : ""} ${isHead ? "is-head" : ""} ${isFood ? "is-food" : ""}`}
-            />
-          );
-        })}
+              return (
+                <span
+                  key={key}
+                  className={`snake-game__cell ${snakeCells.has(key) ? "is-snake" : ""} ${isHead ? "is-head" : ""} ${isFood ? "is-food" : ""}`}
+                />
+              );
+            })}
+          </div>
+        </div>
       </div>
-
-      <footer className="arcade-game__footer">
-        <small>Arrow keys or WASD to steer. Space pauses. Avoid walls and your own tail.</small>
-      </footer>
-    </div>
+    </ArcadeGameShell>
   );
 }

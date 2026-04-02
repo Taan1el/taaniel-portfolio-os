@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, RefreshCcw } from "lucide-react";
-import { AppContent, AppFooter, AppScaffold } from "@/components/apps/app-layout";
-import { MediaToolbar } from "@/components/apps/media-toolbar";
+import { ArcadeGameShell } from "@/components/apps/arcade-game-shell";
+import { Button } from "@/components/apps/app-layout";
 import { useWindowStore } from "@/stores/window-store";
 import type { AppComponentProps } from "@/types/system";
 
@@ -233,81 +233,85 @@ export function EmbeddedGameApp({
   }, [loaded, reloadToken, src]);
 
   return (
-    <AppScaffold className="embedded-game">
-      <MediaToolbar
-        title={title}
-        subtitle={subtitle}
-        actions={
-          <>
-            {creditsHref && creditsLabel ? (
-              <a className="pill-button" href={creditsHref} target="_blank" rel="noreferrer">
-                <ExternalLink size={15} />
-                {creditsLabel}
-              </a>
-            ) : null}
-            <button
-              type="button"
-              className="pill-button"
-              onClick={() => {
-                setLoaded(false);
-                setTimedOut(false);
-                setReloadToken((current) => current + 1);
-              }}
+    <ArcadeGameShell
+      className="embedded-game"
+      contentClassName="embedded-game__content"
+      title={title}
+      subtitle={subtitle}
+      actions={
+        <>
+          {creditsHref && creditsLabel ? (
+            <a
+              className="button button--panel button--compact"
+              href={creditsHref}
+              target="_blank"
+              rel="noreferrer"
             >
-              <RefreshCcw size={15} />
-              Reload
-            </button>
-          </>
-        }
-      />
-
-      <AppContent className="embedded-game__content" padded={false} scrollable={false}>
-        <div
-          className={`embedded-game__viewport ${loaded ? "is-loaded" : ""}`}
-          onPointerDown={focusFrame}
-        >
-          {!loaded ? (
-            <div className="embedded-game__loading">
-              <strong>Launching {title}</strong>
-              <p>Booting the local game bundle inside the OS window.</p>
-            </div>
+              <ExternalLink size={15} />
+              {creditsLabel}
+            </a>
           ) : null}
-
-          {timedOut && !loaded ? (
-            <div className="embedded-game__error">
-              <strong>{title} is taking longer than expected</strong>
-              <p>Use Reload to restart the local bundle if the game stays blank.</p>
-            </div>
-          ) : null}
-
-          <iframe
-            key={frameSrc}
-            ref={frameRef}
-            className="embedded-game__frame"
-            src={frameSrc}
-            title={title}
-            loading="eager"
-            tabIndex={0}
-            allow="autoplay; fullscreen; gamepad"
-            onLoad={() => {
-              globalThis.window.requestAnimationFrame(() => {
-                syncEmbeddedLayout();
-                setLoaded(true);
-                setTimedOut(false);
-                focusFrame();
-              });
-              globalThis.window.setTimeout(() => {
-                syncEmbeddedLayout();
-              }, 180);
+          <Button
+            type="button"
+            variant="panel"
+            onClick={() => {
+              setLoaded(false);
+              setTimedOut(false);
+              setReloadToken((current) => current + 1);
             }}
-          />
-        </div>
-      </AppContent>
+          >
+            <RefreshCcw size={15} />
+            Reload
+          </Button>
+        </>
+      }
+      footer={
+        <>
+          <span>{note}</span>
+          <small>Tap or click once inside the game if you want to reclaim keyboard input manually.</small>
+        </>
+      }
+    >
+      <div
+        className={`embedded-game__viewport ${loaded ? "is-loaded" : ""}`}
+        onPointerDown={focusFrame}
+      >
+        {!loaded ? (
+          <div className="embedded-game__loading">
+            <strong>Launching {title}</strong>
+            <p>Booting the local game bundle inside the OS window.</p>
+          </div>
+        ) : null}
 
-      <AppFooter className="embedded-game__footer">
-        <span>{note}</span>
-        <small>Tap or click once inside the game if you want to reclaim keyboard input manually.</small>
-      </AppFooter>
-    </AppScaffold>
+        {timedOut && !loaded ? (
+          <div className="embedded-game__error">
+            <strong>{title} is taking longer than expected</strong>
+            <p>Use Reload to restart the local bundle if the game stays blank.</p>
+          </div>
+        ) : null}
+
+        <iframe
+          key={frameSrc}
+          ref={frameRef}
+          className="embedded-game__frame"
+          src={frameSrc}
+          title={title}
+          loading="eager"
+          tabIndex={0}
+          allow="autoplay; fullscreen; gamepad"
+          onLoad={() => {
+            globalThis.window.requestAnimationFrame(() => {
+              syncEmbeddedLayout();
+              setLoaded(true);
+              setTimedOut(false);
+              focusFrame();
+            });
+            globalThis.window.setTimeout(() => {
+              syncEmbeddedLayout();
+            }, 180);
+          }}
+        />
+      </div>
+    </ArcadeGameShell>
   );
 }

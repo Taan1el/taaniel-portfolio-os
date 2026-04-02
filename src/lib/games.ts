@@ -1,4 +1,5 @@
 import { resolvePublicAssetUrl } from "@/lib/assets";
+import type { AppId } from "@/types/system";
 
 export const GAMES_DIRECTORY_PATH = "/Games";
 export const GAMES_README_PATH = `${GAMES_DIRECTORY_PATH}/README.md`;
@@ -16,7 +17,7 @@ Arcade lives inside the OS now.
 Open the Games app from Start or Search to launch each game in its own window.
 `;
 
-export const GAMES_README_CONTENT = `# Games
+export const PORTS_GAMES_README_CONTENT = `# Games
 
 The arcade lineup now uses bundled open-source ports instead of in-house recreations.
 
@@ -34,6 +35,32 @@ The arcade lineup now uses bundled open-source ports instead of in-house recreat
 
 Everything is shipped from local assets so the games work in local development and on GitHub Pages.
 `;
+
+export const GAMES_README_CONTENT = `# Games
+
+The arcade lineup lives inside the OS and launches through the same window system as everything else.
+
+## Arcade classics
+
+- Snake
+- Tetris
+- Dino
+
+## Bonus bundled ports
+
+- Doom
+- Hextris
+
+## Notes
+
+- Snake and Tetris are tuned for the compact desktop shell.
+- Dino is the Chromium offline runner extracted for standalone play.
+- Doom runs a local js-dos bundle with Freedoom content.
+- Hextris is bundled locally so it behaves the same in development and on GitHub Pages.
+`;
+
+export const primaryGameIds = ["snake", "tetris", "dino"] as const satisfies readonly AppId[];
+export const bonusGameIds = ["doom", "hextris"] as const satisfies readonly AppId[];
 
 export const embeddedGameCatalog = {
   dino: {
@@ -61,4 +88,3 @@ export const embeddedGameCatalog = {
     creditsHref: "https://github.com/Hextris/hextris",
   },
 } as const;
-

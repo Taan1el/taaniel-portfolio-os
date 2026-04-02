@@ -22,7 +22,6 @@ export const PROCESS_STORAGE_KEY = "taaniel-os-processes-v1";
 export const SHELL_STORAGE_KEY = "taaniel-os-shell-v1";
 
 const TASKBAR_HEIGHT = 72;
-const REMOVED_GAME_APP_IDS = new Set(["snake", "tetris"]);
 
 export const initialIconPositions = desktopEntries.reduce<Record<string, DesktopGridPosition>>(
   (positions, entry) => {
@@ -235,10 +234,9 @@ export function buildAppWindows(
 
 function sanitizeLegacyWindows(windows: LegacyWindowState[]) {
   return windows
-    .filter((windowState) => windowState.id && windowState.processId)
-    .filter((windowState) => windowState.payload?.filePath !== LEGACY_WELCOME_PATH)
-    .filter((windowState) => !REMOVED_GAME_APP_IDS.has(String(windowState.appId)))
-    .map<WindowRecord>((windowState) => {
+      .filter((windowState) => windowState.id && windowState.processId)
+      .filter((windowState) => windowState.payload?.filePath !== LEGACY_WELCOME_PATH)
+      .map<WindowRecord>((windowState) => {
       const legacyAppId = windowState.appId ?? "about";
       const fallbackBounds = getDefaultWindowBounds(windowState.appId ?? "about", 0);
       const clampedBounds = clampWindowBoundsToViewport({

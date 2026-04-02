@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Play, RotateCcw } from "lucide-react";
+import { ArcadeGameShell } from "@/components/apps/arcade-game-shell";
+import { Button } from "@/components/apps/app-layout";
+import { useArcadeBoardSize } from "@/hooks/use-arcade-board-size";
 import type { AppComponentProps } from "@/types/system";
 
 const TETRIS_COLUMNS = 10;
@@ -131,6 +134,10 @@ export function TetrisApp({ window: appWindow }: AppComponentProps) {
   void appWindow;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { viewportRef, boardStyle } = useArcadeBoardSize(TETRIS_COLUMNS, TETRIS_ROWS, {
+    minCellSize: 16,
+    maxCellSize: 34,
+  });
   const [board, setBoard] = useState<TetrisBoard>(() => createEmptyBoard());
   const [piece, setPiece] = useState<ActivePiece>(() => createPiece());
   const [running, setRunning] = useState(false);
@@ -195,7 +202,12 @@ export function TetrisApp({ window: appWindow }: AppComponentProps) {
           const targetRow = piece.row + rowIndex;
           const targetColumn = piece.column + columnIndex;
 
-          if (targetRow >= 0 && targetRow < TETRIS_ROWS && targetColumn >= 0 && targetColumn < TETRIS_COLUMNS) {
+          if (
+            targetRow >= 0 &&
+            targetRow < TETRIS_ROWS &&
+            targetColumn >= 0 &&
+            targetColumn < TETRIS_COLUMNS
+          ) {
             nextBoard[targetRow][targetColumn] = piece.color;
           }
         }
@@ -229,78 +241,89 @@ export function TetrisApp({ window: appWindow }: AppComponentProps) {
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="arcade-game tetris-game"
-      tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          movePiece(0, -1);
-        }
-
-        if (event.key === "ArrowRight") {
-          event.preventDefault();
-          movePiece(0, 1);
-        }
-
-        if (event.key === "ArrowDown") {
-          event.preventDefault();
-          movePiece(1, 0);
-        }
-
-        if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") {
-          event.preventDefault();
-          rotatePiece();
-        }
-
-        if (event.key === " ") {
-          event.preventDefault();
-          setRunning((current) => !current);
-        }
-      }}
-    >
-      <header className="arcade-game__header">
-        <div>
-          <p className="eyebrow">Tetris</p>
-          <h1>{score} pts</h1>
-        </div>
-        <div className="arcade-game__header-actions">
-          <span>{lines} lines</span>
-          <button type="button" className="ghost-button" onClick={resetGame}>
-            <RotateCcw size={15} />
-            Restart
-          </button>
-          <button type="button" className="ghost-button" onClick={() => setRunning((current) => !current)}>
+    <ArcadeGameShell
+      className="tetris-game"
+      title="Tetris"
+      subtitle="Arrow keys move, Up rotates, Space pauses."
+      actions={
+        <>
+          <span className="games-hub__chip">Score {score}</span>
+          <span className="games-hub__chip">Lines {lines}</span>
+          <Button type="button" variant="ghost" onClick={() => setRunning((current) => !current)}>
             <Play size={15} />
             {running ? "Pause" : "Play"}
-          </button>
-        </div>
-      </header>
-
-      <div className="tetris-game__layout">
-        <div
-          className="tetris-game__board"
-          style={
-            {
-              gridTemplateColumns: `repeat(${TETRIS_COLUMNS}, minmax(0, 1fr))`,
-            } as CSSProperties
+          </Button>
+          <Button type="button" variant="panel" onClick={resetGame}>
+            <RotateCcw size={15} />
+            Restart
+          </Button>
+        </>
+      }
+      footer={
+        <>
+          <span>{running ? "Keep the stack clean and watch your rotations." : "Press Play to start a stack."}</span>
+          <small>Clearing lines adds 100 points per row.</small>
+        </>
+      }
+    >
+      <div
+        ref={containerRef}
+        className="arcade-game-shell__interactive"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            movePiece(0, -1);
           }
-        >
-          {renderedBoard.flat().map((cell, index) => (
-            <span
-              key={index}
-              className={`tetris-game__cell ${cell ? "is-filled" : ""}`}
-              style={cell ? ({ "--tetris-cell": cell } as CSSProperties) : undefined}
-            />
-          ))}
-        </div>
 
-        <aside className="glass-card tetris-game__aside">
-          <strong>Controls</strong>
-          <small>Arrow keys move, Up rotates, Space pauses the stack.</small>
-        </aside>
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            movePiece(0, 1);
+          }
+
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            movePiece(1, 0);
+          }
+
+          if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") {
+            event.preventDefault();
+            rotatePiece();
+          }
+
+          if (event.key === " ") {
+            event.preventDefault();
+            setRunning((current) => !current);
+          }
+        }}
+      >
+        <div className="tetris-game__layout">
+          <div ref={viewportRef} className="arcade-game-shell__viewport tetris-game__viewport">
+            <div
+              className="tetris-game__board"
+              style={
+                {
+                  ...boardStyle,
+                  gridTemplateColumns: `repeat(${TETRIS_COLUMNS}, minmax(0, 1fr))`,
+                } as CSSProperties
+              }
+            >
+              {renderedBoard.flat().map((cell, index) => (
+                <span
+                  key={index}
+                  className={`tetris-game__cell ${cell ? "is-filled" : ""}`}
+                  style={cell ? ({ "--tetris-cell": cell } as CSSProperties) : undefined}
+                />
+              ))}
+            </div>
+          </div>
+
+          <aside className="glass-card tetris-game__aside">
+            <strong>Controls</strong>
+            <small>Left / Right move the piece, Down drops, Up rotates, Space pauses.</small>
+          </aside>
+        </div>
       </div>
-    </div>
+    </ArcadeGameShell>
   );
 }
