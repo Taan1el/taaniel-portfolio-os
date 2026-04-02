@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
-import { buildShellSearchIndex, getTopSearchResult, queryShellSearch } from "@/lib/shell-search";
+import {
+  applyShellSearchAiRankings,
+  buildShellSearchAiCandidates,
+  buildShellSearchIndex,
+  getTopSearchResult,
+  queryShellSearch,
+} from "@/lib/shell-search";
 
 describe("shell search", () => {
   it("indexes apps, files, links, and portfolio content", () => {
@@ -43,5 +49,27 @@ describe("shell search", () => {
     const portfolioSection = sections.find((section) => section.id === "portfolio");
 
     expect(portfolioSection?.results.some((result) => result.title.includes("Fintech Email Campaign"))).toBe(true);
+  });
+
+  it("builds AI candidates from local search results", () => {
+    const index = buildShellSearchIndex(buildSeedFileSystem());
+    const sections = queryShellSearch(index, "play arcade game");
+    const candidates = buildShellSearchAiCandidates(sections, 6);
+
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates.every((candidate) => candidate.content.length > 0)).toBe(true);
+  });
+
+  it("keeps exact matches stable while applying AI reranking boosts", () => {
+    const index = buildShellSearchIndex(buildSeedFileSystem());
+    const sections = queryShellSearch(index, "music player");
+    const rerankedSections = applyShellSearchAiRankings(sections, [
+      { id: "app:music", similarity: 0.9 },
+      { id: "app:browser", similarity: 0.99 },
+    ]);
+    const topResult = getTopSearchResult(rerankedSections);
+
+    expect(topResult?.id).toBe("app:music");
+    expect(topResult?.matchMode).toBe("exact");
   });
 });

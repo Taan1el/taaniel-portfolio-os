@@ -56,6 +56,19 @@ export interface ShellSearchSection {
   results: ShellSearchResult[];
 }
 
+export interface ShellSearchAiCandidate {
+  id: string;
+  title: string;
+  content: string;
+  score: number;
+  matchMode: ShellSearchMatchMode;
+}
+
+export interface ShellSearchAiRanking {
+  id: string;
+  similarity: number;
+}
+
 interface ShellSearchIndex {
   apps: ShellSearchEntry[];
   files: ShellSearchEntry[];
@@ -890,4 +903,72 @@ export function flattenShellSearchResults(sections: ShellSearchSection[]) {
 
 export function getTopSearchResult(sections: ShellSearchSection[]) {
   return flattenShellSearchResults(sections)[0] ?? null;
+}
+
+function buildAiCandidateContent(result: ShellSearchResult) {
+  return joinSearchParts(
+    result.title,
+    result.subtitle,
+    result.previewText,
+    result.preview,
+    result.tokens,
+    result.aliases.join(" "),
+    result.semanticTags.join(" ")
+  );
+}
+
+export function buildShellSearchAiCandidates(
+  sections: ShellSearchSection[],
+  limit = 18
+): ShellSearchAiCandidate[] {
+  return flattenShellSearchResults(sections)
+    .slice(0, limit)
+    .map((result) => ({
+      id: result.id,
+      title: result.title,
+      content: buildAiCandidateContent(result),
+      score: result.score,
+      matchMode: result.matchMode,
+    }));
+}
+
+export function applyShellSearchAiRankings(
+  sections: ShellSearchSection[],
+  rankings: ShellSearchAiRanking[]
+) {
+  if (rankings.length === 0) {
+    return sections;
+  }
+
+  const rankingMap = new Map(rankings.map((ranking) => [ranking.id, ranking.similarity]));
+
+  return sections.map((section) => ({
+    ...section,
+    results: [...section.results]
+      .map((result) => {
+        const similarity = rankingMap.get(result.id);
+
+        if (similarity === undefined) {
+          return result;
+        }
+
+        const aiBoost =
+          result.matchMode === "exact"
+            ? Math.round(Math.max(0, similarity) * 38)
+            : Math.round(Math.max(0, similarity) * 240);
+
+        return {
+          ...result,
+          score: result.score + aiBoost,
+          matchMode: (
+            result.matchMode === "exact"
+              ? "exact"
+              : similarity >= 0.42
+                ? "semantic"
+                : result.matchMode
+          ) as ShellSearchMatchMode,
+        };
+      })
+      .sort(compareResults),
+  }));
 }

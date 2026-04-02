@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { motion } from "framer-motion";
 import { ExternalLink, FileText, Folder } from "lucide-react";
 import { SearchInput, StatusBar } from "@/components/apps/app-layout";
+import type { ShellAiSearchStatus } from "@/hooks/use-shell-ai-search";
 import {
   flattenShellSearchResults,
   getTopSearchResult,
@@ -46,6 +47,44 @@ function matchModeLabel(result: ShellSearchResult) {
   }
 }
 
+function getSearchHint(aiStatus: ShellAiSearchStatus, aiEnabled: boolean) {
+  if (!aiEnabled) {
+    return "Local search is ready. Type at least 3 characters to enable AI-assisted reranking.";
+  }
+
+  switch (aiStatus) {
+    case "warming":
+      return "Local results are live while the AI reranker warms up in the background.";
+    case "ranking":
+      return "Local results are live and the AI reranker is refining intent and ranking.";
+    case "ready":
+      return "AI-assisted reranking is active for this search. Everything stays inside the launcher.";
+    case "fallback":
+      return "AI reranking is unavailable right now, so search is using the fast local fallback.";
+    default:
+      return "Local search is ready. Type at least 3 characters to enable AI-assisted reranking.";
+  }
+}
+
+function getSearchStatusLabel(aiStatus: ShellAiSearchStatus, aiEnabled: boolean) {
+  if (!aiEnabled) {
+    return "Local index";
+  }
+
+  switch (aiStatus) {
+    case "warming":
+      return "AI warming";
+    case "ranking":
+      return "AI ranking";
+    case "ready":
+      return "AI ready";
+    case "fallback":
+      return "Fallback";
+    default:
+      return "Local index";
+  }
+}
+
 interface SearchResultButtonProps {
   result: ShellSearchResult;
   active: boolean;
@@ -83,6 +122,8 @@ function SearchResultButton({ result, active, onHover, onSelect }: SearchResultB
 interface SearchPanelProps {
   query: string;
   sections: ShellSearchSection[];
+  aiStatus: ShellAiSearchStatus;
+  aiEnabled: boolean;
   onQueryChange: (query: string) => void;
   onSelectResult: (action: ShellSearchAction) => void;
   onRequestClose: () => void;
@@ -91,6 +132,8 @@ interface SearchPanelProps {
 export function SearchPanel({
   query,
   sections,
+  aiStatus,
+  aiEnabled,
   onQueryChange,
   onSelectResult,
   onRequestClose,
@@ -148,7 +191,8 @@ export function SearchPanel({
       return;
     }
 
-    const nextIndex = activeIndex < 0 ? 0 : (activeIndex + offset + flatResults.length) % flatResults.length;
+    const nextIndex =
+      activeIndex < 0 ? 0 : (activeIndex + offset + flatResults.length) % flatResults.length;
     setActiveResultId(flatResults[nextIndex]?.id ?? null);
   };
 
@@ -193,9 +237,7 @@ export function SearchPanel({
             }
           }}
         />
-        <small className="search-panel__hint">
-          Local smart search only. Exact matches, semantic ranking, and action routing stay contained to the launcher.
-        </small>
+        <small className="search-panel__hint">{getSearchHint(aiStatus, aiEnabled)}</small>
       </div>
 
       {query.trim() && topResult ? (
@@ -245,7 +287,7 @@ export function SearchPanel({
       <StatusBar className="search-panel__status">
         <span>{flatResults.length} indexed match{flatResults.length === 1 ? "" : "es"}</span>
         <span>{activeResult ? activeResult.title : "Type to search"}</span>
-        <span>Enter opens • Arrows move • Esc closes</span>
+        <span>{getSearchStatusLabel(aiStatus, aiEnabled)} | Enter opens | Arrows move | Esc closes</span>
       </StatusBar>
     </motion.section>
   );
