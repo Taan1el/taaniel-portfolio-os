@@ -1,5 +1,4 @@
-import { useRef } from "react";
-import { AppContent, AppScaffold, ScrollArea } from "@/components/apps/app-layout";
+import { AppContent, AppFooter, AppScaffold, EmptyState } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { openFileSystemPath } from "@/lib/launchers";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
@@ -7,32 +6,45 @@ import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps, VirtualFile } from "@/types/system";
 
-const demoVideo = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
-
 export function MediaViewerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const launchApp = useSystemStore((state) => state.launchApp);
-  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const isVideoApp = window.appId === "video";
   const { filePath, next, previous } = useMediaGallery(
     nodes,
-    window.payload?.filePath ?? "/Media/Photography/Clouds.jpg",
+    window.payload?.filePath ?? "",
     (node: VirtualFile) =>
-      isVideoApp
-        ? node.mimeType.startsWith("video/") || node.mimeType.startsWith("audio/")
-        : node.mimeType.startsWith("image/")
+      isVideoApp ? node.mimeType.startsWith("video/") : node.mimeType.startsWith("audio/")
   );
   const file = nodes[filePath];
 
   if (!file || file.kind !== "file") {
-    return <div className="app-empty">No media file selected.</div>;
+    return (
+      <AppScaffold className="media-viewer">
+        <EmptyState
+          title="No media file selected"
+          description="Choose a video file from File Explorer to open it here."
+        />
+      </AppScaffold>
+    );
+  }
+
+  if (!file.source) {
+    return (
+      <AppScaffold className="media-viewer">
+        <EmptyState
+          title="This media file is missing a playable source"
+          description="Open the original file again from File Explorer or replace it in the filesystem."
+        />
+      </AppScaffold>
+    );
   }
 
   return (
     <AppScaffold className="media-viewer">
       <MediaToolbar
         title={file.name}
-        subtitle={isVideoApp ? "Video and audio playback" : "Media viewer"}
+        subtitle={isVideoApp ? "Video playback" : "Audio playback"}
         canGoPrevious={Boolean(previous)}
         canGoNext={Boolean(next)}
         onPrevious={() => previous && openFileSystemPath(previous.path, nodes, launchApp)}
@@ -40,26 +52,27 @@ export function MediaViewerApp({ window }: AppComponentProps) {
       />
 
       <AppContent className="media-viewer__content" padded={false} scrollable={false}>
-        <ScrollArea className="media-viewer__canvas">
+        <div className="media-viewer__canvas">
           {file.mimeType.startsWith("audio/") ? (
-            <audio
-              ref={(element) => {
-                mediaRef.current = element;
-              }}
-              controls
-              src={file.source ?? demoVideo}
-            />
+            <div className="media-viewer__audio-shell">
+              <audio className="media-viewer__audio" controls preload="metadata" src={file.source} />
+            </div>
           ) : (
             <video
-              ref={(element) => {
-                mediaRef.current = element;
-              }}
+              className="media-viewer__video"
               controls
-              src={file.source ?? demoVideo}
+              preload="metadata"
+              playsInline
+              src={file.source}
             />
           )}
-        </ScrollArea>
+        </div>
       </AppContent>
+
+      <AppFooter className="media-viewer__footer">
+        <span>{file.mimeType}</span>
+        <span title={file.path}>{file.path}</span>
+      </AppFooter>
     </AppScaffold>
   );
 }

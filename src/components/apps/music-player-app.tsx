@@ -8,10 +8,18 @@ import {
   SkipForward,
   Volume2,
 } from "lucide-react";
-import { AppContent, AppFooter, AppScaffold, Button, EmptyState, IconButton, ScrollArea } from "@/components/apps/app-layout";
+import {
+  AppContent,
+  AppFooter,
+  AppScaffold,
+  AppSidebar,
+  Button,
+  EmptyState,
+  IconButton,
+  ScrollArea,
+} from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { getParentPath, listChildren } from "@/lib/filesystem";
-import { openFileSystemPath } from "@/lib/launchers";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -116,7 +124,7 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
 
   if (!currentTrack) {
     return (
-      <AppScaffold>
+      <AppScaffold className="music-player">
         <EmptyState
           className="music-player__empty"
           title="No tracks loaded yet"
@@ -197,7 +205,6 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
           <Button
             type="button"
             variant="ghost"
-            className="ghost-button"
             onClick={() =>
               launchApp({
                 appId: "files",
@@ -206,130 +213,132 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
             }
           >
             <FolderOpen size={15} />
-            Open music folder
+            Open folder
           </Button>
         }
         canGoPrevious={Boolean(previous)}
         canGoNext={Boolean(next)}
-        onPrevious={() => previous && openFileSystemPath(previous.path, nodes, launchApp)}
-        onNext={() => next && openFileSystemPath(next.path, nodes, launchApp)}
+        onPrevious={() => previous && jumpToTrack(previous.path)}
+        onNext={() => next && jumpToTrack(next.path)}
       />
 
-      <AppContent className="music-player__content" scrollable={false}>
-        <ScrollArea className="music-player__scroll-area" padded>
-          <div className="music-player__layout">
-          <section className="glass-card music-player__hero">
+      <AppContent className="music-player__content" padded={false} scrollable={false} stacked={false}>
+        <AppSidebar className="music-player__sidebar">
+          <div className="section-row">
+            <div>
+              <p className="eyebrow">Playlist</p>
+              <h2>Folder queue</h2>
+            </div>
+            <small>{playlist.length}</small>
+          </div>
+
+          <ScrollArea className="music-player__playlist-list">
+            {playlist.map((track, index) => (
+              <button
+                key={track.path}
+                type="button"
+                className={`music-player__track ${track.path === currentTrack.path ? "is-active" : ""}`}
+                onClick={() => jumpToTrack(track.path)}
+              >
+                <span className="music-player__track-index">{String(index + 1).padStart(2, "0")}</span>
+                <span className="music-player__track-copy">
+                  <strong>{track.name.replace(/\.[^.]+$/, "")}</strong>
+                  <small title={track.path}>{track.path}</small>
+                </span>
+                {track.path === currentTrack.path ? (
+                  <span className="music-player__track-status">Live</span>
+                ) : null}
+              </button>
+            ))}
+          </ScrollArea>
+        </AppSidebar>
+
+        <section className="music-player__main">
+          <div className="music-player__hero">
             <div className="music-player__cover">
               {coverArt?.source ? (
                 <img src={coverArt.source} alt={`${currentTrack.name} cover art`} />
               ) : (
-                <AudioWaveform size={42} />
+                <AudioWaveform size={34} />
               )}
             </div>
+
             <div className="music-player__meta">
               <p className="eyebrow">Now playing</p>
               <h1>{currentTrack.name.replace(/\.[^.]+$/, "")}</h1>
               <p>{currentTrack.mimeType}</p>
             </div>
+          </div>
 
-            <div className="music-player__controls">
-              <div className="music-player__transport">
-                <IconButton
-                  type="button"
-                  onClick={() => previous && jumpToTrack(previous.path)}
-                  aria-label="Previous track"
-                >
-                  <SkipBack size={16} />
-                </IconButton>
-                <button type="button" className="music-player__play" onClick={() => void togglePlayback()}>
-                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                </button>
-                <IconButton
-                  type="button"
-                  onClick={() => next && jumpToTrack(next.path)}
-                  aria-label="Next track"
-                >
-                  <SkipForward size={16} />
-                </IconButton>
-              </div>
+          <div className="music-player__controls">
+            <div className="music-player__transport">
+              <IconButton
+                type="button"
+                onClick={() => previous && jumpToTrack(previous.path)}
+                aria-label="Previous track"
+              >
+                <SkipBack size={16} />
+              </IconButton>
+              <button type="button" className="music-player__play" onClick={() => void togglePlayback()}>
+                {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+              </button>
+              <IconButton
+                type="button"
+                onClick={() => next && jumpToTrack(next.path)}
+                aria-label="Next track"
+              >
+                <SkipForward size={16} />
+              </IconButton>
+            </div>
 
-              <div className="music-player__timeline">
-                <label className="music-player__seek">
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(duration, 0)}
-                    step={0.1}
-                    value={Math.min(currentTime, duration || 0)}
-                    onChange={(event) => {
-                      const audio = audioRef.current;
-
-                      if (!audio) {
-                        return;
-                      }
-
-                      const nextTime = Number(event.target.value);
-                      audio.currentTime = nextTime;
-                      setCurrentTime(nextTime);
-                    }}
-                  />
-                  <span className="music-player__progress" aria-hidden="true">
-                    <span style={{ width: `${progress}%` }} />
-                  </span>
-                </label>
-                <div className="music-player__time">
-                  <small>{formatTime(currentTime)}</small>
-                  <small>{formatTime(duration)}</small>
-                </div>
-              </div>
-
-              <label className="music-player__volume">
-                <Volume2 size={16} />
+            <div className="music-player__timeline">
+              <label className="music-player__seek">
                 <input
                   type="range"
                   min={0}
-                  max={1}
-                  step={0.01}
-                  value={volume}
-                  onChange={(event) => setVolume(Number(event.target.value))}
+                  max={Math.max(duration, 0)}
+                  step={0.1}
+                  value={Math.min(currentTime, duration || 0)}
+                  onChange={(event) => {
+                    const audio = audioRef.current;
+
+                    if (!audio) {
+                      return;
+                    }
+
+                    const nextTime = Number(event.target.value);
+                    audio.currentTime = nextTime;
+                    setCurrentTime(nextTime);
+                  }}
                 />
+                <span className="music-player__progress" aria-hidden="true">
+                  <span style={{ width: `${progress}%` }} />
+                </span>
               </label>
-            </div>
-          </section>
-
-          <section className="glass-card music-player__playlist">
-            <div className="section-row">
-              <div>
-                <p className="eyebrow">Playlist</p>
-                <h2>Folder queue</h2>
+              <div className="music-player__time">
+                <small>{formatTime(currentTime)}</small>
+                <small>{formatTime(duration)}</small>
               </div>
-              <small>{playlist.length} available</small>
             </div>
 
-            <div className="music-player__playlist-list">
-              {playlist.map((track, index) => (
-                <button
-                  key={track.path}
-                  type="button"
-                  className={`music-player__track ${track.path === currentTrack.path ? "is-active" : ""}`}
-                  onClick={() => jumpToTrack(track.path)}
-                >
-                  <span className="music-player__track-index">{String(index + 1).padStart(2, "0")}</span>
-                  <span className="music-player__track-copy">
-                    <strong>{track.name.replace(/\.[^.]+$/, "")}</strong>
-                    <small title={track.path}>{track.path}</small>
-                  </span>
-                  {track.path === currentTrack.path ? <span className="music-player__track-status">Live</span> : null}
-                </button>
-              ))}
-            </div>
-          </section>
+            <label className="music-player__volume">
+              <Volume2 size={15} />
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={(event) => setVolume(Number(event.target.value))}
+              />
+            </label>
           </div>
-        </ScrollArea>
+        </section>
       </AppContent>
 
       <AppFooter className="music-player__footer">
         <span title={currentTrack.path}>{currentTrack.path}</span>
+        <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
         <span>{`${playlist.length} track${playlist.length === 1 ? "" : "s"} in folder`}</span>
       </AppFooter>
     </AppScaffold>

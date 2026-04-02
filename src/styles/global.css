@@ -1629,14 +1629,15 @@ h3 {
   min-height: 0;
   min-width: 0;
   place-items: center;
-  padding: 1rem;
+  padding: 0.8rem;
   background: rgba(0, 0, 0, 0.28);
-  overflow: auto;
+  overflow: hidden;
 }
 
 .photo-viewer__canvas img,
 .media-viewer__canvas img,
-.media-viewer__canvas video {
+.media-viewer__canvas video,
+.media-viewer__video {
   max-width: 100%;
   max-height: 100%;
   border-radius: 1rem;
@@ -1644,6 +1645,28 @@ h3 {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
   transition: transform 160ms ease;
   transform-origin: center;
+}
+
+.media-viewer__video {
+  width: 100%;
+  height: 100%;
+  background: #05070b;
+}
+
+.media-viewer__audio-shell {
+  display: grid;
+  width: min(100%, 32rem);
+  padding: 0.9rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.media-viewer__audio {
+  width: 100%;
+}
+
+.media-viewer__footer {
+  justify-content: space-between;
 }
 
 .photo-viewer__fallback,
@@ -1808,29 +1831,29 @@ h3 {
   overflow: hidden;
 }
 
+.browser-app__toolbar {
+  gap: 0.7rem;
+}
+
+.browser-app__address-form {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
 .browser-app__address {
   display: flex;
   min-width: 0;
   flex: 1;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.75rem;
-  border-radius: 0.78rem;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.browser-app__address input {
-  width: 100%;
-  border: 0;
-  outline: none;
-  background: transparent;
+  min-height: var(--control-height-compact);
 }
 
 .browser-app__content {
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 240px) minmax(0, 1fr);
 }
 
 .browser-app__sidebar {
@@ -1838,16 +1861,43 @@ h3 {
   min-width: 0;
   align-content: start;
   gap: 0.6rem;
-  overflow: auto;
-  padding: 0.85rem;
+  min-height: 0;
+  padding: 0.78rem;
   border-right: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.browser-app__sidebar-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.browser-app__bookmark-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.browser-app__bookmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.1rem;
+  padding: 0.48rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.72rem;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.browser-app__bookmark.is-active {
+  border-color: color-mix(in srgb, var(--theme-accent) 34%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--theme-accent) 10%, rgba(255, 255, 255, 0.03));
 }
 
 .browser-app__note {
   display: grid;
   gap: 0.45rem;
-  padding: 0.8rem;
+  padding: 0.72rem;
   border-radius: 0.82rem;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-muted);
@@ -1858,9 +1908,8 @@ h3 {
   min-width: 0;
   flex-direction: column;
   min-height: 0;
-  gap: 0.65rem;
   overflow: hidden;
-  padding: 0.85rem;
+  padding: 0.78rem;
   background: rgba(0, 0, 0, 0.16);
 }
 
@@ -1900,8 +1949,8 @@ h3 {
   min-width: 0;
   align-content: start;
   justify-items: start;
-  gap: 0.85rem;
-  padding: 1rem;
+  gap: 0.72rem;
+  padding: 0.9rem;
 }
 
 .browser-app__fallback-icon,
@@ -1920,7 +1969,14 @@ h3 {
   gap: 0.3rem;
 }
 
+.browser-app__fallback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
 .browser-app__fallback code {
+  display: block;
   max-width: 100%;
   overflow: hidden;
   padding: 0.55rem 0.68rem;
@@ -1950,8 +2006,8 @@ h3 {
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.55rem;
+  gap: 0.45rem;
+  padding: 0.5rem;
 }
 
 .music-player__content {
@@ -1959,15 +2015,18 @@ h3 {
   min-height: 0;
 }
 
-.paint-app .app-toolbar {
-  gap: 0.65rem;
-  padding: 0.7rem 0.85rem;
+.paint-app__toolbar {
+  gap: 0.6rem;
+}
+
+.paint-app__toolbar-group {
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .paint-app .pill-button,
 .paint-app .ghost-button,
 .paint-app .icon-button {
-  padding: 0.5rem 0.68rem;
   border-radius: 0.72rem;
 }
 
@@ -1978,7 +2037,7 @@ h3 {
   min-width: 0;
   place-items: stretch;
   overflow: hidden;
-  padding: 0.7rem;
+  padding: 0.5rem;
   border-radius: 0.95rem;
   background: rgba(0, 0, 0, 0.28);
 }
@@ -2015,20 +2074,22 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.35rem 0.55rem;
+  min-height: var(--control-height-compact);
+  padding: 0.3rem 0.52rem;
   border-radius: 0.72rem;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-muted);
+  font-size: 0.76rem;
 }
 
 .paint-app__size input {
-  width: 96px;
+  width: 84px;
 }
 
 .paint-app__fallback {
   display: grid;
   gap: 0.45rem;
-  padding: 0.75rem 0.9rem;
+  padding: 0.7rem 0.82rem;
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-muted);
@@ -2044,30 +2105,49 @@ h3 {
   gap: 1rem;
 }
 
-.music-player__layout {
-  min-width: 0;
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
-}
-
-.music-player__scroll-area {
-  padding: var(--panel-padding);
-}
-
 .music-player__hero,
 .music-player__playlist,
 .tetris-game__aside,
 .games-hub__card {
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
+}
+
+.music-player__content {
+  display: grid;
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+}
+
+.music-player__sidebar {
+  min-width: 0;
+  min-height: 0;
+  gap: 0.72rem;
+  padding: 0.78rem;
+  border-right: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.music-player__main {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  gap: 0.95rem;
+  padding: 0.9rem;
+}
+
+.music-player__hero {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
 }
 
 .music-player__cover {
   display: grid;
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 4.1rem;
+  height: 4.1rem;
   place-items: center;
   overflow: hidden;
-  border-radius: 1.1rem;
+  border-radius: 0.95rem;
   background: color-mix(in srgb, var(--theme-accent) 18%, rgba(255, 255, 255, 0.08));
   color: color-mix(in srgb, var(--theme-accent) 72%, white 28%);
 }
@@ -2080,7 +2160,8 @@ h3 {
 
 .music-player__meta {
   display: grid;
-  gap: 0.3rem;
+  min-width: 0;
+  gap: 0.22rem;
 }
 
 .music-player__meta p:last-child,
@@ -2093,20 +2174,20 @@ h3 {
 .music-player__controls,
 .music-player__timeline {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.68rem;
 }
 
 .music-player__transport,
 .music-player__volume {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .music-player__play {
   display: grid;
-  width: 2.85rem;
-  height: 2.85rem;
+  width: 2.6rem;
+  height: 2.6rem;
   place-items: center;
   border-radius: 999px;
   background: color-mix(in srgb, var(--theme-accent) 26%, rgba(255, 255, 255, 0.08));
@@ -2137,7 +2218,7 @@ h3 {
 }
 
 .music-player__volume input {
-  width: min(180px, 36vw);
+  width: min(170px, 30vw);
 }
 
 .music-player__seek {
@@ -2159,7 +2240,8 @@ h3 {
 
 .music-player__playlist-list {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.5rem;
+  min-height: 0;
 }
 
 .music-player__playlist {
@@ -2170,10 +2252,10 @@ h3 {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.8rem;
+  gap: 0.65rem;
+  padding: 0.64rem 0.7rem;
   border: 1px solid transparent;
-  border-radius: 0.95rem;
+  border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.03);
   text-align: left;
 }
@@ -2205,6 +2287,7 @@ h3 {
 
 .music-player__footer {
   gap: var(--space-3);
+  justify-content: space-between;
 }
 
 .games-hub__grid {
@@ -3361,11 +3444,11 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .music-player__layout,
-  .games-hub__grid,
-  .tetris-game__layout {
-    grid-template-columns: 1fr;
-  }
+  .music-player__content,
+    .games-hub__grid,
+    .tetris-game__layout {
+      grid-template-columns: 1fr;
+    }
 
   .start-menu {
     width: min(720px, calc(100% - 32px));
@@ -3387,7 +3470,8 @@ h3 {
     border-bottom: 1px solid var(--border);
   }
 
-  .browser-app__sidebar {
+  .browser-app__sidebar,
+  .music-player__sidebar {
     grid-auto-flow: column;
     grid-auto-columns: max-content;
     overflow: auto hidden;
