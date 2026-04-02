@@ -14,14 +14,12 @@ import { ensureNotesWorkspace } from "@/lib/notes";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
 
 export const LEGACY_WELCOME_PATH = "/Desktop/Welcome.md";
-export const SNAPSHOTS_DIRECTORY_PATH = "/Users/Public/Snapshots";
 const LEGACY_MUSIC_PATHS = ["/Media/Music/Studio Loop.mp3", "/Media/Music/T-Rex Roar.mp3"];
 const REQUIRED_DIRECTORIES = [
   GAMES_DIRECTORY_PATH,
   "/Media",
   "/Media/Music",
   "/Media/Photography",
-  SNAPSHOTS_DIRECTORY_PATH,
   ...bundledWorkspaceDirectories,
 ];
 const BUNDLED_READONLY_FILES = [

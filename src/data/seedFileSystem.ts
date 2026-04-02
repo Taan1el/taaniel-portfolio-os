@@ -13,7 +13,6 @@ import {
 } from "@/data/bundled-assets";
 import { GAMES_README_CONTENT, GAMES_README_PATH } from "@/lib/games";
 import { DEFAULT_NOTE_CONTENT, DEFAULT_NOTE_NAME, NOTES_DIRECTORY_PATH } from "@/lib/notes";
-import { SNAPSHOTS_DIRECTORY_PATH } from "@/lib/system-workspace";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
 
 const now = Date.now();
@@ -116,7 +115,6 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     "/Users": directory("/Users"),
     "/Users/Public": directory("/Users/Public"),
     "/Users/Public/Blog": directory("/Users/Public/Blog"),
-    [SNAPSHOTS_DIRECTORY_PATH]: directory(SNAPSHOTS_DIRECTORY_PATH),
     "/Portfolio": directory("/Portfolio"),
     "/Portfolio/Case Studies": directory("/Portfolio/Case Studies"),
     "/Games": directory("/Games"),
