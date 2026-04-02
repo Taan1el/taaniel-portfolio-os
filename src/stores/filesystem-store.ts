@@ -8,20 +8,40 @@ import {
   deleteNodeRecord,
   hasReadonlyContent,
   importFilesRecord,
+  listDirectory as listDirectoryNodes,
   loadFileSystem,
+  mkdirRecord,
   pasteNodeRecord,
+  readFile as readFileNode,
+  renameRecord,
   renameNodeRecord,
   saveFileSystem,
   updateBinaryFileRecord,
   updateTextFileRecord,
+  writeFileRecord,
 } from "@/lib/filesystem";
 import { ensureSystemWorkspace } from "@/lib/system-workspace";
-import type { FileSystemRecord } from "@/types/system";
+import type { FileNode, FileSystemRecord } from "@/types/system";
 
 interface FileSystemState {
   nodes: FileSystemRecord;
   initialized: boolean;
   initialize: () => Promise<void>;
+  listDirectory: (path: string) => FileNode[];
+  readFile: (path: string) => FileNode | null;
+  writeFile: (
+    path: string,
+    content: string,
+    options?: {
+      mimeType?: string;
+      extension?: string;
+      source?: string;
+      uniqueName?: boolean;
+    }
+  ) => Promise<string>;
+  mkdir: (path: string, options?: { uniqueName?: boolean }) => Promise<string>;
+  rename: (path: string, nextName: string) => Promise<string>;
+  deleteNode: (path: string) => Promise<void>;
   createDirectory: (directoryPath: string, name?: string) => Promise<void>;
   createTextFile: (directoryPath: string, name?: string, content?: string) => Promise<void>;
   createBinaryFile: (
@@ -32,7 +52,6 @@ interface FileSystemState {
     extension: string
   ) => Promise<string>;
   renameNode: (path: string, nextName: string) => Promise<void>;
-  deleteNode: (path: string) => Promise<void>;
   updateTextFile: (path: string, content: string) => Promise<void>;
   updateBinaryFile: (
     path: string,
@@ -72,6 +91,26 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     }
 
     set({ nodes, initialized: true });
+  },
+  listDirectory: (path) => listDirectoryNodes(get().nodes, path),
+  readFile: (path) => readFileNode(get().nodes, path),
+  writeFile: async (path, content, options) => {
+    const result = writeFileRecord(get().nodes, path, content, options);
+    set({ nodes: result.nodes });
+    await persistNodes(result.nodes);
+    return result.path;
+  },
+  mkdir: async (path, options) => {
+    const result = mkdirRecord(get().nodes, path, options);
+    set({ nodes: result.nodes });
+    await persistNodes(result.nodes);
+    return result.path;
+  },
+  rename: async (path, nextName) => {
+    const result = renameRecord(get().nodes, path, nextName);
+    set({ nodes: result.nodes });
+    await persistNodes(result.nodes);
+    return result.path;
   },
   createDirectory: async (directoryPath, name) => {
     const nodes = createDirectoryRecord(get().nodes, directoryPath, name);

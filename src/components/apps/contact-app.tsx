@@ -1,4 +1,5 @@
 import { Copy, ExternalLink, Mail, Phone } from "lucide-react";
+import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { profile, socialLinks } from "@/data/portfolio";
 import type { AppComponentProps } from "@/types/system";
 
@@ -10,7 +11,8 @@ export function ContactApp({ window }: AppComponentProps) {
   void window;
 
   return (
-    <div className="app-screen contact-app">
+    <AppScaffold className="contact-app">
+      <AppContent padded>
       <section className="glass-card contact-app__hero">
         <div>
           <p className="eyebrow">Contact</p>
@@ -74,6 +76,7 @@ export function ContactApp({ window }: AppComponentProps) {
           ))}
         </div>
       </article>
-    </div>
+      </AppContent>
+    </AppScaffold>
   );
 }

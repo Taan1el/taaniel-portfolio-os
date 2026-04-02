@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { AppContent, AppScaffold, ScrollArea } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { openFileSystemPath } from "@/lib/launchers";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
@@ -28,7 +29,7 @@ export function MediaViewerApp({ window }: AppComponentProps) {
   }
 
   return (
-    <div className="app-screen media-viewer">
+    <AppScaffold className="media-viewer">
       <MediaToolbar
         title={file.name}
         subtitle={isVideoApp ? "Video and audio playback" : "Media viewer"}
@@ -38,25 +39,27 @@ export function MediaViewerApp({ window }: AppComponentProps) {
         onNext={() => next && openFileSystemPath(next.path, nodes, launchApp)}
       />
 
-      <div className="media-viewer__canvas">
-        {file.mimeType.startsWith("audio/") ? (
-          <audio
-            ref={(element) => {
-              mediaRef.current = element;
-            }}
-            controls
-            src={file.source ?? demoVideo}
-          />
-        ) : (
-          <video
-            ref={(element) => {
-              mediaRef.current = element;
-            }}
-            controls
-            src={file.source ?? demoVideo}
-          />
-        )}
-      </div>
-    </div>
+      <AppContent className="media-viewer__content" padded={false} scrollable={false}>
+        <ScrollArea className="media-viewer__canvas">
+          {file.mimeType.startsWith("audio/") ? (
+            <audio
+              ref={(element) => {
+                mediaRef.current = element;
+              }}
+              controls
+              src={file.source ?? demoVideo}
+            />
+          ) : (
+            <video
+              ref={(element) => {
+                mediaRef.current = element;
+              }}
+              controls
+              src={file.source ?? demoVideo}
+            />
+          )}
+        </ScrollArea>
+      </AppContent>
+    </AppScaffold>
   );
 }

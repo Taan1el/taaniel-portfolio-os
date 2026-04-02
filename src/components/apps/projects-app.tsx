@@ -1,4 +1,5 @@
 import { ArrowUpRight, FileText, FolderOpen, Image as ImageIcon } from "lucide-react";
+import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { featuredProjects } from "@/data/portfolio";
 import { openFileSystemPath } from "@/lib/launchers";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -11,7 +12,8 @@ export function ProjectsApp({ window }: AppComponentProps) {
   const launchApp = useSystemStore((state) => state.launchApp);
 
   return (
-    <div className="app-screen projects-app">
+    <AppScaffold className="projects-app">
+      <AppContent padded>
       <section className="section-headline">
         <div>
           <p className="eyebrow">Featured work</p>
@@ -109,6 +111,7 @@ export function ProjectsApp({ window }: AppComponentProps) {
           Discuss the work
         </button>
       </section>
-    </div>
+      </AppContent>
+    </AppScaffold>
   );
 }

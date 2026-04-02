@@ -7,7 +7,11 @@ import {
   skills,
   socialLinks,
 } from "@/data/portfolio";
-import { resolvePublicAssetUrl } from "@/lib/assets";
+import {
+  bundledWorkspaceAssets,
+  bundledWorkspaceDirectories,
+} from "@/data/bundled-assets";
+import { GAMES_README_CONTENT, GAMES_README_PATH } from "@/lib/games";
 import { DEFAULT_NOTE_CONTENT, DEFAULT_NOTE_NAME, NOTES_DIRECTORY_PATH } from "@/lib/notes";
 import { SNAPSHOTS_DIRECTORY_PATH } from "@/lib/system-workspace";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
@@ -103,19 +107,6 @@ const frontendNotesMarkdown = `# Frontend Notes
 That frontend craft can be expressive, technical, and recruiter-friendly at the same time.
 `;
 
-const gamesReadmeMarkdown = `# Games
-
-Arcade lives inside the OS now.
-
-## Included
-
-- Snake
-- Tetris
-- Dino
-
-Open the Games app from Start or Search to launch each game in its own window.
-`;
-
 export const buildSeedFileSystem = (): FileSystemRecord => {
   const nodes: FileSystemRecord = {
     "/": directory("/"),
@@ -135,6 +126,10 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     "/Media/Videos": directory("/Media/Videos"),
     "/Code": directory("/Code"),
   };
+
+  bundledWorkspaceDirectories.forEach((path) => {
+    nodes[path] = directory(path);
+  });
 
   nodes[`${NOTES_DIRECTORY_PATH}/${DEFAULT_NOTE_NAME}`] = file(
     `${NOTES_DIRECTORY_PATH}/${DEFAULT_NOTE_NAME}`,
@@ -174,8 +169,8 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     { content: frontendNotesMarkdown }
   );
 
-  nodes["/Games/README.md"] = file("/Games/README.md", "md", "text/markdown", {
-    content: gamesReadmeMarkdown,
+  nodes[GAMES_README_PATH] = file(GAMES_README_PATH, "md", "text/markdown", {
+    content: GAMES_README_CONTENT,
   });
 
   nodes["/Documents/Taaniel-Vananurm-CV.pdf"] = file(
@@ -184,26 +179,6 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     "application/pdf",
     {
       source: resumePdfPath,
-      readonly: true,
-    }
-  );
-
-  nodes["/Media/Music/Black Star.mp3"] = file(
-    "/Media/Music/Black Star.mp3",
-    "mp3",
-    "audio/mpeg",
-    {
-      source: resolvePublicAssetUrl("assets/Black Star.mp3"),
-      readonly: true,
-    }
-  );
-
-  nodes["/Media/Music/Black Star Cover.jpg"] = file(
-    "/Media/Music/Black Star Cover.jpg",
-    "jpg",
-    "image/jpeg",
-    {
-      source: resolvePublicAssetUrl("assets/blackstar_img.jpg"),
       readonly: true,
     }
   );
@@ -281,6 +256,13 @@ ${project.stack.map((item) => `- ${item}`).join("\n")}
         readonly: true,
       }
     );
+  });
+
+  bundledWorkspaceAssets.forEach((asset) => {
+    nodes[asset.path] = file(asset.path, asset.extension, asset.mimeType, {
+      source: asset.source,
+      readonly: true,
+    });
   });
 
   return nodes;

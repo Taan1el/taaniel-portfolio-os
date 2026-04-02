@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AppToolbar } from "@/components/apps/app-layout";
 
 interface MediaToolbarProps {
   title: string;
@@ -20,7 +21,7 @@ export function MediaToolbar({
   actions,
 }: MediaToolbarProps) {
   return (
-    <header className="app-toolbar">
+    <AppToolbar className="app-toolbar">
       <div className="app-toolbar__title">
         <strong>{title}</strong>
         {subtitle ? <small>{subtitle}</small> : null}
@@ -34,6 +35,6 @@ export function MediaToolbar({
           <ChevronRight size={15} />
         </button>
       </div>
-    </header>
+    </AppToolbar>
   );
 }

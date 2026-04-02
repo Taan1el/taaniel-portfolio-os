@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Doom</title>
+    <link rel="stylesheet" href="./js-dos/js-dos.css">
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      html,
+      body,
+      #jsdos {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #05080c;
+      }
+    </style>
+    <script src="./js-dos/js-dos.js"></script>
+  </head>
+  <body>
+    <div id="jsdos"></div>
+    <script>
+      emulators.pathPrefix = "./js-dos/";
+      Dos(document.getElementById("jsdos")).run("./bundle.jsdos");
+    </script>
+  </body>
+</html>
+

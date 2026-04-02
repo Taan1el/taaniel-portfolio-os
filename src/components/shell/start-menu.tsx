@@ -10,6 +10,7 @@ import {
   startMenuSidebarLinks,
 } from "@/components/shell/start-menu/start-menu-data";
 import { StartMenuShell } from "@/components/shell/start-menu/start-menu-shell";
+import { StartPowerSection } from "@/components/shell/start-menu/start-power-section";
 import { StartQuickLinks } from "@/components/shell/start-menu/start-quick-links";
 import { StartSearch } from "@/components/shell/start-menu/start-search";
 import { StartSidebar } from "@/components/shell/start-menu/start-sidebar";
@@ -113,21 +114,7 @@ export function StartMenu({
 
   return (
     <StartMenuShell menuRef={menuRef}>
-      <StartSidebar
-        shortcuts={[
-          {
-            id: "resume",
-            label: "Open Resume.pdf",
-            icon: Mail,
-            action: { type: "file", filePath: "/Documents/Taaniel-Vananurm-CV.pdf" },
-          },
-          ...startMenuSidebarLinks,
-        ]}
-        powerActions={startMenuPowerActions}
-        onExecuteAction={executeShortcut}
-      />
-
-      <div className="start-menu__main">
+      <div className="start-menu__top">
         <div className="start-menu__hero">
           <div>
             <p className="eyebrow">Portfolio OS</p>
@@ -155,25 +142,49 @@ export function StartMenu({
             }
           }}
         />
+      </div>
 
-        <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
-
-        <StartAppList
-          categories={startMenuCategories}
-          appsByCategory={appsByCategory}
-          showSearchResults={showSearchResults}
-          expandedCategories={expandedCategories}
-          onToggleCategory={(category) =>
-            setExpandedCategories((current) => ({
-              ...current,
-              [category]: !current[category as AppCategory],
-            }))
-          }
-          onLaunchSettings={() => onLaunchApp("settings")}
-          onLaunchApp={onLaunchApp}
+      <div className="start-menu__body">
+        <StartSidebar
+          shortcuts={[
+            {
+              id: "resume",
+              label: "Open Resume.pdf",
+              icon: Mail,
+              action: { type: "file", filePath: "/Documents/Taaniel-Vananurm-CV.pdf" },
+            },
+            ...startMenuSidebarLinks,
+          ]}
+          onExecuteAction={executeShortcut}
         />
 
-        <div className="start-menu__footer">
+        <div className="start-menu__main">
+          <div className="start-menu__content">
+            <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
+
+            <StartAppList
+              categories={startMenuCategories}
+              appsByCategory={appsByCategory}
+              showSearchResults={showSearchResults}
+              expandedCategories={expandedCategories}
+              onToggleCategory={(category) =>
+                setExpandedCategories((current) => ({
+                  ...current,
+                  [category]: !current[category as AppCategory],
+                }))
+              }
+              onLaunchSettings={() => onLaunchApp("settings")}
+              onLaunchApp={onLaunchApp}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="start-menu__footer">
+        <div className="start-menu__footer-actions">
+          <StartPowerSection actions={startMenuPowerActions} onExecuteAction={executeShortcut} />
+        </div>
+        <div className="start-menu__footer-meta">
           <div className="start-menu__links">
             {socialLinks.slice(0, 4).map((link) => (
               <a key={link.label} href={link.url} target="_blank" rel="noreferrer">

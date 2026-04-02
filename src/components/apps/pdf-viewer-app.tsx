@@ -1,4 +1,5 @@
 import { Download, Printer, Search, SearchX } from "lucide-react";
+import { AppContent, AppScaffold, AppToolbar, ScrollArea } from "@/components/apps/app-layout";
 import { resumePdfPath } from "@/data/portfolio";
 import { getNodeByPath } from "@/lib/filesystem";
 import { formatBytes } from "@/lib/utils";
@@ -39,8 +40,8 @@ export function PdfViewerApp({ window }: AppComponentProps) {
       : undefined;
 
   return (
-    <div className="app-screen pdf-viewer">
-      <header className="app-toolbar">
+    <AppScaffold className="pdf-viewer">
+      <AppToolbar className="app-toolbar">
         <div className="app-toolbar__title">
           <strong>{selectedFile?.kind === "file" ? selectedFile.name : "Resume PDF"}</strong>
           <small>
@@ -93,31 +94,33 @@ export function PdfViewerApp({ window }: AppComponentProps) {
             Download
           </a>
         </div>
-      </header>
+      </AppToolbar>
 
-      <div className="pdf-viewer__stage">
-        <div className="pdf-viewer__meta">
-          <span>
-            Page {Math.min(pageNumber, Math.max(1, pageCount || 1))} / {Math.max(1, pageCount || 1)}
-          </span>
-          <span>Zoom {Math.round(scale * 100)}%</span>
+      <AppContent className="pdf-viewer__content" padded={false} scrollable={false}>
+        <div className="pdf-viewer__stage">
+          <div className="pdf-viewer__meta">
+            <span>
+              Page {Math.min(pageNumber, Math.max(1, pageCount || 1))} / {Math.max(1, pageCount || 1)}
+            </span>
+            <span>Zoom {Math.round(scale * 100)}%</span>
+          </div>
+
+          {errorMessage ? (
+            <div className="pdf-viewer__fallback">
+              <strong>PDF preview unavailable</strong>
+              <p>{errorMessage}</p>
+              <a className="pill-button" href={source} target="_blank" rel="noreferrer">
+                Open in browser
+              </a>
+            </div>
+          ) : (
+            <ScrollArea className="pdf-viewer__canvas-wrap">
+              <canvas ref={canvasRef} />
+              {loading ? <div className="pdf-viewer__loading">Rendering page...</div> : null}
+            </ScrollArea>
+          )}
         </div>
-
-        {errorMessage ? (
-          <div className="pdf-viewer__fallback">
-            <strong>PDF preview unavailable</strong>
-            <p>{errorMessage}</p>
-            <a className="pill-button" href={source} target="_blank" rel="noreferrer">
-              Open in browser
-            </a>
-          </div>
-        ) : (
-          <div className="pdf-viewer__canvas-wrap">
-            <canvas ref={canvasRef} />
-            {loading ? <div className="pdf-viewer__loading">Rendering page...</div> : null}
-          </div>
-        )}
-      </div>
-    </div>
+      </AppContent>
+    </AppScaffold>
   );
 }

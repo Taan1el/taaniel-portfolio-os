@@ -1,8 +1,8 @@
-import { Suspense, useEffect, useState, type CSSProperties } from "react";
+import { Suspense, forwardRef, useEffect, useState, type CSSProperties } from "react";
 import { Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
-import { getAppDefinition } from "@/lib/app-registry";
+import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
 import type { AppWindow } from "@/types/system";
 
@@ -16,18 +16,21 @@ interface WindowFrameProps {
   onBoundsChange: (nextBounds: Pick<AppWindow, "x" | "y" | "width" | "height">) => void;
 }
 
-export function WindowFrame({
-  window,
-  active,
-  onFocus,
-  onClose,
-  onMinimize,
-  onMaximize,
-  onBoundsChange,
-}: WindowFrameProps) {
+export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function WindowFrame(
+  {
+    window,
+    active,
+    onFocus,
+    onClose,
+    onMinimize,
+    onMaximize,
+    onBoundsChange,
+  },
+  ref
+) {
   const definition = getAppDefinition(window.appId);
   const Icon = definition.icon;
-  const WindowComponent = definition.component;
+  const WindowComponent = getAppComponent(window.appId);
   const [interacting, setInteracting] = useState(false);
 
   const lockBodyScroll = () => {
@@ -47,10 +50,10 @@ export function WindowFrame({
       bounds="parent"
       size={{ width: window.width, height: window.height }}
       position={{ x: window.x, y: window.y }}
-      minWidth={320}
-      minHeight={240}
+      minWidth={definition.minSize?.width ?? 320}
+      minHeight={definition.minSize?.height ?? 240}
       disableDragging={window.maximized}
-      enableResizing={!window.maximized}
+      enableResizing={definition.resizable !== false && !window.maximized}
       dragHandleClassName="window-header"
       cancel=".window-action-buttons, .window-frame__body button, .window-frame__body input, .window-frame__body textarea, .window-frame__body a"
       onDragStart={() => {
@@ -80,6 +83,7 @@ export function WindowFrame({
       className={cn("window-frame__rnd", !interacting && "is-animated")}
     >
       <motion.section
+        ref={ref}
         data-window-preview-id={window.id}
         className={cn("window-frame", active && "is-active")}
         onMouseDown={onFocus}
@@ -122,4 +126,4 @@ export function WindowFrame({
       </motion.section>
     </Rnd>
   );
-}
+});

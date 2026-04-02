@@ -1,4 +1,5 @@
 import { Paintbrush, RotateCcw } from "lucide-react";
+import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { themePresets } from "@/data/portfolio";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps } from "@/types/system";
@@ -12,7 +13,8 @@ export function SettingsApp({ window }: AppComponentProps) {
   const resetLayout = useSystemStore((state) => state.resetLayout);
 
   return (
-    <div className="app-screen settings-app">
+    <AppScaffold className="settings-app">
+      <AppContent padded>
       <section className="hero-panel">
         <div>
           <p className="eyebrow">Personalization</p>
@@ -79,6 +81,7 @@ export function SettingsApp({ window }: AppComponentProps) {
           </div>
         </div>
       </article>
-    </div>
+      </AppContent>
+    </AppScaffold>
   );
 }

@@ -304,6 +304,14 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     browserRenderable: true,
     capabilities: ["open", "preview", "inline-preview"],
   },
+  ".zip": {
+    extension: ".zip",
+    openWith: "files",
+    mimeType: "application/zip",
+    family: "other",
+    label: "ZIP archive",
+    capabilities: ["open"],
+  },
   ".img": {
     extension: ".img",
     openWith: "v86",

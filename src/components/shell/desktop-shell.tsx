@@ -13,34 +13,35 @@ import { DesktopManager } from "@/components/shell/desktop-manager";
 import { SearchPanel } from "@/components/shell/search-panel";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
-import { WindowManager } from "@/components/shell/window-manager";
+import { WindowHost } from "@/components/shell/window-host";
 import { useShellShortcuts } from "@/hooks/use-shell-shortcuts";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { useProcessStore } from "@/stores/process-store";
+import { useShellStore } from "@/stores/shell-store";
 import { useSystemStore } from "@/stores/system-store";
+import { useWindowStore } from "@/stores/window-store";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
   const {
-    windows,
-    processes,
     activeWindowId,
+  } = useWindowStore(
+    useShallow((state) => ({
+      activeWindowId: state.activeWindowId,
+    }))
+  );
+  const { processes } = useProcessStore(
+    useShallow((state) => ({
+      processes: state.processes,
+    }))
+  );
+  const {
     selectedIconId,
     startMenuOpen,
     searchOpen,
     calendarOpen,
     contextMenu,
     clipboard,
-    themeId,
-    customWallpaperSource,
-    desktopIconPositions,
-    launchApp,
-    focusWindow,
-    closeWindow,
-    toggleMinimize,
-    toggleMaximize,
-    updateWindowBounds,
-    toggleTaskbarWindow,
-    showDesktop,
     setStartMenuOpen,
     toggleStartMenu,
     setSearchOpen,
@@ -50,15 +51,13 @@ export function DesktopShell() {
     setContextMenu,
     setClipboard,
     clearClipboard,
+    themeId,
+    customWallpaperSource,
+    desktopIconPositions,
     moveDesktopIcon,
     reconcileDesktopIconPositions,
-    hydrateForViewport,
-    resetLayout,
-  } = useSystemStore(
+  } = useShellStore(
     useShallow((state) => ({
-      windows: state.windows,
-      processes: state.processes,
-      activeWindowId: state.activeWindowId,
       selectedIconId: state.selectedIconId,
       startMenuOpen: state.startMenuOpen,
       searchOpen: state.searchOpen,
@@ -68,14 +67,6 @@ export function DesktopShell() {
       themeId: state.themeId,
       customWallpaperSource: state.customWallpaperSource,
       desktopIconPositions: state.desktopIconPositions,
-      launchApp: state.launchApp,
-      focusWindow: state.focusWindow,
-      closeWindow: state.closeWindow,
-      toggleMinimize: state.toggleMinimize,
-      toggleMaximize: state.toggleMaximize,
-      updateWindowBounds: state.updateWindowBounds,
-      toggleTaskbarWindow: state.toggleTaskbarWindow,
-      showDesktop: state.showDesktop,
       setStartMenuOpen: state.setStartMenuOpen,
       toggleStartMenu: state.toggleStartMenu,
       setSearchOpen: state.setSearchOpen,
@@ -87,6 +78,31 @@ export function DesktopShell() {
       clearClipboard: state.clearClipboard,
       moveDesktopIcon: state.moveDesktopIcon,
       reconcileDesktopIconPositions: state.reconcileDesktopIconPositions,
+    }))
+  );
+  const {
+    windows,
+    launchApp,
+    focusWindow,
+    closeWindow,
+    toggleMinimize,
+    toggleMaximize,
+    updateWindowBounds,
+    toggleTaskbarWindow,
+    showDesktop,
+    hydrateForViewport,
+    resetLayout,
+  } = useSystemStore(
+    useShallow((state) => ({
+      windows: state.windows,
+      launchApp: state.launchApp,
+      focusWindow: state.focusWindow,
+      closeWindow: state.closeWindow,
+      toggleMinimize: state.toggleMinimize,
+      toggleMaximize: state.toggleMaximize,
+      updateWindowBounds: state.updateWindowBounds,
+      toggleTaskbarWindow: state.toggleTaskbarWindow,
+      showDesktop: state.showDesktop,
       hydrateForViewport: state.hydrateForViewport,
       resetLayout: state.resetLayout,
     }))
@@ -428,7 +444,7 @@ export function DesktopShell() {
         onImportFiles={importFilesIntoDesktop}
       />
 
-      <WindowManager
+      <WindowHost
         windows={windows}
         activeWindowId={activeWindowId}
         onFocusWindow={focusWindow}

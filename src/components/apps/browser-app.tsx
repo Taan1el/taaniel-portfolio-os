@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, ExternalLink, Globe2, RefreshCcw, ShieldAlert } from "lucide-react";
+import { AppContent, AppFooter, AppScaffold, AppToolbar } from "@/components/apps/app-layout";
 import { profile, socialLinks } from "@/data/portfolio";
 import type { AppComponentProps } from "@/types/system";
 
@@ -8,8 +9,6 @@ const defaultLinks = [
   { label: "Live Portfolio", url: "https://taaniel.github.io/taaniel-portfolio-os/" },
   ...socialLinks,
 ];
-
-const SAFE_EMBED_HOSTS = new Set(["127.0.0.1", "localhost", "taaniel.github.io"]);
 
 type BrowserView =
   | {
@@ -74,11 +73,13 @@ function resolveBrowserView(rawUrl: string): BrowserView {
       };
     }
 
-    if (parsedUrl.origin === currentOrigin || SAFE_EMBED_HOSTS.has(parsedUrl.hostname)) {
+    const isLocalDevHost = parsedUrl.hostname === "127.0.0.1" || parsedUrl.hostname === "localhost";
+
+    if (parsedUrl.origin === currentOrigin || isLocalDevHost) {
       return {
         mode: "embed",
         url: parsedUrl.toString(),
-        note: "Same-origin and known-safe pages stay embedded inside the desktop shell.",
+        note: "Only same-origin or local development pages stay embedded inside the desktop shell.",
       };
     }
 
@@ -118,6 +119,8 @@ export function BrowserApp({ window }: AppComponentProps) {
 
   const currentUrl = history[historyIndex] ?? initialUrl;
   const view = useMemo(() => resolveBrowserView(currentUrl), [currentUrl]);
+  const canOpenExternally = /^https?:\/\//i.test(view.url);
+  const footerMessage = view.mode === "embed" ? view.note : view.reason;
 
   const visit = (nextUrl: string) => {
     const normalizedUrl = normalizeUrl(nextUrl);
@@ -132,8 +135,8 @@ export function BrowserApp({ window }: AppComponentProps) {
   };
 
   return (
-    <div className="browser-app">
-      <header className="app-toolbar">
+    <AppScaffold className="browser-app">
+      <AppToolbar className="app-toolbar browser-app__toolbar">
         <div className="app-toolbar__group">
           <button
             type="button"
@@ -167,13 +170,24 @@ export function BrowserApp({ window }: AppComponentProps) {
           <input value={address} onChange={(event) => setAddress(event.target.value)} />
         </form>
 
-        <a className="pill-button" href={currentUrl} target="_blank" rel="noreferrer">
+        <a
+          className={`pill-button ${!canOpenExternally ? "is-disabled" : ""}`}
+          href={canOpenExternally ? currentUrl : undefined}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={!canOpenExternally}
+          onClick={(event) => {
+            if (!canOpenExternally) {
+              event.preventDefault();
+            }
+          }}
+        >
           <ExternalLink size={15} />
           Open in new tab
         </a>
-      </header>
+      </AppToolbar>
 
-      <div className="browser-app__content">
+      <AppContent className="browser-app__content" padded={false} scrollable={false} stacked={false}>
         <aside className="browser-app__sidebar">
           <p className="eyebrow">Bookmarks</p>
           {defaultLinks.map((link) => (
@@ -192,14 +206,15 @@ export function BrowserApp({ window }: AppComponentProps) {
         <section className="browser-app__viewport">
           {view.mode === "embed" ? (
             <>
-              <div className="browser-app__hint">{view.note}</div>
-              <iframe
-                key={`${view.url}:${refreshToken}`}
-                src={view.url}
-                title={view.url}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              <div className="browser-app__frame-shell">
+                <iframe
+                  key={`${view.url}:${refreshToken}`}
+                  src={view.url}
+                  title={view.url}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
             </>
           ) : (
             <div className="browser-app__fallback">
@@ -212,14 +227,30 @@ export function BrowserApp({ window }: AppComponentProps) {
                 <p>{view.reason}</p>
                 <code>{view.url}</code>
               </div>
-              <a className="pill-button" href={view.url} target="_blank" rel="noreferrer">
+              <a
+                className={`pill-button ${!canOpenExternally ? "is-disabled" : ""}`}
+                href={canOpenExternally ? view.url : undefined}
+                target="_blank"
+                rel="noreferrer"
+                aria-disabled={!canOpenExternally}
+                onClick={(event) => {
+                  if (!canOpenExternally) {
+                    event.preventDefault();
+                  }
+                }}
+              >
                 <ExternalLink size={15} />
                 Open site
               </a>
             </div>
           )}
         </section>
-      </div>
-    </div>
+      </AppContent>
+
+      <AppFooter className="browser-app__footer">
+        <span>{footerMessage}</span>
+        <code>{currentUrl}</code>
+      </AppFooter>
+    </AppScaffold>
   );
 }

@@ -1,4 +1,5 @@
 import { resolveEditApp, resolveOpenApp } from "@/lib/file-registry";
+import { downloadFileNode } from "@/lib/filesystem";
 import { normalizePath } from "@/lib/filesystem";
 import type { AppId, FileSystemRecord, VirtualNode } from "@/types/system";
 
@@ -22,6 +23,11 @@ function launchNode(node: VirtualNode, launchApp: LaunchApp, mode: LaunchMode) {
         directoryPath: node.path,
       },
     });
+    return;
+  }
+
+  if (mode === "open" && node.extension === "zip") {
+    void downloadFileNode(node);
     return;
   }
 
