@@ -29,10 +29,14 @@ const bookmarks = [
   ...socialLinks,
 ];
 
+const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
+const EMBED_TIMEOUT_MS = 6500;
+
 type BrowserView =
   | {
       mode: "embed";
       url: string;
+      title: string;
       note: string;
     }
   | {
@@ -49,14 +53,25 @@ function normalizeUrl(input: string) {
     return "";
   }
 
+  const looksLikeHostWithPort = /^[a-z0-9.-]+:\d/i.test(trimmed);
+  const rawScheme = trimmed.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+
+  if (rawScheme && !looksLikeHostWithPort && !ALLOWED_PROTOCOLS.has(`${rawScheme}:`)) {
+    return "";
+  }
+
   try {
-    if (/^(https?:\/\/|\/)/i.test(trimmed)) {
-      return new URL(trimmed, window.location.href).toString();
+    const resolvedUrl = /^(?:[a-z]+:)?\/\//i.test(trimmed) || trimmed.startsWith("/")
+      ? new URL(trimmed, window.location.href)
+      : new URL(`https://${trimmed}`);
+
+    if (!ALLOWED_PROTOCOLS.has(resolvedUrl.protocol)) {
+      return "";
     }
 
-    return new URL(`https://${trimmed}`).toString();
+    return resolvedUrl.toString();
   } catch {
-    return trimmed;
+    return "";
   }
 }
 
@@ -83,8 +98,27 @@ function resolveYouTubeEmbed(url: URL) {
 }
 
 function resolveBrowserView(rawUrl: string): BrowserView {
+  if (!rawUrl) {
+    return {
+      mode: "fallback",
+      url: "",
+      title: "Invalid address",
+      reason: "Enter a valid http or https URL to open a site safely.",
+    };
+  }
+
   try {
     const parsedUrl = new URL(rawUrl);
+
+    if (!ALLOWED_PROTOCOLS.has(parsedUrl.protocol)) {
+      return {
+        mode: "fallback",
+        url: rawUrl,
+        title: "Blocked address",
+        reason: "Only http and https addresses are allowed in the browser app.",
+      };
+    }
+
     const currentOrigin = window.location.origin;
     const embedUrl = resolveYouTubeEmbed(parsedUrl);
 
@@ -92,6 +126,7 @@ function resolveBrowserView(rawUrl: string): BrowserView {
       return {
         mode: "embed",
         url: embedUrl,
+        title: "YouTube",
         note: "YouTube links open in privacy-enhanced embed mode inside the desktop.",
       };
     }
@@ -102,6 +137,7 @@ function resolveBrowserView(rawUrl: string): BrowserView {
       return {
         mode: "embed",
         url: parsedUrl.toString(),
+        title: parsedUrl.hostname.replace(/^www\./i, ""),
         note: "Only same-origin or local development pages stay embedded inside the desktop shell.",
       };
     }
@@ -132,12 +168,14 @@ export function BrowserApp({ window }: AppComponentProps) {
   const [history, setHistory] = useState<string[]>([initialUrl]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [embedState, setEmbedState] = useState<"idle" | "loading" | "ready" | "blocked">("idle");
 
   useEffect(() => {
     setAddress(initialUrl);
     setHistory([initialUrl]);
     setHistoryIndex(0);
     setRefreshToken(0);
+    setEmbedState("idle");
   }, [initialUrl]);
 
   const currentUrl = history[historyIndex] ?? initialUrl;
@@ -148,16 +186,55 @@ export function BrowserApp({ window }: AppComponentProps) {
 
   const view = useMemo(() => resolveBrowserView(currentUrl), [currentUrl]);
   const canOpenExternally = /^https?:\/\//i.test(view.url);
-  const footerMessage = view.mode === "embed" ? view.note : view.reason;
+  const showEmbedFallback = view.mode === "embed" && embedState === "blocked";
+  const fallbackReason =
+    view.mode === "fallback"
+      ? view.reason
+      : "This site cannot be embedded. Open in new tab.";
+  const footerMessage =
+    view.mode === "embed" && !showEmbedFallback ? view.note : fallbackReason;
+
+  useEffect(() => {
+    if (view.mode !== "embed") {
+      setEmbedState("idle");
+      return;
+    }
+
+    setEmbedState("loading");
+    const timeoutId = globalThis.window.setTimeout(() => {
+      setEmbedState((currentState) => (currentState === "ready" ? currentState : "blocked"));
+    }, EMBED_TIMEOUT_MS);
+
+    return () => globalThis.window.clearTimeout(timeoutId);
+  }, [refreshToken, view]);
 
   const visit = (nextUrl: string) => {
     const normalizedUrl = normalizeUrl(nextUrl);
 
     if (!normalizedUrl) {
+      setAddress(nextUrl.trim());
+      setHistory((previousHistory) => {
+        const nextHistory = previousHistory.slice(0, historyIndex + 1);
+        const candidate = nextUrl.trim();
+
+        if (!candidate || nextHistory.at(-1) === candidate) {
+          return nextHistory;
+        }
+
+        return [...nextHistory, candidate];
+      });
+      setHistoryIndex((index) => {
+        const nextHistory = history.slice(0, index + 1);
+        const candidate = nextUrl.trim();
+        return !candidate || nextHistory.at(-1) === candidate ? index : index + 1;
+      });
+      setRefreshToken(0);
+      setEmbedState("idle");
       return;
     }
 
     setRefreshToken(0);
+    setEmbedState("idle");
     setAddress(normalizedUrl);
     setHistory((previousHistory) => {
       const nextHistory = previousHistory.slice(0, historyIndex + 1);
@@ -271,14 +348,24 @@ export function BrowserApp({ window }: AppComponentProps) {
         </AppSidebar>
 
         <section className="browser-app__viewport">
-          {view.mode === "embed" ? (
-            <div className="browser-app__frame-shell">
+          {view.mode === "embed" && !showEmbedFallback ? (
+            <div className="browser-app__frame-shell" data-state={embedState}>
+              {embedState === "loading" ? (
+                <div className="browser-app__hint">
+                  <strong>Loading embedded page</strong>
+                  <p>If the page cannot finish loading inside the sandbox, the browser falls back to a new-tab launcher.</p>
+                </div>
+              ) : null}
               <iframe
                 key={`${view.url}:${refreshToken}`}
                 src={view.url}
                 title={view.url}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                // The browser iframe stays sandboxed so loaded pages cannot escape or navigate the shell.
+                sandbox="allow-scripts allow-same-origin"
+                referrerPolicy="no-referrer"
                 allowFullScreen
+                onLoad={() => setEmbedState("ready")}
+                onError={() => setEmbedState("blocked")}
               />
             </div>
           ) : (
@@ -287,9 +374,9 @@ export function BrowserApp({ window }: AppComponentProps) {
                 <ShieldAlert size={22} />
               </span>
               <div className="browser-app__fallback-copy">
-                <p className="eyebrow">External site</p>
+                <p className="eyebrow">{showEmbedFallback ? "Embedding blocked" : "External site"}</p>
                 <h2>{view.title}</h2>
-                <p>{view.reason}</p>
+                <p>{fallbackReason}</p>
                 <code>{view.url}</code>
               </div>
               <div className="browser-app__fallback-actions">
@@ -314,7 +401,7 @@ export function BrowserApp({ window }: AppComponentProps) {
 
       <AppFooter className="browser-app__footer">
         <span>{footerMessage}</span>
-        <code>{currentUrl}</code>
+        <code>{currentUrl || address || "No URL loaded"}</code>
       </AppFooter>
     </AppScaffold>
   );
