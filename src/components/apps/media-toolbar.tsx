@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { AppToolbar } from "@/components/apps/app-layout";
+import { AppToolbar, IconButton } from "@/components/apps/app-layout";
 
 interface MediaToolbarProps {
   title: string;
@@ -28,12 +28,12 @@ export function MediaToolbar({
       </div>
       <div className="app-toolbar__group">
         {actions}
-        <button type="button" className="icon-button" disabled={!canGoPrevious} onClick={onPrevious}>
+        <IconButton type="button" disabled={!canGoPrevious} onClick={onPrevious} aria-label="Previous item">
           <ChevronLeft size={15} />
-        </button>
-        <button type="button" className="icon-button" disabled={!canGoNext} onClick={onNext}>
+        </IconButton>
+        <IconButton type="button" disabled={!canGoNext} onClick={onNext} aria-label="Next item">
           <ChevronRight size={15} />
-        </button>
+        </IconButton>
       </div>
     </AppToolbar>
   );

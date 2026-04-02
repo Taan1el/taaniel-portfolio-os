@@ -8,7 +8,7 @@ import {
   SkipForward,
   Volume2,
 } from "lucide-react";
-import { AppContent, AppScaffold } from "@/components/apps/app-layout";
+import { AppContent, AppFooter, AppScaffold, Button, EmptyState, IconButton, ScrollArea } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { getParentPath, listChildren } from "@/lib/filesystem";
 import { openFileSystemPath } from "@/lib/launchers";
@@ -116,25 +116,28 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
 
   if (!currentTrack) {
     return (
-      <div className="app-empty">
-        <div className="music-player__empty">
-          <strong>No tracks loaded yet</strong>
-          <p>Import MP3 or WAV files into `/Media/Music`, then open one to launch the player.</p>
-          <button
-            type="button"
-            className="pill-button"
-            onClick={() =>
-              launchApp({
-                appId: "files",
-                payload: { directoryPath: "/Media/Music" },
-              })
-            }
-          >
-            <FolderOpen size={15} />
-            Open music folder
-          </button>
-        </div>
-      </div>
+      <AppScaffold>
+        <EmptyState
+          className="music-player__empty"
+          title="No tracks loaded yet"
+          description="Import MP3 or WAV files into `/Media/Music`, then open one to launch the player."
+          actions={
+            <Button
+              type="button"
+              variant="panel"
+              onClick={() =>
+                launchApp({
+                  appId: "files",
+                  payload: { directoryPath: "/Media/Music" },
+                })
+              }
+            >
+              <FolderOpen size={15} />
+              Open music folder
+            </Button>
+          }
+        />
+      </AppScaffold>
     );
   }
 
@@ -191,8 +194,9 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
         title={currentTrack.name}
         subtitle={`${playlist.length} track${playlist.length === 1 ? "" : "s"} in this folder`}
         actions={
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className="ghost-button"
             onClick={() =>
               launchApp({
@@ -203,7 +207,7 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
           >
             <FolderOpen size={15} />
             Open music folder
-          </button>
+          </Button>
         }
         canGoPrevious={Boolean(previous)}
         canGoNext={Boolean(next)}
@@ -211,8 +215,9 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
         onNext={() => next && openFileSystemPath(next.path, nodes, launchApp)}
       />
 
-      <AppContent className="music-player__content" padded>
-        <div className="music-player__layout">
+      <AppContent className="music-player__content" scrollable={false}>
+        <ScrollArea className="music-player__scroll-area" padded>
+          <div className="music-player__layout">
           <section className="glass-card music-player__hero">
             <div className="music-player__cover">
               {coverArt?.source ? (
@@ -229,15 +234,23 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
 
             <div className="music-player__controls">
               <div className="music-player__transport">
-                <button type="button" className="icon-button" onClick={() => previous && jumpToTrack(previous.path)}>
+                <IconButton
+                  type="button"
+                  onClick={() => previous && jumpToTrack(previous.path)}
+                  aria-label="Previous track"
+                >
                   <SkipBack size={16} />
-                </button>
+                </IconButton>
                 <button type="button" className="music-player__play" onClick={() => void togglePlayback()}>
                   {isPlaying ? <Pause size={18} /> : <Play size={18} />}
                 </button>
-                <button type="button" className="icon-button" onClick={() => next && jumpToTrack(next.path)}>
+                <IconButton
+                  type="button"
+                  onClick={() => next && jumpToTrack(next.path)}
+                  aria-label="Next track"
+                >
                   <SkipForward size={16} />
-                </button>
+                </IconButton>
               </div>
 
               <div className="music-player__timeline">
@@ -311,8 +324,14 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
               ))}
             </div>
           </section>
-        </div>
+          </div>
+        </ScrollArea>
       </AppContent>
+
+      <AppFooter className="music-player__footer">
+        <span title={currentTrack.path}>{currentTrack.path}</span>
+        <span>{`${playlist.length} track${playlist.length === 1 ? "" : "s"} in folder`}</span>
+      </AppFooter>
     </AppScaffold>
   );
 }

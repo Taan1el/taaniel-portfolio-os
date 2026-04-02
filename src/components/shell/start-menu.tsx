@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Mail } from "lucide-react";
+import { Button, ScrollArea } from "@/components/apps/app-layout";
 import { profile, socialLinks } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
 import { StartAppList } from "@/components/shell/start-menu/start-app-list";
@@ -121,15 +122,16 @@ export function StartMenu({
             <h2>{profile.name}</h2>
             <p>{profile.headline}</p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="panel"
             className="ghost-button"
             onClick={() => onLaunchApp("contact")}
             onMouseMove={updateStartMenuSpotlight}
           >
             <Mail size={14} />
             Contact
-          </button>
+          </Button>
         </div>
 
         <StartSearch
@@ -159,7 +161,7 @@ export function StartMenu({
         />
 
         <div className="start-menu__main">
-          <div className="start-menu__content">
+          <ScrollArea className="start-menu__content">
             <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
 
             <StartAppList
@@ -176,7 +178,7 @@ export function StartMenu({
               onLaunchSettings={() => onLaunchApp("settings")}
               onLaunchApp={onLaunchApp}
             />
-          </div>
+          </ScrollArea>
         </div>
       </div>
 
@@ -192,14 +194,15 @@ export function StartMenu({
               </a>
             ))}
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className="quick-link"
             onClick={() => onOpenDirectory("/Portfolio/Case Studies")}
             onMouseMove={updateStartMenuSpotlight}
           >
             Featured work
-          </button>
+          </Button>
         </div>
       </div>
     </StartMenuShell>
