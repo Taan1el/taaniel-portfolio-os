@@ -1,3 +1,4 @@
+import { AppSidebar, Button, ScrollArea } from "@/components/apps/app-layout";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,30 +20,35 @@ export function ExplorerSidebar({
   onNavigate,
 }: ExplorerSidebarProps) {
   return (
-    <aside className="explorer-window__sidebar">
+    <AppSidebar className="explorer-window__sidebar">
       <div className="explorer-window__sidebar-heading">
         <strong>Locations</strong>
         <small>IndexedDB workspace</small>
       </div>
 
-      <div className="explorer-window__sidebar-list">
-        {locations.map((location) => {
-          const Icon = location.icon;
-          const active = activePath === location.path || activePath.startsWith(`${location.path}/`);
+      <ScrollArea className="explorer-window__sidebar-scroll">
+        <div className="explorer-window__sidebar-list">
+          {locations.map((location) => {
+            const Icon = location.icon;
+            const active = activePath === location.path || activePath.startsWith(`${location.path}/`);
 
-          return (
-            <button
-              key={location.path}
-              type="button"
-              className={cn("explorer-window__sidebar-item", active && "is-active")}
-              onClick={() => onNavigate(location.path)}
-            >
-              <Icon size={15} />
-              <span>{location.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </aside>
+            return (
+              <Button
+                key={location.path}
+                type="button"
+                variant="panel"
+                block
+                align="start"
+                className={cn("explorer-window__sidebar-item", active && "is-active")}
+                onClick={() => onNavigate(location.path)}
+              >
+                <Icon size={15} />
+                <span>{location.label}</span>
+              </Button>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </AppSidebar>
   );
 }

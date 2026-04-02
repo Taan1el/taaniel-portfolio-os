@@ -1,3 +1,4 @@
+import { Button } from "@/components/apps/app-layout";
 import type { StartMenuShortcut } from "@/types/system";
 import { updateStartMenuSpotlight } from "@/components/shell/start-menu/spotlight";
 
@@ -13,16 +14,18 @@ export function StartPowerSection({ actions, onExecuteAction }: StartPowerSectio
         const Icon = action.icon;
 
         return (
-          <button
+          <Button
             key={action.id}
             type="button"
+            variant={action.danger ? "danger" : "panel"}
+            align="start"
             className={`start-menu__rail-item ${action.danger ? "is-danger" : ""}`}
             onClick={() => onExecuteAction(action)}
             onMouseMove={updateStartMenuSpotlight}
           >
             <Icon size={16} />
             <span>{action.label}</span>
-          </button>
+          </Button>
         );
       })}
     </>

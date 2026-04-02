@@ -12,7 +12,14 @@ import {
   Monitor,
   Music4,
 } from "lucide-react";
-import { AppContent, AppFooter, AppScaffold } from "@/components/apps/app-layout";
+import {
+  AppContent,
+  AppScaffold,
+  EmptyState,
+  GridView,
+  ScrollArea,
+  StatusBar,
+} from "@/components/apps/app-layout";
 import { ExplorerSidebar, type ExplorerSidebarLocation } from "@/components/apps/explorer/explorer-sidebar";
 import { ExplorerToolbar, type ExplorerBreadcrumb } from "@/components/apps/explorer/explorer-toolbar";
 import { joinPath, normalizePath } from "@/lib/filesystem";
@@ -308,38 +315,47 @@ export function FileExplorerApp({ window }: AppComponentProps) {
             </div>
           ) : null}
 
-          {filteredChildren.length > 0 ? (
-            <div className="explorer-grid" role="list" aria-label={`${currentDirectoryPath} contents`}>
-              {filteredChildren.map((node) => (
-                <ExplorerGridItem
-                  key={node.path}
-                  node={node}
-                  selected={selectedPath === node.path}
-                  onOpen={openNode}
-                  onSelect={(path) => setSelectedPath(window.id, path)}
-                />
-              ))}
-            </div>
-          ) : children.length === 0 ? (
-            <div className="explorer-window__empty">
-              <strong>This folder is empty</strong>
-              <p>Upload files or create a folder to keep building out the workspace.</p>
-            </div>
-          ) : (
-            <div className="explorer-window__empty">
-              <strong>No items match "{deferredSearchQuery.trim()}"</strong>
-              <p>Try another search or clear the filter to see everything in this folder.</p>
-            </div>
-          )}
+          <ScrollArea className="explorer-window__scroll-area" padded>
+            {filteredChildren.length > 0 ? (
+              <GridView
+                className="explorer-grid"
+                minItemWidth={108}
+                role="list"
+                aria-label={`${currentDirectoryPath} contents`}
+              >
+                {filteredChildren.map((node) => (
+                  <ExplorerGridItem
+                    key={node.path}
+                    node={node}
+                    selected={selectedPath === node.path}
+                    onOpen={openNode}
+                    onSelect={(path) => setSelectedPath(window.id, path)}
+                  />
+                ))}
+              </GridView>
+            ) : children.length === 0 ? (
+              <EmptyState
+                className="explorer-window__empty"
+                title="This folder is empty"
+                description="Upload files or create a folder to keep building out the workspace."
+              />
+            ) : (
+              <EmptyState
+                className="explorer-window__empty"
+                title={`No items match "${deferredSearchQuery.trim()}"`}
+                description="Try another search or clear the filter to see everything in this folder."
+              />
+            )}
+          </ScrollArea>
         </section>
       </AppContent>
 
-      <AppFooter className="explorer-window__statusbar">
+      <StatusBar className="explorer-window__statusbar">
         <span>{itemCountLabel}</span>
         <span className="explorer-window__status-path" title={selectedNode?.path ?? currentDirectoryPath}>
           {selectedNode?.name ?? currentDirectoryPath}
         </span>
-      </AppFooter>
+      </StatusBar>
     </AppScaffold>
   );
 }

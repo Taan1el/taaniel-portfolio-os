@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, FilePlus2, FolderPlus, Search, Upload } from "lucide-react";
-import { AppToolbar } from "@/components/apps/app-layout";
+import { ChevronLeft, ChevronRight, FilePlus2, FolderPlus, Upload } from "lucide-react";
+import { AppToolbar, IconButton, SearchInput } from "@/components/apps/app-layout";
 
 export interface ExplorerBreadcrumb {
   label: string;
@@ -36,24 +36,24 @@ export function ExplorerToolbar({
   return (
     <AppToolbar className="explorer-window__toolbar">
       <div className="explorer-window__nav">
-        <button
+        <IconButton
           type="button"
-          className="icon-button explorer-window__nav-button"
+          className="explorer-window__nav-button"
           disabled={!canGoBack}
           onClick={onGoBack}
           aria-label="Go back"
         >
           <ChevronLeft size={14} />
-        </button>
-        <button
+        </IconButton>
+        <IconButton
           type="button"
-          className="icon-button explorer-window__nav-button"
+          className="explorer-window__nav-button"
           disabled={!canGoForward}
           onClick={onGoForward}
           aria-label="Go forward"
         >
           <ChevronRight size={14} />
-        </button>
+        </IconButton>
       </div>
 
       <div className="explorer-window__path" aria-label="Current path">
@@ -68,40 +68,37 @@ export function ExplorerToolbar({
       </div>
 
       <div className="explorer-window__controls">
-        <label className="explorer-window__search">
-          <Search size={13} />
-          <input
-            type="search"
-            placeholder="Search folder"
-            value={searchQuery}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-        </label>
+        <SearchInput
+          containerClassName="explorer-window__search"
+          placeholder="Search folder"
+          value={searchQuery}
+          onChange={(event) => onSearchChange(event.target.value)}
+        />
 
-        <button
+        <IconButton
           type="button"
-          className="icon-button explorer-window__action"
+          className="explorer-window__action"
           onClick={onUpload}
           aria-label="Upload files"
         >
           <Upload size={14} />
-        </button>
-        <button
+        </IconButton>
+        <IconButton
           type="button"
-          className="icon-button explorer-window__action"
+          className="explorer-window__action"
           onClick={onCreateFolder}
           aria-label="Create folder"
         >
           <FolderPlus size={14} />
-        </button>
-        <button
+        </IconButton>
+        <IconButton
           type="button"
-          className="icon-button explorer-window__action"
+          className="explorer-window__action"
           onClick={onCreateNote}
           aria-label="Create note"
         >
           <FilePlus2 size={14} />
-        </button>
+        </IconButton>
       </div>
     </AppToolbar>
   );
