@@ -1,10 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FilePlus2, StickyNote } from "lucide-react";
-import { AppContent, AppScaffold } from "@/components/apps/app-layout";
+import {
+  AppContent,
+  AppScaffold,
+  AppSidebar,
+  Button,
+  EmptyState,
+  ScrollArea,
+  StatusBar,
+} from "@/components/apps/app-layout";
 import { joinPath } from "@/lib/filesystem";
 import { DEFAULT_NOTE_PATH, NOTES_DIRECTORY_PATH, isNotesPath } from "@/lib/notes";
 import { cn } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { useProcessStore } from "@/stores/process-store";
+import { useWindowStore } from "@/stores/window-store";
 import type { AppComponentProps, FileNode } from "@/types/system";
 
 function formatNoteLabel(note: FileNode) {
@@ -21,6 +31,8 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
   const readFile = useFileSystemStore((state) => state.readFile);
   const writeFile = useFileSystemStore((state) => state.writeFile);
   const rename = useFileSystemStore((state) => state.rename);
+  const updateProcess = useProcessStore((state) => state.updateProcess);
+  const setWindowTitle = useWindowStore((state) => state.setWindowTitle);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -32,6 +44,7 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
   const [draft, setDraft] = useState("");
   const [titleDraft, setTitleDraft] = useState("");
   const [pendingTitleFocus, setPendingTitleFocus] = useState(false);
+  const [saveState, setSaveState] = useState<"saved" | "saving">("saved");
 
   const selectedNote = selectedPath ? readFile(selectedPath) : null;
   const selectedNoteFile = isNoteFile(selectedNote) ? selectedNote : null;
@@ -57,7 +70,35 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
   useEffect(() => {
     setDraft(typeof selectedNoteFile?.content === "string" ? selectedNoteFile.content : "");
     setTitleDraft(selectedNoteFile ? formatNoteLabel(selectedNoteFile) : "");
+    setSaveState("saved");
   }, [selectedNoteFile?.content, selectedNoteFile?.path]);
+
+  useEffect(() => {
+    const nextFilePath = selectedNoteFile?.path;
+
+    if (!nextFilePath || appWindow.payload?.filePath === nextFilePath) {
+      if (selectedNoteFile && appWindow.title !== selectedNoteFile.name) {
+        setWindowTitle(appWindow.id, selectedNoteFile.name);
+      }
+      return;
+    }
+
+    updateProcess(appWindow.processId, {
+      launchPayload: {
+        ...appWindow.payload,
+        filePath: nextFilePath,
+      },
+    });
+    setWindowTitle(appWindow.id, selectedNoteFile.name);
+  }, [
+    appWindow.id,
+    appWindow.payload,
+    appWindow.processId,
+    appWindow.title,
+    selectedNoteFile,
+    setWindowTitle,
+    updateProcess,
+  ]);
 
   useEffect(() => {
     if (pendingTitleFocus) {
@@ -76,14 +117,16 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
     }
 
     if (draft === (typeof selectedNoteFile.content === "string" ? selectedNoteFile.content : "")) {
+      setSaveState("saved");
       return;
     }
 
+    setSaveState("saving");
     const timeoutId = globalThis.window.setTimeout(() => {
       void writeFile(selectedNoteFile.path, draft, {
         mimeType: selectedNoteFile.mimeType ?? "text/plain",
         extension: selectedNoteFile.extension ?? "txt",
-      });
+      }).then(() => setSaveState("saved"));
     }, 180);
 
     return () => globalThis.window.clearTimeout(timeoutId);
@@ -115,24 +158,31 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
 
     const nextPath = await rename(selectedNoteFile.path, nextName);
     setSelectedPath(nextPath);
+    updateProcess(appWindow.processId, {
+      launchPayload: {
+        ...appWindow.payload,
+        filePath: nextPath,
+      },
+    });
+    setWindowTitle(appWindow.id, nextName);
   };
 
   return (
     <AppScaffold className="notes-app">
       <AppContent className="notes-app__layout" padded={false} scrollable={false} stacked={false}>
-        <aside className="notes-app__sidebar">
+        <AppSidebar className="notes-app__sidebar">
           <div className="notes-app__sidebar-head">
             <div>
               <p className="eyebrow">Notes</p>
-              <h1>Quick notes</h1>
+              <h2>Quick notes</h2>
             </div>
-            <button type="button" className="ghost-button" onClick={() => void createNote()}>
+            <Button type="button" variant="panel" align="start" onClick={() => void createNote()}>
               <FilePlus2 size={15} />
               New note
-            </button>
+            </Button>
           </div>
 
-          <div className="notes-app__list">
+          <ScrollArea className="notes-app__list">
             {notes.map((note) => {
               const rawContent = typeof note.content === "string" ? note.content : "";
               const preview = rawContent.split(/\r?\n/).find((line) => line.trim().length > 0) ?? "Empty note";
@@ -154,8 +204,8 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
                 </button>
               );
             })}
-          </div>
-        </aside>
+          </ScrollArea>
+        </AppSidebar>
 
         <section className="notes-app__editor">
           {selectedNoteFile ? (
@@ -186,7 +236,7 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
                     spellCheck={false}
                   />
                 </div>
-                <small>Saved automatically in the virtual filesystem</small>
+                <small>{saveState === "saving" ? "Saving..." : "Saved to the filesystem"}</small>
               </header>
               <textarea
                 ref={textareaRef}
@@ -198,10 +248,25 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
               />
             </>
           ) : (
-            <div className="app-empty">Create a note to start writing.</div>
+            <EmptyState
+              className="notes-app__empty"
+              title="No note selected"
+              description="Create a new note or choose one from the list to start writing."
+              actions={
+                <Button type="button" variant="panel" onClick={() => void createNote()}>
+                  <FilePlus2 size={15} />
+                  Create note
+                </Button>
+              }
+            />
           )}
         </section>
       </AppContent>
+      <StatusBar className="notes-app__statusbar">
+        <span>{notes.length} note{notes.length === 1 ? "" : "s"}</span>
+        <span>{selectedNoteFile ? selectedNoteFile.name : "No note selected"}</span>
+        <span>{saveState === "saving" ? "Saving..." : "All changes saved"}</span>
+      </StatusBar>
     </AppScaffold>
   );
 }

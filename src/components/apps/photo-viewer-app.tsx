@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Expand, Search, SearchX } from "lucide-react";
-import { AppContent, AppFooter, AppScaffold, ScrollArea } from "@/components/apps/app-layout";
+import { Expand, Search, SearchX, ZoomIn } from "lucide-react";
+import {
+  AppContent,
+  AppFooter,
+  AppScaffold,
+  EmptyState,
+  IconButton,
+  ScrollArea,
+} from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
 import { openFileSystemPath } from "@/lib/launchers";
@@ -45,7 +52,14 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
   }, [filePath]);
 
   if (!file || file.type !== "file") {
-    return <div className="app-empty">No image file selected.</div>;
+    return (
+      <AppScaffold className="photo-viewer">
+        <EmptyState
+          title="No image selected"
+          description="Open an image from the filesystem to preview it here."
+        />
+      </AppScaffold>
+    );
   }
 
   const fileSize =
@@ -55,6 +69,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         ? new Blob([file.content]).size
         : undefined;
   const canRenderInline = Boolean(file.extension && isBrowserRenderableImageExtension(file.extension) && !renderFailed);
+  const zoomLabel = `${Math.round(zoom * 100)}%`;
 
   return (
     <AppScaffold className="photo-viewer">
@@ -68,41 +83,40 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         actions={
           <>
             {file.source ? (
-              <button
-                type="button"
-                className="pill-button"
-                onClick={() => setCustomWallpaperSource(file.source ?? null)}
-              >
+              <button type="button" className="pill-button" onClick={() => setCustomWallpaperSource(file.source ?? null)}>
                 Set as wallpaper
               </button>
             ) : null}
-            <button
+            <IconButton
               type="button"
-              className="icon-button"
+              variant="panel"
               aria-label="Zoom out"
               onClick={() => setZoom((currentZoom) => Math.max(0.4, currentZoom - 0.2))}
             >
               <SearchX size={15} />
+            </IconButton>
+            <button type="button" className="pill-button" aria-label="Reset zoom" onClick={() => setZoom(1)}>
+              {zoomLabel}
             </button>
-            <button type="button" className="icon-button" aria-label="Reset zoom" onClick={() => setZoom(1)}>
+            <IconButton type="button" variant="panel" aria-label="Reset zoom" onClick={() => setZoom(1)}>
               <Search size={15} />
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               type="button"
-              className="icon-button"
+              variant="panel"
               aria-label="Zoom in"
               onClick={() => setZoom((currentZoom) => Math.min(3, currentZoom + 0.2))}
             >
-              <Search size={15} />
-            </button>
-            <button
+              <ZoomIn size={15} />
+            </IconButton>
+            <IconButton
               type="button"
-              className="icon-button"
+              variant="panel"
               aria-label="Open fullscreen"
               onClick={() => containerRef.current?.requestFullscreen()}
             >
               <Expand size={15} />
-            </button>
+            </IconButton>
           </>
         }
       />
@@ -113,6 +127,16 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
           className="photo-viewer__canvas"
           tabIndex={0}
           onDoubleClick={() => containerRef.current?.requestFullscreen()}
+          onWheel={(event) => {
+            if (!event.ctrlKey) {
+              return;
+            }
+
+            event.preventDefault();
+            setZoom((currentZoom) =>
+              Math.max(0.4, Math.min(3, currentZoom + (event.deltaY > 0 ? -0.1 : 0.1)))
+            );
+          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft" && previous) {
               event.preventDefault();
@@ -161,6 +185,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
 
       {siblings.length > 1 ? (
         <AppFooter className="photo-viewer__footer">
+          <span>{zoomLabel}</span>
           <div className="photo-viewer__filmstrip" role="list" aria-label="Image strip">
             {siblings.map((item) => (
               <button
@@ -174,6 +199,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
               </button>
             ))}
           </div>
+          <span>{siblings.length} images</span>
         </AppFooter>
       ) : null}
     </AppScaffold>

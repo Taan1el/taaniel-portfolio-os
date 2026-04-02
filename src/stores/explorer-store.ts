@@ -8,6 +8,7 @@ export interface ExplorerSession {
   historyIndex: number;
   selectedPath: string | null;
   searchQuery: string;
+  viewMode: "grid" | "list";
 }
 
 interface ExplorerStoreState {
@@ -18,6 +19,7 @@ interface ExplorerStoreState {
   goForward: (windowId: string) => void;
   setSelectedPath: (windowId: string, path: string | null) => void;
   setSearchQuery: (windowId: string, query: string) => void;
+  setViewMode: (windowId: string, viewMode: ExplorerSession["viewMode"]) => void;
 }
 
 function createSession(windowId: string, initialPath: string): ExplorerSession {
@@ -30,6 +32,7 @@ function createSession(windowId: string, initialPath: string): ExplorerSession {
     historyIndex: 0,
     selectedPath: null,
     searchQuery: "",
+    viewMode: "grid",
   };
 }
 
@@ -168,6 +171,24 @@ export const useExplorerStore = create<ExplorerStoreState>((set, get) => ({
           [windowId]: {
             ...session,
             searchQuery: query,
+          },
+        },
+      };
+    }),
+  setViewMode: (windowId, viewMode) =>
+    set((state) => {
+      const session = state.sessions[windowId];
+
+      if (!session || session.viewMode === viewMode) {
+        return state;
+      }
+
+      return {
+        sessions: {
+          ...state.sessions,
+          [windowId]: {
+            ...session,
+            viewMode,
           },
         },
       };
