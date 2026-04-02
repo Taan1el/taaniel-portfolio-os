@@ -35,6 +35,7 @@ export interface WindowPayload {
 }
 
 export type ProcessState = "focused" | "running" | "minimized";
+export type ViewportMode = "desktop" | "mobile";
 
 export interface WindowBounds {
   x: number;
@@ -46,9 +47,11 @@ export interface WindowBounds {
 export interface WindowRecord extends WindowBounds {
   id: string;
   processId: string;
+  title: string;
   minimized: boolean;
   minimizedByShowDesktop?: boolean;
   maximized: boolean;
+  focused: boolean;
   zIndex: number;
   restoreBounds?: WindowBounds;
   createdAt: number;
@@ -58,17 +61,14 @@ export interface AppProcess {
   id: string;
   appId: AppId;
   status: ProcessState;
-  windowId: string | null;
-  title: string;
-  payload?: WindowPayload;
+  launchPayload?: WindowPayload;
   createdAt: number;
 }
 
 export interface AppWindow extends WindowRecord {
   appId: AppId;
-  title: string;
-  focused: boolean;
   payload?: WindowPayload;
+  processStatus: ProcessState;
 }
 
 export interface DesktopGridPosition {

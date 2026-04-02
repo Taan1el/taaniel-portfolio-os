@@ -19,6 +19,7 @@ describe("taskbar-system", () => {
         width: 800,
         height: 600,
         createdAt: 1,
+        processStatus: "focused",
       },
       {
         id: "window-b",
@@ -34,6 +35,7 @@ describe("taskbar-system", () => {
         width: 800,
         height: 600,
         createdAt: 2,
+        processStatus: "minimized",
       },
     ];
     const processes: AppProcess[] = [
@@ -41,16 +43,14 @@ describe("taskbar-system", () => {
         id: "process-a",
         appId: "about",
         status: "focused",
-        windowId: "window-a",
-        title: "About",
+        launchPayload: undefined,
         createdAt: 1,
       },
       {
         id: "process-b",
         appId: "projects",
         status: "minimized",
-        windowId: "window-b",
-        title: "Projects",
+        launchPayload: undefined,
         createdAt: 2,
       },
     ];

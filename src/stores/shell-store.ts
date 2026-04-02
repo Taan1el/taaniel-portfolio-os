@@ -2,12 +2,18 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { themePresets } from "@/data/portfolio";
 import { reconcileDesktopGridPositions, resolveDesktopGridPlacement } from "@/lib/desktop-grid";
-import { SHELL_STORAGE_KEY, getLegacyShellSeed, initialIconPositions } from "@/stores/system-runtime";
+import {
+  SHELL_STORAGE_KEY,
+  getLegacyShellSeed,
+  getViewportMode,
+  initialIconPositions,
+} from "@/stores/system-runtime";
 import type {
   ClipboardState,
   ContextMenuState,
   DesktopEntry,
   DesktopGridPosition,
+  ViewportMode,
 } from "@/types/system";
 
 interface ShellStoreState {
@@ -20,6 +26,9 @@ interface ShellStoreState {
   themeId: string;
   customWallpaperSource: string | null;
   desktopIconPositions: Record<string, DesktopGridPosition>;
+  viewportMode: ViewportMode;
+  focusedWindowId: string | null;
+  focusedProcessId: string | null;
   setStartMenuOpen: (open: boolean) => void;
   toggleStartMenu: () => void;
   setSearchOpen: (open: boolean) => void;
@@ -40,6 +49,11 @@ interface ShellStoreState {
     entries: DesktopEntry[],
     metrics: { columns: number; rows: number }
   ) => void;
+  syncRuntimeState: (runtime: {
+    viewportMode: ViewportMode;
+    focusedWindowId: string | null;
+    focusedProcessId: string | null;
+  }) => void;
   closeOverlays: () => void;
   resetShell: () => void;
 }
@@ -56,11 +70,14 @@ const initialShellState = {
   themeId: legacyShellSeed.themeId,
   customWallpaperSource: legacyShellSeed.customWallpaperSource,
   desktopIconPositions: legacyShellSeed.desktopIconPositions,
+  viewportMode: getViewportMode(),
+  focusedWindowId: null,
+  focusedProcessId: null,
 };
 
 export const useShellStore = create<ShellStoreState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialShellState,
       setStartMenuOpen: (open) =>
         set((state) => ({
@@ -118,6 +135,23 @@ export const useShellStore = create<ShellStoreState>()(
             metrics
           ),
         })),
+      syncRuntimeState: ({ viewportMode, focusedWindowId, focusedProcessId }) => {
+        const current = get();
+
+        if (
+          current.viewportMode === viewportMode &&
+          current.focusedWindowId === focusedWindowId &&
+          current.focusedProcessId === focusedProcessId
+        ) {
+          return;
+        }
+
+        set({
+          viewportMode,
+          focusedWindowId,
+          focusedProcessId,
+        });
+      },
       closeOverlays: () =>
         set({
           startMenuOpen: false,
@@ -131,11 +165,12 @@ export const useShellStore = create<ShellStoreState>()(
           themeId: themePresets[0].id,
           customWallpaperSource: null,
           desktopIconPositions: initialIconPositions,
+          viewportMode: getViewportMode(),
         }),
     }),
     {
       name: SHELL_STORAGE_KEY,
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         themeId: state.themeId,

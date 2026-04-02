@@ -1,7 +1,17 @@
 import { create } from "zustand";
 import { desktopEntries } from "@/data/portfolio";
 import { canLaunchMultiple, getAppDefinition } from "@/lib/app-registry";
-import { buildAppWindows, clampWindowBoundsToViewport, getDefaultWindowBounds, getMaximizedBounds, isCompactViewport, LEGACY_SYSTEM_STORAGE_KEY } from "@/stores/system-runtime";
+import {
+  buildAppWindows,
+  clampWindowBoundsToViewport,
+  getDefaultWindowBounds,
+  getMaximizedBounds,
+  getViewportMode,
+  isCompactViewport,
+  launchPayloadsMatch,
+  resolveWindowTitle,
+  LEGACY_SYSTEM_STORAGE_KEY,
+} from "@/stores/system-runtime";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useWindowStore } from "@/stores/window-store";
@@ -13,6 +23,7 @@ import type {
   ContextMenuState,
   DesktopEntry,
   DesktopGridPosition,
+  ViewportMode,
   WindowPayload,
 } from "@/types/system";
 
@@ -38,6 +49,9 @@ interface SystemState {
   themeId: string;
   customWallpaperSource: string | null;
   desktopIconPositions: Record<string, DesktopGridPosition>;
+  viewportMode: ViewportMode;
+  focusedWindowId: string | null;
+  focusedProcessId: string | null;
   launchApp: (options: LaunchAppOptions) => string;
   bringToFront: (windowId: string) => void;
   focusWindow: (windowId: string) => void;
@@ -81,7 +95,7 @@ function getRuntimeViewState() {
   const shellState = useShellStore.getState();
 
   return {
-    windows: buildAppWindows(windowState.windows, processState.processes, windowState.activeWindowId),
+    windows: buildAppWindows(windowState.windows, processState.processes),
     processes: processState.processes,
     nextZ: windowState.nextZ,
     activeWindowId: windowState.activeWindowId,
@@ -94,6 +108,9 @@ function getRuntimeViewState() {
     themeId: shellState.themeId,
     customWallpaperSource: shellState.customWallpaperSource,
     desktopIconPositions: shellState.desktopIconPositions,
+    viewportMode: shellState.viewportMode,
+    focusedWindowId: shellState.focusedWindowId,
+    focusedProcessId: shellState.focusedProcessId,
   };
 }
 
@@ -103,7 +120,74 @@ function syncSystemFacadeState() {
 
 function syncProcessRuntime() {
   const windowState = useWindowStore.getState();
-  useProcessStore.getState().syncStatusesFromWindows(windowState.windows, windowState.activeWindowId);
+  useProcessStore.getState().syncStatusesFromWindows(windowState.windows);
+}
+
+function syncShellRuntime() {
+  const windowState = useWindowStore.getState();
+  const focusedWindow = windowState.windows.find((windowItem) => windowItem.id === windowState.activeWindowId) ?? null;
+
+  useShellStore.getState().syncRuntimeState({
+    viewportMode: getViewportMode(),
+    focusedWindowId: focusedWindow?.id ?? null,
+    focusedProcessId: focusedWindow?.processId ?? null,
+  });
+}
+
+function syncWindowMetadata() {
+  const windowState = useWindowStore.getState();
+  const processesById = new Map(useProcessStore.getState().processes.map((process) => [process.id, process]));
+  let didChange = false;
+
+  const nextWindows = windowState.windows.map((windowItem) => {
+    const process = processesById.get(windowItem.processId);
+
+    if (!process) {
+      return windowItem;
+    }
+
+    const nextTitle =
+      windowItem.title && windowItem.title !== "Window"
+        ? windowItem.title
+        : resolveWindowTitle(process.appId, process.launchPayload);
+
+    if (nextTitle === windowItem.title) {
+      return windowItem;
+    }
+
+    didChange = true;
+
+    return {
+      ...windowItem,
+      title: nextTitle,
+    };
+  });
+
+  if (!didChange) {
+    return;
+  }
+
+  useWindowStore
+    .getState()
+    .replaceRuntime(nextWindows, windowState.activeWindowId, windowState.nextZ);
+}
+
+function findReusableWindow(windows: AppWindow[], appId: AppId, payload?: WindowPayload) {
+  return windows.find((windowState) => {
+    if (windowState.appId !== appId) {
+      return false;
+    }
+
+    if (!canLaunchMultiple(appId)) {
+      return true;
+    }
+
+    if (!payload) {
+      return false;
+    }
+
+    return launchPayloadsMatch(windowState.payload, payload);
+  });
 }
 
 const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewState>> = {
@@ -111,57 +195,48 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
     const definition = getAppDefinition(appId);
     const currentWindows = buildAppWindows(
       useWindowStore.getState().windows,
-      useProcessStore.getState().processes,
-      useWindowStore.getState().activeWindowId
+      useProcessStore.getState().processes
     );
-    const existingWindow = currentWindows.find((windowState) => {
-      if (windowState.appId !== appId) {
-        return false;
-      }
-
-      if (!canLaunchMultiple(appId)) {
-        return true;
-      }
-
-      if (payload?.filePath) {
-        return windowState.payload?.filePath === payload.filePath;
-      }
-
-      return false;
-    });
+    const existingWindow = findReusableWindow(currentWindows, appId, payload);
 
     if (existingWindow) {
       const nextPayload = canLaunchMultiple(appId)
-        ? existingWindow.payload
+        ? existingWindow.payload ?? payload
         : payload ?? existingWindow.payload;
-      const nextTitle = title ?? definition.resolveTitle?.(nextPayload) ?? existingWindow.title;
+      const nextTitle =
+        title ??
+        (launchPayloadsMatch(existingWindow.payload, nextPayload)
+          ? existingWindow.title
+          : resolveWindowTitle(appId, nextPayload));
 
-      useProcessStore.getState().updateProcess(existingWindow.processId, {
-        title: nextTitle,
-        payload: nextPayload,
-      });
+      if (!launchPayloadsMatch(existingWindow.payload, nextPayload)) {
+        useProcessStore.getState().updateProcess(existingWindow.processId, {
+          launchPayload: nextPayload,
+        });
+      }
+
+      if (nextTitle !== existingWindow.title) {
+        useWindowStore.getState().setWindowTitle(existingWindow.id, nextTitle);
+      }
+
       useWindowStore.getState().focusWindow(existingWindow.id);
       useShellStore.getState().closeOverlays();
       return existingWindow.id;
     }
 
-    const nextTitle = title ?? definition.resolveTitle?.(payload) ?? definition.title;
-    const process = useProcessStore.getState().createProcess(appId, nextTitle, payload);
+    const process = useProcessStore.getState().createProcess(appId, payload);
+    const nextTitle = resolveWindowTitle(appId, payload, title);
     const restoreBounds = getDefaultWindowBounds(appId, useWindowStore.getState().windows.length);
     const maximizeOnOpen = Boolean(isCompactViewport() && definition.mobileMaximized !== false);
     const windowId = useWindowStore.getState().openWindow({
       processId: process.id,
+      title: nextTitle,
       bounds: maximizeOnOpen ? getMaximizedBounds() : restoreBounds,
       maximized: maximizeOnOpen,
       restoreBounds: maximizeOnOpen ? restoreBounds : undefined,
       createdAt: process.createdAt,
     });
 
-    useProcessStore.getState().updateProcess(process.id, {
-      windowId,
-      title: nextTitle,
-      payload,
-    });
     useShellStore.getState().closeOverlays();
 
     return windowId;
@@ -169,7 +244,10 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
   bringToFront: (windowId) => useWindowStore.getState().bringToFront(windowId),
   focusWindow: (windowId) => useWindowStore.getState().focusWindow(windowId),
   closeWindow: (windowId) => {
-    const targetWindow = useWindowStore.getState().windows.find((windowState) => windowState.id === windowId);
+    const targetWindow = useWindowStore
+      .getState()
+      .windows.find((windowState) => windowState.id === windowId);
+
     useWindowStore.getState().closeWindow(windowId);
 
     if (targetWindow) {
@@ -180,8 +258,7 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
   toggleMaximize: (windowId) => {
     const targetWindow = buildAppWindows(
       useWindowStore.getState().windows,
-      useProcessStore.getState().processes,
-      useWindowStore.getState().activeWindowId
+      useProcessStore.getState().processes
     ).find((windowState) => windowState.id === windowId);
 
     useWindowStore
@@ -192,15 +269,14 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
   toggleTaskbarWindow: (windowId) => {
     const targetWindow = buildAppWindows(
       useWindowStore.getState().windows,
-      useProcessStore.getState().processes,
-      useWindowStore.getState().activeWindowId
+      useProcessStore.getState().processes
     ).find((windowState) => windowState.id === windowId);
 
     if (!targetWindow) {
       return;
     }
 
-    if (targetWindow.id === useWindowStore.getState().activeWindowId && !targetWindow.minimized) {
+    if (targetWindow.focused && !targetWindow.minimized) {
       useWindowStore.getState().minimizeWindow(windowId);
       return;
     }
@@ -271,7 +347,7 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
 
     useWindowStore
       .getState()
-      .replaceRuntime(nextWindows, useWindowStore.getState().activeWindowId);
+      .replaceRuntime(nextWindows, useWindowStore.getState().activeWindowId, useWindowStore.getState().nextZ);
   },
   resetLayout: () => {
     useWindowStore.getState().resetWindows();
@@ -287,10 +363,13 @@ export const useSystemStore = create<SystemState>(() => ({
 
 useWindowStore.subscribe(() => {
   syncProcessRuntime();
+  syncShellRuntime();
   syncSystemFacadeState();
 });
 
 useProcessStore.subscribe(() => {
+  syncWindowMetadata();
+  syncShellRuntime();
   syncSystemFacadeState();
 });
 
@@ -298,7 +377,9 @@ useShellStore.subscribe(() => {
   syncSystemFacadeState();
 });
 
+syncWindowMetadata();
 syncProcessRuntime();
+syncShellRuntime();
 syncSystemFacadeState();
 
 export function getDesktopEntries() {

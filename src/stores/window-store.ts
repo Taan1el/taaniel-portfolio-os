@@ -10,8 +10,14 @@ import {
 } from "@/stores/system-runtime";
 import type { WindowBounds, WindowRecord } from "@/types/system";
 
+interface PersistedWindowV1 extends Omit<WindowRecord, "title" | "focused"> {
+  title?: string;
+  focused?: boolean;
+}
+
 interface OpenWindowOptions {
   processId: string;
+  title: string;
   bounds: WindowBounds;
   windowId?: string;
   maximized?: boolean;
@@ -29,6 +35,7 @@ interface WindowStoreState {
   replaceRuntime: (windows: WindowRecord[], activeWindowId: string | null, nextZ?: number) => void;
   bringToFront: (windowId: string) => void;
   focusWindow: (windowId: string) => void;
+  setWindowTitle: (windowId: string, title: string) => void;
   closeWindow: (windowId: string) => void;
   minimizeWindow: (windowId: string) => void;
   maximizeWindow: (windowId: string, fallbackRestoreBounds?: WindowBounds) => void;
@@ -42,7 +49,10 @@ interface WindowStoreState {
 }
 
 function resolveActiveWindowId(windows: WindowRecord[], requestedActiveWindowId: string | null) {
-  if (requestedActiveWindowId && windows.some((windowState) => windowState.id === requestedActiveWindowId && !windowState.minimized)) {
+  if (
+    requestedActiveWindowId &&
+    windows.some((windowState) => windowState.id === requestedActiveWindowId && !windowState.minimized)
+  ) {
     return requestedActiveWindowId;
   }
 
@@ -50,17 +60,23 @@ function resolveActiveWindowId(windows: WindowRecord[], requestedActiveWindowId:
 }
 
 function syncWindowRuntime(windows: WindowRecord[], requestedActiveWindowId: string | null) {
+  const activeWindowId = resolveActiveWindowId(windows, requestedActiveWindowId);
+
   return {
-    windows,
-    activeWindowId: resolveActiveWindowId(windows, requestedActiveWindowId),
+    windows: windows.map((windowState) => ({
+      ...windowState,
+      focused: windowState.id === activeWindowId && !windowState.minimized,
+    })),
+    activeWindowId,
   };
 }
 
 const legacySeed = getLegacyWindowSeed();
+const initialRuntime = syncWindowRuntime(legacySeed.windows, legacySeed.activeWindowId);
 
 const initialWindowState = {
-  windows: legacySeed.windows,
-  activeWindowId: legacySeed.activeWindowId,
+  windows: initialRuntime.windows,
+  activeWindowId: initialRuntime.activeWindowId,
   nextZ: legacySeed.nextZ,
 };
 
@@ -70,6 +86,7 @@ export const useWindowStore = create<WindowStoreState>()(
       ...initialWindowState,
       openWindow: ({
         processId,
+        title,
         bounds,
         windowId,
         maximized = false,
@@ -83,9 +100,11 @@ export const useWindowStore = create<WindowStoreState>()(
         const nextWindow: WindowRecord = {
           id: nextWindowId,
           processId,
+          title,
           minimized,
           minimizedByShowDesktop: false,
           maximized,
+          focused: false,
           zIndex: nextZ,
           restoreBounds,
           createdAt: createdAt ?? Date.now(),
@@ -126,6 +145,18 @@ export const useWindowStore = create<WindowStoreState>()(
         });
       },
       focusWindow: (windowId) => get().bringToFront(windowId),
+      setWindowTitle: (windowId, title) => {
+        const windows = get().windows.map((windowState) =>
+          windowState.id === windowId && windowState.title !== title
+            ? {
+                ...windowState,
+                title,
+              }
+            : windowState
+        );
+
+        set(syncWindowRuntime(windows, get().activeWindowId));
+      },
       closeWindow: (windowId) => {
         const windows = get().windows.filter((windowState) => windowState.id !== windowId);
         set(syncWindowRuntime(windows, get().activeWindowId === windowId ? null : get().activeWindowId));
@@ -239,8 +270,32 @@ export const useWindowStore = create<WindowStoreState>()(
     }),
     {
       name: WINDOW_STORAGE_KEY,
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState) => {
+        const state = persistedState as
+          | {
+              windows?: PersistedWindowV1[];
+              activeWindowId?: string | null;
+              nextZ?: number;
+            }
+          | undefined;
+
+        const windows =
+          state?.windows?.map((windowState) => ({
+            ...windowState,
+            title: windowState.title ?? "Window",
+            focused: Boolean(windowState.focused),
+          })) ?? [];
+
+        const runtime = syncWindowRuntime(windows, state?.activeWindowId ?? null);
+
+        return {
+          windows: runtime.windows,
+          activeWindowId: runtime.activeWindowId,
+          nextZ: state?.nextZ ?? 2,
+        };
+      },
       partialize: (state) => ({
         windows: state.windows,
         activeWindowId: state.activeWindowId,

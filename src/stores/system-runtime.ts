@@ -9,6 +9,7 @@ import type {
   DesktopEntry,
   DesktopGridPosition,
   ProcessState,
+  ViewportMode,
   WindowBounds,
   WindowPayload,
   WindowRecord,
@@ -78,6 +79,10 @@ export function getDesktopHeight() {
 
 export function isCompactViewport() {
   return typeof window !== "undefined" && window.innerWidth < 820;
+}
+
+export function getViewportMode(): ViewportMode {
+  return isCompactViewport() ? "mobile" : "desktop";
 }
 
 export function getMaximizedBounds() {
@@ -188,8 +193,7 @@ function resolveProcessStatus(
 
 export function syncProcessStatuses(
   windows: WindowRecord[],
-  processes: AppProcess[],
-  activeWindowId: string | null
+  processes: AppProcess[]
 ) {
   const windowsByProcessId = new Map(windows.map((windowState) => [windowState.processId, windowState]));
 
@@ -198,16 +202,14 @@ export function syncProcessStatuses(
 
     return {
       ...process,
-      windowId: linkedWindow?.id ?? process.windowId ?? null,
-      status: resolveProcessStatus(linkedWindow, activeWindowId),
+      status: resolveProcessStatus(linkedWindow, linkedWindow?.focused ? linkedWindow.id : null),
     };
   });
 }
 
 export function buildAppWindows(
   windows: WindowRecord[],
-  processes: AppProcess[],
-  activeWindowId: string | null
+  processes: AppProcess[]
 ): AppWindow[] {
   const processesById = new Map(processes.map((process) => [process.id, process]));
   const appWindows: AppWindow[] = [];
@@ -222,9 +224,8 @@ export function buildAppWindows(
     appWindows.push({
       ...windowState,
       appId: process.appId,
-      title: process.title,
-      payload: process.payload,
-      focused: activeWindowId === windowState.id && !windowState.minimized,
+      payload: process.launchPayload,
+      processStatus: process.status,
     });
   });
 
@@ -237,6 +238,7 @@ function sanitizeLegacyWindows(windows: LegacyWindowState[]) {
     .filter((windowState) => windowState.payload?.filePath !== LEGACY_WELCOME_PATH)
     .filter((windowState) => !REMOVED_GAME_APP_IDS.has(String(windowState.appId)))
     .map<WindowRecord>((windowState) => {
+      const legacyAppId = windowState.appId ?? "about";
       const fallbackBounds = getDefaultWindowBounds(windowState.appId ?? "about", 0);
       const clampedBounds = clampWindowBoundsToViewport({
         x: typeof windowState.x === "number" ? windowState.x : fallbackBounds.x,
@@ -251,9 +253,14 @@ function sanitizeLegacyWindows(windows: LegacyWindowState[]) {
       return {
         id: windowState.id ?? createId("window"),
         processId: windowState.processId ?? createId("process"),
+        title:
+          windowState.title ??
+          getAppDefinition(legacyAppId).resolveTitle?.(windowState.payload) ??
+          getAppDefinition(legacyAppId).title,
         minimized: Boolean(windowState.minimized),
         minimizedByShowDesktop: Boolean(windowState.minimizedByShowDesktop),
         maximized: Boolean(windowState.maximized),
+        focused: false,
         zIndex: typeof windowState.zIndex === "number" ? windowState.zIndex : 2,
         createdAt: typeof windowState.createdAt === "number" ? windowState.createdAt : Date.now(),
         restoreBounds,
@@ -279,12 +286,7 @@ function buildLegacyProcesses(
       id: windowState.processId,
       appId: legacyWindow.appId,
       status: resolveProcessStatus(windowState, activeWindowId),
-      windowId: windowState.id,
-      title:
-        legacyWindow.title ??
-        getAppDefinition(legacyWindow.appId).resolveTitle?.(legacyWindow.payload) ??
-        getAppDefinition(legacyWindow.appId).title,
-      payload: legacyWindow.payload,
+      launchPayload: legacyWindow.payload,
       createdAt: windowState.createdAt,
     });
   });
@@ -332,16 +334,44 @@ export function resolveWindowProcessStatus(windows: WindowRecord[], activeWindow
   return resolveProcessStatus(windows.find((windowState) => windowState.processId === processId), activeWindowId);
 }
 
-export function createProcessFromApp(appId: AppId, title: string, payload?: WindowPayload): AppProcess {
+export function createProcessFromApp(appId: AppId, payload?: WindowPayload): AppProcess {
   return {
     id: createId("process"),
     appId,
     status: "running",
-    windowId: null,
-    title,
-    payload,
+    launchPayload: payload,
     createdAt: Date.now(),
   };
+}
+
+export function resolveWindowTitle(appId: AppId, payload?: WindowPayload, titleOverride?: string) {
+  if (titleOverride) {
+    return titleOverride;
+  }
+
+  const definition = getAppDefinition(appId);
+  return definition.resolveTitle?.(payload) ?? definition.title;
+}
+
+export function launchPayloadsMatch(
+  currentPayload?: WindowPayload,
+  nextPayload?: WindowPayload
+) {
+  if (!currentPayload && !nextPayload) {
+    return true;
+  }
+
+  if (!currentPayload || !nextPayload) {
+    return false;
+  }
+
+  return (
+    currentPayload.filePath === nextPayload.filePath &&
+    currentPayload.directoryPath === nextPayload.directoryPath &&
+    currentPayload.projectId === nextPayload.projectId &&
+    currentPayload.externalUrl === nextPayload.externalUrl &&
+    currentPayload.title === nextPayload.title
+  );
 }
 
 export function getRuntimeEntryByDesktopId(entries: DesktopEntry[], entryId: string) {

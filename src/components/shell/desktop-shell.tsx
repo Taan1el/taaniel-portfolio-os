@@ -19,17 +19,9 @@ import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useSystemStore } from "@/stores/system-store";
-import { useWindowStore } from "@/stores/window-store";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
-  const {
-    activeWindowId,
-  } = useWindowStore(
-    useShallow((state) => ({
-      activeWindowId: state.activeWindowId,
-    }))
-  );
   const { processes } = useProcessStore(
     useShallow((state) => ({
       processes: state.processes,
@@ -54,6 +46,7 @@ export function DesktopShell() {
     themeId,
     customWallpaperSource,
     desktopIconPositions,
+    focusedWindowId,
     moveDesktopIcon,
     reconcileDesktopIconPositions,
   } = useShellStore(
@@ -67,6 +60,7 @@ export function DesktopShell() {
       themeId: state.themeId,
       customWallpaperSource: state.customWallpaperSource,
       desktopIconPositions: state.desktopIconPositions,
+      focusedWindowId: state.focusedWindowId,
       setStartMenuOpen: state.setStartMenuOpen,
       toggleStartMenu: state.toggleStartMenu,
       setSearchOpen: state.setSearchOpen,
@@ -83,11 +77,7 @@ export function DesktopShell() {
   const {
     windows,
     launchApp,
-    focusWindow,
     closeWindow,
-    toggleMinimize,
-    toggleMaximize,
-    updateWindowBounds,
     toggleTaskbarWindow,
     showDesktop,
     hydrateForViewport,
@@ -96,11 +86,7 @@ export function DesktopShell() {
     useShallow((state) => ({
       windows: state.windows,
       launchApp: state.launchApp,
-      focusWindow: state.focusWindow,
       closeWindow: state.closeWindow,
-      toggleMinimize: state.toggleMinimize,
-      toggleMaximize: state.toggleMaximize,
-      updateWindowBounds: state.updateWindowBounds,
       toggleTaskbarWindow: state.toggleTaskbarWindow,
       showDesktop: state.showDesktop,
       hydrateForViewport: state.hydrateForViewport,
@@ -191,7 +177,7 @@ export function DesktopShell() {
   };
 
   useShellShortcuts({
-    activeWindowId,
+    activeWindowId: focusedWindowId,
     onCloseOverlays: closeShellOverlays,
     onToggleStartMenu: toggleStartMenu,
     onToggleSearch: toggleSearch,
@@ -444,15 +430,7 @@ export function DesktopShell() {
         onImportFiles={importFilesIntoDesktop}
       />
 
-      <WindowHost
-        windows={windows}
-        activeWindowId={activeWindowId}
-        onFocusWindow={focusWindow}
-        onCloseWindow={closeWindow}
-        onMinimizeWindow={toggleMinimize}
-        onMaximizeWindow={toggleMaximize}
-        onWindowBoundsChange={updateWindowBounds}
-      />
+      <WindowHost />
 
       <AnimatePresence>
         {startMenuOpen ? (
