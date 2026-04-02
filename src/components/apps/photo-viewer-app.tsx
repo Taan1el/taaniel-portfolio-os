@@ -25,7 +25,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const readFile = useFileSystemStore((state) => state.readFile);
   const launchApp = useSystemStore((state) => state.launchApp);
-  const setCustomWallpaperSource = useSystemStore((state) => state.setCustomWallpaperSource);
+  const setWallpaperImage = useSystemStore((state) => state.setWallpaperImage);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { filePath, next, previous, siblings } = useMediaGallery(
     nodes,
@@ -83,7 +83,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         actions={
           <>
             {file.source ? (
-              <button type="button" className="pill-button" onClick={() => setCustomWallpaperSource(file.source ?? null)}>
+              <button type="button" className="pill-button" onClick={() => file.source && setWallpaperImage(file.source)}>
                 Set as wallpaper
               </button>
             ) : null}

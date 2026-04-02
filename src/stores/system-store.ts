@@ -21,6 +21,7 @@ import type {
   AppWindow,
   ClipboardState,
   ContextMenuState,
+  DesktopWallpaperState,
   DesktopEntry,
   DesktopGridPosition,
   ViewportMode,
@@ -47,6 +48,7 @@ interface SystemState {
   contextMenu: ContextMenuState | null;
   clipboard: ClipboardState | null;
   themeId: string;
+  wallpaper: DesktopWallpaperState;
   customWallpaperSource: string | null;
   desktopIconPositions: Record<string, DesktopGridPosition>;
   viewportMode: ViewportMode;
@@ -75,6 +77,10 @@ interface SystemState {
   setClipboard: (clipboard: ClipboardState | null) => void;
   clearClipboard: () => void;
   setThemeId: (themeId: string) => void;
+  setWallpaper: (wallpaper: DesktopWallpaperState) => void;
+  setWallpaperPreset: (mode: "gradient" | "animated", presetId: string) => void;
+  setWallpaperImage: (source: string) => void;
+  resetWallpaper: () => void;
   setCustomWallpaperSource: (source: string | null) => void;
   moveDesktopIcon: (
     iconId: string,
@@ -106,7 +112,9 @@ function getRuntimeViewState() {
     contextMenu: shellState.contextMenu,
     clipboard: shellState.clipboard,
     themeId: shellState.themeId,
-    customWallpaperSource: shellState.customWallpaperSource,
+    wallpaper: shellState.wallpaper,
+    customWallpaperSource:
+      shellState.wallpaper.mode === "image" ? shellState.wallpaper.imageSource : null,
     desktopIconPositions: shellState.desktopIconPositions,
     viewportMode: shellState.viewportMode,
     focusedWindowId: shellState.focusedWindowId,
@@ -298,6 +306,11 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
   setClipboard: (clipboard) => useShellStore.getState().setClipboard(clipboard),
   clearClipboard: () => useShellStore.getState().clearClipboard(),
   setThemeId: (themeId) => useShellStore.getState().setThemeId(themeId),
+  setWallpaper: (wallpaper) => useShellStore.getState().setWallpaper(wallpaper),
+  setWallpaperPreset: (mode, presetId) =>
+    useShellStore.getState().setWallpaperPreset(mode, presetId),
+  setWallpaperImage: (source) => useShellStore.getState().setWallpaperImage(source),
+  resetWallpaper: () => useShellStore.getState().resetWallpaper(),
   setCustomWallpaperSource: (source) => useShellStore.getState().setCustomWallpaperSource(source),
   moveDesktopIcon: (iconId, position, metrics) =>
     useShellStore.getState().moveDesktopIcon(iconId, position, metrics),

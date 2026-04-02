@@ -217,6 +217,25 @@ export interface ThemePreset {
   accent: string;
 }
 
+export type WallpaperMode = "theme" | "image" | "gradient" | "animated";
+
+export interface DesktopWallpaperState {
+  mode: WallpaperMode;
+  imageSource: string | null;
+  presetId: string | null;
+}
+
+export interface WallpaperPreset {
+  id: string;
+  name: string;
+  mode: Exclude<WallpaperMode, "theme" | "image">;
+  preview: string;
+  background: string;
+  desktopTint?: string;
+  glow?: string;
+  shell?: string;
+}
+
 export interface SocialLink {
   label: string;
   url: string;

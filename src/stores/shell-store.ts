@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { themePresets } from "@/data/portfolio";
+import { defaultDesktopWallpaper } from "@/data/wallpapers";
 import { reconcileDesktopGridPositions, resolveDesktopGridPlacement } from "@/lib/desktop-grid";
 import {
   SHELL_STORAGE_KEY,
@@ -11,6 +12,7 @@ import {
 import type {
   ClipboardState,
   ContextMenuState,
+  DesktopWallpaperState,
   DesktopEntry,
   DesktopGridPosition,
   ViewportMode,
@@ -25,7 +27,7 @@ interface ShellStoreState {
   contextMenu: ContextMenuState | null;
   clipboard: ClipboardState | null;
   themeId: string;
-  customWallpaperSource: string | null;
+  wallpaper: DesktopWallpaperState;
   desktopIconPositions: Record<string, DesktopGridPosition>;
   viewportMode: ViewportMode;
   focusedWindowId: string | null;
@@ -41,6 +43,10 @@ interface ShellStoreState {
   setClipboard: (clipboard: ClipboardState | null) => void;
   clearClipboard: () => void;
   setThemeId: (themeId: string) => void;
+  setWallpaper: (wallpaper: DesktopWallpaperState) => void;
+  setWallpaperPreset: (mode: "gradient" | "animated", presetId: string) => void;
+  setWallpaperImage: (source: string) => void;
+  resetWallpaper: () => void;
   setCustomWallpaperSource: (source: string | null) => void;
   moveDesktopIcon: (
     iconId: string,
@@ -71,7 +77,7 @@ const initialShellState = {
   contextMenu: null,
   clipboard: null,
   themeId: legacyShellSeed.themeId,
-  customWallpaperSource: legacyShellSeed.customWallpaperSource,
+  wallpaper: legacyShellSeed.wallpaper ?? defaultDesktopWallpaper,
   desktopIconPositions: legacyShellSeed.desktopIconPositions,
   viewportMode: getViewportMode(),
   focusedWindowId: null,
@@ -128,7 +134,34 @@ export const useShellStore = create<ShellStoreState>()(
       setClipboard: (clipboard) => set({ clipboard }),
       clearClipboard: () => set({ clipboard: null }),
       setThemeId: (themeId) => set({ themeId }),
-      setCustomWallpaperSource: (customWallpaperSource) => set({ customWallpaperSource }),
+      setWallpaper: (wallpaper) => set({ wallpaper }),
+      setWallpaperPreset: (mode, presetId) =>
+        set({
+          wallpaper: {
+            mode,
+            presetId,
+            imageSource: null,
+          },
+        }),
+      setWallpaperImage: (imageSource) =>
+        set({
+          wallpaper: {
+            mode: "image",
+            imageSource,
+            presetId: null,
+          },
+        }),
+      resetWallpaper: () => set({ wallpaper: defaultDesktopWallpaper }),
+      setCustomWallpaperSource: (source) =>
+        set({
+          wallpaper: source
+            ? {
+                mode: "image",
+                imageSource: source,
+                presetId: null,
+              }
+            : defaultDesktopWallpaper,
+        }),
       moveDesktopIcon: (iconId, position, metrics) =>
         set((state) => ({
           desktopIconPositions: resolveDesktopGridPlacement(
@@ -175,18 +208,42 @@ export const useShellStore = create<ShellStoreState>()(
         set({
           ...initialShellState,
           themeId: themePresets[0].id,
-          customWallpaperSource: null,
+          wallpaper: defaultDesktopWallpaper,
           desktopIconPositions: initialIconPositions,
           viewportMode: getViewportMode(),
         }),
     }),
     {
       name: SHELL_STORAGE_KEY,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState) => {
+        const state = persistedState as
+          | {
+              themeId?: string;
+              wallpaper?: DesktopWallpaperState;
+              customWallpaperSource?: string | null;
+              desktopIconPositions?: Record<string, DesktopGridPosition>;
+            }
+          | undefined;
+
+        return {
+          themeId: state?.themeId ?? themePresets[0].id,
+          wallpaper:
+            state?.wallpaper ??
+            (state?.customWallpaperSource
+              ? {
+                  mode: "image" as const,
+                  imageSource: state.customWallpaperSource,
+                  presetId: null,
+                }
+              : defaultDesktopWallpaper),
+          desktopIconPositions: state?.desktopIconPositions ?? initialIconPositions,
+        };
+      },
       partialize: (state) => ({
         themeId: state.themeId,
-        customWallpaperSource: state.customWallpaperSource,
+        wallpaper: state.wallpaper,
         desktopIconPositions: state.desktopIconPositions,
       }),
     }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, type CSSProperties } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { themePresets } from "@/data/portfolio";
+import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { downloadFileNode, normalizePath } from "@/lib/filesystem";
@@ -47,7 +48,7 @@ export function DesktopShell() {
     setClipboard,
     clearClipboard,
     themeId,
-    customWallpaperSource,
+    wallpaper,
     desktopIconPositions,
     focusedWindowId,
     moveDesktopIcon,
@@ -62,7 +63,7 @@ export function DesktopShell() {
       contextMenu: state.contextMenu,
       clipboard: state.clipboard,
       themeId: state.themeId,
-      customWallpaperSource: state.customWallpaperSource,
+      wallpaper: state.wallpaper,
       desktopIconPositions: state.desktopIconPositions,
       focusedWindowId: state.focusedWindowId,
       setStartMenuOpen: state.setStartMenuOpen,
@@ -125,6 +126,10 @@ export function DesktopShell() {
   const theme = useMemo(
     () => themePresets.find((preset) => preset.id === themeId) ?? themePresets[0],
     [themeId]
+  );
+  const wallpaperPresentation = useMemo(
+    () => resolveDesktopWallpaper(theme, wallpaper),
+    [theme, wallpaper]
   );
   const taskbarEntries = useMemo(
     () => buildTaskbarWindowEntries(processes, windows),
@@ -423,18 +428,13 @@ export function DesktopShell() {
 
   return (
     <main
-      className="os-root"
+      className={`os-root${wallpaperPresentation.animated ? " is-animated-wallpaper" : ""}`}
       style={
         {
-          "--desktop-wallpaper": theme.wallpaper,
-          ...(customWallpaperSource
-            ? {
-                "--desktop-custom-wallpaper": `linear-gradient(rgba(6, 11, 18, 0.42), rgba(6, 11, 18, 0.74)), url('${customWallpaperSource}') center/cover no-repeat`,
-              }
-            : {}),
-          "--desktop-tint": theme.desktopTint,
-          "--desktop-glow": theme.glow,
-          "--shell-surface": theme.shell,
+          "--desktop-wallpaper": wallpaperPresentation.background,
+          "--desktop-tint": wallpaperPresentation.desktopTint,
+          "--desktop-glow": wallpaperPresentation.glow,
+          "--shell-surface": wallpaperPresentation.shell,
           "--theme-accent": theme.accent,
         } as CSSProperties
       }
