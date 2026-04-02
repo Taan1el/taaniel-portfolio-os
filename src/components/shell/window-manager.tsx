@@ -4,7 +4,6 @@ import type { AppWindow } from "@/types/system";
 
 interface WindowManagerProps {
   windows: AppWindow[];
-  activeWindowId: string | null;
   onFocusWindow: (windowId: string) => void;
   onCloseWindow: (windowId: string) => void;
   onMinimizeWindow: (windowId: string) => void;
@@ -17,7 +16,6 @@ interface WindowManagerProps {
 
 export function WindowManager({
   windows,
-  activeWindowId,
   onFocusWindow,
   onCloseWindow,
   onMinimizeWindow,
@@ -33,7 +31,7 @@ export function WindowManager({
             <WindowFrame
               key={windowState.id}
               window={windowState}
-              active={windowState.id === activeWindowId}
+              active={windowState.focused}
               onFocus={() => onFocusWindow(windowState.id)}
               onClose={() => onCloseWindow(windowState.id)}
               onMinimize={() => onMinimizeWindow(windowState.id)}

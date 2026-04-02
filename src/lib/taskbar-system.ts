@@ -5,16 +5,13 @@ export function buildTaskbarWindowEntries(
   processes: AppProcess[],
   windows: AppWindow[]
 ): TaskbarWindowEntry[] {
-  const windowsById = new Map(windows.map((windowState) => [windowState.id, windowState]));
-  const windowedProcesses = processes.filter(
-    (process): process is AppProcess & { windowId: string } =>
-      typeof process.windowId === "string" && windowsById.has(process.windowId)
-  );
+  const windowsByProcessId = new Map(windows.map((windowState) => [windowState.processId, windowState]));
 
-  return windowedProcesses
+  return processes
+    .filter((process) => windowsByProcessId.has(process.id))
     .sort((a, b) => a.createdAt - b.createdAt)
     .map((process) => {
-      const windowState = windowsById.get(process.windowId);
+      const windowState = windowsByProcessId.get(process.id);
 
       if (!windowState) {
         return null;
@@ -26,13 +23,13 @@ export function buildTaskbarWindowEntries(
       return {
         id: process.id,
         processId: process.id,
-        windowId: process.windowId,
+        windowId: windowState.id,
         appId: process.appId,
-        title: process.title,
+        title: windowState.title,
         active,
         minimized: windowState.minimized,
         preview: {
-          title: process.title,
+          title: windowState.title,
           subtitle: definition.title,
           status: windowState.minimized ? "minimized" : active ? "active" : "background",
         },

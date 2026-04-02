@@ -1,19 +1,48 @@
+import { useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { WindowManager } from "@/components/shell/window-manager";
-import type { AppWindow } from "@/types/system";
+import { buildAppWindows } from "@/stores/system-runtime";
+import { useProcessStore } from "@/stores/process-store";
+import { useSystemStore } from "@/stores/system-store";
+import { useWindowStore } from "@/stores/window-store";
 
-interface WindowHostProps {
-  windows: AppWindow[];
-  activeWindowId: string | null;
-  onFocusWindow: (windowId: string) => void;
-  onCloseWindow: (windowId: string) => void;
-  onMinimizeWindow: (windowId: string) => void;
-  onMaximizeWindow: (windowId: string) => void;
-  onWindowBoundsChange: (
-    windowId: string,
-    nextBounds: Pick<AppWindow, "x" | "y" | "width" | "height">
-  ) => void;
-}
+export function WindowHost() {
+  const { rawWindows } = useWindowStore(
+    useShallow((state) => ({
+      rawWindows: state.windows,
+    }))
+  );
+  const { processes } = useProcessStore(
+    useShallow((state) => ({
+      processes: state.processes,
+    }))
+  );
+  const {
+    focusWindow,
+    closeWindow,
+    toggleMinimize,
+    toggleMaximize,
+    updateWindowBounds,
+  } = useSystemStore(
+    useShallow((state) => ({
+      focusWindow: state.focusWindow,
+      closeWindow: state.closeWindow,
+      toggleMinimize: state.toggleMinimize,
+      toggleMaximize: state.toggleMaximize,
+      updateWindowBounds: state.updateWindowBounds,
+    }))
+  );
 
-export function WindowHost(props: WindowHostProps) {
-  return <WindowManager {...props} />;
+  const windows = useMemo(() => buildAppWindows(rawWindows, processes), [processes, rawWindows]);
+
+  return (
+    <WindowManager
+      windows={windows}
+      onFocusWindow={focusWindow}
+      onCloseWindow={closeWindow}
+      onMinimizeWindow={toggleMinimize}
+      onMaximizeWindow={toggleMaximize}
+      onWindowBoundsChange={updateWindowBounds}
+    />
+  );
 }
