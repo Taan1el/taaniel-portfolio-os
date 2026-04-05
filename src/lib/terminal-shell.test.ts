@@ -52,7 +52,7 @@ describe("terminal shell", () => {
   it("prints note content inline for cat", () => {
     const result = executeTerminalCommand('cat "/Documents/Notes/To-do list.txt"', createContext());
 
-    expect(result.lines.join(" ")).toContain("latest portfolio updates");
+    expect(result.lines.join(" ")).toMatch(/To-do list/i);
   });
 
   it("opens project-specific views by name", () => {

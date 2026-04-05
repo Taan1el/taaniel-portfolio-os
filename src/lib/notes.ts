@@ -5,9 +5,6 @@ export const DEFAULT_NOTE_NAME = "To-do list.txt";
 export const DEFAULT_NOTE_PATH = `${NOTES_DIRECTORY_PATH}/${DEFAULT_NOTE_NAME}`;
 export const DEFAULT_NOTE_CONTENT = `To-do list
 
-- Review the latest portfolio updates
-- Add project ideas for the next iteration
-- Keep quick personal notes here
 `;
 
 function normalizeNotesPath(path: string) {

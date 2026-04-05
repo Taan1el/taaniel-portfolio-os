@@ -22,7 +22,8 @@ interface StartMenuProps {
   onLaunchApp: (appId: AppId) => void;
   onOpenDirectory: (directoryPath: string) => void;
   onOpenFile: (filePath: string) => void;
-  onOpenSearch: () => void;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
   onResetSession: () => void;
   onRequestClose: () => void;
 }
@@ -31,7 +32,8 @@ export function StartMenu({
   onLaunchApp,
   onOpenDirectory,
   onOpenFile,
-  onOpenSearch,
+  searchQuery,
+  onSearchQueryChange,
   onResetSession,
   onRequestClose,
 }: StartMenuProps) {
@@ -112,7 +114,7 @@ export function StartMenu({
           </Button>
         </div>
 
-        <StartSearch onOpenSearch={onOpenSearch} />
+        <StartSearch query={searchQuery} onQueryChange={onSearchQueryChange} />
       </div>
 
       <div className="start-menu__body">

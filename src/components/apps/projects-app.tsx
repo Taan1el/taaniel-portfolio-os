@@ -1,4 +1,4 @@
-import { ArrowUpRight, FileText, FolderOpen, Image as ImageIcon } from "lucide-react";
+import { FileText, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { featuredProjects } from "@/data/portfolio";
 import { openFileSystemPath } from "@/lib/launchers";
@@ -18,10 +18,7 @@ export function ProjectsApp({ window }: AppComponentProps) {
         <div>
           <p className="eyebrow">Featured work</p>
           <h1>Campaign design and frontend storytelling</h1>
-          <p className="lead">
-            These projects are presented as files, visuals, and case study notes so the portfolio feels
-            like a working desktop instead of a page stack.
-          </p>
+          <p className="lead">Campaign and product visuals with supporting case study files in the explorer.</p>
         </div>
       </section>
 
@@ -97,20 +94,6 @@ export function ProjectsApp({ window }: AppComponentProps) {
         ))}
       </div>
 
-      <section className="glass-card callout-card">
-        <div>
-          <p className="eyebrow">Portfolio angle</p>
-          <h3>More than a gallery</h3>
-          <p>
-            The OS format lets me package visual work, implementation intent, documents, and interaction
-            design into one consistent system. That balance is the main signal this project is trying to send.
-          </p>
-        </div>
-        <button type="button" className="ghost-button" onClick={() => launchApp({ appId: "contact" })}>
-          <ArrowUpRight size={15} />
-          Discuss the work
-        </button>
-      </section>
       </AppContent>
     </AppScaffold>
   );

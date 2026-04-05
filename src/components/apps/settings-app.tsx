@@ -26,10 +26,7 @@ export function SettingsApp({ window }: AppComponentProps) {
         <div>
           <p className="eyebrow">Personalization</p>
           <h1>Theme the desktop</h1>
-          <p className="lead">
-            The desktop stays intentionally art-directed. These presets tune the wallpaper, shell tint,
-            and highlight color without turning the experience into a generic OS clone.
-          </p>
+          <p className="lead">Wallpaper, shell tint, and accent presets. Custom image wallpapers are listed below.</p>
         </div>
       </section>
 

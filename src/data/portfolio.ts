@@ -8,11 +8,10 @@ export const profile = {
   location: "Tallinn, Estonia",
   headline: "I turn portfolio content into product-grade interfaces people want to explore.",
   intro:
-    "I design and build fast, polished experiences across landing pages, websites, email campaigns, and UI systems. This portfolio reframes that work as a browser desktop so recruiters can explore my thinking the same way they would explore a product.",
+    "I design and build fast, polished experiences across landing pages, websites, email campaigns, and UI systems—delivered here as a browser desktop you can explore like a real workspace.",
   current:
-    "Currently studying at Tallinn Polytechnic and working in a team environment on marketing and email visuals.",
-  availability:
-    "Open to frontend, UI implementation, product design, and creative engineering opportunities.",
+    "Currently studying at Tallinn Polytechnic and working in marketing and email campaign production.",
+  availability: "Open to frontend and UI-focused roles.",
   email: "mailto:Taaniel.vananurm@gmail.com",
   emailText: "Taaniel.vananurm@gmail.com",
   phone: "tel:+37258948814",
@@ -130,16 +129,6 @@ export const photographyAssets = [
 export const resumePdfPath = resolvePublicAssetUrl("assets/Taaniel-Vananurm-CV.pdf");
 
 export const themePresets: ThemePreset[] = [
-  {
-    id: "signal-dusk",
-    name: "Signal Dusk",
-    wallpaper:
-      "radial-gradient(circle at 20% 20%, rgba(255, 133, 71, 0.28), transparent 34%), radial-gradient(circle at 82% 18%, rgba(106, 197, 255, 0.24), transparent 30%), linear-gradient(135deg, #071019 0%, #0d1a2d 42%, #11243f 100%)",
-    desktopTint: "rgba(9, 18, 32, 0.66)",
-    glow: "rgba(255, 141, 88, 0.42)",
-    shell: "rgba(10, 16, 26, 0.82)",
-    accent: "#ff8a5c",
-  },
   {
     id: "cloud-archive",
     name: "Cloud Archive",

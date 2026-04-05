@@ -18,7 +18,7 @@ import {
   IconButton,
   SearchInput,
 } from "@/components/apps/app-layout";
-import { profile, socialLinks } from "@/data/portfolio";
+import { socialLinks } from "@/data/portfolio";
 import { cn } from "@/lib/utils";
 import type { AppComponentProps } from "@/types/system";
 
@@ -147,7 +147,7 @@ function resolveBrowserView(rawUrl: string): BrowserView {
       url: parsedUrl.toString(),
       title: parsedUrl.hostname.replace(/^www\./i, ""),
       reason:
-        "This site blocks iframe embedding, so the browser shows a launcher state instead of pretending the page loaded.",
+        "Most external sites block iframe embedding for security. Use Open in new tab for the full site—this preview cannot become a full Chrome window without a dedicated server proxy.",
     };
   } catch {
     return {
@@ -341,9 +341,11 @@ export function BrowserApp({ window }: AppComponentProps) {
           </div>
 
           <div className="browser-app__note">
-            <strong>Embedded browser rules</strong>
-            <p>Only same-origin pages, local dev pages, and supported video embeds stay inside the desktop shell.</p>
-            <p>{profile.name} keeps blocked sites honest by routing them to a safe launcher state.</p>
+            <strong>How this browser works</strong>
+            <p>
+              Same-origin, localhost, and supported video embeds load here. Other HTTPS sites usually forbid iframes—open
+              them in a new tab for the full experience.
+            </p>
           </div>
         </AppSidebar>
 

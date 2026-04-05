@@ -25,13 +25,16 @@ describe("shell search", () => {
     expect(sections.every((section) => section.results.length > 0)).toBe(true);
   });
 
-  it("surfaces note content through local semantic indexing", () => {
+  it("surfaces the default note file in file search", () => {
     const index = buildShellSearchIndex(buildSeedFileSystem());
-    const sections = queryShellSearch(index, "latest portfolio updates");
-    const topResult = getTopSearchResult(sections);
+    const sections = queryShellSearch(index, "Notes To-do");
+    const fileSection = sections.find((section) => section.id === "files");
+    const noteHit = fileSection?.results.find(
+      (result) => result.action.type === "open-path" && result.action.path.includes("/Documents/Notes/")
+    );
 
-    expect(topResult?.title).toContain("To do list");
-    expect(topResult?.preview?.toLowerCase()).toContain("latest portfolio updates");
+    expect(noteHit).toBeDefined();
+    expect(noteHit?.action.type).toBe("open-path");
   });
 
   it("handles action-oriented folder queries without needing web search", () => {
