@@ -36,6 +36,7 @@ interface DesktopDragState {
   startClientY: number;
   moved: boolean;
   targetPosition: DesktopGridPosition;
+  pointerType: string;
 }
 
 export function DesktopSurface({
@@ -119,6 +120,16 @@ export function DesktopSurface({
 
       if (commit && currentDragState?.moved) {
         onMoveIcon(currentDragState.iconId, currentDragState.targetPosition);
+      } else if (
+        commit &&
+        currentDragState &&
+        !currentDragState.moved &&
+        currentDragState.pointerType !== "touch"
+      ) {
+        const entry = entries.find((item) => item.id === currentDragState.iconId);
+        if (entry) {
+          onActivateEntry(entry);
+        }
       }
 
       delete document.body.dataset.desktopDragLock;
@@ -151,12 +162,14 @@ export function DesktopSurface({
   }, [
     containerRef,
     dragState !== null,
+    entries,
     gridMetrics.cellHeight,
     gridMetrics.cellWidth,
     gridMetrics.columns,
     gridMetrics.paddingX,
     gridMetrics.paddingY,
     gridMetrics.rows,
+    onActivateEntry,
     onMoveIcon,
   ]);
 
@@ -246,6 +259,7 @@ export function DesktopSurface({
           const node = targetPath ? nodes[targetPath] : undefined;
           const position = iconPositions[entry.id] ?? entry.defaultGridPosition;
           const dragging = dragState?.iconId === entry.id;
+          const dragPointerSink = Boolean(dragging && dragState?.moved);
 
           return (
             <DesktopIcon
@@ -256,6 +270,7 @@ export function DesktopSurface({
               gridMetrics={gridMetrics}
               selected={selectedIconId === entry.id}
               dragging={dragging}
+              dragPointerSink={dragPointerSink}
               onSelect={() => onSelectIcon(entry.id)}
               onActivate={() => onActivateEntry(entry)}
               onContextMenu={(event) => onEntryContextMenu(event, entry)}
@@ -282,6 +297,7 @@ export function DesktopSurface({
                   startClientY: pointer.clientY,
                   moved: false,
                   targetPosition: position,
+                  pointerType: pointer.pointerType,
                 });
                 dragStateRef.current = {
                   iconId: entry.id,
@@ -295,6 +311,7 @@ export function DesktopSurface({
                   startClientY: pointer.clientY,
                   moved: false,
                   targetPosition: position,
+                  pointerType: pointer.pointerType,
                 };
               }}
             />

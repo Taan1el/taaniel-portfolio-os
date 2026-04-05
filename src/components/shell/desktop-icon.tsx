@@ -58,12 +58,15 @@ interface DesktopIconProps {
   pixelPosition: { x: number; y: number };
   gridMetrics: DesktopGridMetrics;
   selected: boolean;
+  /** True while this icon is the active drag source (mousedown / drag session). */
   dragging?: boolean;
+  /** After the pointer moves, detach hit-testing so clicks pass through the faded cell. */
+  dragPointerSink?: boolean;
   onActivate: () => void;
   onSelect: () => void;
   onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPointerStart: (
-    pointer: { clientX: number; clientY: number; pointerId: number },
+    pointer: { clientX: number; clientY: number; pointerId: number; pointerType: string },
     snapshot: { left: number; top: number; width: number; height: number }
   ) => void;
 }
@@ -75,6 +78,7 @@ export function DesktopIcon({
   gridMetrics,
   selected,
   dragging,
+  dragPointerSink,
   onActivate,
   onSelect,
   onContextMenu,
@@ -94,7 +98,13 @@ export function DesktopIcon({
 
   return (
     <button
-      className={cn("desktop-icon", "desktop-icon-button", selected && "is-selected", dragging && "is-drag-source")}
+      className={cn(
+        "desktop-icon",
+        "desktop-icon-button",
+        selected && "is-selected",
+        dragging && "is-dragging",
+        dragPointerSink && "is-dragging-sink"
+      )}
       style={
         {
           left: pixelPosition.x,
@@ -129,6 +139,7 @@ export function DesktopIcon({
                 clientX: event.clientX,
                 clientY: event.clientY,
                 pointerId: event.pointerId,
+                pointerType: event.pointerType,
               },
               snapshot
             );
@@ -141,6 +152,7 @@ export function DesktopIcon({
             clientX: event.clientX,
             clientY: event.clientY,
             pointerId: event.pointerId,
+            pointerType: event.pointerType,
           },
           snapshot
         );
@@ -168,10 +180,6 @@ export function DesktopIcon({
         }
 
         clearLongPressTimeout();
-      }}
-      onDoubleClick={(event) => {
-        event.stopPropagation();
-        onActivate();
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter") {

@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, type CSSProperties } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { themePresets } from "@/data/portfolio";
@@ -12,7 +12,7 @@ import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
 import { DesktopManager } from "@/components/shell/desktop-manager";
-import { SearchPanel } from "@/components/shell/search-panel";
+import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
 import { WindowHost } from "@/components/shell/window-host";
@@ -33,15 +33,13 @@ export function DesktopShell() {
   const {
     selectedIconId,
     startMenuOpen,
-    searchOpen,
     searchQuery,
     calendarOpen,
     contextMenu,
     clipboard,
     setStartMenuOpen,
     toggleStartMenu,
-    setSearchOpen,
-    toggleSearch,
+    requestStartMenuSearchFocus,
     setSearchQuery,
     setCalendarOpen,
     setSelectedIconId,
@@ -58,7 +56,6 @@ export function DesktopShell() {
     useShallow((state) => ({
       selectedIconId: state.selectedIconId,
       startMenuOpen: state.startMenuOpen,
-      searchOpen: state.searchOpen,
       searchQuery: state.searchQuery,
       calendarOpen: state.calendarOpen,
       contextMenu: state.contextMenu,
@@ -69,8 +66,7 @@ export function DesktopShell() {
       focusedWindowId: state.focusedWindowId,
       setStartMenuOpen: state.setStartMenuOpen,
       toggleStartMenu: state.toggleStartMenu,
-      setSearchOpen: state.setSearchOpen,
-      toggleSearch: state.toggleSearch,
+      requestStartMenuSearchFocus: state.requestStartMenuSearchFocus,
       setSearchQuery: state.setSearchQuery,
       setCalendarOpen: state.setCalendarOpen,
       setSelectedIconId: state.setSelectedIconId,
@@ -147,6 +143,8 @@ export function DesktopShell() {
     sections: searchSections,
   });
 
+  const shellSearchBrowseRef = useRef<ShellSearchResultsHandle>(null);
+
   const openExternal = (url: string) => {
     launchApp({
       appId: "browser",
@@ -182,9 +180,14 @@ export function DesktopShell() {
 
   const closeShellOverlays = () => {
     setStartMenuOpen(false);
-    setSearchOpen(false);
+    setSearchQuery("");
     setCalendarOpen(false);
     setContextMenu(null);
+  };
+
+  const openLauncherSearch = () => {
+    requestStartMenuSearchFocus();
+    setStartMenuOpen(true);
   };
 
   const openPath = (path: string) => {
@@ -220,7 +223,7 @@ export function DesktopShell() {
     activeWindowId: focusedWindowId,
     onCloseOverlays: closeShellOverlays,
     onToggleStartMenu: toggleStartMenu,
-    onToggleSearch: toggleSearch,
+    onOpenLauncherSearch: openLauncherSearch,
     onCloseActiveWindow: closeWindow,
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
@@ -479,25 +482,15 @@ export function DesktopShell() {
             }
             onOpenFile={openPath}
             searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
+            searchBrowseRef={shellSearchBrowseRef}
+            searchSections={smartSearchSections}
+            aiStatus={aiStatus}
+            aiEnabled={aiEnabled}
+            onSearchSelect={runSearchAction}
             onResetSession={() => {
               void resetSession();
             }}
             onRequestClose={() => setStartMenuOpen(false)}
-          />
-        ) : null}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {searchOpen ? (
-          <SearchPanel
-            query={searchQuery}
-            sections={smartSearchSections}
-            aiStatus={aiStatus}
-            aiEnabled={aiEnabled}
-            onQueryChange={setSearchQuery}
-            onSelectResult={runSearchAction}
-            onRequestClose={() => setSearchOpen(false)}
           />
         ) : null}
       </AnimatePresence>
@@ -511,10 +504,12 @@ export function DesktopShell() {
       <Taskbar
         entries={taskbarEntries}
         startMenuOpen={startMenuOpen}
-        searchOpen={searchOpen}
         calendarOpen={calendarOpen}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onSearchFieldFocus={() => setStartMenuOpen(true)}
+        searchBrowseRef={shellSearchBrowseRef}
         onToggleStartMenu={toggleStartMenu}
-        onToggleSearch={toggleSearch}
         onToggleCalendar={() => setCalendarOpen(!calendarOpen)}
         onToggleWindow={toggleTaskbarWindow}
         onShowDesktop={showDesktop}

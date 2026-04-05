@@ -270,8 +270,12 @@ img {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.desktop-icon.is-drag-source {
+/* Opacity for the grid cell being dragged; keep pointer-events until a real move so double-click still works. */
+.desktop-icon.is-dragging {
   opacity: 0.22;
+}
+
+.desktop-icon.is-dragging-sink {
   pointer-events: none;
 }
 
@@ -633,6 +637,7 @@ img {
 .theme-card,
 .taskbar__item,
 .taskbar__start,
+.taskbar__search-field,
 .taskbar__clock,
 .taskbar__desktop {
   border: 1px solid var(--border);
@@ -2825,7 +2830,7 @@ h3 {
 }
 
 .taskbar__start,
-.taskbar__search,
+.taskbar__search-field,
 .taskbar__item,
 .taskbar__clock,
 .taskbar__desktop {
@@ -2838,16 +2843,30 @@ h3 {
 }
 
 .taskbar__start.is-active,
-.taskbar__search.is-active,
+.taskbar__search-field.is-active,
 .taskbar__item.is-active,
 .taskbar__clock.is-active {
   background: color-mix(in srgb, var(--theme-accent) 16%, rgba(255, 255, 255, 0.06));
   border-color: color-mix(in srgb, var(--theme-accent) 32%, rgba(255, 255, 255, 0.14));
 }
 
-.taskbar__search {
-  min-width: 190px;
-  justify-content: flex-start;
+.taskbar__search-field {
+  margin: 0;
+  min-width: min(190px, 28vw);
+  max-width: min(280px, 34vw);
+  flex: 1 1 200px;
+  cursor: text;
+  min-height: 38px;
+  padding-block: 0.28rem;
+  color: var(--text-muted);
+}
+
+.taskbar__search-field .search-input__field {
+  min-width: 0;
+  flex: 1;
+}
+
+.taskbar__search-field .search-input__field::placeholder {
   color: var(--text-muted);
 }
 
@@ -3055,6 +3074,39 @@ h3 {
   flex: 1 1 0%;
   overflow: hidden;
   grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.start-menu.is-searching .start-menu__body {
+  grid-template-columns: 1fr;
+}
+
+.shell-search-results {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0 1rem 0.75rem;
+}
+
+.shell-search-results__hint {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding-inline: 0.1rem;
+}
+
+.shell-search-results__scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.shell-search-results__grid {
+  min-height: min-content;
+}
+
+.shell-search-results__status {
+  flex-shrink: 0;
 }
 
 .start-menu__rail {
@@ -3558,7 +3610,7 @@ h3 {
   .sidebar-link:hover,
   .quick-link:hover,
   .taskbar__item:hover,
-  .taskbar__search:hover,
+  .taskbar__search-field:hover,
   .taskbar__start:hover,
   .taskbar__clock:hover,
   .taskbar__desktop:hover {

@@ -4,7 +4,7 @@ interface UseShellShortcutsOptions {
   activeWindowId: string | null;
   onCloseOverlays: () => void;
   onToggleStartMenu: () => void;
-  onToggleSearch: () => void;
+  onOpenLauncherSearch: () => void;
   onCloseActiveWindow: (windowId: string) => void;
   onOpenTerminal: () => void;
   onToggleFullscreen: () => void;
@@ -14,7 +14,7 @@ export function useShellShortcuts({
   activeWindowId,
   onCloseOverlays,
   onToggleStartMenu,
-  onToggleSearch,
+  onOpenLauncherSearch,
   onCloseActiveWindow,
   onOpenTerminal,
   onToggleFullscreen,
@@ -36,7 +36,7 @@ export function useShellShortcuts({
 
       if ((event.ctrlKey || event.metaKey) && loweredKey === "k") {
         event.preventDefault();
-        onToggleSearch();
+        onOpenLauncherSearch();
         return;
       }
 
@@ -66,7 +66,7 @@ export function useShellShortcuts({
     onCloseOverlays,
     onOpenTerminal,
     onToggleFullscreen,
-    onToggleSearch,
+    onOpenLauncherSearch,
     onToggleStartMenu,
   ]);
 }

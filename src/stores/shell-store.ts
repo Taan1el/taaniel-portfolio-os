@@ -21,7 +21,7 @@ import type {
 interface ShellStoreState {
   selectedIconId: string | null;
   startMenuOpen: boolean;
-  searchOpen: boolean;
+  startMenuSearchFocusNonce: number;
   searchQuery: string;
   calendarOpen: boolean;
   contextMenu: ContextMenuState | null;
@@ -34,8 +34,7 @@ interface ShellStoreState {
   focusedProcessId: string | null;
   setStartMenuOpen: (open: boolean) => void;
   toggleStartMenu: () => void;
-  setSearchOpen: (open: boolean) => void;
-  toggleSearch: () => void;
+  requestStartMenuSearchFocus: () => void;
   setSearchQuery: (query: string) => void;
   setCalendarOpen: (open: boolean) => void;
   setSelectedIconId: (iconId: string | null) => void;
@@ -71,7 +70,7 @@ const legacyShellSeed = getLegacyShellSeed();
 const initialShellState = {
   selectedIconId: null,
   startMenuOpen: false,
-  searchOpen: false,
+  startMenuSearchFocusNonce: 0,
   searchQuery: "",
   calendarOpen: false,
   contextMenu: null,
@@ -91,43 +90,23 @@ export const useShellStore = create<ShellStoreState>()(
       setStartMenuOpen: (open) =>
         set((state) => ({
           startMenuOpen: open,
-          searchOpen: open ? false : state.searchOpen,
           calendarOpen: open ? false : state.calendarOpen,
         })),
       toggleStartMenu: () =>
         set((state) => ({
           startMenuOpen: !state.startMenuOpen,
-          searchOpen: state.startMenuOpen ? state.searchOpen : false,
-          calendarOpen: state.startMenuOpen ? state.calendarOpen : false,
+          calendarOpen: state.startMenuOpen ? false : state.calendarOpen,
           contextMenu: null,
         })),
-      setSearchOpen: (open) =>
+      requestStartMenuSearchFocus: () =>
         set((state) => ({
-          searchOpen: open,
-          startMenuOpen: open ? false : state.startMenuOpen,
-          calendarOpen: open ? false : state.calendarOpen,
-          contextMenu: null,
+          startMenuSearchFocusNonce: state.startMenuSearchFocusNonce + 1,
         })),
-      toggleSearch: () =>
-        set((state) => ({
-          searchOpen: !state.searchOpen,
-          startMenuOpen: state.searchOpen ? state.startMenuOpen : false,
-          calendarOpen: state.searchOpen ? state.calendarOpen : false,
-          contextMenu: null,
-        })),
-      setSearchQuery: (searchQuery) =>
-        set((state) => ({
-          searchQuery,
-          searchOpen: state.searchOpen || searchQuery.trim().length > 0,
-          startMenuOpen: searchQuery.trim().length > 0 ? false : state.startMenuOpen,
-          calendarOpen: searchQuery.trim().length > 0 ? false : state.calendarOpen,
-          contextMenu: searchQuery.trim().length > 0 ? null : state.contextMenu,
-        })),
+      setSearchQuery: (searchQuery) => set({ searchQuery }),
       setCalendarOpen: (open) =>
         set((state) => ({
           calendarOpen: open,
           startMenuOpen: open ? false : state.startMenuOpen,
-          searchOpen: open ? false : state.searchOpen,
         })),
       setSelectedIconId: (selectedIconId) => set({ selectedIconId }),
       setContextMenu: (contextMenu) => set({ contextMenu }),
@@ -199,7 +178,6 @@ export const useShellStore = create<ShellStoreState>()(
       closeOverlays: () =>
         set({
           startMenuOpen: false,
-          searchOpen: false,
           searchQuery: "",
           calendarOpen: false,
           contextMenu: null,
