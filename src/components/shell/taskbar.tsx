@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
-import { Grid2x2, MonitorDown, Search } from "lucide-react";
+import { Grid2x2, MonitorDown } from "lucide-react";
+import { SearchInput } from "@/components/apps/app-layout";
+import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
-import { formatClock, formatDateLabel } from "@/lib/utils";
+import { cn, formatClock, formatDateLabel } from "@/lib/utils";
+import { useShellStore } from "@/stores/shell-store";
 import type { AppId, TaskbarWindowEntry } from "@/types/system";
 
 const TASKBAR_PREVIEW_WIDTH = 256;
@@ -35,10 +38,12 @@ interface TaskbarPreviewEntry extends TaskbarWindowEntry {
 interface TaskbarProps {
   entries: TaskbarWindowEntry[];
   startMenuOpen: boolean;
-  searchOpen: boolean;
   calendarOpen: boolean;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  onSearchFieldFocus: () => void;
+  searchBrowseRef: RefObject<ShellSearchResultsHandle | null>;
   onToggleStartMenu: () => void;
-  onToggleSearch: () => void;
   onToggleCalendar: () => void;
   onToggleWindow: (windowId: string) => void;
   onShowDesktop: () => void;
@@ -47,10 +52,12 @@ interface TaskbarProps {
 export function Taskbar({
   entries,
   startMenuOpen,
-  searchOpen,
   calendarOpen,
+  searchQuery,
+  onSearchQueryChange,
+  onSearchFieldFocus,
+  searchBrowseRef,
   onToggleStartMenu,
-  onToggleSearch,
   onToggleCalendar,
   onToggleWindow,
   onShowDesktop,
@@ -60,6 +67,27 @@ export function Taskbar({
   const [previewImages, setPreviewImages] = useState<Record<string, string | null>>({});
   const windowsRef = useRef<HTMLDivElement | null>(null);
   const captureQueueRef = useRef<Set<string>>(new Set());
+  const taskbarSearchInputRef = useRef<HTMLInputElement>(null);
+  const startMenuSearchFocusNonce = useShellStore((state) => state.startMenuSearchFocusNonce);
+  const searching = searchQuery.trim().length > 0;
+
+  useEffect(() => {
+    if (startMenuSearchFocusNonce > 0) {
+      taskbarSearchInputRef.current?.focus();
+    }
+  }, [startMenuSearchFocusNonce]);
+
+  const handleTaskbarSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      onSearchQueryChange("");
+      return;
+    }
+
+    if (searching) {
+      searchBrowseRef.current?.handleSearchKeyDown(event);
+    }
+  };
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 1000 * 30);
@@ -244,14 +272,17 @@ export function Taskbar({
           Start
         </button>
 
-        <button
-          className={`taskbar__search ${searchOpen ? "is-active" : ""}`}
-          type="button"
-          onClick={onToggleSearch}
-        >
-          <Search size={15} />
-          Search
-        </button>
+        <SearchInput
+          ref={taskbarSearchInputRef}
+          aria-label="Search apps, files, links, and portfolio content"
+          className="taskbar__search-input"
+          containerClassName={cn("taskbar__search-field", startMenuOpen && "is-active")}
+          placeholder="Search"
+          value={searchQuery}
+          onChange={(event) => onSearchQueryChange(event.target.value)}
+          onFocus={onSearchFieldFocus}
+          onKeyDown={handleTaskbarSearchKeyDown}
+        />
 
         <div className="taskbar__windows" ref={windowsRef}>
           <div className="taskbar__window-strip" onScroll={() => setPreviewEntry(null)}>

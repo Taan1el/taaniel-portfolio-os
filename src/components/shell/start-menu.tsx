@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
 import { Mail } from "lucide-react";
 import { Button, ScrollArea } from "@/components/apps/app-layout";
 import { profile, socialLinks } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
+import type { ShellAiSearchStatus } from "@/hooks/use-shell-ai-search";
+import type { ShellSearchAction, ShellSearchSection } from "@/lib/shell-search";
+import { ShellSearchResults, type ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartAppList } from "@/components/shell/start-menu/start-app-list";
 import {
   startMenuCategories,
@@ -13,7 +16,6 @@ import {
 import { StartMenuShell } from "@/components/shell/start-menu/start-menu-shell";
 import { StartPowerSection } from "@/components/shell/start-menu/start-power-section";
 import { StartQuickLinks } from "@/components/shell/start-menu/start-quick-links";
-import { StartSearch } from "@/components/shell/start-menu/start-search";
 import { StartSidebar } from "@/components/shell/start-menu/start-sidebar";
 import { updateStartMenuSpotlight } from "@/components/shell/start-menu/spotlight";
 import type { AppCategory, AppId, StartMenuShortcut } from "@/types/system";
@@ -23,7 +25,11 @@ interface StartMenuProps {
   onOpenDirectory: (directoryPath: string) => void;
   onOpenFile: (filePath: string) => void;
   searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
+  searchBrowseRef: RefObject<ShellSearchResultsHandle | null>;
+  searchSections: ShellSearchSection[];
+  aiStatus: ShellAiSearchStatus;
+  aiEnabled: boolean;
+  onSearchSelect: (action: ShellSearchAction) => void;
   onResetSession: () => void;
   onRequestClose: () => void;
 }
@@ -33,7 +39,11 @@ export function StartMenu({
   onOpenDirectory,
   onOpenFile,
   searchQuery,
-  onSearchQueryChange,
+  searchBrowseRef,
+  searchSections,
+  aiStatus,
+  aiEnabled,
+  onSearchSelect,
   onResetSession,
   onRequestClose,
 }: StartMenuProps) {
@@ -45,6 +55,7 @@ export function StartMenu({
   );
   const menuRef = useRef<HTMLElement | null>(null);
   const apps = getAppRegistry();
+  const searching = searchQuery.trim().length > 0;
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -54,7 +65,11 @@ export function StartMenu({
         return;
       }
 
-      if (menuRef.current?.contains(target) || target.closest(".taskbar__start")) {
+      if (
+        menuRef.current?.contains(target) ||
+        target.closest(".taskbar__start") ||
+        target.closest(".taskbar__search-field")
+      ) {
         return;
       }
 
@@ -94,7 +109,7 @@ export function StartMenu({
   };
 
   return (
-    <StartMenuShell menuRef={menuRef}>
+    <StartMenuShell menuRef={menuRef} className={searching ? "is-searching" : undefined}>
       <div className="start-menu__top">
         <div className="start-menu__hero">
           <div>
@@ -113,43 +128,54 @@ export function StartMenu({
             Contact
           </Button>
         </div>
-
-        <StartSearch query={searchQuery} onQueryChange={onSearchQueryChange} />
       </div>
 
       <div className="start-menu__body">
-        <StartSidebar
-          shortcuts={[
-            {
-              id: "resume",
-              label: "Open Resume.pdf",
-              icon: Mail,
-              action: { type: "file", filePath: "/Documents/Taaniel-Vananurm-CV.pdf" },
-            },
-            ...startMenuSidebarLinks,
-          ]}
-          onExecuteAction={executeShortcut}
-        />
-
-        <div className="start-menu__main">
-          <ScrollArea className="start-menu__content">
-            <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
-
-            <StartAppList
-              categories={startMenuCategories}
-              appsByCategory={appsByCategory}
-              expandedCategories={expandedCategories}
-              onToggleCategory={(category) =>
-                setExpandedCategories((current) => ({
-                  ...current,
-                  [category]: !current[category as AppCategory],
-                }))
-              }
-              onLaunchSettings={() => onLaunchApp("settings")}
-              onLaunchApp={onLaunchApp}
+        {searching ? (
+          <ShellSearchResults
+            ref={searchBrowseRef as Ref<ShellSearchResultsHandle>}
+            query={searchQuery}
+            sections={searchSections}
+            aiStatus={aiStatus}
+            aiEnabled={aiEnabled}
+            onSelectResult={onSearchSelect}
+          />
+        ) : (
+          <>
+            <StartSidebar
+              shortcuts={[
+                {
+                  id: "resume",
+                  label: "Open Resume.pdf",
+                  icon: Mail,
+                  action: { type: "file", filePath: "/Documents/Taaniel-Vananurm-CV.pdf" },
+                },
+                ...startMenuSidebarLinks,
+              ]}
+              onExecuteAction={executeShortcut}
             />
-          </ScrollArea>
-        </div>
+
+            <div className="start-menu__main">
+              <ScrollArea className="start-menu__content">
+                <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
+
+                <StartAppList
+                  categories={startMenuCategories}
+                  appsByCategory={appsByCategory}
+                  expandedCategories={expandedCategories}
+                  onToggleCategory={(category) =>
+                    setExpandedCategories((current) => ({
+                      ...current,
+                      [category]: !current[category as AppCategory],
+                    }))
+                  }
+                  onLaunchSettings={() => onLaunchApp("settings")}
+                  onLaunchApp={onLaunchApp}
+                />
+              </ScrollArea>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="start-menu__footer">

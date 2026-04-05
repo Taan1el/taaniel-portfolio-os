@@ -268,8 +268,8 @@ export function createDirectoryRecord(
 export function createTextFileRecord(
   nodes: FileSystemRecord,
   directoryPath: string,
-  name = "New Note.md",
-  content = "# Untitled\n"
+  name = "New Note.txt",
+  content = ""
 ): FileSystemRecord {
   const parent = normalizePath(directoryPath);
   const uniqueName = ensureUniqueName(nodes, parent, name);

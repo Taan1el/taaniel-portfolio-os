@@ -43,7 +43,6 @@ interface SystemState {
   activeWindowId: string | null;
   selectedIconId: string | null;
   startMenuOpen: boolean;
-  searchOpen: boolean;
   calendarOpen: boolean;
   contextMenu: ContextMenuState | null;
   clipboard: ClipboardState | null;
@@ -69,8 +68,7 @@ interface SystemState {
   restoreDesktop: () => void;
   setStartMenuOpen: (open: boolean) => void;
   toggleStartMenu: () => void;
-  setSearchOpen: (open: boolean) => void;
-  toggleSearch: () => void;
+  requestStartMenuSearchFocus: () => void;
   setCalendarOpen: (open: boolean) => void;
   setSelectedIconId: (iconId: string | null) => void;
   setContextMenu: (contextMenu: ContextMenuState | null) => void;
@@ -107,7 +105,6 @@ function getRuntimeViewState() {
     activeWindowId: windowState.activeWindowId,
     selectedIconId: shellState.selectedIconId,
     startMenuOpen: shellState.startMenuOpen,
-    searchOpen: shellState.searchOpen,
     calendarOpen: shellState.calendarOpen,
     contextMenu: shellState.contextMenu,
     clipboard: shellState.clipboard,
@@ -298,8 +295,7 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
   restoreDesktop: () => useWindowStore.getState().restoreDesktop(),
   setStartMenuOpen: (open) => useShellStore.getState().setStartMenuOpen(open),
   toggleStartMenu: () => useShellStore.getState().toggleStartMenu(),
-  setSearchOpen: (open) => useShellStore.getState().setSearchOpen(open),
-  toggleSearch: () => useShellStore.getState().toggleSearch(),
+  requestStartMenuSearchFocus: () => useShellStore.getState().requestStartMenuSearchFocus(),
   setCalendarOpen: (open) => useShellStore.getState().setCalendarOpen(open),
   setSelectedIconId: (iconId) => useShellStore.getState().setSelectedIconId(iconId),
   setContextMenu: (contextMenu) => useShellStore.getState().setContextMenu(contextMenu),

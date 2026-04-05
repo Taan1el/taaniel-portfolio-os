@@ -10,7 +10,12 @@ import {
   StatusBar,
 } from "@/components/apps/app-layout";
 import { joinPath } from "@/lib/filesystem";
-import { DEFAULT_NOTE_PATH, NOTES_DIRECTORY_PATH, isNotesPath } from "@/lib/notes";
+import {
+  DEFAULT_NOTE_CONTENT,
+  DEFAULT_NOTE_PATH,
+  NOTES_DIRECTORY_PATH,
+  isNotesPath,
+} from "@/lib/notes";
 import { cn } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
@@ -48,6 +53,18 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
 
   const selectedNote = selectedPath ? readFile(selectedPath) : null;
   const selectedNoteFile = isNoteFile(selectedNote) ? selectedNote : null;
+
+  useEffect(() => {
+    void (async () => {
+      const node = readFile(DEFAULT_NOTE_PATH);
+      if (!isNoteFile(node)) {
+        await writeFile(DEFAULT_NOTE_PATH, DEFAULT_NOTE_CONTENT, {
+          mimeType: "text/plain",
+          extension: "txt",
+        });
+      }
+    })();
+  }, [readFile, writeFile]);
 
   useEffect(() => {
     const requestedPath =
@@ -108,7 +125,10 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
       return;
     }
 
-    textareaRef.current?.focus();
+    const frameId = requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frameId);
   }, [pendingTitleFocus, selectedNoteFile?.path]);
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ExternalLink,
   Globe2,
+  Network,
   RefreshCcw,
   ShieldAlert,
   Star,
@@ -31,6 +32,11 @@ const bookmarks = [
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 const EMBED_TIMEOUT_MS = 6500;
+const ALL_ORIGINS_PROXY = "https://api.allorigins.win/raw?url=";
+
+function buildProxyIframeSrc(httpsUrl: string) {
+  return `${ALL_ORIGINS_PROXY}${encodeURIComponent(httpsUrl)}`;
+}
 
 type BrowserView =
   | {
@@ -169,6 +175,7 @@ export function BrowserApp({ window }: AppComponentProps) {
   const [historyIndex, setHistoryIndex] = useState(0);
   const [refreshToken, setRefreshToken] = useState(0);
   const [embedState, setEmbedState] = useState<"idle" | "loading" | "ready" | "blocked">("idle");
+  const [proxyPreview, setProxyPreview] = useState(false);
 
   useEffect(() => {
     setAddress(initialUrl);
@@ -185,17 +192,36 @@ export function BrowserApp({ window }: AppComponentProps) {
   }, [currentUrl]);
 
   const view = useMemo(() => resolveBrowserView(currentUrl), [currentUrl]);
-  const canOpenExternally = /^https?:\/\//i.test(view.url);
-  const showEmbedFallback = view.mode === "embed" && embedState === "blocked";
+  const effectiveView = useMemo(() => {
+    if (!proxyPreview) {
+      return view;
+    }
+
+    const normalized = normalizeUrl(currentUrl);
+    if (!normalized) {
+      return view;
+    }
+
+    return {
+      mode: "embed" as const,
+      url: buildProxyIframeSrc(normalized),
+      title: view.title,
+      note: "Public CORS proxy preview (allorigins). Third-party content — do not sign in or enter secrets; layout may be wrong.",
+    };
+  }, [currentUrl, proxyPreview, view]);
+
+  const normalizedCurrent = normalizeUrl(currentUrl);
+  const canOpenExternally = Boolean(normalizedCurrent && /^https?:\/\//i.test(normalizedCurrent));
+  const showEmbedFallback = effectiveView.mode === "embed" && embedState === "blocked";
   const fallbackReason =
-    view.mode === "fallback"
-      ? view.reason
+    effectiveView.mode === "fallback"
+      ? effectiveView.reason
       : "This site cannot be embedded. Open in new tab.";
   const footerMessage =
-    view.mode === "embed" && !showEmbedFallback ? view.note : fallbackReason;
+    effectiveView.mode === "embed" && !showEmbedFallback ? effectiveView.note : fallbackReason;
 
   useEffect(() => {
-    if (view.mode !== "embed") {
+    if (effectiveView.mode !== "embed") {
       setEmbedState("idle");
       return;
     }
@@ -206,7 +232,7 @@ export function BrowserApp({ window }: AppComponentProps) {
     }, EMBED_TIMEOUT_MS);
 
     return () => globalThis.window.clearTimeout(timeoutId);
-  }, [refreshToken, view]);
+  }, [refreshToken, effectiveView]);
 
   const visit = (nextUrl: string) => {
     const normalizedUrl = normalizeUrl(nextUrl);
@@ -253,11 +279,11 @@ export function BrowserApp({ window }: AppComponentProps) {
   };
 
   const openCurrentInNewTab = () => {
-    if (!canOpenExternally) {
+    if (!normalizedCurrent) {
       return;
     }
 
-    globalThis.window.open(view.url, "_blank", "noopener,noreferrer");
+    globalThis.window.open(normalizedCurrent, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -307,6 +333,17 @@ export function BrowserApp({ window }: AppComponentProps) {
 
         <Button
           type="button"
+          variant={proxyPreview ? "panel" : "ghost"}
+          onClick={() => setProxyPreview((previous) => !previous)}
+          disabled={!normalizeUrl(currentUrl)}
+          title="Load many external sites through a public proxy (like daedalOS). Not for sensitive pages."
+        >
+          <Network size={15} />
+          Proxy preview
+        </Button>
+
+        <Button
+          type="button"
           variant="panel"
           onClick={openCurrentInNewTab}
           disabled={!canOpenExternally}
@@ -350,7 +387,7 @@ export function BrowserApp({ window }: AppComponentProps) {
         </AppSidebar>
 
         <section className="browser-app__viewport">
-          {view.mode === "embed" && !showEmbedFallback ? (
+          {effectiveView.mode === "embed" && !showEmbedFallback ? (
             <div className="browser-app__frame-shell" data-state={embedState}>
               {embedState === "loading" ? (
                 <div className="browser-app__hint">
@@ -359,9 +396,9 @@ export function BrowserApp({ window }: AppComponentProps) {
                 </div>
               ) : null}
               <iframe
-                key={`${view.url}:${refreshToken}`}
-                src={view.url}
-                title={view.url}
+                key={`${effectiveView.url}:${refreshToken}`}
+                src={effectiveView.url}
+                title={effectiveView.url}
                 // The browser iframe stays sandboxed so loaded pages cannot escape or navigate the shell.
                 sandbox="allow-scripts allow-same-origin"
                 referrerPolicy="no-referrer"
@@ -377,9 +414,9 @@ export function BrowserApp({ window }: AppComponentProps) {
               </span>
               <div className="browser-app__fallback-copy">
                 <p className="eyebrow">{showEmbedFallback ? "Embedding blocked" : "External site"}</p>
-                <h2>{view.title}</h2>
+                <h2>{effectiveView.title}</h2>
                 <p>{fallbackReason}</p>
-                <code>{view.url}</code>
+                <code>{effectiveView.url}</code>
               </div>
               <div className="browser-app__fallback-actions">
                 <Button
