@@ -1,4 +1,5 @@
 :root {
+  font-size: clamp(14px, 0.28vw + 13px, 15.5px);
   font-family: "IBM Plex Sans", "Sora", sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -18,7 +19,7 @@
   --surface-soft: rgba(255, 255, 255, 0.04);
   --shadow-ambient: 0 22px 56px rgba(0, 0, 0, 0.34);
   --shadow-window: 0 24px 72px rgba(0, 0, 0, 0.42);
-  --theme-accent: #ff8a5c;
+  --theme-accent: #77c7ff;
   --desktop-wallpaper: linear-gradient(160deg, #071019 0%, #0c1828 100%);
   --desktop-tint: rgba(9, 18, 32, 0.66);
   --desktop-glow: rgba(255, 141, 88, 0.42);
@@ -270,7 +271,8 @@ img {
 }
 
 .desktop-icon.is-drag-source {
-  opacity: 0.28;
+  opacity: 0.22;
+  pointer-events: none;
 }
 
 .desktop-icon.desktop-drag-ghost {
@@ -851,6 +853,21 @@ h3 {
 
 .contact-card h2 {
   font-size: 1.05rem;
+  word-break: break-word;
+}
+
+.contact-card .section-row {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.contact-card .section-row > div:first-child {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.contact-card .section-row .ghost-button {
+  flex-shrink: 0;
 }
 
 .contact-app__hero {
@@ -951,6 +968,14 @@ h3 {
   gap: 0.4rem;
   padding: 1rem;
   border-radius: 1rem;
+}
+
+.contact-link-card span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-toolbar__title {
@@ -2069,7 +2094,19 @@ h3 {
 .paint-app .pill-button,
 .paint-app .ghost-button,
 .paint-app .icon-button {
-  border-radius: 0.72rem;
+  border-radius: 0.65rem;
+}
+
+.paint-app .icon-button {
+  width: 2.05rem;
+  height: 2.05rem;
+}
+
+.paint-app .ghost-button,
+.paint-app .pill-button {
+  min-height: 2.05rem;
+  padding: 0.42rem 0.62rem;
+  font-size: 0.78rem;
 }
 
 .paint-app__stage {
@@ -2834,13 +2871,20 @@ h3 {
 
 .taskbar__item {
   position: relative;
-  max-width: 190px;
-  flex: 0 0 auto;
+  display: inline-flex;
+  max-width: min(168px, 26vw);
+  flex: 0 1 auto;
+  align-items: center;
   overflow: hidden;
   padding-bottom: 0.78rem;
 }
 
+.taskbar__item > svg {
+  flex-shrink: 0;
+}
+
 .taskbar__item-copy {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3008,7 +3052,8 @@ h3 {
 .start-menu__body {
   display: grid;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 0%;
+  overflow: hidden;
   grid-template-columns: 220px minmax(0, 1fr);
 }
 
@@ -3072,30 +3117,17 @@ h3 {
   width: 100%;
   min-height: var(--control-height-regular);
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.55rem 0.9rem;
+  gap: 0.55rem;
+  padding: 0.45rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.04);
   text-align: left;
 }
 
-.start-menu__search-launcher span:last-of-type {
+.start-menu__search-launcher .search-input__field {
   min-width: 0;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.start-menu__search-launcher kbd {
-  padding: 0.22rem 0.42rem;
-  border: 1px solid var(--border);
-  border-radius: 0.45rem;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.72rem;
 }
 
 .start-menu__search input::placeholder {
@@ -3683,25 +3715,33 @@ h3 {
 
   .start-menu__body {
     grid-template-columns: 1fr;
+    min-height: 0;
+    max-height: min(52vh, 420px);
   }
 
   .start-menu__rail {
     width: 100%;
+    max-height: 11.5rem;
     grid-template-columns: 1fr;
     align-content: start;
     overflow: hidden;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
 
   .start-menu__rail-scroll {
-    overflow: auto hidden;
+    max-height: 9.5rem;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .start-menu__rail-group {
-    grid-column: 1 / -1;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(180px, 1fr);
+    display: grid;
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
   }
 
   .start-menu__hero {

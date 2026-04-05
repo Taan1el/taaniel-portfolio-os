@@ -7,7 +7,7 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 export function usePdfViewer(source: string) {
   const [pageCount, setPageCount] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(1.15);
+  const [scale, setScale] = useState(1);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -19,7 +19,7 @@ export function usePdfViewer(source: string) {
     setLoading(true);
     setErrorMessage(null);
 
-    const loadingTask = getDocument(source);
+    const loadingTask = getDocument({ url: source });
 
     loadingTask.promise
       .then((documentProxy) => {

@@ -58,7 +58,7 @@ export function PdfViewerApp({ window }: AppComponentProps) {
           >
             <SearchX size={15} />
           </button>
-          <button type="button" className="icon-button" aria-label="Reset zoom" onClick={() => setScale(1.15)}>
+          <button type="button" className="icon-button" aria-label="Reset zoom" onClick={() => setScale(1)}>
             <Search size={15} />
           </button>
           <button

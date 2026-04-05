@@ -93,6 +93,8 @@ interface SearchResultButtonProps {
 }
 
 function SearchResultButton({ result, active, onHover, onSelect }: SearchResultButtonProps) {
+  const showSubtitle = result.type !== "link";
+
   return (
     <button
       type="button"
@@ -103,8 +105,10 @@ function SearchResultButton({ result, active, onHover, onSelect }: SearchResultB
     >
       <SearchResultIcon result={result} />
       <span className="search-result__meta">
-        <strong title={result.title}>{result.title}</strong>
-        <small title={result.subtitle}>{result.subtitle}</small>
+        <strong title={showSubtitle ? result.title : `${result.title} — ${result.subtitle}`}>
+          {result.title}
+        </strong>
+        {showSubtitle ? <small title={result.subtitle}>{result.subtitle}</small> : null}
         {result.preview ? (
           <span className="search-result__preview" title={result.preview}>
             {result.preview}
@@ -160,7 +164,11 @@ export function SearchPanel({
         return;
       }
 
-      if (panelRef.current?.contains(target) || target.closest(".taskbar__search")) {
+      if (
+        panelRef.current?.contains(target) ||
+        target.closest(".taskbar__search") ||
+        target.closest(".start-menu__search-launcher")
+      ) {
         return;
       }
 

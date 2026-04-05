@@ -1,61 +1,48 @@
 # Taaniel OS
 
-Immersive browser-desktop portfolio for Taaniel Vananurm.
-
-## What it is
-
-This rebuild turns the portfolio into an operating-system-style experience with a full browser desktop shell.
-
-Current implementation includes:
-
-- desktop wallpaper and draggable desktop icons
-- window manager with focus, minimize, maximize, close, resize, and persisted bounds
-- taskbar, start menu, clock, calendar popup, and show-desktop behavior
-- virtual filesystem persisted with IndexedDB
-- file explorer with create, rename, delete, and open-with behavior
-- recruiter-facing apps for About, Projects, Contact, Resume, Settings
-- terminal powered by xterm.js
-- code editor powered by Monaco
-- markdown viewer and image/video viewers
+Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows, a virtual filesystem (IndexedDB), taskbar with previews, Start menu, search, and bundled apps (terminal, Monaco editor, PDF/photo viewers, music player, games hub, and more).
 
 ## Stack
 
-- React
-- TypeScript
-- Vite
-- Zustand
-- Framer Motion
-- react-rnd
-- IndexedDB via `idb-keyval`
-- xterm.js
-- Monaco Editor
+- React 18, TypeScript, Vite
+- Zustand (shell, windows, filesystem)
+- Framer Motion, react-rnd, xterm.js, Monaco, pdf.js
 
-## Local development
+## Development
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Production build
+## Build and preview
 
 ```bash
 npm run build
+npm run preview
 ```
 
-For local production preview, use `npm run build` and then `npm run preview`.
+## Tests
+
+```bash
+npm test
+```
 
 ## GitHub Pages
 
-GitHub Pages uses the project-site base path:
+Project site base path:
 
 ```text
 /taaniel-portfolio-os/
 ```
 
-You can build and publish with:
-
 ```bash
 npm run build:gh
 npm run deploy:gh
 ```
+
+## Notes
+
+- **Embedded browser**: Only same-origin, localhost, and selected embeds (e.g. YouTube) load inside an iframe. Other sites typically block embedding; use **Open in new tab** for the full page.
+- **Themes**: Defaults to **Cloud Archive**; change wallpaper and accent in **Settings**.
+- **Session data**: Desktop layout, windows, and the virtual filesystem persist in the browser (localStorage / IndexedDB). Use **Reset session** in the Start menu to clear.

@@ -478,10 +478,8 @@ export function DesktopShell() {
               })
             }
             onOpenFile={openPath}
-            onOpenSearch={() => {
-              setSearchQuery("");
-              setSearchOpen(true);
-            }}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             onResetSession={() => {
               void resetSession();
             }}

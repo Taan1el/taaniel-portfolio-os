@@ -24,13 +24,13 @@ const gameSections: GameSectionDefinition[] = [
   {
     id: "arcade-classics",
     title: "Arcade classics",
-    description: "Quick-launch games tuned to fill the window cleanly without wasted space.",
+    description: "Snake and Tetris.",
     gameIds: primaryGameIds,
   },
   {
     id: "reviewed-ports",
     title: "Ports under review",
-    description: "These launchers stay visible, but unsafe third-party bundles have been disabled until safer local replacements are ready.",
+    description: "Hextris, Dino, and Doom—ports limited or disabled.",
     gameIds: bonusGameIds,
   },
 ];
@@ -52,24 +52,18 @@ export function GamesApp({ window }: AppComponentProps) {
       <AppToolbar className="games-hub__toolbar">
         <div className="app-toolbar__title">
           <strong>Games</strong>
-          <small>Bundled games that launch through the same shell, taskbar, and window runtime.</small>
+          <small>Each title opens in its own window.</small>
         </div>
         <div className="app-toolbar__group">
-          <span className="games-hub__chip">Registry-driven</span>
-          <span className="games-hub__chip">Windowed</span>
-          <span className="games-hub__chip">Keyboard-first</span>
+          <span className="games-hub__chip">Local</span>
         </div>
       </AppToolbar>
 
       <AppContent className="games-hub__content" padded>
         <section className="games-hub__intro">
           <p className="eyebrow">Arcade</p>
-          <h2>Launch a game without leaving the desktop</h2>
-          <p className="lead">
-            Every title opens through the app registry and keeps the same shell controls. Arcade
-            games stay playable, while older third-party ports are paused during the current
-            security hardening pass.
-          </p>
+          <h2>Pick a game</h2>
+          <p className="lead">Arcade games run locally; some legacy ports are still disabled.</p>
         </section>
 
         <div className="games-hub__sections">

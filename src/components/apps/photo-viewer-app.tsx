@@ -10,11 +10,12 @@ import {
 } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
-import { openFileSystemPath } from "@/lib/launchers";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, getBaseName } from "@/lib/utils";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
+import { useWindowStore } from "@/stores/window-store";
 import type { AppComponentProps, VirtualFile } from "@/types/system";
 
 function isPhotoFile(node: VirtualFile) {
@@ -24,7 +25,8 @@ function isPhotoFile(node: VirtualFile) {
 export function PhotoViewerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const readFile = useFileSystemStore((state) => state.readFile);
-  const launchApp = useSystemStore((state) => state.launchApp);
+  const updateProcess = useProcessStore((state) => state.updateProcess);
+  const setWindowTitle = useWindowStore((state) => state.setWindowTitle);
   const setWallpaperImage = useSystemStore((state) => state.setWallpaperImage);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { filePath, next, previous, siblings } = useMediaGallery(
@@ -35,6 +37,16 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
   const file = readFile(filePath);
   const [zoom, setZoom] = useState(1);
   const [renderFailed, setRenderFailed] = useState(false);
+
+  const goToImagePath = (path: string) => {
+    updateProcess(window.processId, {
+      launchPayload: {
+        ...window.payload,
+        filePath: path,
+      },
+    });
+    setWindowTitle(window.id, getBaseName(path));
+  };
 
   useEffect(() => {
     setZoom(1);
@@ -78,8 +90,8 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         subtitle={fileSize != null ? formatBytes(fileSize) : undefined}
         canGoPrevious={Boolean(previous)}
         canGoNext={Boolean(next)}
-        onPrevious={() => previous && openFileSystemPath(previous.path, nodes, launchApp)}
-        onNext={() => next && openFileSystemPath(next.path, nodes, launchApp)}
+        onPrevious={() => previous && goToImagePath(previous.path)}
+        onNext={() => next && goToImagePath(next.path)}
         actions={
           <>
             {file.source ? (
@@ -140,12 +152,12 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft" && previous) {
               event.preventDefault();
-              openFileSystemPath(previous.path, nodes, launchApp);
+              goToImagePath(previous.path);
             }
 
             if (event.key === "ArrowRight" && next) {
               event.preventDefault();
-              openFileSystemPath(next.path, nodes, launchApp);
+              goToImagePath(next.path);
             }
 
             if (event.key === "+" || event.key === "=") {
@@ -192,7 +204,7 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
                 key={item.path}
                 type="button"
                 className={`photo-viewer__thumb ${item.path === file.path ? "is-active" : ""}`}
-                onClick={() => openFileSystemPath(item.path, nodes, launchApp)}
+                onClick={() => goToImagePath(item.path)}
               >
                 {item.source ? <img src={item.source} alt={item.name} loading="lazy" /> : null}
                 <span>{item.name.replace(/\.[^.]+$/, "")}</span>

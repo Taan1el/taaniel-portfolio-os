@@ -86,10 +86,7 @@ export function AboutApp({ window }: AppComponentProps) {
                 Explore files
               </button>
             </div>
-            <p>
-              About notes, case studies, visuals, and the CV are all available as files so the portfolio
-              behaves more like a real system and less like a themed landing page.
-            </p>
+            <p>Use the explorer or search to open case studies, visuals, and documents.</p>
           </article>
 
           <article className="glass-card photo-strip">
