@@ -1,4 +1,5 @@
 import {
+  Beaker,
   BriefcaseBusiness,
   FileText,
   HardDriveDownload,
@@ -34,6 +35,13 @@ export const startMenuCategories: StartMenuCategoryDescriptor[] = [
     description: "Photo, video, and rich asset viewers.",
     icon: Image,
     defaultExpanded: true,
+  },
+  {
+    category: "Lab",
+    label: "Lab",
+    description: "Games, music, experiments, and emulator tooling—optional exploration.",
+    icon: Beaker,
+    defaultExpanded: false,
   },
   {
     category: "System",

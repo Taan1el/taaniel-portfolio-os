@@ -1,0 +1,9 @@
+/* Taskbar keyboard focus emphasis (global :focus-visible also applies) */
+.root :global(.taskbar__start):focus-visible,
+.root :global(.taskbar__item):focus-visible,
+.root :global(.taskbar__clock):focus-visible,
+.root :global(.taskbar__desktop):focus-visible,
+.root :global(.taskbar__search-input):focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}

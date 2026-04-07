@@ -56,6 +56,29 @@ body {
   overflow: hidden;
 }
 
+body.recruiter-scroll {
+  overflow: auto;
+}
+
+:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+}
+
+@keyframes desktop-icon-onboarding-hint {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.12);
+  }
+}
+
+body.os-onboarding-visible .desktop-icon-button {
+  animation: desktop-icon-onboarding-hint 2.4s ease-in-out infinite;
+}
+
 button,
 input,
 textarea,
@@ -857,8 +880,9 @@ h3 {
 }
 
 .contact-card h2 {
-  font-size: 1.05rem;
-  word-break: break-word;
+  font-size: 1.02rem;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .contact-card .section-row {
@@ -867,8 +891,9 @@ h3 {
 }
 
 .contact-card .section-row > div:first-child {
-  flex: 1 1 12rem;
+  flex: 1 1 16rem;
   min-width: 0;
+  max-width: 100%;
 }
 
 .contact-card .section-row .ghost-button {
@@ -1744,6 +1769,19 @@ h3 {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-muted);
   text-align: center;
+}
+
+.pdf-viewer__fallback-hint {
+  margin: 0;
+  font-size: 0.92em;
+  color: var(--text-muted);
+}
+
+.pdf-viewer__fallback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
 }
 
 .photo-viewer__filmstrip {
@@ -3074,6 +3112,8 @@ h3 {
   flex: 1 1 0%;
   overflow: hidden;
   grid-template-columns: 220px minmax(0, 1fr);
+  /* One full-height row so children get a bounded height and inner scroll areas work */
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .start-menu.is-searching .start-menu__body {
@@ -3087,6 +3127,11 @@ h3 {
   flex-direction: column;
   gap: 0.55rem;
   padding: 0 1rem 0.75rem;
+  overflow: hidden;
+}
+
+.start-menu.is-searching .start-menu__body > .shell-search-results {
+  min-height: 0;
 }
 
 .shell-search-results__hint {
@@ -3099,6 +3144,7 @@ h3 {
 .shell-search-results__scroll {
   flex: 1 1 0%;
   min-height: 0;
+  max-height: 100%;
 }
 
 .shell-search-results__grid {
@@ -3110,9 +3156,9 @@ h3 {
 }
 
 .start-menu__rail {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  align-content: start;
   gap: 0.9rem;
   overflow: hidden;
   padding: 1rem 0.8rem;
@@ -3120,7 +3166,8 @@ h3 {
   background: linear-gradient(180deg, rgba(7, 13, 21, 0.92), rgba(7, 13, 21, 0.74));
 }
 
-.start-menu__rail-scroll {
+.start-menu__rail > .start-menu__rail-scroll {
+  flex: 1 1 0%;
   min-height: 0;
 }
 
@@ -3141,9 +3188,18 @@ h3 {
   gap: 0.85rem;
 }
 
+/* Flex column so the ScrollArea child gets a real max height; otherwise flex:1 on
+   .app-scroll-area is ignored (parent wasn't flex) and overflow:hidden clips expanded apps. */
 .start-menu__main {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+.start-menu__main > .start-menu__content {
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .start-menu__content {

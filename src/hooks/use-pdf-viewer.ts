@@ -1,10 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-export function usePdfViewer(source: string) {
+function dedupeSources(urls: string[]) {
+  return [...new Set(urls.filter(Boolean))];
+}
+
+export function usePdfViewer(sourceList: string[]) {
+  const sources = useMemo(() => dedupeSources(sourceList), [sourceList]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeSource = sources[Math.min(activeIndex, Math.max(0, sources.length - 1))] ?? "";
+
   const [pageCount, setPageCount] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1);
@@ -13,13 +21,25 @@ export function usePdfViewer(source: string) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const documentRef = useRef<PDFDocumentProxy | null>(null);
+  const sourcesKey = sources.join("\0");
 
   useEffect(() => {
+    setActiveIndex(0);
+    setErrorMessage(null);
+  }, [sourcesKey]);
+
+  useEffect(() => {
+    if (!activeSource) {
+      setErrorMessage("No PDF URL available.");
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setErrorMessage(null);
 
-    const loadingTask = getDocument({ url: source });
+    const loadingTask = getDocument({ url: activeSource });
 
     loadingTask.promise
       .then((documentProxy) => {
@@ -33,9 +53,17 @@ export function usePdfViewer(source: string) {
         setPageNumber((currentPage) => Math.min(Math.max(1, currentPage), documentProxy.numPages));
       })
       .catch((error: Error) => {
-        if (!cancelled) {
-          setErrorMessage(error.message || "Unable to load the PDF document.");
+        if (cancelled) {
+          return;
         }
+
+        setActiveIndex((current) => {
+          if (current + 1 < sources.length) {
+            return current + 1;
+          }
+          setErrorMessage(error.message || "Unable to load the PDF document.");
+          return current;
+        });
       })
       .finally(() => {
         if (!cancelled) {
@@ -50,7 +78,7 @@ export function usePdfViewer(source: string) {
       void documentRef.current?.destroy();
       documentRef.current = null;
     };
-  }, [source]);
+  }, [activeSource, sourcesKey, sources.length]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -112,5 +140,8 @@ export function usePdfViewer(source: string) {
     scale,
     setPageNumber,
     setScale,
+    activeSource,
+    allSources: sources,
   };
 }
+

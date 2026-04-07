@@ -1,6 +1,7 @@
-import { Copy, ExternalLink, Mail, Phone } from "lucide-react";
+import { Copy, Download, ExternalLink, LayoutGrid, Mail, Phone } from "lucide-react";
+import { Link } from "react-router-dom";
 import { AppContent, AppScaffold } from "@/components/apps/app-layout";
-import { profile, socialLinks } from "@/data/portfolio";
+import { getResumeDownloadUrls, profile, socialLinks } from "@/data/portfolio";
 import type { AppComponentProps } from "@/types/system";
 
 function copyToClipboard(value: string) {
@@ -62,6 +63,21 @@ export function ContactApp({ window }: AppComponentProps) {
       </div>
 
       <article className="glass-card contact-app__links">
+        <div className="section-row">
+          <p className="eyebrow">Fast path</p>
+        </div>
+        <div className="link-grid" style={{ marginBottom: "0.75rem" }}>
+          <Link className="contact-link-card" to="/simple">
+            <strong>Quick portfolio</strong>
+            <span>Scrollable page without the desktop shell</span>
+            <LayoutGrid size={15} />
+          </Link>
+          <a className="contact-link-card" href={getResumeDownloadUrls()[0]} download>
+            <strong>Download CV</strong>
+            <span>PDF · same file as Resume.pdf on the desktop</span>
+            <Download size={15} />
+          </a>
+        </div>
         <div className="section-row">
           <p className="eyebrow">Links</p>
           <small>{socialLinks.length} profiles</small>

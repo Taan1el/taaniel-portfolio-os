@@ -7,6 +7,7 @@ import { SearchInput } from "@/components/apps/app-layout";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn, formatClock, formatDateLabel } from "@/lib/utils";
+import taskbarMod from "@/components/shell/taskbar.module.css";
 import { useShellStore } from "@/stores/shell-store";
 import type { AppId, TaskbarWindowEntry } from "@/types/system";
 
@@ -262,7 +263,7 @@ export function Taskbar({
 
   return (
     <>
-      <footer className="taskbar">
+      <footer className={cn("taskbar", taskbarMod.root)}>
         <button
           className={`taskbar__start ${startMenuOpen ? "is-active" : ""}`}
           type="button"

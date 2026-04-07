@@ -98,6 +98,8 @@ export function DesktopIcon({
 
   return (
     <button
+      type="button"
+      aria-label={`Open ${entry.label}`}
       className={cn(
         "desktop-icon",
         "desktop-icon-button",
@@ -113,7 +115,6 @@ export function DesktopIcon({
           "--desktop-cell-height": `${gridMetrics.cellHeight}px`,
         } as React.CSSProperties
       }
-      type="button"
       onPointerDown={(event) => {
         event.stopPropagation();
         onSelect();

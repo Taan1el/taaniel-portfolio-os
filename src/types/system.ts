@@ -26,7 +26,7 @@ export type AppId =
   | "resume"
   | "paint";
 
-export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System";
+export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System" | "Lab";
 
 export interface WindowPayload {
   filePath?: string;
@@ -250,6 +250,11 @@ export interface SocialLink {
   url: string;
 }
 
+export interface ProjectArchitectureItem {
+  title: string;
+  body: string;
+}
+
 export interface FeaturedProject {
   id: string;
   title: string;
@@ -261,6 +266,17 @@ export interface FeaturedProject {
   hero: string;
   layouts: string[];
   stack: string[];
+  /** Deeper case study fields (optional). */
+  problem?: string;
+  architecture?: ProjectArchitectureItem[];
+  technicalHighlights?: string[];
+  challengesAndTradeoffs?: string;
+  whatILearned?: string;
+  screenshots?: string[];
+  liveUrl?: string;
+  repoUrl?: string;
+  /** Quantified or estimated impact where NDA-safe. */
+  measurableOutcome?: string;
 }
 
 export type VirtualNode = VirtualDirectory | VirtualFile;

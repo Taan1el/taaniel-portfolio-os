@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Settings2 } from "lucide-react";
 import { Button } from "@/components/apps/app-layout";
 import { cn } from "@/lib/utils";
@@ -64,42 +63,34 @@ export function StartAppList({
                   </span>
                 </button>
 
-                <AnimatePresence initial={false}>
-                  {expanded ? (
-                    <motion.div
-                      className="start-menu__apps"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      {group.items.map((app) => {
-                        const Icon = app.icon;
+                {expanded ? (
+                  <div className="start-menu__apps">
+                    {group.items.map((app) => {
+                      const Icon = app.icon;
 
-                        return (
-                          <button
-                            key={app.id}
-                            type="button"
-                            className="start-menu__app"
-                            onClick={() => onLaunchApp(app.id)}
-                            onMouseMove={updateStartMenuSpotlight}
+                      return (
+                        <button
+                          key={app.id}
+                          type="button"
+                          className="start-menu__app"
+                          onClick={() => onLaunchApp(app.id)}
+                          onMouseMove={updateStartMenuSpotlight}
+                        >
+                          <span
+                            className="start-menu__app-icon"
+                            style={{ "--app-accent": app.accent } as React.CSSProperties}
                           >
-                            <span
-                              className="start-menu__app-icon"
-                              style={{ "--app-accent": app.accent } as React.CSSProperties}
-                            >
-                              <Icon size={18} />
-                            </span>
-                            <span>
-                              <strong>{app.title}</strong>
-                              <small>{app.description}</small>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+                            <Icon size={18} />
+                          </span>
+                          <span>
+                            <strong>{app.title}</strong>
+                            <small>{app.description}</small>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </section>
             );
           })

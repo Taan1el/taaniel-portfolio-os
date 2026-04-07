@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "build:gh": "tsc && vite build --base=/taaniel-portfolio-os/",
+    "build:gh": "tsc && vite build --base=/taaniel-portfolio-os/ && node scripts/copy-404.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "deploy:gh": "npm run build:gh && npx gh-pages -d dist"
@@ -27,6 +27,7 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^9.0.1",
     "react-rnd": "^10.4.13",
+    "react-router-dom": "^6.30.3",
     "v86": "^0.5.319",
     "zustand": "^5.0.1"
   },

@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { Download, Printer, Search, SearchX } from "lucide-react";
 import { AppContent, AppScaffold, AppToolbar, ScrollArea } from "@/components/apps/app-layout";
-import { resumePdfPath } from "@/data/portfolio";
+import { getResumeDownloadUrls, resumePdfPath } from "@/data/portfolio";
 import { getNodeByPath } from "@/lib/filesystem";
 import { formatBytes } from "@/lib/utils";
 import { usePdfViewer } from "@/hooks/use-pdf-viewer";
@@ -29,10 +30,19 @@ async function printPdfSource(source: string) {
 export function PdfViewerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const selectedFile = window.payload?.filePath ? getNodeByPath(nodes, window.payload.filePath) : undefined;
-  const source =
+  const primarySource =
     selectedFile && selectedFile.kind === "file" ? selectedFile.source ?? resumePdfPath : resumePdfPath;
-  const { canvasRef, errorMessage, loading, pageCount, pageNumber, scale, setPageNumber, setScale } =
-    usePdfViewer(source);
+  const isResumeDocument =
+    window.payload?.filePath?.endsWith("Taaniel-Vananurm-CV.pdf") ?? false;
+  const pdfSources = useMemo(() => {
+    if (isResumeDocument || primarySource === resumePdfPath) {
+      return getResumeDownloadUrls();
+    }
+    return [primarySource];
+  }, [isResumeDocument, primarySource]);
+
+  const { canvasRef, errorMessage, loading, pageCount, pageNumber, scale, setPageNumber, setScale, activeSource, allSources } =
+    usePdfViewer(pdfSources);
 
   const fileSize =
     selectedFile?.kind === "file"
@@ -85,13 +95,13 @@ export function PdfViewerApp({ window }: AppComponentProps) {
               }}
             />
           </label>
-          <button type="button" className="pill-button" onClick={() => void printPdfSource(source)}>
+          <button type="button" className="pill-button" onClick={() => void printPdfSource(activeSource)}>
             <Printer size={15} />
             Print
           </button>
-          <a className="pill-button" href={source} download>
+          <a className="pill-button" href={activeSource} download>
             <Download size={15} />
-            Download
+            {isResumeDocument || primarySource === resumePdfPath ? "Download CV" : "Download"}
           </a>
         </div>
       </AppToolbar>
@@ -109,9 +119,14 @@ export function PdfViewerApp({ window }: AppComponentProps) {
             <div className="pdf-viewer__fallback">
               <strong>PDF preview unavailable</strong>
               <p>{errorMessage}</p>
-              <a className="pill-button" href={source} target="_blank" rel="noreferrer">
-                Open in browser
-              </a>
+              <p className="pdf-viewer__fallback-hint">You can still download the file — links try each hosted copy.</p>
+              <div className="pdf-viewer__fallback-actions">
+                {allSources.map((url) => (
+                  <a key={url} className="pill-button" href={url} target="_blank" rel="noreferrer">
+                    Open / download
+                  </a>
+                ))}
+              </div>
             </div>
           ) : (
             <ScrollArea className="pdf-viewer__canvas-wrap">
