@@ -16,7 +16,7 @@ export function AboutApp({ window }: AppComponentProps) {
       <AppContent padded>
         <section className="hero-panel">
           <div>
-            <p className="eyebrow">Recruiter brief</p>
+            <p className="eyebrow">At a glance</p>
             <h1>{profile.name}</h1>
             <p className="lead">{profile.intro}</p>
           </div>
@@ -43,7 +43,7 @@ export function AboutApp({ window }: AppComponentProps) {
         <section className="dashboard-grid">
           <article className="glass-card">
             <p className="eyebrow">Positioning</p>
-            <h2>Product-minded frontend builder</h2>
+            <h2>{profile.role}</h2>
             <p>{profile.current}</p>
             <div className="stat-grid">
               {quickStats.map((stat) => (

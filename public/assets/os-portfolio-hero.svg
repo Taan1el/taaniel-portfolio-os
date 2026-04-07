@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" role="img" aria-label="Stylized desktop windows">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e3a5f"/>
+    </linearGradient>
+    <linearGradient id="win" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.14)"/>
+      <stop offset="100%" style="stop-color:rgba(255,255,255,0.06)"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect x="72" y="64" width="420" height="280" rx="10" fill="url(#win)" stroke="rgba(119,199,255,0.45)" stroke-width="2"/>
+  <rect x="92" y="88" width="120" height="14" rx="4" fill="rgba(119,199,255,0.35)"/>
+  <rect x="92" y="118" width="360" height="10" rx="3" fill="rgba(255,255,255,0.12)"/>
+  <rect x="92" y="138" width="300" height="10" rx="3" fill="rgba(255,255,255,0.08)"/>
+  <rect x="92" y="168" width="380" height="140" rx="6" fill="rgba(0,0,0,0.25)"/>
+  <rect x="380" y="140" width="480" height="320" rx="10" fill="url(#win)" stroke="rgba(255,178,106,0.4)" stroke-width="2"/>
+  <rect x="400" y="164" width="100" height="14" rx="4" fill="rgba(255,178,106,0.4)"/>
+  <rect x="400" y="194" width="420" height="10" rx="3" fill="rgba(255,255,255,0.1)"/>
+  <rect x="400" y="214" width="360" height="10" rx="3" fill="rgba(255,255,255,0.07)"/>
+  <rect x="400" y="244" width="440" height="180" rx="6" fill="rgba(0,0,0,0.22)"/>
+  <text x="480" y="500" fill="rgba(255,255,255,0.35)" font-family="system-ui,sans-serif" font-size="18">Portfolio OS  concept preview</text>
+</svg>

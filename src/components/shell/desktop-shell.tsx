@@ -6,9 +6,12 @@ import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { downloadFileNode, normalizePath } from "@/lib/filesystem";
+import { cn } from "@/lib/utils";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
 import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
+import { LandingOverlay } from "@/components/landing/landing-overlay";
+import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
 import { DesktopManager } from "@/components/shell/desktop-manager";
@@ -81,6 +84,7 @@ export function DesktopShell() {
     windows,
     launchApp,
     closeWindow,
+    focusWindow,
     toggleTaskbarWindow,
     showDesktop,
     hydrateForViewport,
@@ -90,6 +94,7 @@ export function DesktopShell() {
       windows: state.windows,
       launchApp: state.launchApp,
       closeWindow: state.closeWindow,
+      focusWindow: state.focusWindow,
       toggleTaskbarWindow: state.toggleTaskbarWindow,
       showDesktop: state.showDesktop,
       hydrateForViewport: state.hydrateForViewport,
@@ -228,6 +233,38 @@ export function DesktopShell() {
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
   });
+
+  useEffect(() => {
+    const handleCycle = (event: KeyboardEvent) => {
+      if (!event.altKey || (event.key !== "[" && event.key !== "]")) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+
+      const visible = windows
+        .filter((w) => !w.minimized)
+        .slice()
+        .sort((a, b) => a.zIndex - b.zIndex);
+
+      if (visible.length < 2) {
+        return;
+      }
+
+      event.preventDefault();
+      const focusedIndex = visible.findIndex((w) => w.focused);
+      const current = focusedIndex < 0 ? 0 : focusedIndex;
+      const next =
+        event.key === "]" ? (current + 1) % visible.length : (current - 1 + visible.length) % visible.length;
+      focusWindow(visible[next].id);
+    };
+
+    window.addEventListener("keydown", handleCycle);
+    return () => window.removeEventListener("keydown", handleCycle);
+  }, [windows, focusWindow]);
 
   useEffect(() => {
     void initialize();
@@ -440,7 +477,10 @@ export function DesktopShell() {
 
   return (
     <main
-      className={`os-root${wallpaperPresentation.animated ? " is-animated-wallpaper" : ""}`}
+      className={cn(
+        "os-root",
+        wallpaperPresentation.animated && "is-animated-wallpaper"
+      )}
       style={
         {
           "--desktop-wallpaper": wallpaperPresentation.background,
@@ -452,6 +492,8 @@ export function DesktopShell() {
       }
       onClick={() => setContextMenu(null)}
     >
+      <LandingOverlay />
+      <OsOnboarding />
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
 

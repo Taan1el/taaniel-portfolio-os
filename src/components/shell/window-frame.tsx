@@ -5,6 +5,7 @@ import { Rnd } from "react-rnd";
 import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
 import type { AppWindow } from "@/types/system";
+import wfStyles from "@/components/shell/window-frame.module.css";
 
 interface WindowFrameProps {
   window: AppWindow;
@@ -85,7 +86,10 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
       <motion.section
         ref={ref}
         data-window-preview-id={window.id}
-        className={cn("window-frame", active && "is-active")}
+        role="dialog"
+        aria-labelledby={`window-title-${window.id}`}
+        aria-modal="false"
+        className={cn("window-frame", wfStyles.surface, active && "is-active")}
         onMouseDown={onFocus}
         onTouchStart={onFocus}
         onAnimationComplete={() => setInteracting(false)}
@@ -101,7 +105,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
               <Icon size={15} />
             </span>
             <div>
-              <strong>{window.title}</strong>
+              <strong id={`window-title-${window.id}`}>{window.title}</strong>
               <small>{definition.category}</small>
             </div>
           </div>

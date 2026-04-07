@@ -11,6 +11,7 @@ import {
   bundledWorkspaceAssets,
   bundledWorkspaceDirectories,
 } from "@/data/bundled-assets";
+import { getImageFileMetaFromUrl } from "@/lib/image-path";
 import { GAMES_README_CONTENT, GAMES_README_PATH } from "@/lib/games";
 import { DEFAULT_NOTE_CONTENT, DEFAULT_NOTE_NAME, NOTES_DIRECTORY_PATH } from "@/lib/notes";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
@@ -74,11 +75,17 @@ ${socialLinks.map((link) => `- [${link.label}](${link.url})`).join("\n")}
 `;
 
 const uiNotes = `export const portfolioPositioning = {
-  productFeel: "portfolio as operating system",
-  designLanguage: "nostalgic desktop, modern interaction",
-  recruiterPriority: true,
-  focus: ["frontend", "design systems", "creative engineering"],
+  shell: "browser desktop as technical sample",
+  fastPath: "/simple for recruiters",
+  focus: ["React", "TypeScript", "UI systems", "design-to-code"],
 };
+`;
+
+const labReadme = `# Lab
+
+Games, music, paint, and experimental apps are grouped under **Start → Lab** so the default desktop stays focused on About, Projects, Resume, and Contact.
+
+Use this folder as a reminder: everything in Lab is optional exploration, not required to evaluate my frontend work.
 `;
 
 const buildJournalMarkdown = `# Building a Portfolio OS
@@ -114,6 +121,7 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     [NOTES_DIRECTORY_PATH]: directory(NOTES_DIRECTORY_PATH),
     "/Users": directory("/Users"),
     "/Users/Public": directory("/Users/Public"),
+    "/Users/Public/Lab": directory("/Users/Public/Lab"),
     "/Users/Public/Blog": directory("/Users/Public/Blog"),
     "/Portfolio": directory("/Portfolio"),
     "/Portfolio/Case Studies": directory("/Portfolio/Case Studies"),
@@ -171,6 +179,10 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     content: GAMES_README_CONTENT,
   });
 
+  nodes["/Users/Public/Lab/README.md"] = file("/Users/Public/Lab/README.md", "md", "text/markdown", {
+    content: labReadme,
+  });
+
   nodes["/Documents/Taaniel-Vananurm-CV.pdf"] = file(
     "/Documents/Taaniel-Vananurm-CV.pdf",
     "pdf",
@@ -184,6 +196,23 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
   featuredProjects.forEach((project) => {
     const directoryPath = `/Portfolio/Case Studies/${project.title}`;
     nodes[directoryPath] = directory(directoryPath);
+
+    const extraSections = [
+      project.problem ? `## Problem\n\n${project.problem}` : "",
+      project.architecture?.length
+        ? `## Architecture\n\n${project.architecture.map((a) => `### ${a.title}\n\n${a.body}`).join("\n\n")}`
+        : "",
+      project.technicalHighlights?.length
+        ? `## Technical highlights\n\n${project.technicalHighlights.map((h) => `- ${h}`).join("\n")}`
+        : "",
+      project.challengesAndTradeoffs ? `## Challenges and tradeoffs\n\n${project.challengesAndTradeoffs}` : "",
+      project.whatILearned ? `## What I learned\n\n${project.whatILearned}` : "",
+      project.measurableOutcome ? `## Measurable outcome\n\n${project.measurableOutcome}` : "",
+      project.liveUrl ? `## Live\n\n${project.liveUrl}` : "",
+      project.repoUrl ? `## Repository\n\n${project.repoUrl}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     nodes[`${directoryPath}/Overview.md`] = file(
       `${directoryPath}/Overview.md`,
@@ -212,17 +241,18 @@ ${project.challenge}
 
 ${project.outcome}
 
-## Stack
+${extraSections ? `${extraSections}\n\n` : ""}## Stack
 
 ${project.stack.map((item) => `- ${item}`).join("\n")}
 `,
       }
     );
 
-    nodes[`${directoryPath}/Hero.${project.hero.endsWith(".png") ? "png" : "jpg"}`] = file(
-      `${directoryPath}/Hero.${project.hero.endsWith(".png") ? "png" : "jpg"}`,
-      project.hero.endsWith(".png") ? "png" : "jpg",
-      project.hero.endsWith(".png") ? "image/png" : "image/jpeg",
+    const heroMeta = getImageFileMetaFromUrl(project.hero);
+    nodes[`${directoryPath}/Hero.${heroMeta.extension}`] = file(
+      `${directoryPath}/Hero.${heroMeta.extension}`,
+      heroMeta.extension,
+      heroMeta.mimeType,
       {
         source: project.hero,
         readonly: true,
@@ -230,11 +260,11 @@ ${project.stack.map((item) => `- ${item}`).join("\n")}
     );
 
     project.layouts.forEach((layout, index) => {
-      const extension = layout.endsWith(".png") ? "png" : "jpg";
-      nodes[`${directoryPath}/Layout-${index + 1}.${extension}`] = file(
-        `${directoryPath}/Layout-${index + 1}.${extension}`,
-        extension,
-        extension === "png" ? "image/png" : "image/jpeg",
+      const meta = getImageFileMetaFromUrl(layout);
+      nodes[`${directoryPath}/Layout-${index + 1}.${meta.extension}`] = file(
+        `${directoryPath}/Layout-${index + 1}.${meta.extension}`,
+        meta.extension,
+        meta.mimeType,
         {
           source: layout,
           readonly: true,
