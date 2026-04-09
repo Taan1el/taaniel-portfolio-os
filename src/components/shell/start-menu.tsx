@@ -199,18 +199,6 @@ export function StartMenu({
           >
             Featured work
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="quick-link"
-            onClick={() => {
-              onRequestClose();
-              window.dispatchEvent(new CustomEvent("portfolio:open-landing"));
-            }}
-            onMouseMove={updateStartMenuSpotlight}
-          >
-            Welcome screen
-          </Button>
         </div>
       </div>
     </StartMenuShell>

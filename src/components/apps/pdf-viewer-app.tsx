@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Download, Printer, Search, SearchX } from "lucide-react";
 import { AppContent, AppScaffold, AppToolbar, ScrollArea } from "@/components/apps/app-layout";
 import { getResumeDownloadUrls, resumePdfPath } from "@/data/portfolio";
@@ -34,6 +34,7 @@ export function PdfViewerApp({ window }: AppComponentProps) {
     selectedFile && selectedFile.kind === "file" ? selectedFile.source ?? resumePdfPath : resumePdfPath;
   const isResumeDocument =
     window.payload?.filePath?.endsWith("Taaniel-Vananurm-CV.pdf") ?? false;
+  const [renderMode, setRenderMode] = useState<"browser" | "canvas">(() => (isResumeDocument ? "browser" : "canvas"));
   const pdfSources = useMemo(() => {
     if (isResumeDocument || primarySource === resumePdfPath) {
       return getResumeDownloadUrls();
@@ -60,6 +61,13 @@ export function PdfViewerApp({ window }: AppComponentProps) {
           </small>
         </div>
         <div className="app-toolbar__group">
+          <button
+            type="button"
+            className="pill-button"
+            onClick={() => setRenderMode((mode) => (mode === "canvas" ? "browser" : "canvas"))}
+          >
+            {renderMode === "canvas" ? "Use browser preview" : "Use renderer"}
+          </button>
           <button
             type="button"
             className="icon-button"
@@ -115,7 +123,11 @@ export function PdfViewerApp({ window }: AppComponentProps) {
             <span>Zoom {Math.round(scale * 100)}%</span>
           </div>
 
-          {errorMessage ? (
+          {renderMode === "browser" ? (
+            <div className="pdf-viewer__browser">
+              <iframe className="resume-app__frame" src={activeSource} title="PDF preview" />
+            </div>
+          ) : errorMessage ? (
             <div className="pdf-viewer__fallback">
               <strong>PDF preview unavailable</strong>
               <p>{errorMessage}</p>

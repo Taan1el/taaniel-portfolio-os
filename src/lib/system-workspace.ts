@@ -5,10 +5,7 @@ import {
 import { photographyAssets } from "@/data/portfolio";
 import {
   GAMES_DIRECTORY_PATH,
-  GAMES_README_CONTENT,
   GAMES_README_PATH,
-  LEGACY_GAMES_README_CONTENT,
-  PORTS_GAMES_README_CONTENT,
 } from "@/lib/games";
 import { ensureNotesWorkspace } from "@/lib/notes";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
@@ -16,7 +13,6 @@ import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/sy
 export const LEGACY_WELCOME_PATH = "/Desktop/Welcome.md";
 const LEGACY_MUSIC_PATHS = ["/Media/Music/Studio Loop.mp3", "/Media/Music/T-Rex Roar.mp3"];
 const REQUIRED_DIRECTORIES = [
-  GAMES_DIRECTORY_PATH,
   "/Media",
   "/Media/Music",
   "/Media/Photography",
@@ -133,50 +129,50 @@ export function ensureSystemWorkspace(nodes: FileSystemRecord) {
   });
 
   BUNDLED_READONLY_FILES.forEach((asset) => {
-    if (nextNodes[asset.path]) {
+    const existing = nextNodes[asset.path];
+
+    if (!existing) {
+      nextNodes = {
+        ...nextNodes,
+        [asset.path]: createFileNode(asset.path, asset.extension, asset.mimeType, asset.source, timestamp),
+      };
+      changed = true;
       return;
     }
 
-    nextNodes = {
-      ...nextNodes,
-      [asset.path]: createFileNode(
-        asset.path,
-        asset.extension,
-        asset.mimeType,
-        asset.source,
-        timestamp
-      ),
-    };
-    changed = true;
+    // Refresh bundled readonly assets even when persisted nodes exist,
+    // so moving files under /public/assets (e.g. Music/Photography/Work) doesn't break old sessions.
+    if (
+      existing.kind === "file" &&
+      existing.readonly === true &&
+      (existing.source !== asset.source ||
+        existing.extension !== asset.extension ||
+        existing.mimeType !== asset.mimeType)
+    ) {
+      nextNodes = {
+        ...nextNodes,
+        [asset.path]: {
+          ...existing,
+          source: asset.source,
+          extension: asset.extension,
+          mimeType: asset.mimeType,
+          updatedAt: timestamp,
+        },
+      };
+      changed = true;
+    }
   });
 
-  const gamesReadmeNode = nextNodes[GAMES_README_PATH];
+  // Portfolio is no longer shipping games by default; remove legacy game surfaces if present.
+  if (nextNodes[GAMES_README_PATH] || nextNodes[GAMES_DIRECTORY_PATH]) {
+    nextNodes = { ...nextNodes };
+    delete nextNodes[GAMES_README_PATH];
 
-  if (!gamesReadmeNode) {
-    nextNodes = {
-      ...nextNodes,
-      [GAMES_README_PATH]: createTextFileNode(
-        GAMES_README_PATH,
-        "md",
-        "text/markdown",
-        GAMES_README_CONTENT,
-        timestamp
-      ),
-    };
-    changed = true;
-  } else if (
-    gamesReadmeNode.kind === "file" &&
-    (gamesReadmeNode.content === LEGACY_GAMES_README_CONTENT ||
-      gamesReadmeNode.content === PORTS_GAMES_README_CONTENT)
-  ) {
-    nextNodes = {
-      ...nextNodes,
-      [GAMES_README_PATH]: {
-        ...gamesReadmeNode,
-        content: GAMES_README_CONTENT,
-        updatedAt: timestamp,
-      },
-    };
+    Object.keys(nextNodes).forEach((path) => {
+      if (path === GAMES_DIRECTORY_PATH || path.startsWith(`${GAMES_DIRECTORY_PATH}/`)) {
+        delete nextNodes[path];
+      }
+    });
     changed = true;
   }
 

@@ -27,7 +27,7 @@ export const classicPortfolio = {
       title: "Fintech email campaign (0% offer)",
       oneLiner:
         "Team-designed a hero banner and modular email layout that highlights a 0% offer with clear hierarchy and a single, strong CTA.",
-      hero: resolvePublicAssetUrl("assets/Dineromon_hero_v2.png"),
+      hero: resolvePublicAssetUrl("assets/Work/Dineromon_hero_v2.png"),
       heroAlt:
         "Red-background hero with a large 0% interest message, pill CTA button, and a smiling person holding shopping bags.",
     },
@@ -37,7 +37,7 @@ export const classicPortfolio = {
       title: "Fast-loan email hero + template",
       oneLiner:
         "Designed as a team member a speed-focused hero (10 minutes) with lifestyle context to drive loan applications and sign-ups.",
-      hero: resolvePublicAssetUrl("assets/Credito365_2605.jpg"),
+      hero: resolvePublicAssetUrl("assets/Work/Credito365_2605.jpg"),
       heroAlt:
         "Hero visual emphasizing getting money in 10 minutes, a CTA button, and a shopping context.",
     },
@@ -47,7 +47,7 @@ export const classicPortfolio = {
       title: "Mascot-driven email campaign",
       oneLiner:
         "Team-designed a personality-rich hero that combines the campaign promise with a mini-UI card for instant clarity.",
-      hero: resolvePublicAssetUrl("assets/Cozmo_2605.jpg"),
+      hero: resolvePublicAssetUrl("assets/Work/Cozmo_2605.jpg"),
       heroAlt:
         "Hero visual with mascot, an offer up to 30,000 pesos, and a mini UI card showing amount and term.",
     },
@@ -79,8 +79,8 @@ export const classicPortfolio = {
     approach: "I start from the goal, keep the composition clean, and move the design into code quickly.",
   },
   work: {
-    eyebrow: "Extended case studies",
-    title: "Systems, experiments, and more work.",
-    intro: "Below: the browser OS portfolio build, roadmap projects, and the same campaigns in a longer case-study format.",
+    eyebrow: "More work",
+    title: "Hero visuals shipped for different markets.",
+    intro: "A growing collection of hero images created for companies across different countries.",
   },
 };

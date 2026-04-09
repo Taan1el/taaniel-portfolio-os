@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { themePresets } from "@/data/portfolio";
@@ -10,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
 import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
-import { LandingOverlay } from "@/components/landing/landing-overlay";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
@@ -149,6 +149,7 @@ export function DesktopShell() {
   });
 
   const shellSearchBrowseRef = useRef<ShellSearchResultsHandle>(null);
+  const navigate = useNavigate();
 
   const openExternal = (url: string) => {
     launchApp({
@@ -301,7 +302,11 @@ export function DesktopShell() {
     }
 
     if (entry.type === "link" && entry.externalUrl) {
-      openExternal(entry.externalUrl);
+      if (entry.externalUrl.startsWith("/")) {
+        navigate(entry.externalUrl);
+      } else {
+        openExternal(entry.externalUrl);
+      }
     }
   };
 
@@ -492,7 +497,6 @@ export function DesktopShell() {
       }
       onClick={() => setContextMenu(null)}
     >
-      <LandingOverlay />
       <OsOnboarding />
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { portfolioBuilt } from "@/data/portfolio-built";
 import { classicPortfolio } from "@/data/classic-portfolio";
 import {
-  featuredProjects,
   getResumeDownloadUrls,
   landingCopy,
   profile,
@@ -14,7 +13,15 @@ import styles from "@/components/recruiter/recruiter-view.module.css";
 
 const LANDING_KEY = "portfolio-landing-dismissed";
 
-const CLASSIC_PROJECT_IDS = new Set(["dineromon", "credito365", "cozmo"]);
+const workGallery = [
+  { id: "group-16", title: "Group 16", src: "/assets/Work/Group 16.png" },
+  { id: "sol-rem-1", title: "Sol Rem 1", src: "/assets/Work/Sol_Rem_1.png" },
+  { id: "vivus-202505", title: "Vivus Hero 202505", src: "/assets/Work/Vivus_hero_202505.jpg" },
+  { id: "vivus-mx", title: "Vivus OM MX Hero", src: "/assets/Work/Vivus_om_mx_Hero.jpg" },
+  { id: "group-22", title: "Group 22", src: "/assets/Work/Group 22.png" },
+  { id: "group-1", title: "Group 1", src: "/assets/Work/Group 1.png" },
+  { id: "group-17", title: "Group 17", src: "/assets/Work/Group 17.png" },
+];
 
 export function RecruiterView() {
   useEffect(() => {
@@ -101,55 +108,17 @@ export function RecruiterView() {
           <h2 id="projects-heading">{classicPortfolio.work.title}</h2>
           <p className={styles.meta}>{classicPortfolio.work.intro}</p>
           <div className={styles.grid} style={{ marginTop: "1.25rem" }}>
-            {featuredProjects.filter((project) => !CLASSIC_PROJECT_IDS.has(project.id)).map((project) => (
-              <article key={project.id} className={styles.card}>
+            {workGallery.map((item) => (
+              <article key={item.id} className={styles.card}>
                 <div className={styles.cardImage}>
-                  <SafeImage src={project.hero} alt="" />
+                  <SafeImage src={item.src} alt={item.title} />
                 </div>
                 <div className={styles.cardBody}>
-                  <p className={styles.eyebrow}>{project.type}</p>
-                  <h3>{project.title}</h3>
-                  <p className={styles.meta}>{project.oneLiner}</p>
-                  {project.problem ? (
-                    <p className={styles.meta}>
-                      <strong style={{ color: "var(--text-strong)" }}>Problem: </strong>
-                      {project.problem}
-                    </p>
-                  ) : null}
-                  {project.architecture?.length ? (
-                    <ul className={styles.builtList}>
-                      {project.architecture.map((block) => (
-                        <li key={block.title}>
-                          <strong style={{ color: "var(--text-strong)" }}>{block.title}: </strong>
-                          {block.body}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {project.technicalHighlights?.length ? (
-                    <ul className={styles.builtList}>
-                      {project.technicalHighlights.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  <div className={styles.stack}>
-                    {project.stack.map((item) => (
-                      <span key={item}>{item}</span>
-                    ))}
-                  </div>
-                  <div className={styles.links}>
-                    {project.liveUrl ? (
-                      <a href={project.liveUrl} target="_blank" rel="noreferrer">
-                        Live demo
-                      </a>
-                    ) : null}
-                    {project.repoUrl ? (
-                      <a href={project.repoUrl} target="_blank" rel="noreferrer">
-                        Source
-                      </a>
-                    ) : null}
-                  </div>
+                  <p className={styles.eyebrow}>Hero visual</p>
+                  <h3>{item.title}</h3>
+                  <p className={styles.meta}>
+                    Marketing hero image created for a company in an international market.
+                  </p>
                 </div>
               </article>
             ))}

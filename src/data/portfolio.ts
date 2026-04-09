@@ -24,7 +24,7 @@ export const landingCopy = {
 };
 
 /** Primary CV URL (served from /public). Add a mirror if the main host blocks PDF fetch. */
-export const resumePdfPath = resolvePublicAssetUrl("assets/Taaniel-Vananurm-CV.pdf");
+export const resumePdfPath = resolvePublicAssetUrl("assets/CV_Taaniel_Vananurm.pdf");
 
 /** Optional absolute URL (e.g. GitHub raw). Tried in the PDF viewer if the primary URL fails. */
 export const resumePdfFallbackUrl: string | null = null;
@@ -80,114 +80,7 @@ export const socialLinks: SocialLink[] = [
   },
 ];
 
-const osPortfolioScreens = [
-  resolvePublicAssetUrl("assets/os-portfolio-hero.svg"),
-];
-
 export const featuredProjects: FeaturedProject[] = [
-  {
-    id: "portfolio-os",
-    title: "Browser-Based Desktop OS Portfolio",
-    type: "Frontend system / portfolio",
-    oneLiner: "Built a full desktop-like environment in the browser using React and TypeScript.",
-    role: "Solo — design and implementation",
-    problem:
-      "Recruiters need credible frontend signal quickly, but a conventional scroll-only portfolio hides systems thinking. I needed one surface that is both easy to scan and deep enough to inspect.",
-    challenge:
-      "Balance novelty with usability: keep the OS metaphor without trapping people who only have thirty seconds.",
-    outcome:
-      "A dual-mode presentation: a static fast path (/simple) plus an interactive shell that demonstrates state, lazy loading, and persistence.",
-    measurableOutcome:
-      "Initial JS stays split across lazy routes; heavy apps load on demand (measured via network panel on cold load).",
-    hero: resolvePublicAssetUrl("assets/os-portfolio-hero.svg"),
-    layouts: osPortfolioScreens,
-    stack: ["React", "TypeScript", "Zustand", "IndexedDB", "pdf.js", "Vite", "Framer Motion"],
-    architecture: [
-      {
-        title: "Window system",
-        body: "react-rnd-backed windows with drag, resize, z-index stacking, minimize/maximize, and viewport clamping.",
-      },
-      {
-        title: "State management",
-        body: "Zustand stores for windows, processes, filesystem, and shell chrome; shallow subscriptions to limit rerenders.",
-      },
-      {
-        title: "App registry",
-        body: "Central registry maps app ids to lazy React modules so viewers and games are not in the critical path bundle.",
-      },
-      {
-        title: "Virtual filesystem",
-        body: "Tree of virtual nodes seeded with portfolio content; user files persist in IndexedDB via idb-keyval.",
-      },
-    ],
-    technicalHighlights: [
-      "Lazy-loaded app modules per `AppId`",
-      "IndexedDB persistence for FS + desktop layout",
-      "xterm-based terminal wired to portfolio commands",
-      "Optional Hugging Face–backed semantic search in the shell",
-    ],
-    challengesAndTradeoffs:
-      "A desktop UX is unfamiliar on the web, so I added onboarding, keyboard shortcuts, and a recruiter route without stripping the differentiator. Full a11y for every nested app is ongoing; core chrome now exposes focusable controls and labels.",
-    whatILearned:
-      "Treating the portfolio as a product surface forces clearer boundaries between shell, apps, and data—and makes tradeoffs (bundle size vs features) very concrete.",
-    screenshots: osPortfolioScreens,
-    liveUrl: undefined,
-    repoUrl: "https://github.com/Taan1el/taaniel-portfolio-os",
-  },
-  {
-    id: "realtime-dashboard",
-    title: "Real-time operations dashboard",
-    type: "Product UI (planned)",
-    oneLiner: "Live KPI tiles and drill-down panels for a small operations team—placeholder scope for an upcoming build.",
-    role: "Frontend owner (planned)",
-    problem:
-      "Stakeholders refresh spreadsheets for numbers that already exist in APIs; latency and layout noise hide anomalies.",
-    challenge:
-      "Show trustworthy live data with sane empty/loading/error states on mid-tier mobile hardware.",
-    outcome:
-      "Target: sub-second perceived updates on Wi‑Fi, readable density on 1280px, and accessible color-independent status cues.",
-    measurableOutcome: "Estimated: 40–60% fewer ‘status check’ messages once tiles are trusted (to validate with users).",
-    hero: resolvePublicAssetUrl("assets/Real-time_operations_dashboard.png"),
-    layouts: [],
-    stack: ["React", "TypeScript", "REST or WebSocket", "TanStack Query (planned)", "CSS modules"],
-    technicalHighlights: [
-      "Server-driven filters with optimistic UI where safe",
-      "Virtualized list for alert stream",
-      "Role-based column visibility",
-    ],
-    challengesAndTradeoffs:
-      "Polling vs sockets: start with polling + backoff for simplicity; move to WS when SLA requires it.",
-    whatILearned: "Placeholder — will document instrumentation and API contracts after build.",
-    liveUrl: undefined,
-    repoUrl: undefined,
-  },
-  {
-    id: "form-workflow-ui",
-    title: "Form builder / workflow UI",
-    type: "Workflow tool (planned)",
-    oneLiner: "Drag-and-drop steps with validation preview for an internal approvals flow—placeholder scope.",
-    role: "Frontend owner (planned)",
-    problem:
-      "Ops teams edit JSON to change simple approval flows; mistakes ship to production.",
-    challenge:
-      "Make branching readable, validate early, and keep authored graphs exportable for the backend executor.",
-    outcome:
-      "Target: non-developers publish a draft flow in under five minutes with zero invalid graphs.",
-    measurableOutcome: "Estimated: cut flow change requests to engineering by half once self-serve editor ships.",
-    hero: resolvePublicAssetUrl("assets/Form_builder_workflow_UI.png"),
-    layouts: [],
-    stack: ["React", "TypeScript", "Zod (planned)", "Canvas or SVG graph (TBD)"],
-    technicalHighlights: [
-      "Schema-backed graph model shared with API",
-      "Step inspector with inline validation",
-      "JSON import/export for migrations",
-    ],
-    challengesAndTradeoffs:
-      "Custom graph UI vs adopting a diagram library: optimize for maintainability and bundle size once requirements stabilize.",
-    whatILearned: "Placeholder — will capture usability test notes after first prototype.",
-    liveUrl: undefined,
-    repoUrl: undefined,
-  },
   {
     id: "dineromon",
     title: "Fintech Email Campaign (0% Offer)",
@@ -199,8 +92,8 @@ export const featuredProjects: FeaturedProject[] = [
       "Communicate the offer instantly while balancing conversion clarity, trust, and campaign personality inside an email-safe layout.",
     outcome:
       "Delivered a high-contrast hero treatment and readable content structure that keeps the value proposition visible through the click.",
-    hero: resolvePublicAssetUrl("assets/Dineromon_hero_v2.png"),
-    layouts: [resolvePublicAssetUrl("assets/Group 22.png")],
+    hero: resolvePublicAssetUrl("assets/Work/Dineromon_hero_v2.png"),
+    layouts: [resolvePublicAssetUrl("assets/Work/Group 22.png")],
     stack: ["Figma", "Photoshop", "Email layout systems"],
   },
   {
@@ -214,8 +107,8 @@ export const featuredProjects: FeaturedProject[] = [
       "Push urgency without making the visual system feel noisy or untrustworthy in a high-friction financial category.",
     outcome:
       "Created a campaign direction that highlights timing, keeps the CTA readable, and supports acquisition and sign-up flows.",
-    hero: resolvePublicAssetUrl("assets/Credito365_2605.jpg"),
-    layouts: [resolvePublicAssetUrl("assets/Group 1.png")],
+    hero: resolvePublicAssetUrl("assets/Work/Credito365_2605.jpg"),
+    layouts: [resolvePublicAssetUrl("assets/Work/Group 1.png")],
     stack: ["Figma", "Photoshop", "Marketing design"],
   },
   {
@@ -228,25 +121,25 @@ export const featuredProjects: FeaturedProject[] = [
     challenge: "Translate brand personality into a performance-oriented email that still explains the offer quickly.",
     outcome:
       "Shipped a more memorable campaign visual with enough structure to keep the financial message clear and actionable.",
-    hero: resolvePublicAssetUrl("assets/Cozmo_2605.jpg"),
-    layouts: [resolvePublicAssetUrl("assets/Group 17.png")],
+    hero: resolvePublicAssetUrl("assets/Work/Cozmo_2605.jpg"),
+    layouts: [resolvePublicAssetUrl("assets/Work/Group 17.png")],
     stack: ["Figma", "Illustrator", "Campaign systems"],
   },
 ];
 
 export const photographyAssets = [
-  { title: "Alps or the Dolomites", src: resolvePublicAssetUrl("assets/Alps_or_the_Dolomites_canon.jpg") },
-  { title: "Austria Mountains", src: resolvePublicAssetUrl("assets/austria_mountains_canon.jpg") },
-  { title: "Blush of Spring", src: resolvePublicAssetUrl("assets/Blush_of_Spring_canon.jpg") },
-  { title: "Clouds", src: resolvePublicAssetUrl("assets/Clouds.jpg") },
-  { title: "Flower", src: resolvePublicAssetUrl("assets/flower.jpg") },
-  { title: "Flower in Austria", src: resolvePublicAssetUrl("assets/flower_in_austria_canon.jpg") },
-  { title: "Flowers in a Field", src: resolvePublicAssetUrl("assets/Flowers_in_a_field_canon.jpg") },
-  { title: "Flowers", src: resolvePublicAssetUrl("assets/flowers.jpg") },
-  { title: "Golden Wave", src: resolvePublicAssetUrl("assets/Golden_Wave_canon.jpg") },
-  { title: "Mountains", src: resolvePublicAssetUrl("assets/mountains.jpg") },
-  { title: "Mushrooms", src: resolvePublicAssetUrl("assets/mushrooms.jpg") },
-  { title: "The Red Cap", src: resolvePublicAssetUrl("assets/The_Red_Cap_canon.jpg") },
+  { title: "Alps or the Dolomites", src: resolvePublicAssetUrl("assets/Photography/Alps_or_the_Dolomites_canon.jpg") },
+  { title: "Austria Mountains", src: resolvePublicAssetUrl("assets/Photography/austria_mountains_canon.jpg") },
+  { title: "Blush of Spring", src: resolvePublicAssetUrl("assets/Photography/Blush_of_Spring_canon.jpg") },
+  { title: "Clouds", src: resolvePublicAssetUrl("assets/Photography/Clouds.jpg") },
+  { title: "Flower", src: resolvePublicAssetUrl("assets/Photography/flower.jpg") },
+  { title: "Flower in Austria", src: resolvePublicAssetUrl("assets/Photography/flower_in_austria_canon.jpg") },
+  { title: "Flowers in a Field", src: resolvePublicAssetUrl("assets/Photography/Flowers_in_a_field_canon.jpg") },
+  { title: "Flowers", src: resolvePublicAssetUrl("assets/Photography/flowers.jpg") },
+  { title: "Golden Wave", src: resolvePublicAssetUrl("assets/Photography/Golden_Wave_canon.jpg") },
+  { title: "Mountains", src: resolvePublicAssetUrl("assets/Photography/mountains.jpg") },
+  { title: "Mushrooms", src: resolvePublicAssetUrl("assets/Photography/mushrooms.jpg") },
+  { title: "The Red Cap", src: resolvePublicAssetUrl("assets/Photography/The_Red_Cap_canon.jpg") },
 ];
 
 export const themePresets: ThemePreset[] = [
@@ -312,10 +205,38 @@ export const desktopEntries: DesktopEntry[] = [
     defaultGridPosition: { gridX: 1, gridY: 0 },
   },
   {
-    id: "lab-folder",
-    label: "Lab",
-    type: "folder",
-    directoryPath: "/Users/Public/Lab",
+    id: "photos-app",
+    label: "Photos",
+    type: "app",
+    appId: "photos",
     defaultGridPosition: { gridX: 1, gridY: 1 },
+  },
+  {
+    id: "music-app",
+    label: "Music",
+    type: "app",
+    appId: "music",
+    defaultGridPosition: { gridX: 1, gridY: 2 },
+  },
+  {
+    id: "settings-app",
+    label: "Settings",
+    type: "app",
+    appId: "settings",
+    defaultGridPosition: { gridX: 1, gridY: 3 },
+  },
+  {
+    id: "paint-app",
+    label: "Paint",
+    type: "app",
+    appId: "paint",
+    defaultGridPosition: { gridX: 2, gridY: 0 },
+  },
+  {
+    id: "simple-portfolio",
+    label: "Portfolio",
+    type: "link",
+    externalUrl: "/simple",
+    defaultGridPosition: { gridX: 2, gridY: 1 },
   },
 ];

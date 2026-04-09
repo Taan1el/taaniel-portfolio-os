@@ -362,7 +362,8 @@ export function supportsInlinePreview(extensionOrNode: string | VirtualNode | un
 }
 
 export function isBrowserRenderableImageExtension(extension: string) {
-  const association = getFileAssociationDescriptor(extension);
+  const normalized = extension.startsWith(".") ? extension : `.${extension}`;
+  const association = getFileAssociationDescriptor(normalized);
   return Boolean(association?.family === "image" && association.browserRenderable);
 }
 
