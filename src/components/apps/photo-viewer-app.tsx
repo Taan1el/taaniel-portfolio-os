@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import Panzoom from "@panzoom/panzoom";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Expand, Search, SearchX, ZoomIn } from "lucide-react";
 import {
   AppContent,
@@ -6,7 +7,6 @@ import {
   AppScaffold,
   EmptyState,
   IconButton,
-  ScrollArea,
 } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
@@ -18,6 +18,14 @@ import { useSystemStore } from "@/stores/system-store";
 import { useWindowStore } from "@/stores/window-store";
 import type { AppComponentProps, VirtualFile } from "@/types/system";
 
+const PANZOOM_CONFIG = {
+  cursor: "default",
+  maxScale: 7,
+  minScale: 1,
+  panOnlyWhenZoomed: true,
+  step: 0.1,
+};
+
 function isPhotoFile(node: VirtualFile) {
   return node.mimeType.startsWith("image/");
 }
@@ -28,39 +36,102 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
   const updateProcess = useProcessStore((state) => state.updateProcess);
   const setWindowTitle = useWindowStore((state) => state.setWindowTitle);
   const setWallpaperImage = useSystemStore((state) => state.setWallpaperImage);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const panzoomRef = useRef<ReturnType<typeof Panzoom> | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [renderFailed, setRenderFailed] = useState(false);
+
   const { filePath, next, previous, siblings } = useMediaGallery(
     nodes,
     window.payload?.filePath ?? "/Media/Photography/Clouds.jpg",
     isPhotoFile
   );
   const file = readFile(filePath);
-  const [zoom, setZoom] = useState(1);
-  const [renderFailed, setRenderFailed] = useState(false);
 
   const goToImagePath = (path: string) => {
     updateProcess(window.processId, {
-      launchPayload: {
-        ...window.payload,
-        filePath: path,
-      },
+      launchPayload: { ...window.payload, filePath: path },
     });
     setWindowTitle(window.id, getBaseName(path));
   };
 
+  // DaedalOS pattern: create Panzoom once when img element exists; destroy on unmount only.
   useEffect(() => {
-    setZoom(1);
+    const img = imageRef.current;
+    if (!img || panzoomRef.current) return;
+
+    const pz = Panzoom(img, PANZOOM_CONFIG);
+    panzoomRef.current = pz;
+
+    return () => {
+      pz.destroy();
+      panzoomRef.current = null;
+    };
+  }, []);
+
+  // DaedalOS pattern: zoomUpdate callback — snap back if at min zoom but offset.
+  const zoomUpdate = useCallback(
+    (event: Event) => {
+      const detail = (event as unknown as { detail?: { scale?: number; x?: number; y?: number } }).detail;
+      const scale = detail?.scale ?? 0;
+      const x = detail?.x ?? 0;
+      const y = detail?.y ?? 0;
+
+      if (scale) {
+        const isMinScale = scale < PANZOOM_CONFIG.minScale + PANZOOM_CONFIG.step;
+
+        if (isMinScale && (x || y)) {
+          globalThis.setTimeout(() => panzoomRef.current?.reset(), 50);
+        }
+
+        setZoom(isMinScale ? 1 : scale);
+      }
+    },
+    []
+  );
+
+  // DaedalOS pattern: wheel handler on container (native, not React synthetic).
+  const zoomWheel = useCallback((event: WheelEvent) => {
+    event.preventDefault();
+    panzoomRef.current?.zoomWithWheel?.(event, { step: 0.3 });
+  }, []);
+
+  // Attach panzoomchange + wheel listeners.
+  useEffect(() => {
+    const img = imageRef.current;
+    const container = containerRef.current;
+
+    if (img) img.addEventListener("panzoomchange", zoomUpdate);
+    if (container) container.addEventListener("wheel", zoomWheel, { passive: false });
+
+    return () => {
+      img?.removeEventListener("panzoomchange", zoomUpdate);
+      container?.removeEventListener("wheel", zoomWheel);
+    };
+  }, [zoomUpdate, zoomWheel]);
+
+  // DaedalOS pattern: reset on container resize.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      panzoomRef.current?.reset();
+      setZoom(1);
+    });
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, []);
+
+  // On image change: reset zoom state and panzoom transform.
+  useEffect(() => {
     setRenderFailed(false);
-  }, [filePath]);
-
-  useEffect(() => {
-    const element = containerRef.current;
-
-    if (!element) {
-      return;
-    }
-
-    element.focus();
+    panzoomRef.current?.reset();
+    setZoom(1);
+    containerRef.current?.focus();
   }, [filePath]);
 
   if (!file || file.type !== "file") {
@@ -80,8 +151,15 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
       : typeof file.content === "string"
         ? new Blob([file.content]).size
         : undefined;
-  const canRenderInline = Boolean(file.extension && isBrowserRenderableImageExtension(file.extension) && !renderFailed);
+  const canRenderInline = Boolean(
+    file.extension && isBrowserRenderableImageExtension(file.extension) && !renderFailed
+  );
   const zoomLabel = `${Math.round(zoom * 100)}%`;
+
+  const resetZoom = () => {
+    panzoomRef.current?.reset();
+    setZoom(1);
+  };
 
   return (
     <AppScaffold className="photo-viewer">
@@ -95,7 +173,11 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         actions={
           <>
             {file.source ? (
-              <button type="button" className="pill-button" onClick={() => file.source && setWallpaperImage(file.source)}>
+              <button
+                type="button"
+                className="pill-button"
+                onClick={() => file.source && setWallpaperImage(file.source)}
+              >
                 Set as wallpaper
               </button>
             ) : null}
@@ -103,21 +185,21 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
               type="button"
               variant="panel"
               aria-label="Zoom out"
-              onClick={() => setZoom((currentZoom) => Math.max(0.4, currentZoom - 0.2))}
+              onClick={() => panzoomRef.current?.zoomOut?.()}
             >
               <SearchX size={15} />
             </IconButton>
-            <button type="button" className="pill-button" aria-label="Reset zoom" onClick={() => setZoom(1)}>
+            <button type="button" className="pill-button" aria-label="Reset zoom" onClick={resetZoom}>
               {zoomLabel}
             </button>
-            <IconButton type="button" variant="panel" aria-label="Reset zoom" onClick={() => setZoom(1)}>
+            <IconButton type="button" variant="panel" aria-label="Reset zoom" onClick={resetZoom}>
               <Search size={15} />
             </IconButton>
             <IconButton
               type="button"
               variant="panel"
               aria-label="Zoom in"
-              onClick={() => setZoom((currentZoom) => Math.min(3, currentZoom + 0.2))}
+              onClick={() => panzoomRef.current?.zoomIn?.()}
             >
               <ZoomIn size={15} />
             </IconButton>
@@ -134,21 +216,11 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
       />
 
       <AppContent className="photo-viewer__content" padded={false} scrollable={false}>
-        <ScrollArea
+        <div
           ref={containerRef}
           className="photo-viewer__canvas"
           tabIndex={0}
           onDoubleClick={() => containerRef.current?.requestFullscreen()}
-          onWheel={(event) => {
-            if (!event.ctrlKey) {
-              return;
-            }
-
-            event.preventDefault();
-            setZoom((currentZoom) =>
-              Math.max(0.4, Math.min(3, currentZoom + (event.deltaY > 0 ? -0.1 : 0.1)))
-            );
-          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft" && previous) {
               event.preventDefault();
@@ -162,12 +234,12 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
 
             if (event.key === "+" || event.key === "=") {
               event.preventDefault();
-              setZoom((currentZoom) => Math.min(3, currentZoom + 0.2));
+              panzoomRef.current?.zoomIn?.();
             }
 
             if (event.key === "-") {
               event.preventDefault();
-              setZoom((currentZoom) => Math.max(0.4, currentZoom - 0.2));
+              panzoomRef.current?.zoomOut?.();
             }
 
             if (event.key.toLowerCase() === "f") {
@@ -178,21 +250,28 @@ export function PhotoViewerApp({ window }: AppComponentProps) {
         >
           {file.source && canRenderInline ? (
             <img
+              ref={imageRef}
               src={file.source}
               alt={file.name}
-              style={{ transform: `scale(${zoom})` }}
+              className="photo-viewer__image"
               onError={() => setRenderFailed(true)}
+              onLoad={() => {
+                panzoomRef.current?.reset();
+                setZoom(1);
+              }}
+              draggable={false}
             />
           ) : (
             <div className="photo-viewer__fallback">
               <strong>Inline preview unavailable</strong>
               <p>
-                This image format is routed through the photo viewer, but the browser cannot render it inline yet.
+                This image format is routed through the photo viewer, but the browser cannot render it
+                inline yet.
               </p>
               <p>Use Paint export, download the file, or convert it to PNG, JPG, WebP, GIF, BMP, or ICO.</p>
             </div>
           )}
-        </ScrollArea>
+        </div>
       </AppContent>
 
       {siblings.length > 1 ? (

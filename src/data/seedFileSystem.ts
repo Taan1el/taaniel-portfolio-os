@@ -12,7 +12,6 @@ import {
   bundledWorkspaceDirectories,
 } from "@/data/bundled-assets";
 import { getImageFileMetaFromUrl } from "@/lib/image-path";
-import { GAMES_README_CONTENT, GAMES_README_PATH } from "@/lib/games";
 import { DEFAULT_NOTE_CONTENT, DEFAULT_NOTE_NAME, NOTES_DIRECTORY_PATH } from "@/lib/notes";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
 
@@ -81,11 +80,11 @@ const uiNotes = `export const portfolioPositioning = {
 };
 `;
 
-const labReadme = `# Lab
+const labReadme = `# Media folders
 
-Games, music, paint, and experimental apps are grouped under **Start → Lab** so the default desktop stays focused on About, Projects, Resume, and Contact.
-
-Use this folder as a reminder: everything in Lab is optional exploration, not required to evaluate my frontend work.
+- \`/Media/Photography\` is seeded from \`public/assets/Photography\`.
+- \`/Media/Music\` is seeded from \`public/assets/Music\`.
+- \`/Portfolio/Workbench\` contains workbench images you can open in the Photos app.
 `;
 
 const buildJournalMarkdown = `# Building a Portfolio OS
@@ -121,11 +120,9 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     [NOTES_DIRECTORY_PATH]: directory(NOTES_DIRECTORY_PATH),
     "/Users": directory("/Users"),
     "/Users/Public": directory("/Users/Public"),
-    "/Users/Public/Lab": directory("/Users/Public/Lab"),
     "/Users/Public/Blog": directory("/Users/Public/Blog"),
     "/Portfolio": directory("/Portfolio"),
     "/Portfolio/Case Studies": directory("/Portfolio/Case Studies"),
-    "/Games": directory("/Games"),
     "/Media": directory("/Media"),
     "/Media/Music": directory("/Media/Music"),
     "/Media/Photography": directory("/Media/Photography"),
@@ -175,11 +172,7 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
     { content: frontendNotesMarkdown }
   );
 
-  nodes[GAMES_README_PATH] = file(GAMES_README_PATH, "md", "text/markdown", {
-    content: GAMES_README_CONTENT,
-  });
-
-  nodes["/Users/Public/Lab/README.md"] = file("/Users/Public/Lab/README.md", "md", "text/markdown", {
+  nodes["/Users/Public/README.md"] = file("/Users/Public/README.md", "md", "text/markdown", {
     content: labReadme,
   });
 

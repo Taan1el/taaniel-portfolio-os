@@ -319,8 +319,9 @@ export function getLegacyProcessSeed() {
 
 export function getLegacyShellSeed() {
   const legacyState = readLegacySystemState();
+  const defaultThemeId = themePresets.find((preset) => preset.id === "ember-grid")?.id ?? themePresets[0].id;
   const themeId =
-    themePresets.find((preset) => preset.id === legacyState?.themeId)?.id ?? themePresets[0].id;
+    themePresets.find((preset) => preset.id === legacyState?.themeId)?.id ?? defaultThemeId;
 
   return {
     themeId,
@@ -330,7 +331,11 @@ export function getLegacyShellSeed() {
           imageSource: legacyState.customWallpaperSource,
           presetId: null,
         }
-      : defaultDesktopWallpaper,
+      : {
+          mode: "animated" as const,
+          imageSource: null,
+          presetId: "solar-drift",
+        },
     desktopIconPositions: legacyState?.desktopIconPositions ?? initialIconPositions,
   };
 }

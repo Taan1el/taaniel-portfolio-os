@@ -372,8 +372,8 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) calc(var(--space-4) + 0.05rem);
+  gap: var(--space-3);
+  padding: 0.3rem 0.55rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0));
   cursor: move;
@@ -384,7 +384,9 @@ img {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 
 .window-frame__title strong,
@@ -417,7 +419,21 @@ img {
   color: var(--text-muted);
 }
 
-.window-frame__title-icon,
+.window-frame__title-icon {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border-radius: 0.35rem;
+  background: none;
+  color: color-mix(in srgb, var(--app-accent) 82%, white 18%);
+}
+
+.window-frame__title-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
 .start-menu__app-icon {
   display: grid;
   width: 2rem;
@@ -430,14 +446,33 @@ img {
 
 .window-frame__actions {
   display: inline-flex;
-  gap: var(--space-1);
+  gap: 0.2rem;
 }
 
 .window-action-buttons {
   touch-action: auto;
 }
 
-.window-frame__actions button,
+.window-frame__actions button {
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.window-frame__actions button svg {
+  width: 12px;
+  height: 12px;
+}
+
 .icon-button {
   display: grid;
   width: var(--control-height-compact);
@@ -536,9 +571,10 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-3) var(--panel-padding);
+  padding: 0.32rem 0.55rem;
   border-bottom: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
+  font-size: 0.78rem;
 }
 
 .app-footer {
@@ -547,11 +583,11 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: 0.62rem var(--panel-padding);
+  padding: 0.3rem 0.55rem;
   border-top: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .status-bar {
@@ -689,7 +725,6 @@ img {
 
 .hero-panel__actions,
 .action-row,
-.app-toolbar__group,
 .taskbar__tray,
 .taskbar__theme,
 .footer-links,
@@ -697,6 +732,29 @@ img {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.app-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-toolbar-shell .icon-button {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.app-toolbar-shell .icon-button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.app-toolbar-shell .pill-button {
+  min-height: 1.55rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.74rem;
 }
 
 .lead {
@@ -820,11 +878,21 @@ h3 {
 .explorer-item__preview img,
 .media-viewer__canvas img,
 .media-viewer__canvas video,
-.resume-app__frame,
 .theme-card__preview {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.resume-app__frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.pdf-viewer__browser {
+  width: 100%;
+  height: 100%;
 }
 
 .project-showcase__body {
@@ -1010,7 +1078,11 @@ h3 {
 
 .app-toolbar__title {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.1rem;
+}
+
+.app-toolbar__title small {
+  font-size: 0.68rem;
 }
 
 .search-input,
@@ -1714,17 +1786,29 @@ h3 {
 
 .photo-viewer__canvas,
 .media-viewer__canvas {
-  display: grid;
+  display: flex;
   flex: 1;
   min-height: 0;
   min-width: 0;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
   padding: 0.8rem;
   background: rgba(0, 0, 0, 0.28);
   overflow: hidden;
 }
 
-.photo-viewer__canvas img,
+.photo-viewer__image {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 0.6rem;
+  object-fit: contain;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+  display: block;
+  touch-action: none;
+  user-select: none;
+  cursor: default;
+}
+
 .media-viewer__canvas img,
 .media-viewer__canvas video,
 .media-viewer__video {
@@ -1733,8 +1817,8 @@ h3 {
   border-radius: 1rem;
   object-fit: contain;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
-  transition: transform 160ms ease;
   transform-origin: center;
+  display: block;
 }
 
 .media-viewer__video {
@@ -1830,12 +1914,12 @@ h3 {
 }
 
 .photo-viewer__content {
-  padding: 0.8rem 0.8rem 0;
+  padding: 0.35rem 0.35rem 0;
 }
 
 .photo-viewer__canvas {
-  padding: 0.7rem;
-  border-radius: 0.82rem;
+  padding: 0.35rem;
+  border-radius: 0.6rem;
 }
 
 .photo-viewer__filmstrip {

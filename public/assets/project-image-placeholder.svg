@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-label="Image placeholder">
-  <rect width="640" height="400" fill="#1a2332"/>
-  <rect x="40" y="40" width="560" height="320" rx="8" fill="#243044" stroke="#3d4f6a" stroke-width="2"/>
-  <circle cx="320" cy="180" r="48" fill="#3d4f6a"/>
-  <path d="M296 176 L320 200 L344 176" stroke="#8ba3c4" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <text x="320" y="270" text-anchor="middle" fill="#8ba3c4" font-family="system-ui,sans-serif" font-size="15">Asset missing  add image to public/assets</text>
-</svg>
