@@ -38,6 +38,13 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
   const rename = useFileSystemStore((state) => state.rename);
   const updateProcess = useProcessStore((state) => state.updateProcess);
   const setWindowTitle = useWindowStore((state) => state.setWindowTitle);
+  const lastRequestedPathRef = useRef<string | null>(null);
+  const pendingSaveRef = useRef<{
+    path: string;
+    draft: string;
+    extension: string;
+    mimeType: string;
+  } | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -72,17 +79,27 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
         ? appWindow.payload.filePath
         : null;
 
-    if (requestedPath && notes.some((note) => note.path === requestedPath)) {
-      setSelectedPath(requestedPath);
-      return;
+    if (!requestedPath) {
+      lastRequestedPathRef.current = null;
     }
 
-    if (selectedPath && notes.some((note) => note.path === selectedPath)) {
-      return;
-    }
+    setSelectedPath((currentPath) => {
+      if (
+        requestedPath &&
+        requestedPath !== lastRequestedPathRef.current &&
+        notes.some((note) => note.path === requestedPath)
+      ) {
+        lastRequestedPathRef.current = requestedPath;
+        return requestedPath;
+      }
 
-    setSelectedPath(notes[0]?.path ?? DEFAULT_NOTE_PATH);
-  }, [appWindow.payload?.filePath, notes, selectedPath]);
+      if (currentPath && notes.some((note) => note.path === currentPath)) {
+        return currentPath;
+      }
+
+      return notes[0]?.path ?? DEFAULT_NOTE_PATH;
+    });
+  }, [appWindow.payload?.filePath, notes]);
 
   useEffect(() => {
     setDraft(typeof selectedNoteFile?.content === "string" ? selectedNoteFile.content : "");
@@ -132,21 +149,54 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
   }, [pendingTitleFocus, selectedNoteFile?.path]);
 
   useEffect(() => {
+    return () => {
+      const pendingSave = pendingSaveRef.current;
+
+      if (!pendingSave || pendingSave.path !== selectedNoteFile?.path) {
+        return;
+      }
+
+      pendingSaveRef.current = null;
+      void writeFile(pendingSave.path, pendingSave.draft, {
+        extension: pendingSave.extension,
+        mimeType: pendingSave.mimeType,
+      });
+    };
+  }, [selectedNoteFile?.path, writeFile]);
+
+  useEffect(() => {
     if (!selectedNoteFile) {
+      pendingSaveRef.current = null;
       return;
     }
 
-    if (draft === (typeof selectedNoteFile.content === "string" ? selectedNoteFile.content : "")) {
+    const currentContent = typeof selectedNoteFile.content === "string" ? selectedNoteFile.content : "";
+
+    if (draft === currentContent) {
+      pendingSaveRef.current = null;
       setSaveState("saved");
       return;
     }
 
+    const pendingSave = {
+      path: selectedNoteFile.path,
+      draft,
+      extension: selectedNoteFile.extension ?? "txt",
+      mimeType: selectedNoteFile.mimeType ?? "text/plain",
+    };
+
+    pendingSaveRef.current = pendingSave;
     setSaveState("saving");
     const timeoutId = globalThis.window.setTimeout(() => {
-      void writeFile(selectedNoteFile.path, draft, {
-        mimeType: selectedNoteFile.mimeType ?? "text/plain",
-        extension: selectedNoteFile.extension ?? "txt",
-      }).then(() => setSaveState("saved"));
+      pendingSaveRef.current = null;
+      void writeFile(pendingSave.path, pendingSave.draft, {
+        extension: pendingSave.extension,
+        mimeType: pendingSave.mimeType,
+      }).then(() => {
+        if (!pendingSaveRef.current) {
+          setSaveState("saved");
+        }
+      });
     }, 180);
 
     return () => globalThis.window.clearTimeout(timeoutId);
@@ -212,6 +262,7 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
                   key={note.path}
                   type="button"
                   className={cn("notes-app__list-item", selectedPath === note.path && "is-active")}
+                  aria-current={selectedPath === note.path ? "true" : undefined}
                   onClick={() => setSelectedPath(note.path)}
                 >
                   <span className="notes-app__list-icon">
@@ -237,6 +288,7 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
                     ref={titleInputRef}
                     className="notes-app__title-input"
                     value={titleDraft}
+                    aria-label="Note title"
                     onChange={(event) => setTitleDraft(event.target.value)}
                     onBlur={() => void commitTitle()}
                     onKeyDown={(event) => {
@@ -264,7 +316,8 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder="Write something..."
-                spellCheck={false}
+                aria-label={`Note editor for ${formatNoteLabel(selectedNoteFile)}`}
+                spellCheck
               />
             </>
           ) : (
