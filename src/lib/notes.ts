@@ -1,6 +1,7 @@
 import type { FileSystemRecord, VirtualDirectory, VirtualFile, VirtualNode } from "@/types/system";
 
 export const NOTES_DIRECTORY_PATH = "/Documents/Notes";
+export const DOCUMENTS_DIRECTORY_PATH = "/Documents";
 export const DEFAULT_NOTE_NAME = "To-do list.txt";
 export const DEFAULT_NOTE_PATH = `${NOTES_DIRECTORY_PATH}/${DEFAULT_NOTE_NAME}`;
 export const DEFAULT_NOTE_CONTENT = `To-do list
@@ -49,6 +50,14 @@ function createTextNode(path: string, content: string, timestamp: number): Virtu
   };
 }
 
+function isDirectoryNode(node?: VirtualNode): node is VirtualDirectory {
+  return Boolean(node && node.kind === "directory");
+}
+
+function isTextFileNode(node?: VirtualNode): node is VirtualFile {
+  return Boolean(node && node.kind === "file" && typeof node.content === "string");
+}
+
 export function isNotesPath(path?: string) {
   if (!path) {
     return false;
@@ -67,7 +76,15 @@ export function ensureNotesWorkspace(nodes: FileSystemRecord) {
   let changed = false;
   const timestamp = Date.now();
 
-  if (!nextNodes[NOTES_DIRECTORY_PATH]) {
+  if (!isDirectoryNode(nextNodes[DOCUMENTS_DIRECTORY_PATH])) {
+    nextNodes = {
+      ...nextNodes,
+      [DOCUMENTS_DIRECTORY_PATH]: createDirectoryNode(DOCUMENTS_DIRECTORY_PATH, timestamp),
+    };
+    changed = true;
+  }
+
+  if (!isDirectoryNode(nextNodes[NOTES_DIRECTORY_PATH])) {
     nextNodes = {
       ...nextNodes,
       [NOTES_DIRECTORY_PATH]: createDirectoryNode(NOTES_DIRECTORY_PATH, timestamp),
@@ -75,7 +92,7 @@ export function ensureNotesWorkspace(nodes: FileSystemRecord) {
     changed = true;
   }
 
-  if (!nextNodes[DEFAULT_NOTE_PATH]) {
+  if (!isTextFileNode(nextNodes[DEFAULT_NOTE_PATH])) {
     nextNodes = {
       ...nextNodes,
       [DEFAULT_NOTE_PATH]: createTextNode(DEFAULT_NOTE_PATH, DEFAULT_NOTE_CONTENT, timestamp),
