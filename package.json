@@ -43,6 +43,7 @@
     "vitest": "2.1.9"
   },
   "overrides": {
-    "dompurify": "$dompurify"
+    "dompurify": "$dompurify",
+    "protobufjs": "7.5.5"
   }
 }
