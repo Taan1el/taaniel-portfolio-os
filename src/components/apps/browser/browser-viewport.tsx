@@ -7,6 +7,12 @@ import type {
   ViewMode,
 } from "@/lib/browser/types";
 
+declare module "react" {
+  interface IframeHTMLAttributes<T> extends React.HTMLAttributes<T> {
+    credentialless?: "credentialless";
+  }
+}
+
 interface BrowserViewportProps {
   document: BrowserResolvedDocument | null;
   viewMode: ViewMode;
@@ -32,6 +38,10 @@ export function BrowserViewport({
   onOpenInNewTab,
   onRetryWithProxy,
 }: BrowserViewportProps) {
+  const supportsCredentialless =
+    typeof HTMLIFrameElement !== "undefined" &&
+    "credentialless" in HTMLIFrameElement.prototype;
+
   if (viewMode === "fallback") {
     const fallbackState = fallback ?? {
       title: document?.title ?? "Unable to open page",
@@ -90,8 +100,9 @@ export function BrowserViewport({
         src={document.frameSource.kind === "src" ? document.frameSource.value : undefined}
         srcDoc={document.frameSource.kind === "srcDoc" ? document.frameSource.value : undefined}
         title={document.title}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        sandbox="allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts"
         referrerPolicy="no-referrer"
+        credentialless={supportsCredentialless ? "credentialless" : undefined}
         onLoad={onFrameLoad}
         onError={onFrameError}
       />

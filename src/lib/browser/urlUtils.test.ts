@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getUrlOrSearch, normalizeBrowserAddress } from "@/lib/browser/urlUtils";
+import {
+  getUrlOrSearch,
+  normalizeBrowserAddress,
+  normalizeEmbeddableBrowserUrl,
+} from "@/lib/browser/urlUtils";
 
 describe("getUrlOrSearch", () => {
   it("normalizes hostnames to https urls", () => {
@@ -12,13 +16,13 @@ describe("getUrlOrSearch", () => {
 
   it("converts plain text into a search query", () => {
     expect(getUrlOrSearch("frontend case study")).toBe(
-      "https://duckduckgo.com/?q=frontend%20case%20study"
+      "https://www.google.com/search?igu=1&q=frontend%20case%20study"
     );
   });
 
   it("treats dangerous protocols as search input instead of executable urls", () => {
     expect(getUrlOrSearch("javascript:alert(1)")).toBe(
-      "https://duckduckgo.com/?q=javascript%3Aalert(1)"
+      "https://www.google.com/search?igu=1&q=javascript%3Aalert(1)"
     );
   });
 });
@@ -26,12 +30,26 @@ describe("getUrlOrSearch", () => {
 describe("normalizeBrowserAddress", () => {
   it("normalizes local filesystem paths separately from web addresses", () => {
     expect(normalizeBrowserAddress("Documents/Notes")).toBe(
-      "https://duckduckgo.com/?q=Documents%2FNotes"
+      "https://www.google.com/search?igu=1&q=Documents%2FNotes"
     );
     expect(normalizeBrowserAddress("/Documents/Notes")).toBe("/Documents/Notes");
   });
 
   it("returns an empty string for blank input", () => {
     expect(normalizeBrowserAddress("   ")).toBe("");
+  });
+});
+
+describe("normalizeEmbeddableBrowserUrl", () => {
+  it("normalizes Google home into the iframe-friendly variant", () => {
+    expect(normalizeEmbeddableBrowserUrl("https://www.google.com/")).toBe(
+      "https://www.google.com/webhp?igu=1"
+    );
+  });
+
+  it("preserves search pages while forcing Google iframe mode", () => {
+    expect(
+      normalizeEmbeddableBrowserUrl("https://www.google.com/search?q=portfolio")
+    ).toBe("https://www.google.com/search?q=portfolio&igu=1");
   });
 });

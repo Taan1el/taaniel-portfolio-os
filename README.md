@@ -52,6 +52,6 @@ The Browser app is intentionally an iframe-based web viewer, not a full browser 
 
 ## Notes
 
-- **Embedded browser**: The Browser app uses an iframe plus optional proxy modes. Some pages render directly, some only work through a proxy, and many should still be opened with **Open in new tab**.
+- **Embedded browser**: The Browser app uses an iframe plus optional proxy modes. Google `?igu=1`, Wikipedia, and static sites are the best direct targets. Social/auth-heavy sites often still need **Open in new tab**.
 - **Themes**: Defaults to **Cloud Archive**; change wallpaper and accent in **Settings**.
 - **Session data**: Desktop layout, windows, and the virtual filesystem persist in the browser (localStorage / IndexedDB). Use **Reset session** in the Start menu to clear.

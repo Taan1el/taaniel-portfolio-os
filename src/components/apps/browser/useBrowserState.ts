@@ -21,7 +21,7 @@ import type {
 } from "@/lib/browser/types";
 import type { FileNode } from "@/types/system";
 
-const REMOTE_EMBED_TIMEOUT_MS = 5000;
+const REMOTE_EMBED_TIMEOUT_MS = 9000;
 const FAILURE_HISTORY_LIMIT = 12;
 
 interface UseBrowserStateOptions {

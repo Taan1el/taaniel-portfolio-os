@@ -9,6 +9,7 @@ import {
   getProxyIndicatorLabel,
   proxyModeNotes,
 } from "@/lib/browser/proxy";
+import { DEFAULT_BROWSER_HOME } from "@/lib/browser/urlUtils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import type { AppComponentProps } from "@/types/system";
 
@@ -18,7 +19,7 @@ export function Browser({ window }: AppComponentProps) {
     () =>
       window.payload?.externalUrl?.trim() ||
       window.payload?.filePath?.trim() ||
-      "https://duckduckgo.com/",
+      DEFAULT_BROWSER_HOME,
     [window.payload?.externalUrl, window.payload?.filePath]
   );
   const {
