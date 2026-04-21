@@ -2036,6 +2036,12 @@ h3 {
   min-height: var(--control-height-compact);
 }
 
+.browser-app__proxy-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .browser-app__content {
   display: grid;
   min-height: 0;
