@@ -1,70 +1,82 @@
-import { ExternalLink, Globe2, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/apps/app-layout";
-import type { BrowserResolvedDocument } from "@/lib/browser/types";
+import { BrowserFallbackPanel } from "@/components/apps/browser/browser-fallback-panel";
+import type {
+  BrowserFallbackState,
+  BrowserLoadState,
+  BrowserResolvedDocument,
+  ViewMode,
+} from "@/lib/browser/types";
 
 interface BrowserViewportProps {
   document: BrowserResolvedDocument | null;
-  loading: boolean;
-  error: string | null;
+  viewMode: ViewMode;
+  loadState: BrowserLoadState;
+  fallback: BrowserFallbackState | null;
   refreshToken: number;
   canOpenExternally: boolean;
   onFrameLoad: () => void;
   onFrameError: () => void;
   onOpenInNewTab: () => void;
-  onOpenHome: () => void;
+  onRetryWithProxy: () => void;
 }
 
 export function BrowserViewport({
   document,
-  loading,
-  error,
+  viewMode,
+  loadState,
+  fallback,
   refreshToken,
   canOpenExternally,
   onFrameLoad,
   onFrameError,
   onOpenInNewTab,
-  onOpenHome,
+  onRetryWithProxy,
 }: BrowserViewportProps) {
-  if (!document || error) {
+  if (viewMode === "fallback") {
+    const fallbackState = fallback ?? {
+      title: document?.title ?? "Unable to open page",
+      url: document?.displayUrl ?? "No URL available",
+      message: "This site cannot be embedded due to browser restrictions",
+    };
+
     return (
-      <div className="browser-app__fallback">
-        <span className="browser-app__fallback-icon">
-          <ShieldAlert size={22} />
-        </span>
-        <div className="browser-app__fallback-copy">
-          <p className="eyebrow">Browser status</p>
-          <h2>{document?.title ?? "Unable to open page"}</h2>
-          <p>{error ?? "This page could not be resolved."}</p>
-          <code>{document?.displayUrl ?? "No URL available"}</code>
-        </div>
-        <div className="browser-app__fallback-actions">
-          <Button type="button" variant="panel" onClick={onOpenInNewTab} disabled={!canOpenExternally}>
-            <ExternalLink size={15} />
-            Open in new tab
-          </Button>
-          <Button type="button" variant="ghost" onClick={onOpenHome}>
-            <Globe2 size={15} />
-            Open home
-          </Button>
-        </div>
-      </div>
+      <BrowserFallbackPanel
+        fallback={fallbackState}
+        canOpenExternally={canOpenExternally}
+        onOpenInNewTab={onOpenInNewTab}
+        onRetryWithProxy={onRetryWithProxy}
+      />
+    );
+  }
+
+  if (!document) {
+    return (
+      <BrowserFallbackPanel
+        fallback={{
+          title: "Unable to open page",
+          url: "No URL available",
+          message: "This site cannot be embedded due to browser restrictions",
+        }}
+        canOpenExternally={canOpenExternally}
+        onOpenInNewTab={onOpenInNewTab}
+        onRetryWithProxy={onRetryWithProxy}
+      />
     );
   }
 
   return (
-    <div className="browser-app__frame-shell" data-state={loading ? "loading" : "ready"}>
-      {loading ? (
+    <div className="browser-app__frame-shell" data-state={loadState}>
+      {loadState === "loading" ? (
         <div className="browser-app__hint">
           <strong>Loading page</strong>
           <p>
-            The Browser app renders through an iframe. If this stays blank, the site likely blocks
-            framing and should be opened in a new tab.
+            The Browser app renders through an iframe. If the page does not load in time, the app
+            switches to a fallback panel instead of leaving a blank screen.
           </p>
         </div>
       ) : null}
 
       <iframe
-        key={`${document.displayUrl}:${document.frameSource.kind}:${refreshToken}`}
+        key={`${document.displayUrl}:${document.frameSource.kind}:${document.frameSource.value}:${refreshToken}`}
         src={document.frameSource.kind === "src" ? document.frameSource.value : undefined}
         srcDoc={document.frameSource.kind === "srcDoc" ? document.frameSource.value : undefined}
         title={document.title}

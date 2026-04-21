@@ -20,8 +20,9 @@ export function BrowserApp({ window }: AppComponentProps) {
     currentUrl,
     proxyMode,
     setProxyMode,
-    loading,
-    error,
+    viewMode,
+    loadState,
+    fallback,
     resolvedDocument,
     refreshToken,
     canGoBack,
@@ -30,6 +31,7 @@ export function BrowserApp({ window }: AppComponentProps) {
     goBack,
     goForward,
     reload,
+    retryWithProxy,
     handleFrameLoad,
     handleFrameError,
   } = useBrowserSession({
@@ -74,20 +76,21 @@ export function BrowserApp({ window }: AppComponentProps) {
         <section className="browser-app__viewport">
           <BrowserViewport
             document={resolvedDocument}
-            loading={loading}
-            error={error}
+            viewMode={viewMode}
+            loadState={loadState}
+            fallback={fallback}
             refreshToken={refreshToken}
             canOpenExternally={Boolean(canOpenExternally)}
             onFrameLoad={handleFrameLoad}
             onFrameError={handleFrameError}
             onOpenInNewTab={openCurrentInNewTab}
-            onOpenHome={() => visit("https://duckduckgo.com/")}
+            onRetryWithProxy={retryWithProxy}
           />
         </section>
       </AppContent>
 
       <AppFooter className="browser-app__footer">
-        <span>{error ?? resolvedDocument?.note ?? "Browser ready."}</span>
+        <span>{fallback?.message ?? resolvedDocument?.note ?? "Browser ready."}</span>
         <code>{resolvedDocument?.displayUrl ?? currentUrl ?? address ?? "No URL loaded"}</code>
       </AppFooter>
     </AppScaffold>
