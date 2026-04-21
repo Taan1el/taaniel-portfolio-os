@@ -1,7 +1,7 @@
 import { Star } from "lucide-react";
 import { AppSidebar } from "@/components/apps/app-layout";
 import type { BrowserBookmark } from "@/lib/browser/types";
-import { getUrlOrSearch } from "@/lib/browser/url";
+import { getUrlOrSearch } from "@/lib/browser/urlUtils";
 import { cn } from "@/lib/utils";
 
 interface BrowserSidebarProps {

@@ -1,5 +1,6 @@
 import { ExternalLink, Network, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/apps/app-layout";
+import { proxyModeLabels } from "@/lib/browser/proxy";
 import type { BrowserFallbackState } from "@/lib/browser/types";
 
 interface BrowserFallbackPanelProps {
@@ -34,7 +35,9 @@ export function BrowserFallbackPanel({
         </Button>
         <Button type="button" variant="ghost" onClick={onRetryWithProxy} disabled={!fallback.retryProxyMode}>
           <Network size={15} />
-          Retry with proxy
+          {fallback.retryProxyMode
+            ? `Retry with ${proxyModeLabels[fallback.retryProxyMode]}`
+            : "Retry with proxy"}
         </Button>
       </div>
     </div>
