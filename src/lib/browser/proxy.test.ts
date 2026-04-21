@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyProxy } from "@/lib/browser/proxy";
+import { applyProxy, getRetryProxyMode } from "@/lib/browser/proxy";
 
 describe("applyProxy", () => {
   const url = "https://example.com/docs?q=browser test";
@@ -18,5 +18,11 @@ describe("applyProxy", () => {
     expect(applyProxy(url, "wayback")).toBe(
       "https://web.archive.org/web/*/https://example.com/docs?q=browser%20test"
     );
+  });
+
+  it("chooses the next proxy mode for retry", () => {
+    expect(getRetryProxyMode("direct")).toBe("allorigins");
+    expect(getRetryProxyMode("allorigins")).toBe("wayback");
+    expect(getRetryProxyMode("wayback")).toBe("allorigins");
   });
 });

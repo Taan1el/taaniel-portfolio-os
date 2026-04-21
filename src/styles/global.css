@@ -2169,6 +2169,10 @@ h3 {
   gap: 0.3rem;
 }
 
+.browser-app__fallback-copy small {
+  color: var(--text-muted);
+}
+
 .browser-app__fallback-actions {
   display: flex;
   flex-wrap: wrap;

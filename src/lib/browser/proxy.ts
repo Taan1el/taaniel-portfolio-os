@@ -25,3 +25,16 @@ export const proxyModeNotes: Record<ProxyMode, string> = {
 export function applyProxy(url: string, mode: ProxyMode): string {
   return proxyTransformers[mode](url);
 }
+
+export function getRetryProxyMode(mode: ProxyMode): ProxyMode {
+  switch (mode) {
+    case "direct":
+      return "allorigins";
+    case "allorigins":
+      return "wayback";
+    case "wayback":
+      return "allorigins";
+    default:
+      return "allorigins";
+  }
+}
