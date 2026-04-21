@@ -1,7 +1,7 @@
 import { Star } from "lucide-react";
 import { AppSidebar } from "@/components/apps/app-layout";
 import type { BrowserBookmark } from "@/lib/browser/types";
-import { getUrlOrSearch } from "@/lib/browser/urlUtils";
+import { normalizeBrowserAddress } from "@/lib/browser/urlUtils";
 import { cn } from "@/lib/utils";
 
 interface BrowserSidebarProps {
@@ -21,7 +21,7 @@ export function BrowserSidebar({
         <p className="eyebrow">Bookmarks</p>
         <div className="browser-app__bookmark-list">
           {bookmarks.map((bookmark) => {
-            const bookmarkUrl = getUrlOrSearch(bookmark.url);
+            const bookmarkUrl = normalizeBrowserAddress(bookmark.url);
             const isActive = activeUrl === bookmarkUrl;
 
             return (
@@ -37,14 +37,6 @@ export function BrowserSidebar({
             );
           })}
         </div>
-      </div>
-
-      <div className="browser-app__note">
-        <strong>Browser model</strong>
-        <p>
-          This app is an iframe shell with optional proxy modes. Google iframe pages, Wikipedia,
-          and static sites usually work best. Auth-heavy social platforms usually need a new tab.
-        </p>
       </div>
     </AppSidebar>
   );

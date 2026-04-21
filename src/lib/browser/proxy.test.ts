@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { applyProxy, getRetryProxyMode } from "@/lib/browser/proxy";
+import {
+  applyProxy,
+  getProxyStrategy,
+  getRetryProxyMode,
+  proxyModeLabels,
+} from "@/lib/browser/proxy";
 
 describe("applyProxy", () => {
   const url = "https://example.com/docs?q=browser test";
@@ -18,6 +23,12 @@ describe("applyProxy", () => {
     expect(applyProxy(url, "wayback")).toBe(
       "https://web.archive.org/web/*/https://example.com/docs?q=browser%20test"
     );
+  });
+
+  it("exposes structured proxy strategy metadata", () => {
+    expect(getProxyStrategy("direct").kind).toBe("direct");
+    expect(getProxyStrategy("allorigins").kind).toBe("proxy");
+    expect(proxyModeLabels.wayback).toBe("Wayback");
   });
 
   it("chooses the next proxy mode for retry", () => {

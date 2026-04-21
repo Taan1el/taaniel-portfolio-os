@@ -22,7 +22,7 @@ export function BrowserFallbackPanel({
         <ShieldAlert size={22} />
       </span>
       <div className="browser-app__fallback-copy">
-        <p className="eyebrow">Fallback viewer</p>
+        <p className="eyebrow">Preview</p>
         <h2>{fallback.title}</h2>
         <p>{fallback.message}</p>
         {fallback.details ? <small>{fallback.details}</small> : null}

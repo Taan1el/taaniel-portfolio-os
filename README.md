@@ -52,6 +52,7 @@ The Browser app is intentionally an iframe-based web viewer, not a full browser 
 
 ## Notes
 
-- **Embedded browser**: The Browser app uses an iframe plus optional proxy modes. Google `?igu=1`, Wikipedia, and static sites are the best direct targets. Social/auth-heavy sites often still need **Open in new tab**.
+- **Embedded browser**: The Browser app uses capability detection before iframe loading. Known restricted hosts skip straight to fallback, while frame-friendly pages stay direct and no longer fall back after a successful load timeout cycle.
+- **Local browser paths**: Enter `/`, `/Documents`, `/Media`, or any other filesystem directory path in the Browser to get a lightweight directory index and open local previews inside the same window.
 - **Themes**: Defaults to **Cloud Archive**; change wallpaper and accent in **Settings**.
 - **Session data**: Desktop layout, windows, and the virtual filesystem persist in the browser (localStorage / IndexedDB). Use **Reset session** in the Start menu to clear.
