@@ -1,3 +1,4 @@
+import { LoaderCircle } from "lucide-react";
 import { BrowserFallbackPanel } from "@/components/apps/browser/browser-fallback-panel";
 import type {
   BrowserFallbackState,
@@ -66,11 +67,20 @@ export function BrowserViewport({
   return (
     <div className="browser-app__frame-shell" data-state={loadState}>
       {loadState === "loading" ? (
+        <div className="browser-app__loading-bar" aria-hidden="true">
+          <span />
+        </div>
+      ) : null}
+
+      {loadState === "loading" ? (
         <div className="browser-app__hint">
-          <strong>Loading page</strong>
+          <span className="browser-app__hint-heading">
+            <LoaderCircle size={14} />
+            <strong>Loading page</strong>
+          </span>
           <p>
-            The Browser app renders through an iframe. If the page does not load in time, the app
-            switches to a fallback panel instead of leaving a blank screen.
+            The Browser app renders through an iframe. If the page fails or stalls, it switches to
+            a transparent fallback instead of leaving a blank panel.
           </p>
         </div>
       ) : null}

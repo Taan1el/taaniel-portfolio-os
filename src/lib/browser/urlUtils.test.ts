@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getUrlOrSearch } from "@/lib/browser/url";
+import { getUrlOrSearch, normalizeBrowserAddress } from "@/lib/browser/urlUtils";
 
 describe("getUrlOrSearch", () => {
   it("normalizes hostnames to https urls", () => {
@@ -20,5 +20,18 @@ describe("getUrlOrSearch", () => {
     expect(getUrlOrSearch("javascript:alert(1)")).toBe(
       "https://duckduckgo.com/?q=javascript%3Aalert(1)"
     );
+  });
+});
+
+describe("normalizeBrowserAddress", () => {
+  it("normalizes local filesystem paths separately from web addresses", () => {
+    expect(normalizeBrowserAddress("Documents/Notes")).toBe(
+      "https://duckduckgo.com/?q=Documents%2FNotes"
+    );
+    expect(normalizeBrowserAddress("/Documents/Notes")).toBe("/Documents/Notes");
+  });
+
+  it("returns an empty string for blank input", () => {
+    expect(normalizeBrowserAddress("   ")).toBe("");
   });
 });

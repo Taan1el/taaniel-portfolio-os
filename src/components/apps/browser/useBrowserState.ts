@@ -6,7 +6,12 @@ import {
   type ProxyMode,
 } from "@/lib/browser/proxy";
 import { resolveLocalBrowserDocument } from "@/lib/browser/local-file";
-import { getBrowserTitleFromUrl, getUrlOrSearch } from "@/lib/browser/url";
+import {
+  DEFAULT_BROWSER_HOME,
+  getBrowserTitleFromUrl,
+  getUrlOrSearch,
+  normalizeBrowserAddress,
+} from "@/lib/browser/urlUtils";
 import type {
   BrowserFailureRecord,
   BrowserFallbackState,
@@ -16,11 +21,10 @@ import type {
 } from "@/lib/browser/types";
 import type { FileNode } from "@/types/system";
 
-const DEFAULT_BROWSER_HOME = "https://duckduckgo.com/";
 const REMOTE_EMBED_TIMEOUT_MS = 5000;
 const FAILURE_HISTORY_LIMIT = 12;
 
-interface UseBrowserSessionOptions {
+interface UseBrowserStateOptions {
   initialAddress?: string;
   readFile: (path: string) => FileNode | null;
 }
@@ -30,11 +34,9 @@ interface BrowserResolution {
   error: string | null;
 }
 
-export function useBrowserSession({
-  initialAddress,
-  readFile,
-}: UseBrowserSessionOptions) {
-  const startingAddress = initialAddress?.trim() || DEFAULT_BROWSER_HOME;
+export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOptions) {
+  const normalizedInitialAddress = normalizeBrowserAddress(initialAddress ?? "");
+  const startingAddress = normalizedInitialAddress || DEFAULT_BROWSER_HOME;
   const [address, setAddress] = useState(startingAddress);
   const [history, setHistory] = useState<string[]>([startingAddress]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -54,6 +56,7 @@ export function useBrowserSession({
     setLoadState("idle");
     setFallback(null);
     setRefreshToken(0);
+    setFailureHistory([]);
   }, [startingAddress]);
 
   const currentUrl = history[historyIndex] ?? startingAddress;
@@ -101,7 +104,10 @@ export function useBrowserSession({
         timestamp: Date.now(),
       };
 
-      setFailureHistory((currentHistory) => [...currentHistory.slice(-(FAILURE_HISTORY_LIMIT - 1)), nextRecord]);
+      setFailureHistory((currentHistory) => [
+        ...currentHistory.slice(-(FAILURE_HISTORY_LIMIT - 1)),
+        nextRecord,
+      ]);
     },
     [proxyMode]
   );
@@ -110,7 +116,9 @@ export function useBrowserSession({
     (message: string, details: string | undefined, reason: BrowserFailureRecord["reason"]) => {
       const title =
         activeDocument?.title ??
-        (currentUrl.startsWith("/") ? currentUrl.split("/").filter(Boolean).at(-1) ?? currentUrl : getBrowserTitleFromUrl(getUrlOrSearch(currentUrl)));
+        (currentUrl.startsWith("/")
+          ? currentUrl.split("/").filter(Boolean).at(-1) ?? currentUrl
+          : getBrowserTitleFromUrl(getUrlOrSearch(currentUrl)));
       const url = activeDocument?.displayUrl ?? currentUrl;
 
       setViewMode("fallback");
@@ -147,7 +155,11 @@ export function useBrowserSession({
 
     if (resolution.document.frameSource.kind === "srcDoc") {
       if (resolution.error) {
-        activateFallback(resolution.error, "The requested local file could not be rendered in the Browser app.", "local");
+        activateFallback(
+          resolution.error,
+          "The requested local file could not be rendered in the Browser app.",
+          "local"
+        );
         return;
       }
 
@@ -178,68 +190,77 @@ export function useBrowserSession({
     setFallback(null);
   }, []);
 
-  const visit = (nextAddress: string) => {
-    const trimmed = nextAddress.trim();
+  const visit = useCallback(
+    (nextAddress: string) => {
+      const normalizedAddress = normalizeBrowserAddress(nextAddress);
 
-    if (!trimmed) {
-      return;
-    }
+      if (!normalizedAddress) {
+        return;
+      }
 
-    if (trimmed === currentUrl) {
+      if (normalizedAddress === currentUrl) {
+        resetViewForRetry();
+        setRefreshToken((current) => current + 1);
+        return;
+      }
+
       resetViewForRetry();
-      setRefreshToken((current) => current + 1);
-      return;
-    }
+      setRefreshToken(0);
+      setAddress(normalizedAddress);
+      setHistory((currentHistory) => [
+        ...currentHistory.slice(0, historyIndex + 1),
+        normalizedAddress,
+      ]);
+      setHistoryIndex(historyIndex + 1);
+    },
+    [currentUrl, historyIndex, resetViewForRetry]
+  );
 
-    resetViewForRetry();
-    setRefreshToken(0);
-    setAddress(trimmed);
-    setHistory((currentHistory) => [...currentHistory.slice(0, historyIndex + 1), trimmed]);
-    setHistoryIndex(historyIndex + 1);
-  };
-
-  const goBack = () => {
+  const goBack = useCallback(() => {
     resetViewForRetry();
     setRefreshToken(0);
     setHistoryIndex((current) => Math.max(0, current - 1));
-  };
+  }, [resetViewForRetry]);
 
-  const goForward = () => {
+  const goForward = useCallback(() => {
     resetViewForRetry();
     setRefreshToken(0);
     setHistoryIndex((current) => Math.min(history.length - 1, current + 1));
-  };
+  }, [history.length, resetViewForRetry]);
 
-  const reload = () => {
+  const reload = useCallback(() => {
     resetViewForRetry();
     setRefreshToken((current) => current + 1);
-  };
+  }, [resetViewForRetry]);
 
-  const changeProxyMode = (mode: ProxyMode) => {
-    resetViewForRetry();
-    setProxyMode(mode);
-    setRefreshToken((current) => current + 1);
-  };
+  const changeProxyMode = useCallback(
+    (mode: ProxyMode) => {
+      resetViewForRetry();
+      setProxyMode(mode);
+      setRefreshToken((current) => current + 1);
+    },
+    [resetViewForRetry]
+  );
 
-  const retryWithProxy = () => {
+  const retryWithProxy = useCallback(() => {
     const nextProxyMode = fallback?.retryProxyMode ?? getRetryProxyMode(proxyMode);
 
     changeProxyMode(nextProxyMode);
-  };
+  }, [changeProxyMode, fallback?.retryProxyMode, proxyMode]);
 
-  const handleFrameLoad = () => {
+  const handleFrameLoad = useCallback(() => {
     setViewMode("web");
     setLoadState("ready");
     setFallback(null);
-  };
+  }, []);
 
-  const handleFrameError = () => {
+  const handleFrameError = useCallback(() => {
     activateFallback(
       "This site cannot be embedded due to browser restrictions",
       "The iframe reported a loading error. Try opening the page in a new tab or retrying with a different proxy mode.",
       "error"
     );
-  };
+  }, [activateFallback]);
 
   return {
     address,

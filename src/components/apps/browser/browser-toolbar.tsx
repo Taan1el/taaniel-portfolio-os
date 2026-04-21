@@ -1,13 +1,19 @@
-import { ArrowLeft, ArrowRight, ExternalLink, Globe2, RefreshCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Globe2, LoaderCircle, RefreshCcw, Shield } from "lucide-react";
 import { AppToolbar, Button, IconButton, SearchInput } from "@/components/apps/app-layout";
 import {
   proxyModeLabels,
+  proxyModes,
   type ProxyMode,
 } from "@/lib/browser/proxy";
+import type { BrowserLoadState } from "@/lib/browser/types";
 
 interface BrowserToolbarProps {
   address: string;
+  displayedUrl: string;
   proxyMode: ProxyMode;
+  loadState: BrowserLoadState;
+  securityIndicatorLabel: string;
+  securityIndicatorTitle: string;
   canGoBack: boolean;
   canGoForward: boolean;
   canOpenExternally: boolean;
@@ -20,11 +26,13 @@ interface BrowserToolbarProps {
   onOpenInNewTab: () => void;
 }
 
-const proxyModes = Object.keys(proxyModeLabels) as ProxyMode[];
-
 export function BrowserToolbar({
   address,
+  displayedUrl,
   proxyMode,
+  loadState,
+  securityIndicatorLabel,
+  securityIndicatorTitle,
   canGoBack,
   canGoForward,
   canOpenExternally,
@@ -59,24 +67,45 @@ export function BrowserToolbar({
       >
         <SearchInput
           containerClassName="browser-app__address"
-          placeholder="Enter a URL, search, or local file path"
+          placeholder="Enter a URL, search, or /local/path"
+          title={displayedUrl}
+          type="text"
+          spellCheck={false}
+          autoCapitalize="none"
+          autoCorrect="off"
           value={address}
           onChange={(event) => onAddressChange(event.target.value)}
           icon={<Globe2 size={14} />}
         />
       </form>
 
-      <div className="browser-app__proxy-group" role="group" aria-label="Proxy mode">
-        {proxyModes.map((mode) => (
-          <Button
-            key={mode}
-            type="button"
-            variant={proxyMode === mode ? "panel" : "ghost"}
-            onClick={() => onProxyModeChange(mode)}
+      <div className="browser-app__mode-cluster">
+        <span className="browser-app__security-indicator" title={securityIndicatorTitle}>
+          <Shield size={13} />
+          <span>{securityIndicatorLabel}</span>
+        </span>
+
+        <label className="browser-app__proxy-select-shell" title={securityIndicatorTitle}>
+          <select
+            className="browser-app__proxy-select"
+            aria-label="Proxy mode"
+            value={proxyMode}
+            onChange={(event) => onProxyModeChange(event.target.value as ProxyMode)}
           >
-            {proxyModeLabels[mode]}
-          </Button>
-        ))}
+            {proxyModes.map((mode) => (
+              <option key={mode} value={mode}>
+                {proxyModeLabels[mode]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {loadState === "loading" ? (
+          <span className="browser-app__loading-chip" aria-live="polite">
+            <LoaderCircle size={13} />
+            <span>Loading</span>
+          </span>
+        ) : null}
       </div>
 
       <Button type="button" variant="panel" onClick={onOpenInNewTab} disabled={!canOpenExternally}>

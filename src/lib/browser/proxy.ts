@@ -2,6 +2,8 @@ export type ProxyMode = "direct" | "allorigins" | "wayback";
 
 type ProxyTransformer = (url: string) => string;
 
+export const proxyModes: ProxyMode[] = ["direct", "allorigins", "wayback"];
+
 const proxyTransformers: Record<ProxyMode, ProxyTransformer> = {
   direct: (url) => url,
   allorigins: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
@@ -24,6 +26,10 @@ export const proxyModeNotes: Record<ProxyMode, string> = {
 
 export function applyProxy(url: string, mode: ProxyMode): string {
   return proxyTransformers[mode](url);
+}
+
+export function getProxyIndicatorLabel(mode: ProxyMode) {
+  return mode === "direct" ? "Direct" : "Proxied";
 }
 
 export function getRetryProxyMode(mode: ProxyMode): ProxyMode {

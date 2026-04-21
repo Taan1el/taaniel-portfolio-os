@@ -1,4 +1,7 @@
-const DEFAULT_SEARCH_HOME = "https://duckduckgo.com/";
+import { normalizePath } from "@/lib/filesystem";
+
+export const DEFAULT_BROWSER_HOME = "https://duckduckgo.com/";
+
 const SEARCH_QUERY_BASE = "https://duckduckgo.com/?q=";
 const SAFE_PROTOCOLS = new Set(["http:", "https:"]);
 const ABSOLUTE_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
@@ -9,7 +12,7 @@ function buildSearchUrl(query: string) {
   const trimmed = query.trim();
 
   if (!trimmed) {
-    return DEFAULT_SEARCH_HOME;
+    return DEFAULT_BROWSER_HOME;
   }
 
   return `${SEARCH_QUERY_BASE}${encodeURIComponent(trimmed)}`;
@@ -67,6 +70,20 @@ export function getUrlOrSearch(input: string): string {
   }
 
   return buildSearchUrl(input);
+}
+
+export function normalizeBrowserAddress(input: string) {
+  const trimmed = input.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.startsWith("/")) {
+    return normalizePath(trimmed);
+  }
+
+  return getUrlOrSearch(trimmed);
 }
 
 export function getBrowserTitleFromUrl(url: string) {
