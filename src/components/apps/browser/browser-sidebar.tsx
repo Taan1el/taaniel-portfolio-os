@@ -17,26 +17,25 @@ export function BrowserSidebar({
 }: BrowserSidebarProps) {
   return (
     <AppSidebar className="browser-app__sidebar">
-      <div className="browser-app__sidebar-group">
-        <p className="eyebrow">Bookmarks</p>
-        <div className="browser-app__bookmark-list">
-          {bookmarks.map((bookmark) => {
-            const bookmarkUrl = normalizeBrowserAddress(bookmark.url);
-            const isActive = activeUrl === bookmarkUrl;
+      <p className="browser-app__sidebar-label">Bookmarks</p>
+      <div className="browser-app__bookmark-list" role="toolbar" aria-label="Browser bookmarks">
+        {bookmarks.map((bookmark) => {
+          const bookmarkUrl = normalizeBrowserAddress(bookmark.url);
+          const isActive = activeUrl === bookmarkUrl;
 
-            return (
-              <button
-                key={bookmark.label}
-                type="button"
-                className={cn("browser-app__bookmark", isActive && "is-active")}
-                onClick={() => onVisit(bookmark.url)}
-              >
-                <Star size={14} />
-                <span>{bookmark.label}</span>
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={bookmark.label}
+              type="button"
+              className={cn("browser-app__bookmark", isActive && "is-active")}
+              onClick={() => onVisit(bookmark.url)}
+              title={bookmark.label}
+            >
+              <Star size={11} />
+              <span>{bookmark.label}</span>
+            </button>
+          );
+        })}
       </div>
     </AppSidebar>
   );
