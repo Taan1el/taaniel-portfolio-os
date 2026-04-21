@@ -1,7 +1,5 @@
 # Taaniel OS
 
-**[https://taan1el.github.io/taaniel-portfolio-os/](https://taan1el.github.io/taaniel-portfolio-os/)**
-
 Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows, a virtual filesystem (IndexedDB), taskbar with previews, Start menu, search, and bundled apps (terminal, Monaco editor, PDF/photo viewers, music player, games hub, and more).
 
 ## Stack
