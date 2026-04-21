@@ -1,5 +1,7 @@
 # Taaniel OS
 
+**[https://taan1el.github.io/taaniel-portfolio-os/](https://taan1el.github.io/taaniel-portfolio-os/)**
+
 Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows, a virtual filesystem (IndexedDB), taskbar with previews, Start menu, search, and bundled apps (terminal, Monaco editor, PDF/photo viewers, music player, games hub, and more).
 
 ## Stack
@@ -7,6 +9,7 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 - React 18, TypeScript, Vite
 - Zustand (shell, windows, filesystem)
 - Framer Motion, react-rnd, xterm.js, Monaco, pdf.js
+- `@huggingface/transformers` — runs the `all-MiniLM-L6-v2` embedding model entirely in-browser (via ONNX WASM) to rerank Start menu search results by semantic similarity, with no server round-trip
 
 ## Development
 
