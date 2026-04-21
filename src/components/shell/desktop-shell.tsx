@@ -282,7 +282,10 @@ export function DesktopShell() {
 
   const activateEntry = (entry: DesktopEntry) => {
     if (entry.type === "app" && entry.appId) {
-      launchApp({ appId: entry.appId });
+      launchApp({
+        appId: entry.appId,
+        payload: entry.externalUrl ? { externalUrl: entry.externalUrl } : undefined,
+      });
       return;
     }
 

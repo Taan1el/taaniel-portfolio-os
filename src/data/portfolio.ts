@@ -235,8 +235,9 @@ export const desktopEntries: DesktopEntry[] = [
   {
     id: "simple-portfolio",
     label: "Portfolio",
-    type: "link",
-    externalUrl: "/simple",
+    type: "app",
+    appId: "browser",
+    externalUrl: "https://taan1el.github.io/taaniel-portfolio/",
     defaultGridPosition: { gridX: 2, gridY: 1 },
   },
 ];
