@@ -42,8 +42,8 @@ export function BrowserSidebar({
       <div className="browser-app__note">
         <strong>Browser model</strong>
         <p>
-          This app is an iframe shell with optional proxy modes. It is not a real browser engine,
-          so sites that block framing or depend on complex auth flows may fail.
+          This app is an iframe shell with optional proxy modes. Google iframe pages, Wikipedia,
+          and static sites usually work best. Auth-heavy social platforms usually need a new tab.
         </p>
       </div>
     </AppSidebar>

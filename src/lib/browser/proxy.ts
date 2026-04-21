@@ -17,7 +17,8 @@ export const proxyModeLabels: Record<ProxyMode, string> = {
 };
 
 export const proxyModeNotes: Record<ProxyMode, string> = {
-  direct: "Direct iframe mode. Sites that block framing will fail and should be opened in a new tab.",
+  direct:
+    "Direct iframe mode. Google iframe pages, Wikipedia, and some static sites work here. Sites that block framing still need a proxy or a new tab.",
   allorigins:
     "Public proxy preview through AllOrigins. Many pages render, but auth-heavy or script-heavy sites may still fail.",
   wayback:
