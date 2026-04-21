@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, ExternalLink, Globe2, LoaderCircle, RefreshCcw, Shield } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Globe2, LoaderCircle, RefreshCcw } from "lucide-react";
 import { AppToolbar, Button, IconButton, SearchInput } from "@/components/apps/app-layout";
 import {
   proxyModeLabels,
@@ -12,7 +12,6 @@ interface BrowserToolbarProps {
   displayedUrl: string;
   proxyMode: ProxyMode;
   loadState: BrowserLoadState;
-  securityIndicatorLabel: string;
   securityIndicatorTitle: string;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -31,7 +30,6 @@ export function BrowserToolbar({
   displayedUrl,
   proxyMode,
   loadState,
-  securityIndicatorLabel,
   securityIndicatorTitle,
   canGoBack,
   canGoForward,
@@ -80,11 +78,6 @@ export function BrowserToolbar({
       </form>
 
       <div className="browser-app__mode-cluster">
-        <span className="browser-app__security-indicator" title={securityIndicatorTitle}>
-          <Shield size={13} />
-          <span>{securityIndicatorLabel}</span>
-        </span>
-
         <label className="browser-app__proxy-select-shell" title={securityIndicatorTitle}>
           <select
             className="browser-app__proxy-select"

@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { useCallback, useRef } from "react";
 import { BrowserFallbackPanel } from "@/components/apps/browser/browser-fallback-panel";
 import type {
   BrowserFallbackState,
@@ -20,6 +20,7 @@ interface BrowserViewportProps {
   fallback: BrowserFallbackState | null;
   refreshToken: number;
   canOpenExternally: boolean;
+  onLocalNavigate: (path: string) => void;
   onFrameLoad: () => void;
   onFrameError: () => void;
   onOpenInNewTab: () => void;
@@ -33,14 +34,55 @@ export function BrowserViewport({
   fallback,
   refreshToken,
   canOpenExternally,
+  onLocalNavigate,
   onFrameLoad,
   onFrameError,
   onOpenInNewTab,
   onRetryWithProxy,
 }: BrowserViewportProps) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const supportsCredentialless =
     typeof HTMLIFrameElement !== "undefined" &&
     "credentialless" in HTMLIFrameElement.prototype;
+
+  const handleFrameLoad = useCallback(() => {
+    if (document?.kind === "local" && document.localKind === "directory") {
+      try {
+        const frameDocument = iframeRef.current?.contentDocument;
+
+        if (frameDocument && frameDocument.body.dataset.browserLocalBound !== "true") {
+          frameDocument.addEventListener("click", (event) => {
+            const target = event.target;
+
+            if (!(target instanceof Element)) {
+              return;
+            }
+
+            const activator = target.closest("[data-browser-path]");
+
+            if (!(activator instanceof HTMLElement)) {
+              return;
+            }
+
+            const targetPath = activator.getAttribute("data-browser-path");
+
+            if (!targetPath) {
+              return;
+            }
+
+            event.preventDefault();
+            onLocalNavigate(targetPath);
+          });
+
+          frameDocument.body.dataset.browserLocalBound = "true";
+        }
+      } catch {
+        // Ignore failure to bind local directory navigation inside iframe content.
+      }
+    }
+
+    onFrameLoad();
+  }, [document, onFrameLoad, onLocalNavigate]);
 
   if (viewMode === "fallback") {
     const fallbackState = fallback ?? {
@@ -82,20 +124,8 @@ export function BrowserViewport({
         </div>
       ) : null}
 
-      {loadState === "loading" ? (
-        <div className="browser-app__hint">
-          <span className="browser-app__hint-heading">
-            <LoaderCircle size={14} />
-            <strong>Loading page</strong>
-          </span>
-          <p>
-            The Browser app renders through an iframe. If the page fails or stalls, it switches to
-            a transparent fallback instead of leaving a blank panel.
-          </p>
-        </div>
-      ) : null}
-
       <iframe
+        ref={iframeRef}
         key={`${document.displayUrl}:${document.frameSource.kind}:${document.frameSource.value}:${refreshToken}`}
         src={document.frameSource.kind === "src" ? document.frameSource.value : undefined}
         srcDoc={document.frameSource.kind === "srcDoc" ? document.frameSource.value : undefined}
@@ -103,7 +133,7 @@ export function BrowserViewport({
         sandbox="allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts"
         referrerPolicy="no-referrer"
         credentialless={supportsCredentialless ? "credentialless" : undefined}
-        onLoad={onFrameLoad}
+        onLoad={handleFrameLoad}
         onError={onFrameError}
       />
     </div>

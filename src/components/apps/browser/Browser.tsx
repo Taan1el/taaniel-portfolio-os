@@ -1,20 +1,17 @@
 import { useMemo } from "react";
-import { AppContent, AppFooter, AppScaffold } from "@/components/apps/app-layout";
+import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { BrowserSidebar } from "@/components/apps/browser/browser-sidebar";
 import { BrowserToolbar } from "@/components/apps/browser/browser-toolbar";
 import { BrowserViewport } from "@/components/apps/browser/browser-viewport";
 import { useBrowserState } from "@/components/apps/browser/useBrowserState";
 import { browserBookmarks } from "@/lib/browser/bookmarks";
-import {
-  getProxyIndicatorLabel,
-  proxyModeNotes,
-} from "@/lib/browser/proxy";
+import { proxyModeNotes } from "@/lib/browser/proxy";
 import { DEFAULT_BROWSER_HOME } from "@/lib/browser/urlUtils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import type { AppComponentProps } from "@/types/system";
 
 export function Browser({ window }: AppComponentProps) {
-  const readFile = useFileSystemStore((state) => state.readFile);
+  const nodes = useFileSystemStore((state) => state.nodes);
   const initialAddress = useMemo(
     () =>
       window.payload?.externalUrl?.trim() ||
@@ -44,13 +41,11 @@ export function Browser({ window }: AppComponentProps) {
     handleFrameError,
   } = useBrowserState({
     initialAddress,
-    readFile,
+    nodes,
   });
 
   const canOpenExternally = resolvedDocument?.kind === "remote";
   const displayedUrl = resolvedDocument?.displayUrl ?? currentUrl ?? address ?? "No URL loaded";
-  const browserStatusMessage = fallback?.message ?? resolvedDocument?.note ?? "Browser ready.";
-  const securityIndicatorLabel = getProxyIndicatorLabel(proxyMode);
   const securityIndicatorTitle = proxyModeNotes[proxyMode];
 
   const openCurrentInNewTab = () => {
@@ -68,7 +63,6 @@ export function Browser({ window }: AppComponentProps) {
         displayedUrl={displayedUrl}
         proxyMode={proxyMode}
         loadState={loadState}
-        securityIndicatorLabel={securityIndicatorLabel}
         securityIndicatorTitle={securityIndicatorTitle}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
@@ -97,6 +91,7 @@ export function Browser({ window }: AppComponentProps) {
             fallback={fallback}
             refreshToken={refreshToken}
             canOpenExternally={Boolean(canOpenExternally)}
+            onLocalNavigate={visit}
             onFrameLoad={handleFrameLoad}
             onFrameError={handleFrameError}
             onOpenInNewTab={openCurrentInNewTab}
@@ -104,11 +99,6 @@ export function Browser({ window }: AppComponentProps) {
           />
         </section>
       </AppContent>
-
-      <AppFooter className="browser-app__footer">
-        <span>{browserStatusMessage}</span>
-        <code title={displayedUrl}>{displayedUrl}</code>
-      </AppFooter>
     </AppScaffold>
   );
 }

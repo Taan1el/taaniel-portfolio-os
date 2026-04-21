@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getBrowserHostRule, isLikelyEmbeddable } from "@/lib/browser/host-rules";
 import {
   applyProxy,
   getRetryProxyMode,
@@ -19,14 +20,14 @@ import type {
   BrowserResolvedDocument,
   ViewMode,
 } from "@/lib/browser/types";
-import type { FileNode } from "@/types/system";
+import type { FileSystemRecord } from "@/types/system";
 
 const REMOTE_EMBED_TIMEOUT_MS = 9000;
 const FAILURE_HISTORY_LIMIT = 12;
 
 interface UseBrowserStateOptions {
   initialAddress?: string;
-  readFile: (path: string) => FileNode | null;
+  nodes: FileSystemRecord;
 }
 
 interface BrowserResolution {
@@ -34,7 +35,7 @@ interface BrowserResolution {
   error: string | null;
 }
 
-export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOptions) {
+export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOptions) {
   const normalizedInitialAddress = normalizeBrowserAddress(initialAddress ?? "");
   const startingAddress = normalizedInitialAddress || DEFAULT_BROWSER_HOME;
   const [address, setAddress] = useState(startingAddress);
@@ -46,8 +47,17 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
   const [fallback, setFallback] = useState<BrowserFallbackState | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [failureHistory, setFailureHistory] = useState<BrowserFailureRecord[]>([]);
+  const loadTimeoutRef = useRef<number | null>(null);
+
+  const clearLoadTimeout = useCallback(() => {
+    if (loadTimeoutRef.current != null) {
+      globalThis.window.clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
+    clearLoadTimeout();
     setAddress(startingAddress);
     setHistory([startingAddress]);
     setHistoryIndex(0);
@@ -57,7 +67,7 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
     setFallback(null);
     setRefreshToken(0);
     setFailureHistory([]);
-  }, [startingAddress]);
+  }, [clearLoadTimeout, startingAddress]);
 
   const currentUrl = history[historyIndex] ?? startingAddress;
 
@@ -66,20 +76,21 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
   }, [currentUrl]);
 
   const resolution = useMemo<BrowserResolution>(() => {
-    const localResolution = resolveLocalBrowserDocument(currentUrl, readFile);
+    const localResolution = resolveLocalBrowserDocument(currentUrl, nodes);
 
     if (localResolution.document || localResolution.error) {
       return localResolution;
     }
 
     const processedUrl = getUrlOrSearch(currentUrl);
+    const hostRule = getBrowserHostRule(processedUrl);
 
     return {
       document: {
         kind: "remote",
         title: getBrowserTitleFromUrl(processedUrl),
         displayUrl: processedUrl,
-        note: proxyModeNotes[proxyMode],
+        note: proxyMode === "direct" ? hostRule.note ?? proxyModeNotes[proxyMode] : proxyModeNotes[proxyMode],
         frameSource: {
           kind: "src",
           value: applyProxy(processedUrl, proxyMode),
@@ -87,7 +98,7 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
       },
       error: null,
     };
-  }, [currentUrl, proxyMode, readFile]);
+  }, [currentUrl, nodes, proxyMode]);
 
   const activeDocument = resolution.document;
 
@@ -113,7 +124,13 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
   );
 
   const activateFallback = useCallback(
-    (message: string, details: string | undefined, reason: BrowserFailureRecord["reason"]) => {
+    (
+      message: string,
+      details: string | undefined,
+      reason: BrowserFailureRecord["reason"],
+      retryProxyModeOverride?: ProxyMode | null
+    ) => {
+      clearLoadTimeout();
       const title =
         activeDocument?.title ??
         (currentUrl.startsWith("/")
@@ -128,14 +145,19 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
         url,
         message,
         details,
-        retryProxyMode: activeDocument?.kind === "remote" ? getRetryProxyMode(proxyMode) : null,
+        retryProxyMode:
+          activeDocument?.kind === "remote"
+            ? retryProxyModeOverride ?? getRetryProxyMode(proxyMode)
+            : null,
       });
       recordFailure(reason, activeDocument);
     },
-    [activeDocument, currentUrl, proxyMode, recordFailure]
+    [activeDocument, clearLoadTimeout, currentUrl, proxyMode, recordFailure]
   );
 
   useEffect(() => {
+    clearLoadTimeout();
+
     if (!resolution.document) {
       setViewMode("fallback");
       setLoadState("blocked");
@@ -169,26 +191,41 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
       return;
     }
 
+    if (resolution.document.kind === "remote" && proxyMode === "direct") {
+      const hostRule = getBrowserHostRule(resolution.document.displayUrl);
+
+      if (!isLikelyEmbeddable(resolution.document.displayUrl) && hostRule.disposition === "blocked") {
+        activateFallback(
+          hostRule.message ?? "This site is restricted and cannot be embedded",
+          hostRule.details,
+          "blocked",
+          hostRule.retryProxyMode ?? getRetryProxyMode(proxyMode)
+        );
+        return;
+      }
+    }
+
     setViewMode("web");
     setLoadState("loading");
     setFallback(null);
 
-    const timeoutId = globalThis.window.setTimeout(() => {
+    loadTimeoutRef.current = globalThis.window.setTimeout(() => {
       activateFallback(
         "This site cannot be embedded due to browser restrictions",
         "The iframe did not finish loading before the timeout. Try opening the page in a new tab or retrying with a different proxy mode.",
-        "blocked"
+        "timeout"
       );
     }, REMOTE_EMBED_TIMEOUT_MS);
 
-    return () => globalThis.window.clearTimeout(timeoutId);
-  }, [activateFallback, currentUrl, refreshToken, resolution]);
+    return () => clearLoadTimeout();
+  }, [activateFallback, clearLoadTimeout, currentUrl, proxyMode, refreshToken, resolution]);
 
   const resetViewForRetry = useCallback(() => {
+    clearLoadTimeout();
     setViewMode("web");
     setLoadState("idle");
     setFallback(null);
-  }, []);
+  }, [clearLoadTimeout]);
 
   const visit = useCallback(
     (nextAddress: string) => {
@@ -249,18 +286,20 @@ export function useBrowserState({ initialAddress, readFile }: UseBrowserStateOpt
   }, [changeProxyMode, fallback?.retryProxyMode, proxyMode]);
 
   const handleFrameLoad = useCallback(() => {
+    clearLoadTimeout();
     setViewMode("web");
     setLoadState("ready");
     setFallback(null);
-  }, []);
+  }, [clearLoadTimeout]);
 
   const handleFrameError = useCallback(() => {
+    clearLoadTimeout();
     activateFallback(
       "This site cannot be embedded due to browser restrictions",
       "The iframe reported a loading error. Try opening the page in a new tab or retrying with a different proxy mode.",
       "error"
     );
-  }, [activateFallback]);
+  }, [activateFallback, clearLoadTimeout]);
 
   return {
     address,

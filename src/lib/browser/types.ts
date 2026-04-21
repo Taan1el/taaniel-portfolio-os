@@ -20,6 +20,7 @@ export type BrowserFrameSource =
 
 export interface BrowserResolvedDocument {
   kind: "remote" | "local";
+  localKind?: "file" | "directory";
   title: string;
   displayUrl: string;
   note: string;
@@ -37,6 +38,6 @@ export interface BrowserFallbackState {
 export interface BrowserFailureRecord {
   url: string;
   proxyMode: ProxyMode;
-  reason: "blocked" | "error" | "local";
+  reason: "blocked" | "error" | "local" | "timeout";
   timestamp: number;
 }
