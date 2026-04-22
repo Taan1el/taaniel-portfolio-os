@@ -18,7 +18,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "clsx": "^2.1.1",
-    "dompurify": "^3.4.0",
+    "dompurify": "^3.4.1",
     "framer-motion": "^12.9.1",
     "html-to-image": "^1.11.13",
     "idb-keyval": "^6.2.1",
