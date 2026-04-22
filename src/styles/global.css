@@ -2107,6 +2107,7 @@ h3 {
   gap: 0.4rem;
   min-width: 0;
   padding: 0.24rem 0.38rem;
+  border-right: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.015);
 }
@@ -4063,20 +4064,4 @@ h3 {
 
   .explorer-grid-item {
     width: 94px;
-    min-height: 106px;
-  }
-
-  .explorer-grid-item__thumb {
-    width: 64px;
-    height: 64px;
-  }
-
-  .notes-app__layout {
-    grid-template-columns: 1fr;
-  }
-
-  .notes-app__editor-head,
-  .photo-viewer__footer {
-    flex-wrap: wrap;
-  }
-}
+    min-height
