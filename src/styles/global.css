@@ -4064,4 +4064,20 @@ h3 {
 
   .explorer-grid-item {
     width: 94px;
-    min-height: 
+    min-height: 106px;
+  }
+
+  .explorer-grid-item__thumb {
+    width: 64px;
+    height: 64px;
+  }
+
+  .notes-app__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .notes-app__editor-head,
+  .photo-viewer__footer {
+    flex-wrap: wrap;
+  }
+}
