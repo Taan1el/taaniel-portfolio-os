@@ -147,7 +147,7 @@ export const themePresets: ThemePreset[] = [
     id: "cloud-archive",
     name: "Cloud Archive",
     wallpaper:
-      `linear-gradient(rgba(6, 12, 20, 0.52), rgba(6, 12, 20, 0.78)), url('${resolvePublicAssetUrl("assets/Clouds.jpg")}') center/cover no-repeat`,
+      `linear-gradient(rgba(6, 12, 20, 0.52), rgba(6, 12, 20, 0.78)), url('${resolvePublicAssetUrl("assets/Photography/Clouds.jpg")}') center/cover no-repeat`,
     desktopTint: "rgba(6, 11, 21, 0.62)",
     glow: "rgba(153, 209, 255, 0.36)",
     shell: "rgba(5, 10, 17, 0.8)",
@@ -167,7 +167,7 @@ export const themePresets: ThemePreset[] = [
     id: "alpine-slate",
     name: "Alpine Slate",
     wallpaper:
-      `linear-gradient(rgba(6, 12, 20, 0.5), rgba(6, 12, 20, 0.78)), url('${resolvePublicAssetUrl("assets/austria_mountains_canon.jpg")}') center/cover no-repeat`,
+      `linear-gradient(rgba(6, 12, 20, 0.5), rgba(6, 12, 20, 0.78)), url('${resolvePublicAssetUrl("assets/Photography/austria_mountains_canon.jpg")}') center/cover no-repeat`,
     desktopTint: "rgba(8, 13, 22, 0.6)",
     glow: "rgba(151, 196, 255, 0.34)",
     shell: "rgba(8, 14, 24, 0.84)",
