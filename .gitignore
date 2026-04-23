@@ -10,3 +10,4 @@ dist
 .codex-vite.log
 .codex-vite.err
 vite-*.log
+vite.config.ts.timestamp*

@@ -2084,7 +2084,7 @@ h3 {
     5px 5px,
     100% 100%;
   background-repeat: no-repeat;
-  color: var(--text-primary);
+  color: var(--text-strong);
   font-size: 0.74rem;
   appearance: none;
 }
@@ -2150,7 +2150,7 @@ h3 {
 .browser-app__bookmark.is-active {
   border-color: color-mix(in srgb, var(--theme-accent) 26%, rgba(255, 255, 255, 0.08));
   background: color-mix(in srgb, var(--theme-accent) 8%, transparent);
-  color: var(--text-primary);
+  color: var(--text-strong);
 }
 
 .browser-app__viewport {
@@ -4064,4 +4064,4 @@ h3 {
 
   .explorer-grid-item {
     width: 94px;
-    min-height
+    min-height: 
