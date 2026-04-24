@@ -21,7 +21,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { getBaseName } from "@/lib/utils";
-import type { AppComponentProps, AppDefinition, AppId, AppModule } from "@/types/system";
+import type { AppComponentProps, AppDefinition, AppId } from "@/types/system";
 
 const componentCache = new Map<AppId, LazyExoticComponent<ComponentType<AppComponentProps>>>();
 

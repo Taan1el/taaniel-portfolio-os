@@ -1,5 +1,4 @@
 import { desktopEntries, themePresets } from "@/data/portfolio";
-import { defaultDesktopWallpaper } from "@/data/wallpapers";
 import { getAppDefinition } from "@/lib/app-registry";
 import { LEGACY_WELCOME_PATH } from "@/lib/system-workspace";
 import { clamp, createId } from "@/lib/utils";
