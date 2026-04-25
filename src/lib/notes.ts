@@ -8,7 +8,7 @@ export const DEFAULT_NOTE_CONTENT = `To-do list
 
 `;
 
-function normalizeNotesPath(path: string) {
+export function normalizeNotesPath(path: string) {
   if (!path || path === "/") {
     return "/";
   }

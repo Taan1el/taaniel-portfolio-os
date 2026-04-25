@@ -161,6 +161,13 @@ describe("NotesApp", () => {
     expect(getNoteButton("Beta").getAttribute("aria-current")).toBeNull();
   });
 
+  it("honors a requested note path that needs slash normalization", () => {
+    render(<NotesApp window={buildWindow("\\Documents\\Notes\\Alpha.txt")} />);
+
+    expect(getTitleInput().value).toBe("Alpha");
+    expect(getNoteButton("Alpha").getAttribute("aria-current")).toBe("true");
+  });
+
   it("flushes a pending autosave immediately when switching to another note", async () => {
     render(<NotesApp window={buildWindow(alphaPath)} />);
 
