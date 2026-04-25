@@ -15,6 +15,7 @@ import {
   DEFAULT_NOTE_PATH,
   NOTES_DIRECTORY_PATH,
   isNotesPath,
+  normalizeNotesPath,
 } from "@/lib/notes";
 import { cn } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -76,7 +77,7 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
   useEffect(() => {
     const requestedPath =
       appWindow.payload?.filePath && isNotesPath(appWindow.payload.filePath)
-        ? appWindow.payload.filePath
+        ? normalizeNotesPath(appWindow.payload.filePath)
         : null;
 
     if (!requestedPath) {
