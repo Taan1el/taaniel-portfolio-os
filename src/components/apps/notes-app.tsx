@@ -210,8 +210,8 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
       uniqueName: true,
     });
 
+    setPendingTitleFocus(true);
     setSelectedPath(createdPath);
-    setPendingTitleFocus(false);
   };
 
   const commitTitle = async () => {

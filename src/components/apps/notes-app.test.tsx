@@ -168,6 +168,16 @@ describe("NotesApp", () => {
     expect(getNoteButton("Alpha").getAttribute("aria-current")).toBe("true");
   });
 
+  it("focuses the note title after creating a new note", async () => {
+    render(<NotesApp window={buildWindow(alphaPath)} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /new note/i }));
+
+    const titleInput = await screen.findByDisplayValue("New Note");
+
+    expect(document.activeElement).toBe(titleInput);
+  });
+
   it("flushes a pending autosave immediately when switching to another note", async () => {
     render(<NotesApp window={buildWindow(alphaPath)} />);
 
