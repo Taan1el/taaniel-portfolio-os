@@ -5,7 +5,7 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 ## Stack
 
 - React 18, TypeScript, Vite
-- Zustand (shell, windows, filesystem)
+- Zustand (shell, window, filesystem, explorer, process, system)
 - Framer Motion, react-rnd, xterm.js, Monaco, pdf.js
 - `@huggingface/transformers` — runs the `all-MiniLM-L6-v2` embedding model entirely in-browser (via ONNX WASM) to rerank Start menu search results by semantic similarity, with no server round-trip
 
