@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { env, pipeline } from "@huggingface/transformers";
+import { env, pipeline, type FeatureExtractionPipeline } from "@huggingface/transformers";
 import type { ShellSearchAiCandidate, ShellSearchAiRanking } from "@/lib/shell-search";
 
 type RerankMessage = {
@@ -19,7 +19,7 @@ type WorkerResponse =
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
 
-let extractorPromise: Promise<any> | null = null;
+let extractorPromise: Promise<FeatureExtractionPipeline> | null = null;
 let readyPosted = false;
 
 function postResponse(message: WorkerResponse) {
