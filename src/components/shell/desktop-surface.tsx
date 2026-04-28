@@ -13,7 +13,7 @@ interface DesktopSurfaceProps {
   nodes: Record<string, VirtualNode>;
   selectedIconId: string | null;
   iconPositions: Record<string, DesktopGridPosition>;
-  containerRef: RefObject<HTMLDivElement>;
+  containerRef: RefObject<HTMLDivElement | null>;
   gridMetrics: DesktopGridMetrics;
   toPixels: (position: DesktopGridPosition) => { x: number; y: number };
   onSelectIcon: (iconId: string | null) => void;

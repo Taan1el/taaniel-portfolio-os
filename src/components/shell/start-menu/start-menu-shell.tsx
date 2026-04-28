@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 interface StartMenuShellProps {
   children: React.ReactNode;
-  menuRef: React.RefObject<HTMLElement>;
+  menuRef: React.RefObject<HTMLElement | null>;
   className?: string;
 }
 
