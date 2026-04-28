@@ -14,9 +14,7 @@
   --text-muted: rgba(206, 219, 242, 0.72);
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.18);
-  --surface: rgba(10, 18, 31, 0.82);
   --surface-strong: rgba(9, 16, 28, 0.94);
-  --surface-soft: rgba(255, 255, 255, 0.04);
   --shadow-ambient: 0 22px 56px rgba(0, 0, 0, 0.34);
   --shadow-window: 0 24px 72px rgba(0, 0, 0, 0.42);
   --theme-accent: #77c7ff;
@@ -4081,3 +4079,4 @@ h3 {
     flex-wrap: wrap;
   }
 }
+                                                                                    
