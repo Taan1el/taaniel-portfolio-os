@@ -178,6 +178,25 @@ describe("NotesApp", () => {
     expect(document.activeElement).toBe(titleInput);
   });
 
+  it("does not duplicate the file extension when renaming from the title input", async () => {
+    render(<NotesApp window={buildWindow(alphaPath)} />);
+
+    const titleInput = getTitleInput();
+    fireEvent.change(titleInput, {
+      target: { value: "Plan.txt" },
+    });
+    fireEvent.blur(titleInput);
+
+    await screen.findByDisplayValue("Plan");
+
+    expect(useFileSystemStore.getState().readFile(`${NOTES_DIRECTORY_PATH}/Plan.txt`)).toEqual(
+      expect.objectContaining({
+        name: "Plan.txt",
+      })
+    );
+    expect(useFileSystemStore.getState().readFile(`${NOTES_DIRECTORY_PATH}/Plan.txt.txt`)).toBeNull();
+  });
+
   it("flushes a pending autosave immediately when switching to another note", async () => {
     render(<NotesApp window={buildWindow(alphaPath)} />);
 

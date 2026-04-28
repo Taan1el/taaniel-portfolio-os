@@ -27,6 +27,17 @@ function formatNoteLabel(note: FileNode) {
   return note.name.replace(/\.[^.]+$/, "");
 }
 
+function stripMatchingExtension(title: string, extension?: string) {
+  const normalizedExtension = extension?.trim().replace(/^\./, "").toLowerCase();
+
+  if (!normalizedExtension) {
+    return title;
+  }
+
+  const suffix = `.${normalizedExtension}`;
+  return title.toLowerCase().endsWith(suffix) ? title.slice(0, -suffix.length) : title;
+}
+
 function isNoteFile(node?: FileNode | null): node is FileNode {
   return Boolean(node && node.type === "file" && isNotesPath(node.path));
 }
@@ -219,8 +230,10 @@ export function NotesApp({ window: appWindow }: AppComponentProps) {
       return;
     }
 
+    const extension = selectedNoteFile.extension ?? "txt";
     const cleanedTitle = titleDraft.trim() || "Untitled note";
-    const nextName = `${cleanedTitle}.${selectedNoteFile.extension ?? "txt"}`;
+    const normalizedTitle = stripMatchingExtension(cleanedTitle, extension).trim() || "Untitled note";
+    const nextName = `${normalizedTitle}.${extension}`;
 
     if (nextName === selectedNoteFile.name) {
       setTitleDraft(formatNoteLabel(selectedNoteFile));
