@@ -133,6 +133,15 @@ export function RecruiterView() {
         <section className={styles.section} aria-labelledby="built-heading">
           <h2 id="built-heading">{portfolioBuilt.headline}</h2>
           <p className={styles.meta}>{portfolioBuilt.architectureSummary}</p>
+          <p className={styles.meta} style={{ marginTop: "0.75rem" }}>
+            In the OS version, open <strong style={{ color: "var(--text-strong)" }}>OS Case Study.md</strong> on the desktop for a
+            quick architecture walkthrough.
+          </p>
+          <div className={styles.actions} style={{ marginTop: "0.9rem" }}>
+            <a className={styles.secondaryBtn} href={liveDemoUrl} target="_blank" rel="noreferrer">
+              Open OS case study
+            </a>
+          </div>
           <p className={styles.eyebrow} style={{ marginTop: "1rem" }}>
             Stack
           </p>

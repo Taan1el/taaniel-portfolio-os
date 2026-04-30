@@ -112,6 +112,47 @@ const frontendNotesMarkdown = `# Frontend Notes
 That frontend craft can be expressive, technical, and recruiter-friendly at the same time.
 `;
 
+const osCaseStudyMarkdown = `# Taaniel OS — Case study
+
+This portfolio is a browser-based desktop environment built in **React + TypeScript**.
+It’s designed as a technical sample: you can click around, open apps, inspect the virtual filesystem, and see how the UI system is structured.
+
+## What this OS proves
+
+- **State architecture**: window/process lifecycle, shell UI, and filesystem state are centralized (Zustand) with clear boundaries.
+- **Persistence**: desktop layout + filesystem persist in the browser (IndexedDB/localStorage) with migration support.
+- **Complex UI**: draggable windows, snapping, taskbar previews, Start menu search, and app isolation.
+- **Media handling**: PDF + image viewing, audio playback, and safe asset loading from \`public/\`.
+- **Failure modes**: fallbacks for iframe restrictions, missing assets, and render errors.
+
+## Architecture overview
+
+- **Shell**: desktop surface, Start menu, taskbar, window host.
+- **Window manager**: window bounds, z-index, focus, drag/resize, snapping.
+- **Virtual filesystem**: seeded read-only assets + user files in IndexedDB.
+- **App registry**: lazy-loaded apps with default sizing + metadata.
+
+## Where to look in the code
+
+- Shell + routing: \`src/app/App.tsx\`, \`src/components/shell/desktop-shell.tsx\`
+- Window chrome: \`src/components/shell/window-frame.tsx\`
+- App registry: \`src/lib/app-registry.tsx\`
+- FS seeding + bundled assets: \`src/data/seedFileSystem.ts\`, \`src/data/bundled-assets.ts\`
+- FS rules (move/rename/collisions): \`src/lib/filesystem.ts\`
+
+## Constraints and tradeoffs
+
+- **Browser-only** (GitHub Pages friendly): no server runtime, everything is client-side.
+- **Embedded browser** uses iframes: some sites block embedding via CSP/X-Frame-Options; fallback UI is shown instead.
+- **Performance**: heavy apps/workers are lazy-loaded to keep first paint fast.
+
+## How to evaluate it quickly (30 seconds)
+
+1. Open **Start menu** → type in search → launch an app.
+2. Open **Files** → browse \`/Portfolio/Case Studies\`.
+3. Open **Photos** and zoom/pan.
+`;
+
 export const buildSeedFileSystem = (): FileSystemRecord => {
   const nodes: FileSystemRecord = {
     "/": directory("/"),
@@ -149,6 +190,10 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
 
   nodes["/Portfolio/Contact.md"] = file("/Portfolio/Contact.md", "md", "text/markdown", {
     content: contactMarkdown,
+  });
+
+  nodes["/Portfolio/OS-Case-Study.md"] = file("/Portfolio/OS-Case-Study.md", "md", "text/markdown", {
+    content: osCaseStudyMarkdown,
   });
 
   nodes["/Code/portfolio-positioning.ts"] = file(

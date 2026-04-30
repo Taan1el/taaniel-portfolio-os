@@ -208,6 +208,13 @@ export const desktopEntries: DesktopEntry[] = [
     defaultGridPosition: { gridX: 1, gridY: 0 },
   },
   {
+    id: "os-case-study",
+    label: "OS Case Study.md",
+    type: "file",
+    filePath: "/Portfolio/OS-Case-Study.md",
+    defaultGridPosition: { gridX: 2, gridY: 0 },
+  },
+  {
     id: "photos-app",
     label: "Photos",
     type: "app",
@@ -233,7 +240,7 @@ export const desktopEntries: DesktopEntry[] = [
     label: "Paint",
     type: "app",
     appId: "paint",
-    defaultGridPosition: { gridX: 2, gridY: 0 },
+    defaultGridPosition: { gridX: 2, gridY: 2 },
   },
   {
     id: "simple-portfolio",
