@@ -157,6 +157,41 @@ export function StartMenu({
 
             <div className="start-menu__main">
               <ScrollArea className="start-menu__content">
+                <section className="start-menu__section" aria-label="Try these">
+                  <div className="section-row">
+                    <p className="eyebrow">Try these</p>
+                    <small>30-second tour</small>
+                  </div>
+                  <div className="action-row">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="quick-link"
+                      onClick={() => onOpenFile("/Portfolio/OS-Case-Study.md")}
+                      onMouseMove={updateStartMenuSpotlight}
+                    >
+                      OS Case Study
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="quick-link"
+                      onClick={() => onOpenDirectory("/Portfolio/Case Studies")}
+                      onMouseMove={updateStartMenuSpotlight}
+                    >
+                      Featured work
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="quick-link"
+                      onClick={() => onLaunchApp("photos")}
+                      onMouseMove={updateStartMenuSpotlight}
+                    >
+                      Photos
+                    </Button>
+                  </div>
+                </section>
                 <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
 
                 <StartAppList

@@ -18,7 +18,7 @@ export const startMenuCategories: StartMenuCategoryDescriptor[] = [
   {
     category: "Portfolio",
     label: "Portfolio",
-    description: "Recruiter-facing portfolio surfaces and profile apps.",
+    description: "High-signal portfolio apps and walkthroughs.",
     icon: Sparkles,
     defaultExpanded: true,
   },
@@ -27,7 +27,7 @@ export const startMenuCategories: StartMenuCategoryDescriptor[] = [
     label: "Workspace",
     description: "Productivity apps, browser tools, and document workflows.",
     icon: LayoutGrid,
-    defaultExpanded: true,
+    defaultExpanded: false,
   },
   {
     category: "Media",
@@ -39,7 +39,7 @@ export const startMenuCategories: StartMenuCategoryDescriptor[] = [
   {
     category: "Lab",
     label: "Lab",
-    description: "Games, music, experiments, and emulator tooling—optional exploration.",
+    description: "Optional extras and experiments.",
     icon: Beaker,
     defaultExpanded: false,
   },
