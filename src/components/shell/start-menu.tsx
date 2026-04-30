@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
 import { Mail } from "lucide-react";
 import { Button, ScrollArea } from "@/components/apps/app-layout";
-import { profile, socialLinks } from "@/data/portfolio";
+import { liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
 import type { ShellAiSearchStatus } from "@/hooks/use-shell-ai-search";
 import type { ShellSearchAction, ShellSearchSection } from "@/lib/shell-search";
@@ -53,7 +53,7 @@ export function StartMenu({
       return state;
     }, {} as Record<AppCategory, boolean>)
   );
-  const menuRef = useRef<HTMLElement | null>(null);
+  const menuRef = useRef<HTMLElement>(null);
   const apps = getAppRegistry();
   const searching = searchQuery.trim().length > 0;
 
@@ -184,6 +184,12 @@ export function StartMenu({
         </div>
         <div className="start-menu__footer-meta">
           <div className="start-menu__links">
+            <a href={liveDemoUrl} target="_blank" rel="noreferrer">
+              Live demo
+            </a>
+            <a href={repoUrl} target="_blank" rel="noreferrer">
+              GitHub repo
+            </a>
             {socialLinks.slice(0, 4).map((link) => (
               <a key={link.label} href={link.url} target="_blank" rel="noreferrer">
                 {link.label}

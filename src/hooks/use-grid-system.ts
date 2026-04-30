@@ -15,7 +15,7 @@ function getFallbackMetrics() {
 }
 
 export function useGridSystem<T extends HTMLElement>() {
-  const containerRef = useRef<T | null>(null);
+  const containerRef = useRef<T>(null);
   const [metrics, setMetrics] = useState<DesktopGridMetrics>(() => getFallbackMetrics());
 
   useEffect(() => {

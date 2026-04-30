@@ -5,7 +5,9 @@ import { classicPortfolio } from "@/data/classic-portfolio";
 import {
   getResumeDownloadUrls,
   landingCopy,
+  liveDemoUrl,
   profile,
+  repoUrl,
   socialLinks,
 } from "@/data/portfolio";
 import { SafeImage } from "@/components/ui/safe-image";
@@ -55,9 +57,12 @@ export function RecruiterView() {
             <a className={styles.secondaryBtn} href={profile.email}>
               Contact me
             </a>
-            <Link className={styles.secondaryBtn} to="/">
-              Open OS portfolio
-            </Link>
+            <a className={styles.secondaryBtn} href={liveDemoUrl} target="_blank" rel="noreferrer">
+              Live demo
+            </a>
+            <a className={styles.secondaryBtn} href={repoUrl} target="_blank" rel="noreferrer">
+              GitHub repo
+            </a>
           </div>
 
           <dl className={styles.proofStrip}>

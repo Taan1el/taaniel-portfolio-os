@@ -37,6 +37,9 @@ export function getResumeDownloadUrls(): string[] {
   return urls;
 }
 
+export const liveDemoUrl = "https://taan1el.github.io/taaniel-portfolio-os/";
+export const repoUrl = "https://github.com/Taan1el/taaniel-portfolio-os";
+
 export const skills = [
   "React",
   "TypeScript",
