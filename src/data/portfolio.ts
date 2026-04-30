@@ -98,6 +98,22 @@ export const featuredProjects: FeaturedProject[] = [
     hero: resolvePublicAssetUrl("assets/Work/Dineromon_hero_v2.png"),
     layouts: [resolvePublicAssetUrl("assets/Work/Group 22.png")],
     stack: ["Figma", "Photoshop", "Email layout systems"],
+    problem:
+      "Email campaigns have tight constraints (limited CSS support, small viewports, fast scanning). The goal was to make the 0% offer instantly understandable and guide users to one primary CTA.",
+    technicalHighlights: [
+      "Designed for email-safe layout constraints (clear hierarchy, reliable spacing, readable CTA).",
+      "Built modular sections so content can be rearranged for different audiences without redesigning everything.",
+      "Optimized contrast and typography for quick scanning on mobile.",
+    ],
+    challengesAndTradeoffs:
+      "Email-safe layouts limit advanced styling and interactivity. The design leans on typography, spacing, and contrast rather than complex effects.",
+    whatILearned:
+      "The fastest-performing campaign visuals are usually the simplest: one message, one CTA, and consistent spacing rules across modules.",
+    screenshots: [
+      resolvePublicAssetUrl("assets/Work/Dineromon_hero_v2.png"),
+      resolvePublicAssetUrl("assets/Work/Group 22.png"),
+    ],
+    measurableOutcome: "NDA-safe: shipped as a production campaign hero + template used for rollout variants.",
   },
   {
     id: "credito365",
@@ -113,6 +129,19 @@ export const featuredProjects: FeaturedProject[] = [
     hero: resolvePublicAssetUrl("assets/Work/Credito365_2605.jpg"),
     layouts: [resolvePublicAssetUrl("assets/Work/Group 1.png")],
     stack: ["Figma", "Photoshop", "Marketing design"],
+    problem:
+      "Communicate a high-friction financial offer quickly and credibly: speed promise, clear CTA, and a layout that can be reused across variants.",
+    technicalHighlights: [
+      "Hero template supports multiple market/copy variants without breaking the hierarchy.",
+      "CTA placement and spacing tuned for readability across common email/landing breakpoints.",
+      "Visual cues (timing, context) reinforce the offer without overwhelming the layout.",
+    ],
+    challengesAndTradeoffs:
+      "Urgency can hurt trust in finance categories. The design uses cleaner composition and consistent spacing to avoid a noisy 'spammy' look.",
+    whatILearned:
+      "In finance, trust signals (clean layout, readable CTA, balanced contrast) matter as much as the offer itself.",
+    screenshots: [resolvePublicAssetUrl("assets/Work/Credito365_2605.jpg"), resolvePublicAssetUrl("assets/Work/Group 1.png")],
+    measurableOutcome: "Shipped as a reusable hero direction + template for campaign iterations.",
   },
   {
     id: "cozmo",
@@ -127,6 +156,19 @@ export const featuredProjects: FeaturedProject[] = [
     hero: resolvePublicAssetUrl("assets/Work/Cozmo_2605.jpg"),
     layouts: [resolvePublicAssetUrl("assets/Work/Group 17.png")],
     stack: ["Figma", "Illustrator", "Campaign systems"],
+    problem:
+      "The mascot creates attention, but the offer still needs to be understood instantly. The goal was to balance personality with a structured message and CTA.",
+    technicalHighlights: [
+      "Mini UI card turns an abstract offer into a concrete, scannable block.",
+      "Layout keeps the mascot secondary to the core message hierarchy.",
+      "Template-ready structure supports quick campaign variations.",
+    ],
+    challengesAndTradeoffs:
+      "Mascots can compete with the message. The layout intentionally constrains the mascot’s footprint so CTA and offer remain dominant.",
+    whatILearned:
+      "Brand personality performs best when it supports clarity, not when it becomes the main content.",
+    screenshots: [resolvePublicAssetUrl("assets/Work/Cozmo_2605.jpg"), resolvePublicAssetUrl("assets/Work/Group 17.png")],
+    measurableOutcome: "Shipped as a campaign hero variant aligned to the brand system.",
   },
 ];
 
