@@ -188,6 +188,38 @@ img {
   backdrop-filter: blur(8px);
 }
 
+.os-mobile-banner {
+  position: absolute;
+  top: 2.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 14, 20, 0.72);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  backdrop-filter: blur(8px);
+}
+
+.os-mobile-banner__button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.22rem 0.5rem;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.os-mobile-banner__button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--theme-accent), white 25%);
+  outline-offset: 2px;
+}
+
 .os-root.is-animated-wallpaper .os-root__wallpaper {
   background-size: 120% 120%;
   animation: wallpaper-pan 22s ease-in-out infinite alternate;

@@ -53,6 +53,7 @@ export function DesktopShell() {
     clearClipboard,
     themeId,
     wallpaper,
+    viewportMode,
     desktopIconPositions,
     focusedWindowId,
     moveDesktopIcon,
@@ -67,6 +68,7 @@ export function DesktopShell() {
       clipboard: state.clipboard,
       themeId: state.themeId,
       wallpaper: state.wallpaper,
+      viewportMode: state.viewportMode,
       desktopIconPositions: state.desktopIconPositions,
       focusedWindowId: state.focusedWindowId,
       setStartMenuOpen: state.setStartMenuOpen,
@@ -516,6 +518,18 @@ export function DesktopShell() {
       {!online ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
           Offline — some previews and embeds may fail to load.
+        </div>
+      ) : null}
+      {viewportMode === "mobile" ? (
+        <div className="os-mobile-banner" role="status" aria-live="polite">
+          <span>Tip: use the quick recruiter view on mobile.</span>
+          <button
+            type="button"
+            className="os-mobile-banner__button"
+            onClick={() => navigate("/simple")}
+          >
+            Open /simple
+          </button>
         </div>
       ) : null}
       <div className="os-root__wallpaper" />
