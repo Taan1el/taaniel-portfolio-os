@@ -84,6 +84,13 @@ The Browser app is intentionally an iframe-based web viewer, not a full browser 
 - **What the proxy does**: `Direct` loads the page as-is. `AllOrigins` and `Wayback` wrap the URL through external services that can sometimes return a frameable copy or archived snapshot. They are viewing aids, not a guarantee.
 - **Tradeoffs**: this approach is honest and predictable, but it is not a replacement for Chrome. Some pages will render, some will need a proxy, and some should always be opened in a new tab.
 
+## Security and limitations
+
+- **No server / no accounts**: this portfolio runs fully client-side (GitHub Pages). There is no login/auth model.
+- **Local persistence**: desktop layout, windows, and the virtual filesystem are stored in your browser (IndexedDB/localStorage). Use **Start → Reset session** to clear.
+- **Embedded browser limits**: many sites block iframes (CSP / X-Frame-Options). When blocked, the Browser app shows a fallback UI and suggests opening a new tab.
+- **Untrusted content**: markdown and HTML previews are sanitized, but this is still a portfolio OS — avoid importing sensitive data.
+
 ## Notes
 
 - **Embedded browser**: The Browser app uses capability detection before iframe loading. Known restricted hosts skip straight to fallback, while frame-friendly pages stay direct and no longer fall back after a successful load timeout cycle.
