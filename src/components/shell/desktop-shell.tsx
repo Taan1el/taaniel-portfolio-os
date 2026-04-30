@@ -125,6 +125,7 @@ export function DesktopShell() {
     importFiles,
     pasteNode,
     canCutNode,
+    emptyTrash,
     reset: resetFileSystem,
   } = useFileSystemStore(
     useShallow((state) => ({
@@ -136,6 +137,7 @@ export function DesktopShell() {
       importFiles: state.importFiles,
       pasteNode: state.pasteNode,
       canCutNode: state.canCutNode,
+      emptyTrash: state.emptyTrash,
       reset: state.reset,
     }))
   );
@@ -498,6 +500,14 @@ export function DesktopShell() {
                   },
                 });
               },
+            }
+          : null,
+        entry.id === "trash"
+          ? {
+              id: "empty-trash",
+              label: "Empty Trash",
+              danger: true,
+              onSelect: () => { void emptyTrash(); },
             }
           : null,
       ].filter(Boolean) as NonNullable<typeof contextMenu>["actions"],

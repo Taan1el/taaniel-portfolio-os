@@ -21,7 +21,7 @@ import {
   updateTextFileRecord,
   writeFileRecord,
 } from "@/lib/filesystem";
-import { ensureSystemWorkspace } from "@/lib/system-workspace";
+import { TRASH_PATH, ensureSystemWorkspace } from "@/lib/system-workspace";
 import type { FileNode, FileSystemRecord } from "@/types/system";
 
 interface FileSystemState {
@@ -69,6 +69,7 @@ interface FileSystemState {
   ) => Promise<void>;
   importFiles: (directoryPath: string, files: File[]) => Promise<string[]>;
   canCutNode: (path: string) => boolean;
+  emptyTrash: () => Promise<void>;
   reset: () => Promise<void>;
 }
 
@@ -137,10 +138,45 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     await persistNodes(nodes);
   },
   deleteNode: async (path) => {
-    const nodes = deleteNodeRecord(get().nodes, path);
+    // Permanently delete items that are already in the Trash, or are the Trash itself.
+    const normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "");
+    const inTrash =
+      normalized === TRASH_PATH || normalized.startsWith(`${TRASH_PATH}/`);
+
+    if (inTrash) {
+      const nodes = deleteNodeRecord(get().nodes, path);
+      set({ nodes });
+      await persistNodes(nodes);
+      toast("Permanently deleted", "success");
+      return;
+    }
+
+    // Soft-delete: move to /Trash
+    const nodes = pasteNodeRecord(get().nodes, path, TRASH_PATH, "cut");
     set({ nodes });
     await persistNodes(nodes);
-    toast("Deleted", "success");
+    toast("Moved to Trash", "success");
+  },
+  emptyTrash: async () => {
+    const nodes = get().nodes;
+    const trashChildren = Object.keys(nodes).filter(
+      (p) => p !== TRASH_PATH && p.startsWith(`${TRASH_PATH}/`) && !p.slice(TRASH_PATH.length + 1).includes("/")
+    );
+    if (trashChildren.length === 0) {
+      toast("Trash is already empty", "info");
+      return;
+    }
+    let nextNodes = { ...nodes };
+    trashChildren.forEach((child) => {
+      Object.keys(nextNodes).forEach((p) => {
+        if (p === child || p.startsWith(`${child}/`)) {
+          delete nextNodes[p];
+        }
+      });
+    });
+    set({ nodes: nextNodes });
+    await persistNodes(nextNodes);
+    toast("Trash emptied", "success");
   },
   updateTextFile: async (path, content) => {
     const nodes = updateTextFileRecord(get().nodes, path, content);

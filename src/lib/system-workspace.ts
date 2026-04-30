@@ -12,10 +12,13 @@ import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/sy
 
 export const LEGACY_WELCOME_PATH = "/Desktop/Welcome.md";
 const LEGACY_MUSIC_PATHS = ["/Media/Music/Studio Loop.mp3", "/Media/Music/T-Rex Roar.mp3"];
+export const TRASH_PATH = "/Trash";
+
 const REQUIRED_DIRECTORIES = [
   "/Media",
   "/Media/Music",
   "/Media/Photography",
+  TRASH_PATH,
   ...bundledWorkspaceDirectories,
 ];
 const BUNDLED_READONLY_FILES = [

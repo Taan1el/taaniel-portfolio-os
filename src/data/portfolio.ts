@@ -270,4 +270,11 @@ export const desktopEntries: DesktopEntry[] = [
     externalUrl: "/simple",
     defaultGridPosition: { gridX: 1, gridY: 2 },
   },
+  {
+    id: "trash",
+    label: "Trash",
+    type: "folder",
+    directoryPath: "/Trash",
+    defaultGridPosition: { gridX: 2, gridY: 2 },
+  },
 ];
