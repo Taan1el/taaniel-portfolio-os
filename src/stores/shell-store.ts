@@ -10,6 +10,7 @@ import {
   initialIconPositions,
 } from "@/stores/system-runtime";
 import type {
+  AppId,
   ClipboardState,
   ContextMenuState,
   DesktopWallpaperState,
@@ -18,9 +19,14 @@ import type {
   ViewportMode,
 } from "@/types/system";
 
+export const DEFAULT_PINNED_APPS: AppId[] = ["about", "files", "terminal", "browser"];
+
 interface ShellStoreState {
   selectedIconId: string | null;
   startMenuOpen: boolean;
+  pinnedAppIds: AppId[];
+  pinApp: (appId: AppId) => void;
+  unpinApp: (appId: AppId) => void;
   startMenuSearchFocusNonce: number;
   searchQuery: string;
   calendarOpen: boolean;
@@ -70,6 +76,7 @@ const legacyShellSeed = getLegacyShellSeed();
 const initialShellState = {
   selectedIconId: null,
   startMenuOpen: false,
+  pinnedAppIds: DEFAULT_PINNED_APPS,
   startMenuSearchFocusNonce: 0,
   searchQuery: "",
   calendarOpen: false,
@@ -108,6 +115,14 @@ export const useShellStore = create<ShellStoreState>()(
           calendarOpen: open,
           startMenuOpen: open ? false : state.startMenuOpen,
         })),
+      pinApp: (appId) =>
+        set((state) =>
+          state.pinnedAppIds.includes(appId)
+            ? state
+            : { pinnedAppIds: [...state.pinnedAppIds, appId] }
+        ),
+      unpinApp: (appId) =>
+        set((state) => ({ pinnedAppIds: state.pinnedAppIds.filter((id) => id !== appId) })),
       setSelectedIconId: (selectedIconId) => set({ selectedIconId }),
       setContextMenu: (contextMenu) => set({ contextMenu }),
       setClipboard: (clipboard) => set({ clipboard }),
@@ -193,7 +208,7 @@ export const useShellStore = create<ShellStoreState>()(
     }),
     {
       name: SHELL_STORAGE_KEY,
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState) => {
         const state = persistedState as
@@ -202,6 +217,7 @@ export const useShellStore = create<ShellStoreState>()(
               wallpaper?: DesktopWallpaperState;
               customWallpaperSource?: string | null;
               desktopIconPositions?: Record<string, DesktopGridPosition>;
+              pinnedAppIds?: AppId[];
             }
           | undefined;
 
@@ -217,12 +233,14 @@ export const useShellStore = create<ShellStoreState>()(
                 }
               : defaultDesktopWallpaper),
           desktopIconPositions: state?.desktopIconPositions ?? initialIconPositions,
+          pinnedAppIds: state?.pinnedAppIds ?? DEFAULT_PINNED_APPS,
         };
       },
       partialize: (state) => ({
         themeId: state.themeId,
         wallpaper: state.wallpaper,
         desktopIconPositions: state.desktopIconPositions,
+        pinnedAppIds: state.pinnedAppIds,
       }),
     }
   )

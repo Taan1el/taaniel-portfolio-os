@@ -24,13 +24,41 @@ function getPreviewPlacement(button: HTMLButtonElement) {
       window.innerWidth - TASKBAR_PREVIEW_WIDTH - 16
     )
   );
-
-  return {
-    left,
-    bottom: window.innerHeight - buttonRect.top + TASKBAR_PREVIEW_OFFSET,
-  };
+  return { left, bottom: window.innerHeight - buttonRect.top + TASKBAR_PREVIEW_OFFSET };
 }
 
+// ── Slot model ────────────────────────────────────────────────────
+type TaskbarSlot =
+  | { type: "pinned-closed"; appId: AppId }
+  | { type: "window"; entry: TaskbarWindowEntry; pinned: boolean };
+
+function buildSlots(pinnedAppIds: AppId[], entries: TaskbarWindowEntry[]): TaskbarSlot[] {
+  const slots: TaskbarSlot[] = [];
+  const usedWindowIds = new Set<string>();
+
+  for (const appId of pinnedAppIds) {
+    const match =
+      entries.find((e) => e.appId === appId && e.active) ??
+      entries.find((e) => e.appId === appId);
+
+    if (match) {
+      slots.push({ type: "window", entry: match, pinned: true });
+      usedWindowIds.add(match.windowId);
+    } else {
+      slots.push({ type: "pinned-closed", appId });
+    }
+  }
+
+  for (const entry of entries) {
+    if (!usedWindowIds.has(entry.windowId)) {
+      slots.push({ type: "window", entry, pinned: false });
+    }
+  }
+
+  return slots;
+}
+
+// ──────────────────────────────────────────────────────────────────
 interface TaskbarPreviewEntry extends TaskbarWindowEntry {
   left: number;
   bottom: number;
@@ -38,6 +66,7 @@ interface TaskbarPreviewEntry extends TaskbarWindowEntry {
 
 interface TaskbarProps {
   entries: TaskbarWindowEntry[];
+  pinnedAppIds: AppId[];
   startMenuOpen: boolean;
   calendarOpen: boolean;
   searchQuery: string;
@@ -47,11 +76,15 @@ interface TaskbarProps {
   onToggleStartMenu: () => void;
   onToggleCalendar: () => void;
   onToggleWindow: (windowId: string) => void;
+  onLaunchApp: (appId: AppId) => void;
+  onPinApp: (appId: AppId) => void;
+  onUnpinApp: (appId: AppId) => void;
   onShowDesktop: () => void;
 }
 
 export function Taskbar({
   entries,
+  pinnedAppIds,
   startMenuOpen,
   calendarOpen,
   searchQuery,
@@ -61,6 +94,9 @@ export function Taskbar({
   onToggleStartMenu,
   onToggleCalendar,
   onToggleWindow,
+  onLaunchApp,
+  onPinApp,
+  onUnpinApp,
   onShowDesktop,
 }: TaskbarProps) {
   const [now, setNow] = useState(() => new Date());
@@ -71,6 +107,8 @@ export function Taskbar({
   const taskbarSearchInputRef = useRef<HTMLInputElement>(null);
   const startMenuSearchFocusNonce = useShellStore((state) => state.startMenuSearchFocusNonce);
   const searching = searchQuery.trim().length > 0;
+
+  const slots = buildSlots(pinnedAppIds, entries);
 
   useEffect(() => {
     if (startMenuSearchFocusNonce > 0) {
@@ -84,7 +122,6 @@ export function Taskbar({
       onSearchQueryChange("");
       return;
     }
-
     if (searching) {
       searchBrowseRef.current?.handleSearchKeyDown(event);
     }
@@ -102,24 +139,13 @@ export function Taskbar({
   }, [entries, previewEntry]);
 
   useEffect(() => {
-    if (!previewEntry) {
-      return;
-    }
-
+    if (!previewEntry) return;
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as HTMLElement | null;
-
-      if (!target) {
-        return;
-      }
-
-      if (target.closest(".taskbar__item") || target.closest(".taskbar__preview")) {
-        return;
-      }
-
+      if (!target) return;
+      if (target.closest(".taskbar__item") || target.closest(".taskbar__preview")) return;
       setPreviewEntry(null);
     };
-
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [previewEntry]);
@@ -128,37 +154,23 @@ export function Taskbar({
     setPreviewImages((current) => {
       const activeWindowIds = new Set(entries.map((entry) => entry.windowId));
       const nextEntries = Object.entries(current).filter(([windowId]) => activeWindowIds.has(windowId));
-
-      if (nextEntries.length === Object.keys(current).length) {
-        return current;
-      }
-
+      if (nextEntries.length === Object.keys(current).length) return current;
       return Object.fromEntries(nextEntries);
     });
   }, [entries]);
 
   useEffect(() => {
-    if (!previewEntry) {
-      return;
-    }
-
+    if (!previewEntry) return;
     const syncPreviewPosition = () => {
       const activeButton = windowsRef.current?.querySelector<HTMLButtonElement>(
         `[data-window-id="${previewEntry.windowId}"]`
       );
-
-      if (!activeButton) {
-        setPreviewEntry(null);
-        return;
-      }
-
+      if (!activeButton) { setPreviewEntry(null); return; }
       const placement = getPreviewPlacement(activeButton);
       setPreviewEntry((current) => (current ? { ...current, ...placement } : current));
     };
-
     window.addEventListener("resize", syncPreviewPosition);
     window.addEventListener("scroll", syncPreviewPosition, true);
-
     return () => {
       window.removeEventListener("resize", syncPreviewPosition);
       window.removeEventListener("scroll", syncPreviewPosition, true);
@@ -166,32 +178,18 @@ export function Taskbar({
   }, [previewEntry]);
 
   const capturePreview = async (entry: TaskbarWindowEntry) => {
-    if (
-      entry.minimized ||
-      PREVIEW_FALLBACK_APPS.has(entry.appId) ||
-      captureQueueRef.current.has(entry.windowId)
-    ) {
+    if (entry.minimized || PREVIEW_FALLBACK_APPS.has(entry.appId) || captureQueueRef.current.has(entry.windowId)) {
       setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));
       return;
     }
-
     captureQueueRef.current.add(entry.windowId);
-
     try {
       const node = document.querySelector<HTMLElement>(`[data-window-preview-id="${entry.windowId}"]`);
-
       if (!node || node.querySelector("iframe, canvas, .xterm")) {
         setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));
         return;
       }
-
-      const image = await toPng(node, {
-        cacheBust: true,
-        pixelRatio: 0.7,
-        skipFonts: true,
-        backgroundColor: "#09101a",
-      });
-
+      const image = await toPng(node, { cacheBust: true, pixelRatio: 0.7, skipFonts: true, backgroundColor: "#09101a" });
       setPreviewImages((current) => ({ ...current, [entry.windowId]: image }));
     } catch {
       setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));
@@ -209,19 +207,11 @@ export function Taskbar({
                 const definition = getAppDefinition(previewEntry.appId);
                 const Icon = definition.icon;
                 const previewImage = previewImages[previewEntry.windowId];
-
                 return (
                   <motion.div
                     key={previewEntry.id}
                     className="taskbar__preview"
-                    style={
-                      {
-                        left: previewEntry.left,
-                        bottom: previewEntry.bottom,
-                        width: TASKBAR_PREVIEW_WIDTH,
-                        "--app-accent": definition.accent,
-                      } as CSSProperties
-                    }
+                    style={{ left: previewEntry.left, bottom: previewEntry.bottom, width: TASKBAR_PREVIEW_WIDTH, "--app-accent": definition.accent } as CSSProperties}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 6 }}
@@ -229,16 +219,10 @@ export function Taskbar({
                   >
                     <div className="taskbar__preview-frame">
                       {previewImage ? (
-                        <img
-                          className="taskbar__preview-image"
-                          src={previewImage}
-                          alt={`${previewEntry.title} preview`}
-                        />
+                        <img className="taskbar__preview-image" src={previewImage} alt={`${previewEntry.title} preview`} />
                       ) : (
                         <div className="taskbar__preview-fallback">
-                          <span className="taskbar__preview-fallback-icon">
-                            <Icon size={24} />
-                          </span>
+                          <span className="taskbar__preview-fallback-icon"><Icon size={24} /></span>
                           <small>
                             {previewEntry.minimized
                               ? "Preview unavailable while minimized"
@@ -287,40 +271,62 @@ export function Taskbar({
 
         <div className="taskbar__windows" ref={windowsRef}>
           <div className="taskbar__window-strip" onScroll={() => setPreviewEntry(null)}>
-            {entries.map((entry) => {
+            {slots.map((slot) => {
+              if (slot.type === "pinned-closed") {
+                const definition = getAppDefinition(slot.appId);
+                const Icon = definition.icon;
+                return (
+                  <button
+                    key={`pinned-${slot.appId}`}
+                    className="taskbar__item taskbar__item--pinned-closed"
+                    type="button"
+                    title={definition.title}
+                    aria-label={`Launch ${definition.title}`}
+                    onClick={() => onLaunchApp(slot.appId)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onUnpinApp(slot.appId);
+                    }}
+                  >
+                    <Icon size={14} />
+                    <span className="taskbar__item-indicator" aria-hidden="true" />
+                  </button>
+                );
+              }
+
+              const { entry, pinned } = slot;
               const definition = getAppDefinition(entry.appId);
               const Icon = definition.icon;
-
               return (
                 <button
                   key={entry.id}
                   data-window-id={entry.windowId}
-                  className={`taskbar__item ${entry.active ? "is-active" : ""} ${entry.minimized ? "is-minimized" : ""}`}
+                  className={cn(
+                    "taskbar__item",
+                    pinned && "taskbar__item--pinned",
+                    entry.active && "is-active",
+                    entry.minimized && "is-minimized"
+                  )}
                   type="button"
                   aria-pressed={entry.active && !entry.minimized}
                   onClick={() => onToggleWindow(entry.windowId)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (pinned) onUnpinApp(entry.appId);
+                    else onPinApp(entry.appId);
+                  }}
                   onMouseEnter={(event) => {
                     const placement = getPreviewPlacement(event.currentTarget);
-                    setPreviewEntry({
-                      ...entry,
-                      ...placement,
-                    });
+                    setPreviewEntry({ ...entry, ...placement });
                     void capturePreview(entry);
                   }}
                   onFocus={(event) => {
                     const placement = getPreviewPlacement(event.currentTarget);
-                    setPreviewEntry({
-                      ...entry,
-                      ...placement,
-                    });
+                    setPreviewEntry({ ...entry, ...placement });
                     void capturePreview(entry);
                   }}
-                  onMouseLeave={() => {
-                    setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current));
-                  }}
-                  onBlur={() => {
-                    setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current));
-                  }}
+                  onMouseLeave={() => setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current))}
+                  onBlur={() => setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current))}
                 >
                   <Icon size={14} />
                   <span className="taskbar__item-copy">{entry.title}</span>

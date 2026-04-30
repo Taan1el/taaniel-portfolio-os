@@ -56,8 +56,11 @@ export function DesktopShell() {
     viewportMode,
     desktopIconPositions,
     focusedWindowId,
+    pinnedAppIds,
     moveDesktopIcon,
     reconcileDesktopIconPositions,
+    pinApp,
+    unpinApp,
   } = useShellStore(
     useShallow((state) => ({
       selectedIconId: state.selectedIconId,
@@ -71,6 +74,7 @@ export function DesktopShell() {
       viewportMode: state.viewportMode,
       desktopIconPositions: state.desktopIconPositions,
       focusedWindowId: state.focusedWindowId,
+      pinnedAppIds: state.pinnedAppIds,
       setStartMenuOpen: state.setStartMenuOpen,
       toggleStartMenu: state.toggleStartMenu,
       requestStartMenuSearchFocus: state.requestStartMenuSearchFocus,
@@ -82,6 +86,8 @@ export function DesktopShell() {
       clearClipboard: state.clearClipboard,
       moveDesktopIcon: state.moveDesktopIcon,
       reconcileDesktopIconPositions: state.reconcileDesktopIconPositions,
+      pinApp: state.pinApp,
+      unpinApp: state.unpinApp,
     }))
   );
   const {
@@ -585,6 +591,7 @@ export function DesktopShell() {
 
       <Taskbar
         entries={taskbarEntries}
+        pinnedAppIds={pinnedAppIds}
         startMenuOpen={startMenuOpen}
         calendarOpen={calendarOpen}
         searchQuery={searchQuery}
@@ -594,6 +601,9 @@ export function DesktopShell() {
         onToggleStartMenu={toggleStartMenu}
         onToggleCalendar={() => setCalendarOpen(!calendarOpen)}
         onToggleWindow={toggleTaskbarWindow}
+        onLaunchApp={(appId) => launchApp({ appId })}
+        onPinApp={pinApp}
+        onUnpinApp={unpinApp}
         onShowDesktop={showDesktop}
       />
     </main>

@@ -3224,6 +3224,17 @@ h3 {
   transform: scaleX(0.62);
 }
 
+/* Pinned but no window open — icon-only, dimmed */
+.taskbar__item--pinned-closed {
+  opacity: 0.52;
+  padding-inline: 0.52rem;
+}
+
+.taskbar__item--pinned-closed:hover,
+.taskbar__item--pinned-closed:focus-visible {
+  opacity: 1;
+}
+
 /* ── Toast notifications ───────────────────────────────────────── */
 .toast-container {
   position: fixed;
