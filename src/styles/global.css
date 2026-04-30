@@ -339,6 +339,35 @@ img {
   pointer-events: auto !important;
 }
 
+/* ── Window snap ghost overlay ──────────────────────────────────── */
+.window-snap-ghost {
+  position: fixed;
+  z-index: 59;
+  border: 2px solid color-mix(in srgb, var(--theme-accent) 55%, transparent);
+  border-radius: 0.94rem;
+  background: color-mix(in srgb, var(--theme-accent) 7%, transparent);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  animation: snap-ghost-in 0.1s ease-out both;
+}
+
+@keyframes snap-ghost-in {
+  from { opacity: 0; scale: 0.98; }
+  to   { opacity: 1; scale: 1; }
+}
+
+.window-snap-ghost--top {
+  inset: 4px 4px 60px 4px;
+}
+
+.window-snap-ghost--left {
+  inset: 4px 50% 60px 4px;
+}
+
+.window-snap-ghost--right {
+  inset: 4px 4px 60px 50%;
+}
+
 .window-frame__rnd.is-animated {
   transition:
     transform 180ms ease,
