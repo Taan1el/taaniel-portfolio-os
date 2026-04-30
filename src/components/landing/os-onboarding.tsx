@@ -40,6 +40,10 @@ export function OsOnboarding() {
       <p>
         <strong>Tip:</strong> Click a desktop icon to open it. Drag to rearrange. Use{" "}
         <kbd>Alt</kbd> + <kbd>[</kbd> / <kbd>]</kbd> to cycle windows.
+        <span>
+          {" "}
+          Your session persists; use <strong>Start → Reset session</strong> to clear it.
+        </span>
       </p>
       <button
         type="button"

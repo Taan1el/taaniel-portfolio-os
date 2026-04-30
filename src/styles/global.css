@@ -3683,6 +3683,13 @@ h3 {
   gap: 0.75rem;
 }
 
+.start-menu__persist-note {
+  max-width: 30ch;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .start-menu__footer-actions,
 .start-menu__footer-meta {
   align-items: center;

@@ -216,6 +216,9 @@ export function StartMenu({
       <div className="start-menu__footer">
         <div className="start-menu__footer-actions">
           <StartPowerSection actions={startMenuPowerActions} onExecuteAction={executeShortcut} />
+          <small className="start-menu__persist-note">
+            Session state is saved in your browser (IndexedDB/localStorage).
+          </small>
         </div>
         <div className="start-menu__footer-meta">
           <div className="start-menu__links">
