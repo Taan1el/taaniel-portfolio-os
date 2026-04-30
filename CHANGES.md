@@ -34,4 +34,3 @@ All changes implemented as small, focused commits.
 - `ec66494` — ui: polish hover and active states
 - `6802f76` — docs: add CHANGES summary
 - `2ac23ef` — docs: include CHANGES commit hash
-
