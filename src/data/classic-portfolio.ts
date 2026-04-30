@@ -6,8 +6,8 @@ import { resolvePublicAssetUrl } from "@/lib/assets";
 
 export const classicPortfolio = {
   home: {
-    eyebrow: "Web designer and developer",
-    headline: "I design & code websites.",
+    eyebrow: "Frontend developer (UI systems)",
+    headline: "I build interfaces in React + TypeScript.",
     intro:
       "I build landing pages, websites, and visuals that move quickly from idea to code. I ship campaign and marketing work in a team environment while building deeper frontend UI systems in React and TypeScript.",
   },

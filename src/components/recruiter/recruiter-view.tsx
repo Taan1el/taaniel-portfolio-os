@@ -79,12 +79,20 @@ export function RecruiterView() {
         <header className={styles.hero}>
           <p className={styles.eyebrow}>Quick portfolio · static site content + full case list</p>
           <h1>{profile.name}</h1>
-          <p className={styles.role}>{classicPortfolio.home.eyebrow}</p>
+          <p className={styles.role}>{profile.role}</p>
           <p className={styles.lead} style={{ fontSize: "1.15rem", color: "var(--text-strong)" }}>
             {classicPortfolio.home.headline}
           </p>
           <p className={styles.lead}>{classicPortfolio.home.intro}</p>
           <p className={styles.lead}>{landingCopy.valueStatement}</p>
+          <p className={styles.meta} style={{ marginTop: "0.6rem" }}>
+            Engineering sample: <strong>Taaniel OS</strong> — stateful desktop shell, virtual filesystem, app registry.{" "}
+            <a href={repoUrl} target="_blank" rel="noreferrer">
+              Repo
+            </a>{" "}
+            ·{" "}
+            <Link to="/">Open OS</Link>
+          </p>
           <div className={styles.actions}>
             <a className={styles.primaryBtn} href={primaryCv} download>
               Download CV
