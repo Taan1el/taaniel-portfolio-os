@@ -3137,6 +3137,80 @@ h3 {
   transform: scaleX(0.62);
 }
 
+/* ── Toast notifications ───────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  right: 20px;
+  bottom: 72px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+  pointer-events: none;
+}
+
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 300px;
+  padding: 0.42rem 0.44rem 0.42rem 0.68rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.64rem;
+  background: var(--surface-strong);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-ambient);
+  font-size: 0.78rem;
+  color: var(--text);
+  pointer-events: auto;
+}
+
+.toast--success {
+  color: #7defa1;
+  border-color: rgba(125, 239, 161, 0.22);
+  background: color-mix(in srgb, rgba(125, 239, 161, 0.07) 100%, var(--surface-strong));
+}
+
+.toast--error {
+  color: #ff8a8a;
+  border-color: rgba(255, 138, 138, 0.22);
+  background: color-mix(in srgb, rgba(255, 138, 138, 0.07) 100%, var(--surface-strong));
+}
+
+.toast__icon {
+  flex-shrink: 0;
+}
+
+.toast__message {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+.toast__dismiss {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  border: none;
+  border-radius: 0.3rem;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.toast__dismiss:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+  opacity: 1;
+}
+
+/* ── Taskbar window preview ─────────────────────────────────────── */
 .taskbar__preview {
   position: fixed;
   min-width: 180px;

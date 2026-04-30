@@ -14,6 +14,7 @@ import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
+import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
@@ -549,6 +550,8 @@ export function DesktopShell() {
       <AnimatePresence>
         {contextMenu ? <ContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} /> : null}
       </AnimatePresence>
+
+      <ToastContainer />
 
       <Taskbar
         entries={taskbarEntries}

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
+import { toast } from "@/stores/toast-store";
 import {
   clearPersistedFileSystem,
   createBinaryFileRecord,
@@ -116,6 +117,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     const nodes = createDirectoryRecord(get().nodes, directoryPath, name);
     set({ nodes });
     await persistNodes(nodes);
+    toast("Folder created", "success");
   },
   createTextFile: async (directoryPath, name, content) => {
     const nodes = createTextFileRecord(get().nodes, directoryPath, name, content);
@@ -138,6 +140,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     const nodes = deleteNodeRecord(get().nodes, path);
     set({ nodes });
     await persistNodes(nodes);
+    toast("Deleted", "success");
   },
   updateTextFile: async (path, content) => {
     const nodes = updateTextFileRecord(get().nodes, path, content);
@@ -153,11 +156,16 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     const nodes = pasteNodeRecord(get().nodes, sourcePath, destinationDirectoryPath, operation);
     set({ nodes });
     await persistNodes(nodes);
+    toast(operation === "cut" ? "Moved" : "Copied", "success");
   },
   importFiles: async (directoryPath, files) => {
     const { nodes, importedPaths } = await importFilesRecord(get().nodes, directoryPath, files);
     set({ nodes });
     await persistNodes(nodes);
+    toast(
+      files.length === 1 ? `Imported "${files[0].name}"` : `Imported ${files.length} files`,
+      "success"
+    );
     return importedPaths;
   },
   canCutNode: (path) => !hasReadonlyContent(get().nodes, path),
