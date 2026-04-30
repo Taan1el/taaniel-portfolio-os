@@ -10,7 +10,7 @@ export const profile = {
   intro:
     "I ship responsive web UI, email-safe layouts, and component-driven prototypes. This portfolio is also a technical sample: a browser desktop with windows, state, and a virtual filesystem so you can inspect how I structure frontend code—not just static case study pages.",
   current:
-    "Studying at Tallinn Polytechnic; professionally I work on marketing assets and email campaign production while growing depth in frontend engineering.",
+    "I build and ship marketing and campaign UI assets in a team environment while continuing to deepen frontend engineering (React + TypeScript) through projects like this portfolio OS.",
   availability: "Open to junior–mid frontend roles and UI-engineering internships.",
   email: "mailto:Taaniel.vananurm@gmail.com",
   emailText: "Taaniel.vananurm@gmail.com",

@@ -9,12 +9,12 @@ export const classicPortfolio = {
     eyebrow: "Web designer and developer",
     headline: "I design & code websites.",
     intro:
-      "I build landing pages, websites, and visuals that move quickly from idea to code. Right now I'm studying at Tallinn Polytechnic and working as an intern at Fiizy OÜ.",
+      "I build landing pages, websites, and visuals that move quickly from idea to code. I ship campaign and marketing work in a team environment while building deeper frontend UI systems in React and TypeScript.",
   },
   proof: [
-    { label: "Currently", text: "Studying at Tallinn Polytechnic." },
-    { label: "Internship", text: "Working in a team at Fiizy OÜ." },
-    { label: "Focus", text: "Landing pages, websites, and brand visuals." },
+    { label: "Now", text: "Shipping marketing + campaign work in a team environment." },
+    { label: "Focus", text: "Landing pages, web UI, and reusable layout systems." },
+    { label: "Also", text: "React + TypeScript UI systems (this OS portfolio)." },
   ],
   featured: {
     eyebrow: "Selected work",
