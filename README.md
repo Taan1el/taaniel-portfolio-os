@@ -2,6 +2,18 @@
 
 Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows, a virtual filesystem (IndexedDB), taskbar with previews, Start menu, search, and bundled apps (terminal, Monaco editor, PDF/photo viewers, music player, games hub, and more).
 
+<div align="center">
+ <br />
+ <a href="https://taan1el.github.io/taaniel-portfolio-os/">
+  <img src="https://i.imgur.com/nYcKAOo.png" width="720" alt="Taaniel OS screenshot" />
+ </a>
+ <br />
+ <a href="https://taan1el.github.io/taaniel-portfolio-os/">
+  <img src="https://i.imgur.com/RldAtLw.png" width="720" alt="Taaniel OS screenshot (apps)" />
+ </a>
+ <br />
+</div>
+
 ## Stack
 
 - React 18, TypeScript, Vite
