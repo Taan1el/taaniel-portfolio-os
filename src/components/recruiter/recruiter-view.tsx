@@ -219,6 +219,9 @@ export function RecruiterView() {
             {" · "}
             {profile.location}
           </p>
+          <p className={styles.meta} style={{ marginTop: "0.35rem" }}>
+            Best: email. Typical response time: within 24 hours.
+          </p>
           <div className={styles.footerLinks}>
             {socialLinks.map((link) => (
               <a key={link.label} href={link.url} target="_blank" rel="noreferrer">

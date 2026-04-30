@@ -19,6 +19,9 @@ export function ContactApp({ window }: AppComponentProps) {
           <p className="eyebrow">Contact</p>
           <h1>{profile.name}</h1>
           <p>{profile.location}</p>
+          <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
+            Best: email. Typical response time: within 24 hours.
+          </p>
         </div>
         <a className="ghost-button" href={profile.email}>
           <Mail size={15} />
