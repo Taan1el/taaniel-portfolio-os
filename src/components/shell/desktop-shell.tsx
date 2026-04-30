@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
@@ -29,6 +29,7 @@ import { useSystemStore } from "@/stores/system-store";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
+  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
   const { processes } = useProcessStore(
     useShallow((state) => ({
       processes: state.processes,
@@ -235,6 +236,16 @@ export function DesktopShell() {
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
   });
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   useEffect(() => {
     const handleCycle = (event: KeyboardEvent) => {
@@ -502,6 +513,11 @@ export function DesktopShell() {
       onClick={() => setContextMenu(null)}
     >
       <OsOnboarding />
+      {!online ? (
+        <div className="os-offline-banner" role="status" aria-live="polite">
+          Offline — some previews and embeds may fail to load.
+        </div>
+      ) : null}
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
 

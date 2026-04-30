@@ -173,6 +173,21 @@ img {
   opacity: 0.8;
 }
 
+.os-offline-banner {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(10, 14, 20, 0.78);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  backdrop-filter: blur(8px);
+}
+
 .os-root.is-animated-wallpaper .os-root__wallpaper {
   background-size: 120% 120%;
   animation: wallpaper-pan 22s ease-in-out infinite alternate;
