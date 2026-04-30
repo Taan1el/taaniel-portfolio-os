@@ -98,6 +98,9 @@ export function RecruiterView() {
             <a className={styles.secondaryBtn} href={repoUrl} target="_blank" rel="noreferrer">
               GitHub repo
             </a>
+            <Link className={styles.secondaryBtn} to="/">
+              Open OS
+            </Link>
           </div>
 
           <dl className={styles.proofStrip}>

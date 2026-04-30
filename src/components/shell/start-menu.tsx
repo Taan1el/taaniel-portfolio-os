@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
 import { Mail } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button, ScrollArea } from "@/components/apps/app-layout";
 import { liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
@@ -47,6 +48,7 @@ export function StartMenu({
   onResetSession,
   onRequestClose,
 }: StartMenuProps) {
+  const navigate = useNavigate();
   const [expandedCategories, setExpandedCategories] = useState<Record<AppCategory, boolean>>(() =>
     startMenuCategories.reduce<Record<AppCategory, boolean>>((state, category) => {
       state[category.category] = category.defaultExpanded;
@@ -243,6 +245,18 @@ export function StartMenu({
               </a>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="quick-link"
+            onClick={() => {
+              onRequestClose();
+              navigate("/simple");
+            }}
+            onMouseMove={updateStartMenuSpotlight}
+          >
+            Quick portfolio
+          </Button>
           <Button
             type="button"
             variant="ghost"
