@@ -153,6 +153,43 @@ It’s designed as a technical sample: you can click around, open apps, inspect 
 3. Open **Photos** and zoom/pan.
 `;
 
+const appsCatalogMarkdown = `# Apps catalog
+
+This OS is a portfolio, so each app is included to demonstrate a specific UI/system skill.
+
+## Portfolio
+
+- **About** — structured content + cross-linking into the filesystem
+- **Projects** — case study launcher patterns + responsive layout
+- **Contact** — fast CTAs + link cards + copy-to-clipboard
+
+## Core system
+
+- **File Explorer** — virtual filesystem tree, drag/drop, collisions, open-with routing
+- **Markdown Viewer** — safe markdown rendering and document previews
+- **PDF Viewer** — browser iframe preview + pdf.js renderer fallback
+- **Photos** — pan/zoom interaction + media gallery navigation
+- **Browser** — iframe viewer + CSP/X-Frame fallbacks + local path browsing
+
+## Workspace / tooling
+
+- **Terminal** — command parsing + filesystem actions + UI layout under constraints
+- **Code Editor** — Monaco integration + file persistence
+- **Notes** — quick text editing + persistence
+
+## Optional extras
+
+- **Music Player** — audio playback + folder-based playlist
+- **Settings** — theme and wallpaper controls
+- **Paint** — canvas tool + file export
+
+## What to try (fast)
+
+1. Start menu search → launch **Files**
+2. Open **OS Case Study.md**
+3. Open **Photos** and zoom/pan
+`;
+
 export const buildSeedFileSystem = (): FileSystemRecord => {
   const nodes: FileSystemRecord = {
     "/": directory("/"),
@@ -194,6 +231,10 @@ export const buildSeedFileSystem = (): FileSystemRecord => {
 
   nodes["/Portfolio/OS-Case-Study.md"] = file("/Portfolio/OS-Case-Study.md", "md", "text/markdown", {
     content: osCaseStudyMarkdown,
+  });
+
+  nodes["/Portfolio/Apps.md"] = file("/Portfolio/Apps.md", "md", "text/markdown", {
+    content: appsCatalogMarkdown,
   });
 
   nodes["/Code/portfolio-positioning.ts"] = file(

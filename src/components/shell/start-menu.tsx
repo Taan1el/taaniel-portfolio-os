@@ -176,6 +176,15 @@ export function StartMenu({
                       type="button"
                       variant="ghost"
                       className="quick-link"
+                      onClick={() => onOpenFile("/Portfolio/Apps.md")}
+                      onMouseMove={updateStartMenuSpotlight}
+                    >
+                      Apps catalog
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="quick-link"
                       onClick={() => onOpenDirectory("/Portfolio/Case Studies")}
                       onMouseMove={updateStartMenuSpotlight}
                     >
