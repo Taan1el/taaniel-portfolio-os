@@ -4007,12 +4007,23 @@ h3 {
   .taskbar__desktop:hover {
     transform: translateY(-1px);
     background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
   }
 
   .window-frame__actions .is-close:hover {
     background: rgba(255, 89, 89, 0.18);
     color: #ffd5d5;
   }
+}
+
+.button:active,
+.pill-button:active,
+.ghost-button:active,
+.inline-link:active,
+.quick-link:active,
+.sidebar-link:active,
+.power-button:active {
+  transform: translateY(0);
 }
 
 @media (max-width: 960px) {
