@@ -20,6 +20,7 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 - **Quick portfolio (`/simple`)**: https://taan1el.github.io/taaniel-portfolio-os/#/simple
 - **Repository**: https://github.com/Taan1el/taaniel-portfolio-os
 - **Download CV**: https://taan1el.github.io/taaniel-portfolio-os/assets/CV_Taaniel_Vananurm.pdf
+- **Contributing**: `CONTRIBUTING.md`
 
 ## Start here (30 seconds)
 
