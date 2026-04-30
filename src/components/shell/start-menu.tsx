@@ -82,6 +82,17 @@ export function StartMenu({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [onRequestClose]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onRequestClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onRequestClose]);
+
   const appsByCategory = useMemo(
     () =>
       startMenuCategories
