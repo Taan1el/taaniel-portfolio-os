@@ -14,6 +14,27 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
  <br />
 </div>
 
+## Links
+
+- **Live demo**: https://taan1el.github.io/taaniel-portfolio-os/
+- **Quick portfolio (`/simple`)**: https://taan1el.github.io/taaniel-portfolio-os/#/simple
+- **Repository**: https://github.com/Taan1el/taaniel-portfolio-os
+- **Download CV**: https://taan1el.github.io/taaniel-portfolio-os/assets/CV_Taaniel_Vananurm.pdf
+
+## Start here (30 seconds)
+
+- Open the **Start menu** → type in search → launch an app
+- Open **OS Case Study.md** on the desktop for architecture notes
+- Open **Files** → browse `/Portfolio/Case Studies`
+
+## Project map
+
+- `src/components/shell/`: desktop shell, Start menu, taskbar, window host
+- `src/components/apps/`: app windows (Photos, PDF, Music, Files, etc.)
+- `src/lib/`: filesystem, launchers, app registry, search, system helpers
+- `src/data/`: portfolio data + bundled assets + filesystem seeding
+- `src/stores/`: Zustand stores (shell, windows, filesystem, processes)
+
 ## Stack
 
 - React 18, TypeScript, Vite
