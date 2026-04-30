@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { themePresets } from "@/data/portfolio";
 import { resolveDesktopWallpaper } from "@/data/wallpapers";
-import { resolveEditApp } from "@/lib/file-registry";
+import { getOpenWithOptions, resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
+import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
@@ -41,6 +42,7 @@ export function DesktopShell() {
     searchQuery,
     calendarOpen,
     contextMenu,
+    openWithTarget,
     clipboard,
     setStartMenuOpen,
     toggleStartMenu,
@@ -49,6 +51,7 @@ export function DesktopShell() {
     setCalendarOpen,
     setSelectedIconId,
     setContextMenu,
+    setOpenWithTarget,
     setClipboard,
     clearClipboard,
     themeId,
@@ -82,6 +85,8 @@ export function DesktopShell() {
       setCalendarOpen: state.setCalendarOpen,
       setSelectedIconId: state.setSelectedIconId,
       setContextMenu: state.setContextMenu,
+      openWithTarget: state.openWithTarget,
+      setOpenWithTarget: state.setOpenWithTarget,
       setClipboard: state.setClipboard,
       clearClipboard: state.clearClipboard,
       moveDesktopIcon: state.moveDesktopIcon,
@@ -421,6 +426,17 @@ export function DesktopShell() {
           label: entry.type === "link" ? "Open link" : "Open",
           onSelect: () => activateEntry(entry),
         },
+        targetNode?.kind === "file" && getOpenWithOptions(targetNode).length > 1
+          ? {
+              id: "open-with",
+              label: "Open with…",
+              onSelect: () => {
+                if (targetPath && targetNode) {
+                  setOpenWithTarget({ filePath: targetPath, node: targetNode });
+                }
+              },
+            }
+          : null,
         targetPath
           ? {
               id: "edit",
@@ -588,6 +604,15 @@ export function DesktopShell() {
       </AnimatePresence>
 
       <ToastContainer />
+
+      <OpenWithDialog
+        target={openWithTarget}
+        onOpen={(appId) => {
+          if (!openWithTarget) return;
+          launchApp({ appId, payload: { filePath: openWithTarget.filePath } });
+        }}
+        onClose={() => setOpenWithTarget(null)}
+      />
 
       <Taskbar
         entries={taskbarEntries}

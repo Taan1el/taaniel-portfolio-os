@@ -17,6 +17,7 @@ import type {
   DesktopEntry,
   DesktopGridPosition,
   ViewportMode,
+  VirtualNode,
 } from "@/types/system";
 
 export const DEFAULT_PINNED_APPS: AppId[] = ["about", "files", "terminal", "browser"];
@@ -31,6 +32,7 @@ interface ShellStoreState {
   searchQuery: string;
   calendarOpen: boolean;
   contextMenu: ContextMenuState | null;
+  openWithTarget: { filePath: string; node: VirtualNode } | null;
   clipboard: ClipboardState | null;
   themeId: string;
   wallpaper: DesktopWallpaperState;
@@ -45,6 +47,7 @@ interface ShellStoreState {
   setCalendarOpen: (open: boolean) => void;
   setSelectedIconId: (iconId: string | null) => void;
   setContextMenu: (contextMenu: ContextMenuState | null) => void;
+  setOpenWithTarget: (target: { filePath: string; node: VirtualNode } | null) => void;
   setClipboard: (clipboard: ClipboardState | null) => void;
   clearClipboard: () => void;
   setThemeId: (themeId: string) => void;
@@ -81,6 +84,7 @@ const initialShellState = {
   searchQuery: "",
   calendarOpen: false,
   contextMenu: null,
+  openWithTarget: null,
   clipboard: null,
   themeId: legacyShellSeed.themeId,
   wallpaper: legacyShellSeed.wallpaper ?? defaultDesktopWallpaper,
@@ -125,6 +129,7 @@ export const useShellStore = create<ShellStoreState>()(
         set((state) => ({ pinnedAppIds: state.pinnedAppIds.filter((id) => id !== appId) })),
       setSelectedIconId: (selectedIconId) => set({ selectedIconId }),
       setContextMenu: (contextMenu) => set({ contextMenu }),
+      setOpenWithTarget: (openWithTarget) => set({ openWithTarget }),
       setClipboard: (clipboard) => set({ clipboard }),
       clearClipboard: () => set({ clipboard: null }),
       setThemeId: (themeId) => set({ themeId }),
@@ -196,6 +201,7 @@ export const useShellStore = create<ShellStoreState>()(
           searchQuery: "",
           calendarOpen: false,
           contextMenu: null,
+          openWithTarget: null,
         }),
       resetShell: () =>
         set({

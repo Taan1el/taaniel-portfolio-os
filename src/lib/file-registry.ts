@@ -422,3 +422,31 @@ export function resolveEditApp(node?: VirtualNode): AppId | null {
 export function resolveAppIdForNode(node?: VirtualNode): AppId {
   return resolveOpenApp(node);
 }
+
+/** All apps that can meaningfully open this file type (used by "Open With" dialog). */
+const FAMILY_ALTERNATIVES: Partial<Record<string, AppId[]>> = {
+  text: ["notes", "editor", "markdown"],
+  code: ["editor"],
+  image: ["photos", "paint"],
+};
+
+export function getOpenWithOptions(node: VirtualNode): AppId[] {
+  if (node.kind === "directory") return [];
+
+  const assoc = getFileAssociationDescriptor(node.extension);
+  const seen = new Set<AppId>();
+  const options: AppId[] = [];
+
+  const add = (id: AppId | undefined | null) => {
+    if (id && !seen.has(id)) { seen.add(id); options.push(id); }
+  };
+
+  add(resolveOpenApp(node));
+  add(resolveEditApp(node));
+
+  for (const alt of FAMILY_ALTERNATIVES[assoc?.family ?? ""] ?? []) {
+    add(alt);
+  }
+
+  return options;
+}
