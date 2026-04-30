@@ -16,13 +16,48 @@ import styles from "@/components/recruiter/recruiter-view.module.css";
 const LANDING_KEY = "portfolio-landing-dismissed";
 
 const workGallery = [
-  { id: "group-16", title: "Group 16", src: "/assets/Work/Group 16.png" },
-  { id: "sol-rem-1", title: "Sol Rem 1", src: "/assets/Work/Sol_Rem_1.png" },
-  { id: "vivus-202505", title: "Vivus Hero 202505", src: "/assets/Work/Vivus_hero_202505.jpg" },
-  { id: "vivus-mx", title: "Vivus OM MX Hero", src: "/assets/Work/Vivus_om_mx_Hero.jpg" },
-  { id: "group-22", title: "Group 22", src: "/assets/Work/Group 22.png" },
-  { id: "group-1", title: "Group 1", src: "/assets/Work/Group 1.png" },
-  { id: "group-17", title: "Group 17", src: "/assets/Work/Group 17.png" },
+  {
+    id: "vivus-202505",
+    title: "Vivus — acquisition hero (2025)",
+    detail: "Hero concept shipped for a loan brand campaign. Contribution: layout + hierarchy + export-ready assets.",
+    src: "/assets/Work/Vivus_hero_202505.jpg",
+  },
+  {
+    id: "vivus-mx",
+    title: "Vivus — Mexico market hero",
+    detail: "Market variant for the same brand system. Contribution: composition tweaks + localized layout.",
+    src: "/assets/Work/Vivus_om_mx_Hero.jpg",
+  },
+  {
+    id: "sol-rem-1",
+    title: "Solar panel brand — promo hero",
+    detail: "Landing/email hero visual. Contribution: typography, product framing, and CTA contrast.",
+    src: "/assets/Work/Sol_Rem_1.png",
+  },
+  {
+    id: "group-22",
+    title: "Fintech email layout — hero + module set",
+    detail: "Modular layout designed for email-safe rendering. Contribution: layout system + CTA hierarchy.",
+    src: "/assets/Work/Group 22.png",
+  },
+  {
+    id: "group-16",
+    title: "Campaign hero variant — high contrast",
+    detail: "Hero exploration focusing on legibility and urgency. Contribution: layout + color/contrast pass.",
+    src: "/assets/Work/Group 16.png",
+  },
+  {
+    id: "group-1",
+    title: "Campaign hero variant — lifestyle framing",
+    detail: "Alternative hero approach with stronger lifestyle context. Contribution: composition + copy placement.",
+    src: "/assets/Work/Group 1.png",
+  },
+  {
+    id: "group-17",
+    title: "Mascot campaign — hero direction",
+    detail: "Mascot-led hero variant with mini UI card. Contribution: balancing personality with clarity.",
+    src: "/assets/Work/Group 17.png",
+  },
 ];
 
 export function RecruiterView() {
@@ -121,9 +156,7 @@ export function RecruiterView() {
                 <div className={styles.cardBody}>
                   <p className={styles.eyebrow}>Hero visual</p>
                   <h3>{item.title}</h3>
-                  <p className={styles.meta}>
-                    Marketing hero image created for a company in an international market.
-                  </p>
+                  <p className={styles.meta}>{item.detail}</p>
                 </div>
               </article>
             ))}
