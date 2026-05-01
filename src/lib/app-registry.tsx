@@ -81,6 +81,12 @@ const registry: Record<AppId, AppDefinition> = {
     load: async () => ({ default: (await import("@/components/apps/file-explorer-app")).FileExplorerApp }),
     resolveTitle: (payload) =>
       payload?.directoryPath ? `Explorer - ${getBaseName(payload.directoryPath)}` : "File Explorer",
+    jumpList: [
+      { id: "open-home", label: "Home", payload: { directoryPath: "/" } },
+      { id: "open-desktop", label: "Desktop", payload: { directoryPath: "/Desktop" } },
+      { id: "open-documents", label: "Documents", payload: { directoryPath: "/Documents" } },
+      { id: "open-media", label: "Media", payload: { directoryPath: "/Media" } },
+    ],
   }),
   notes: defineApp({
     id: "notes",
@@ -94,6 +100,9 @@ const registry: Record<AppId, AppDefinition> = {
     multiple: false,
     load: async () => ({ default: (await import("@/components/apps/notes-app")).NotesApp }),
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Notes"),
+    jumpList: [
+      { id: "new-note", label: "New Note" },
+    ],
   }),
   music: defineApp({
     id: "music",
@@ -204,6 +213,9 @@ const registry: Record<AppId, AppDefinition> = {
     defaultPosition: { x: 214, y: 126 },
     defaultSize: { width: 820, height: 520 },
     load: async () => ({ default: (await import("@/components/apps/terminal-app")).TerminalApp }),
+    jumpList: [
+      { id: "new-terminal", label: "New Terminal" },
+    ],
   }),
   editor: defineApp({
     id: "editor",
@@ -268,6 +280,9 @@ const registry: Record<AppId, AppDefinition> = {
     defaultPosition: { x: 248, y: 122 },
     defaultSize: { width: 780, height: 560 },
     load: async () => ({ default: (await import("@/components/apps/settings-app")).SettingsApp }),
+    jumpList: [
+      { id: "open-settings", label: "Appearance & Wallpaper" },
+    ],
   }),
   browser: defineApp({
     id: "browser",

@@ -3428,6 +3428,86 @@ h3 {
   color: var(--text);
 }
 
+/* ── Taskbar jump list ──────────────────────────────────────────── */
+.taskbar__jump-list {
+  position: fixed;
+  z-index: 310;
+  min-width: 200px;
+  max-width: 240px;
+  padding: 0.38rem 0.38rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.82rem;
+  background: var(--surface-strong);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-ambient), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.taskbar__jump-list-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.32rem 0.52rem 0.42rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.2rem;
+}
+
+.taskbar__jump-list-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.taskbar__jump-list-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskbar__jump-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0.18rem 0;
+}
+
+.taskbar__jump-list-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.2rem 0.38rem;
+}
+
+.taskbar__jump-list-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.34rem 0.58rem;
+  border: none;
+  border-radius: 0.46rem;
+  background: none;
+  color: var(--text);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.taskbar__jump-list-item:hover,
+.taskbar__jump-list-item:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.taskbar__jump-list-item.is-danger {
+  color: #ff8a8a;
+}
+
+.taskbar__jump-list-item.is-danger:hover,
+.taskbar__jump-list-item.is-danger:focus-visible {
+  background: rgba(255, 138, 138, 0.1);
+}
+
 /* ── Taskbar window preview ─────────────────────────────────────── */
 .taskbar__preview {
   position: fixed;

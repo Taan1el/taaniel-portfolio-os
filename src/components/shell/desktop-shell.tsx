@@ -636,7 +636,8 @@ export function DesktopShell() {
         onToggleStartMenu={toggleStartMenu}
         onToggleCalendar={() => setCalendarOpen(!calendarOpen)}
         onToggleWindow={toggleTaskbarWindow}
-        onLaunchApp={(appId) => launchApp({ appId })}
+        onLaunchApp={(appId, payload) => launchApp({ appId, payload })}
+        onCloseWindow={closeWindow}
         onPinApp={pinApp}
         onUnpinApp={unpinApp}
         onShowDesktop={showDesktop}

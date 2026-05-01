@@ -9,7 +9,7 @@ import { getAppDefinition } from "@/lib/app-registry";
 import { cn, formatClock, formatDateLabel } from "@/lib/utils";
 import taskbarMod from "@/components/shell/taskbar.module.css";
 import { useShellStore } from "@/stores/shell-store";
-import type { AppId, TaskbarWindowEntry } from "@/types/system";
+import type { AppId, TaskbarWindowEntry, WindowPayload } from "@/types/system";
 
 const TASKBAR_PREVIEW_WIDTH = 256;
 const TASKBAR_PREVIEW_OFFSET = 12;
@@ -58,6 +58,23 @@ function buildSlots(pinnedAppIds: AppId[], entries: TaskbarWindowEntry[]): Taskb
   return slots;
 }
 
+// ── Jump list menu ────────────────────────────────────────────────
+interface JumpListMenu {
+  appId: AppId;
+  windowId?: string;      // set when opened from an active window button
+  pinned: boolean;
+  left: number;
+  bottom: number;
+}
+
+function getJumpListPlacement(button: HTMLButtonElement) {
+  const rect = button.getBoundingClientRect();
+  return {
+    left: Math.max(8, Math.min(rect.left, window.innerWidth - 220 - 8)),
+    bottom: window.innerHeight - rect.top + 6,
+  };
+}
+
 // ──────────────────────────────────────────────────────────────────
 interface TaskbarPreviewEntry extends TaskbarWindowEntry {
   left: number;
@@ -76,7 +93,8 @@ interface TaskbarProps {
   onToggleStartMenu: () => void;
   onToggleCalendar: () => void;
   onToggleWindow: (windowId: string) => void;
-  onLaunchApp: (appId: AppId) => void;
+  onLaunchApp: (appId: AppId, payload?: WindowPayload) => void;
+  onCloseWindow: (windowId: string) => void;
   onPinApp: (appId: AppId) => void;
   onUnpinApp: (appId: AppId) => void;
   onShowDesktop: () => void;
@@ -95,6 +113,7 @@ export function Taskbar({
   onToggleCalendar,
   onToggleWindow,
   onLaunchApp,
+  onCloseWindow,
   onPinApp,
   onUnpinApp,
   onShowDesktop,
@@ -102,6 +121,7 @@ export function Taskbar({
   const [now, setNow] = useState(() => new Date());
   const [previewEntry, setPreviewEntry] = useState<TaskbarPreviewEntry | null>(null);
   const [previewImages, setPreviewImages] = useState<Record<string, string | null>>({});
+  const [jumpListMenu, setJumpListMenu] = useState<JumpListMenu | null>(null);
   const windowsRef = useRef<HTMLDivElement | null>(null);
   const captureQueueRef = useRef<Set<string>>(new Set());
   const taskbarSearchInputRef = useRef<HTMLInputElement>(null);
@@ -149,6 +169,18 @@ export function Taskbar({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [previewEntry]);
+
+  useEffect(() => {
+    if (!jumpListMenu) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(".taskbar__jump-list")) return;
+      setJumpListMenu(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [jumpListMenu]);
 
   useEffect(() => {
     setPreviewImages((current) => {
@@ -245,6 +277,82 @@ export function Taskbar({
         )
       : null;
 
+  const jumpListNode =
+    typeof document !== "undefined"
+      ? createPortal(
+          <AnimatePresence>
+            {jumpListMenu ? (
+              (() => {
+                const def = getAppDefinition(jumpListMenu.appId);
+                const Icon = def.icon;
+                return (
+                  <motion.div
+                    key={jumpListMenu.appId}
+                    className="taskbar__jump-list"
+                    style={{ left: jumpListMenu.left, bottom: jumpListMenu.bottom, "--app-accent": def.accent } as CSSProperties}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.14 }}
+                  >
+                    <div className="taskbar__jump-list-header">
+                      <span className="taskbar__jump-list-icon" style={{ color: def.accent }}><Icon size={14} /></span>
+                      <strong className="taskbar__jump-list-title">{def.title}</strong>
+                    </div>
+                    {(def.jumpList ?? []).length > 0 ? (
+                      <>
+                        <div className="taskbar__jump-list-section">
+                          {(def.jumpList ?? []).map((item) => (
+                            <button
+                              key={item.id}
+                              className="taskbar__jump-list-item"
+                              type="button"
+                              onClick={() => {
+                                setJumpListMenu(null);
+                                onLaunchApp(jumpListMenu.appId, item.payload);
+                              }}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="taskbar__jump-list-divider" />
+                      </>
+                    ) : null}
+                    <div className="taskbar__jump-list-section">
+                      <button
+                        className="taskbar__jump-list-item"
+                        type="button"
+                        onClick={() => {
+                          setJumpListMenu(null);
+                          if (jumpListMenu.pinned) onUnpinApp(jumpListMenu.appId);
+                          else onPinApp(jumpListMenu.appId);
+                        }}
+                      >
+                        {jumpListMenu.pinned ? "Unpin from taskbar" : "Pin to taskbar"}
+                      </button>
+                      {jumpListMenu.windowId ? (
+                        <button
+                          className="taskbar__jump-list-item is-danger"
+                          type="button"
+                          onClick={() => {
+                            setJumpListMenu(null);
+                            onCloseWindow(jumpListMenu.windowId!);
+                          }}
+                        >
+                          Close window
+                        </button>
+                      ) : null}
+                    </div>
+                  </motion.div>
+                );
+              })()
+            ) : null}
+          </AnimatePresence>,
+          document.body
+        )
+      : null;
+
   return (
     <>
       <footer className={cn("taskbar", taskbarMod.root)}>
@@ -285,7 +393,9 @@ export function Taskbar({
                     onClick={() => onLaunchApp(slot.appId)}
                     onContextMenu={(e) => {
                       e.preventDefault();
-                      onUnpinApp(slot.appId);
+                      const placement = getJumpListPlacement(e.currentTarget);
+                      setPreviewEntry(null);
+                      setJumpListMenu({ appId: slot.appId, pinned: true, ...placement });
                     }}
                   >
                     <Icon size={14} />
@@ -312,8 +422,9 @@ export function Taskbar({
                   onClick={() => onToggleWindow(entry.windowId)}
                   onContextMenu={(e) => {
                     e.preventDefault();
-                    if (pinned) onUnpinApp(entry.appId);
-                    else onPinApp(entry.appId);
+                    const placement = getJumpListPlacement(e.currentTarget);
+                    setPreviewEntry(null);
+                    setJumpListMenu({ appId: entry.appId, windowId: entry.windowId, pinned, ...placement });
                   }}
                   onMouseEnter={(event) => {
                     const placement = getPreviewPlacement(event.currentTarget);
@@ -353,6 +464,7 @@ export function Taskbar({
       </footer>
 
       {previewNode}
+      {jumpListNode}
     </>
   );
 }

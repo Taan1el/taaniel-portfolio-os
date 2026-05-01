@@ -167,6 +167,7 @@ export interface AppDefinition {
     y: number;
   };
   resolveTitle?: (payload?: WindowPayload) => string;
+  jumpList?: Array<{ id: string; label: string; payload?: WindowPayload }>;
 }
 
 export type StartMenuAction =
