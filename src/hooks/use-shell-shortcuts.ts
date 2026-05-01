@@ -8,6 +8,7 @@ interface UseShellShortcutsOptions {
   onCloseActiveWindow: (windowId: string) => void;
   onOpenTerminal: () => void;
   onToggleFullscreen: () => void;
+  onToggleCheatsheet: () => void;
 }
 
 export function useShellShortcuts({
@@ -18,6 +19,7 @@ export function useShellShortcuts({
   onCloseActiveWindow,
   onOpenTerminal,
   onToggleFullscreen,
+  onToggleCheatsheet,
 }: UseShellShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -55,6 +57,23 @@ export function useShellShortcuts({
       if (event.shiftKey && event.key === "F10") {
         event.preventDefault();
         onOpenTerminal();
+        return;
+      }
+
+      // ? key (no modifier) or Ctrl+/ — open cheatsheet
+      const target = event.target as HTMLElement | null;
+      const inInput = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if (!inInput) {
+        if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          event.preventDefault();
+          onToggleCheatsheet();
+          return;
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key === "/") {
+          event.preventDefault();
+          onToggleCheatsheet();
+          return;
+        }
       }
     };
 
@@ -68,5 +87,6 @@ export function useShellShortcuts({
     onToggleFullscreen,
     onOpenLauncherSearch,
     onToggleStartMenu,
+    onToggleCheatsheet,
   ]);
 }

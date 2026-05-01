@@ -15,6 +15,7 @@ import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
+import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
@@ -166,6 +167,7 @@ export function DesktopShell() {
   });
 
   const shellSearchBrowseRef = useRef<ShellSearchResultsHandle>(null);
+  const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const navigate = useNavigate();
 
   const openExternal = (url: string) => {
@@ -250,6 +252,7 @@ export function DesktopShell() {
     onCloseActiveWindow: closeWindow,
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
+    onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
   });
 
   useEffect(() => {
@@ -614,6 +617,8 @@ export function DesktopShell() {
       </AnimatePresence>
 
       <ToastContainer />
+
+      <ShortcutCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
 
       <OpenWithDialog
         target={openWithTarget}
