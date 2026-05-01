@@ -38,6 +38,7 @@ const SEED: FileSystemRecord = {
   "/": dir("/", "/"),
   "/Documents": dir("/Documents", "Documents"),
   "/Documents/notes.txt": txt("/Documents/notes.txt", "notes.txt", "hello"),
+  "/Trash": dir("/Trash", "Trash"),
 };
 
 beforeEach(() => {
@@ -109,16 +110,37 @@ describe("filesystem-store", () => {
   });
 
   describe("deleteNode", () => {
-    it("removes the node from the store", async () => {
+    it("moves a file to /Trash (soft-delete)", async () => {
       await useFileSystemStore.getState().deleteNode("/Documents/notes.txt");
+      // Original location is gone
       expect(useFileSystemStore.getState().readFile("/Documents/notes.txt")).toBeNull();
       expect(useFileSystemStore.getState().listDirectory("/Documents")).toHaveLength(0);
+      // File now lives in /Trash
+      const trashed = useFileSystemStore.getState().readFile("/Trash/notes.txt");
+      expect(trashed).not.toBeNull();
+      expect(trashed!.content).toBe("hello");
     });
 
-    it("deletes a directory and all its descendants", async () => {
+    it("moves a directory and its descendants to /Trash (soft-delete)", async () => {
       await useFileSystemStore.getState().deleteNode("/Documents");
-      expect(useFileSystemStore.getState().listDirectory("/")).toHaveLength(0);
-      expect(useFileSystemStore.getState().readFile("/Documents/notes.txt")).toBeNull();
+      // /Documents is no longer a child of /
+      const rootChildren = useFileSystemStore.getState().listDirectory("/");
+      expect(rootChildren.every((c) => c.name !== "Documents")).toBe(true);
+      // The directory now exists under /Trash
+      expect(useFileSystemStore.getState().listDirectory("/Trash")).toHaveLength(1);
+    });
+
+    it("permanently deletes a file already inside /Trash", async () => {
+      // Seed a file directly in /Trash
+      useFileSystemStore.setState({
+        nodes: {
+          ...useFileSystemStore.getState().nodes,
+          "/Trash/old.txt": txt("/Trash/old.txt", "old.txt", "gone"),
+        },
+      });
+      await useFileSystemStore.getState().deleteNode("/Trash/old.txt");
+      expect(useFileSystemStore.getState().readFile("/Trash/old.txt")).toBeNull();
+      expect(useFileSystemStore.getState().listDirectory("/Trash")).toHaveLength(0);
     });
   });
 
