@@ -28,6 +28,7 @@ import { openFileSystemPath } from "@/lib/launchers";
 import { cn } from "@/lib/utils";
 import { useExplorerStore } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { useRecentFilesStore } from "@/stores/recent-files-store";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps, FileNode } from "@/types/system";
 
@@ -205,6 +206,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const writeFile = useFileSystemStore((state) => state.writeFile);
   const importFiles = useFileSystemStore((state) => state.importFiles);
   const launchApp = useSystemStore((state) => state.launchApp);
+  const recentPaths = useRecentFilesStore((state) => state.recentPaths);
+  const clearRecent = useRecentFilesStore((state) => state.clearRecent);
   const {
     session,
     ensureSession,
@@ -339,7 +342,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         <ExplorerSidebar
           locations={explorerLocations}
           activePath={currentDirectoryPath}
+          recentPaths={recentPaths}
           onNavigate={(path) => navigate(window.id, path)}
+          onOpenFile={(path) => openFileSystemPath(path, nodes, launchApp)}
+          onClearRecent={clearRecent}
         />
 
         <section

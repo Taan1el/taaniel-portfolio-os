@@ -1,6 +1,7 @@
 import { resolveEditApp, resolveOpenApp } from "@/lib/file-registry";
 import { downloadFileNode } from "@/lib/filesystem";
 import { normalizePath } from "@/lib/filesystem";
+import { trackRecentFile } from "@/stores/recent-files-store";
 import type { AppId, FileSystemRecord, VirtualNode } from "@/types/system";
 
 interface LaunchApp {
@@ -29,6 +30,11 @@ function launchNode(node: VirtualNode, launchApp: LaunchApp, mode: LaunchMode) {
   if (mode === "open" && node.extension === "zip") {
     void downloadFileNode(node);
     return;
+  }
+
+  // Track file opens (not directory navigations) in Recent Files
+  if (node.kind === "file") {
+    trackRecentFile(node.path);
   }
 
   const appId = mode === "edit" ? resolveEditApp(node) ?? resolveOpenApp(node) : resolveOpenApp(node);

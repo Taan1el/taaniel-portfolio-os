@@ -1489,6 +1489,55 @@ h3 {
   color: var(--text-strong);
 }
 
+.explorer-window__sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.4rem 0.2rem;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.explorer-window__sidebar-section-header span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.explorer-window__sidebar-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem;
+  border: none;
+  border-radius: 0.3rem;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 100ms ease, background 100ms ease;
+}
+
+.explorer-window__sidebar-clear:hover {
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 1;
+}
+
+.explorer-window__sidebar-item--recent {
+  font-size: 0.8rem;
+  padding: 0.44rem 0.6rem;
+  color: var(--text-muted);
+  gap: 0.5rem;
+}
+
+.explorer-window__sidebar-item--recent:hover {
+  color: var(--text);
+}
+
 .explorer-window__content {
   position: relative;
   min-width: 0;
