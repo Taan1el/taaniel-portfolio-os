@@ -1,5 +1,5 @@
 import { ArrowUpRight, Download, FolderOpen, Mail, TerminalSquare } from "lucide-react";
-import { AppContent, AppScaffold } from "@/components/apps/app-layout";
+import { AppContent, AppScaffold, AppToolbar } from "@/components/apps/app-layout";
 import { photographyAssets, profile, quickStats, skills } from "@/data/portfolio";
 import { openFileSystemPath } from "@/lib/launchers";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -13,33 +13,55 @@ export function AboutApp({ window }: AppComponentProps) {
 
   return (
     <AppScaffold className="about-app">
+      {/* Primary actions promoted to toolbar */}
+      <AppToolbar>
+        <div className="app-toolbar__group">
+          <div className="app-toolbar__title">
+            <strong>About</strong>
+            <small>Taaniel Vananurm</small>
+          </div>
+        </div>
+        <div className="app-toolbar__group">
+          <button
+            type="button"
+            className="pill-button"
+            onClick={() => launchApp({ appId: "contact" })}
+          >
+            <Mail size={14} />
+            Contact
+          </button>
+          <button
+            type="button"
+            className="pill-button"
+            onClick={() =>
+              openFileSystemPath("/Documents/Taaniel-Vananurm-CV.pdf", nodes, launchApp)
+            }
+          >
+            <Download size={14} />
+            Resume
+          </button>
+          <button
+            type="button"
+            className="pill-button"
+            onClick={() => launchApp({ appId: "terminal" })}
+          >
+            <TerminalSquare size={14} />
+            Terminal
+          </button>
+        </div>
+      </AppToolbar>
+
       <AppContent padded>
+        {/* Hero */}
         <section className="hero-panel">
           <div>
             <p className="eyebrow">At a glance</p>
             <h1>{profile.name}</h1>
             <p className="lead">{profile.intro}</p>
           </div>
-          <div className="hero-panel__actions">
-            <button type="button" className="pill-button" onClick={() => launchApp({ appId: "contact" })}>
-              <Mail size={16} />
-              Contact
-            </button>
-            <button
-              type="button"
-              className="pill-button"
-              onClick={() => openFileSystemPath("/Documents/Taaniel-Vananurm-CV.pdf", nodes, launchApp)}
-            >
-              <Download size={16} />
-              Resume
-            </button>
-            <button type="button" className="pill-button" onClick={() => launchApp({ appId: "terminal" })}>
-              <TerminalSquare size={16} />
-              Open terminal
-            </button>
-          </div>
         </section>
 
+        {/* Positioning + How I work */}
         <section className="dashboard-grid">
           <article className="glass-card">
             <p className="eyebrow">Positioning</p>
@@ -70,6 +92,7 @@ export function AboutApp({ window }: AppComponentProps) {
           </article>
         </section>
 
+        {/* Files + Photography */}
         <section className="dashboard-grid">
           <article className="glass-card">
             <div className="section-row">
@@ -98,7 +121,9 @@ export function AboutApp({ window }: AppComponentProps) {
               <button
                 type="button"
                 className="ghost-button"
-                onClick={() => openFileSystemPath("/Media/Photography", nodes, launchApp)}
+                onClick={() =>
+                  openFileSystemPath("/Media/Photography", nodes, launchApp)
+                }
               >
                 <ArrowUpRight size={15} />
                 Open folder
@@ -112,7 +137,9 @@ export function AboutApp({ window }: AppComponentProps) {
                   className="photo-thumb"
                   onClick={() =>
                     openFileSystemPath(
-                      `/Media/Photography/${asset.title}.${asset.src.endsWith(".png") ? "png" : "jpg"}`,
+                      `/Media/Photography/${asset.title}.${
+                        asset.src.endsWith(".png") ? "png" : "jpg"
+                      }`,
                       nodes,
                       launchApp
                     )

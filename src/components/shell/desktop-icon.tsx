@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { FileCode2, FileText, Folder, Globe, Image, UserSquare2 } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
+import { useWindowStore } from "@/stores/window-store";
 import type { DesktopEntry, DesktopGridMetrics, VirtualNode } from "@/types/system";
 
 const TOUCH_DRAG_DELAY_MS = 280;
@@ -87,6 +88,17 @@ export function DesktopIcon({
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
 
+  const isWindowOpen = useWindowStore((state) =>
+    entry.type === "app" && entry.appId
+      ? state.windows.some((w) => w.appId === entry.appId)
+      : false
+  );
+
+  const appAccent =
+    entry.type === "app" && entry.appId
+      ? getAppDefinition(entry.appId).accent
+      : undefined;
+
   const clearLongPressTimeout = () => {
     if (longPressTimeoutRef.current === null) {
       return;
@@ -113,6 +125,7 @@ export function DesktopIcon({
           top: pixelPosition.y,
           "--desktop-cell-width": `${gridMetrics.cellWidth}px`,
           "--desktop-cell-height": `${gridMetrics.cellHeight}px`,
+          ...(appAccent ? { "--app-accent": appAccent } : {}),
         } as React.CSSProperties
       }
       onPointerDown={(event) => {
@@ -194,6 +207,9 @@ export function DesktopIcon({
         entry={entry}
         node={node}
       />
+      {isWindowOpen && (
+        <span className="desktop-icon__active-dot" aria-hidden="true" />
+      )}
     </button>
   );
 }
