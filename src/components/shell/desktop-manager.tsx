@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type RefObject } from "react";
 import { desktopEntries } from "@/data/portfolio";
 import { listChildren, normalizePath } from "@/lib/filesystem";
 import { DesktopSurface } from "@/components/shell/desktop-surface";
@@ -75,7 +75,7 @@ export function DesktopManager({
       nodes={nodes}
       selectedIconId={selectedIconId}
       iconPositions={iconPositions}
-      containerRef={gridSystem.containerRef}
+      containerRef={gridSystem.containerRef as RefObject<HTMLDivElement>}
       gridMetrics={gridSystem}
       toPixels={gridSystem.toPixels}
       onSelectIcon={onSelectIcon}

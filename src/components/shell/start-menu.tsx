@@ -122,7 +122,7 @@ export function StartMenu({
   };
 
   return (
-    <StartMenuShell menuRef={menuRef} className={searching ? "is-searching" : undefined}>
+    <StartMenuShell menuRef={menuRef as RefObject<HTMLElement>} className={searching ? "is-searching" : undefined}>
       <div className="start-menu__top">
         <div className="start-menu__hero">
           <div>
