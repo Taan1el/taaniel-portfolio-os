@@ -4,6 +4,7 @@ import {
   BookText,
   BriefcaseBusiness,
   Brush,
+  Calculator,
   Clapperboard,
   Code2,
   Cpu,
@@ -336,6 +337,19 @@ const registry: Record<AppId, AppDefinition> = {
     multiple: true,
     load: async () => ({ default: (await import("@/components/apps/pdf-viewer-app")).PdfViewerApp }),
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Resume"),
+  }),
+  calculator: defineApp({
+    id: "calculator",
+    title: "Calculator",
+    description: "Standard calculator with keyboard support.",
+    category: "System",
+    icon: Calculator,
+    accent: "#a8ff80",
+    defaultPosition: { x: 280, y: 140 },
+    defaultSize: { width: 320, height: 480 },
+    minSize: { width: 280, height: 420 },
+    resizable: false,
+    load: async () => ({ default: (await import("@/components/apps/calculator-app")).CalculatorApp }),
   }),
 };
 

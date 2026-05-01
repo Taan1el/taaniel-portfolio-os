@@ -3308,6 +3308,119 @@ h3 {
   opacity: 1;
 }
 
+/* ── Calculator app ─────────────────────────────────────────────── */
+.calculator {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: transparent;
+  user-select: none;
+  font-feature-settings: "tnum";
+}
+
+.calculator__display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  padding: 1rem 1.1rem 0.75rem;
+  min-height: 110px;
+  background: rgba(0, 0, 0, 0.18);
+  border-bottom: 1px solid var(--border);
+}
+
+.calculator__history {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  min-height: 1.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.calculator__value {
+  font-size: 2.6rem;
+  font-weight: 300;
+  color: var(--text-strong);
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  letter-spacing: -0.5px;
+}
+
+.calculator__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  flex: 1 1 auto;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.calculator__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  color: var(--text);
+  font-size: 1.3rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 80ms ease;
+  min-height: 64px;
+}
+
+.calculator__btn:hover,
+.calculator__btn:focus-visible {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.calculator__btn:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.calculator__btn.is-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.calculator__btn.is-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+.calculator__btn.is-operator {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--theme-accent, #a8ff80);
+  font-size: 1.4rem;
+}
+
+.calculator__btn.is-operator:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.calculator__btn.is-equals {
+  background: color-mix(in srgb, var(--theme-accent, #a8ff80) 28%, transparent);
+  color: var(--theme-accent, #a8ff80);
+  font-size: 1.4rem;
+}
+
+.calculator__btn.is-equals:hover {
+  background: color-mix(in srgb, var(--theme-accent, #a8ff80) 40%, transparent);
+}
+
+.calculator__btn.is-wide {
+  grid-column: span 2;
+  justify-content: flex-start;
+  padding-left: 1.4rem;
+}
+
 /* ── Open With dialog ───────────────────────────────────────────── */
 .open-with-overlay {
   position: fixed;
