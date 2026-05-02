@@ -388,7 +388,7 @@ export function Taskbar({
                     key={`pinned-${slot.appId}`}
                     className="taskbar__item taskbar__item--pinned-closed"
                     type="button"
-                    title={definition.title}
+                    data-tooltip={definition.title}
                     aria-label={`Launch ${definition.title}`}
                     onClick={() => onLaunchApp(slot.appId)}
                     onContextMenu={(e) => {

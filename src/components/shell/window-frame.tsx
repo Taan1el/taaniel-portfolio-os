@@ -156,10 +156,10 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           onTouchStart={onFocus}
           onAnimationComplete={() => setInteracting(false)}
           layout
-          initial={{ opacity: 0, scale: 0.97, y: 16 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.94, y: 20 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0, scale: 0.96, y: 18 }}
+          animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, scale: 0.82, y: 48, filter: "blur(6px)" }}
+          transition={{ duration: 0.22, ease: [0.4, 0, 1, 1] }}
         >
           <header className="window-frame__header window-header" onDoubleClick={onMaximize}>
             <div className="window-frame__title">

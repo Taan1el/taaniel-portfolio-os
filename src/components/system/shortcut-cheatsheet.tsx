@@ -69,13 +69,16 @@ function CheatsheetInner({ onClose }: { onClose: () => void }) {
     >
       <motion.div
         className="cheatsheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cheatsheet-title"
         initial={{ opacity: 0, scale: 0.95, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 10 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="cheatsheet__header">
-          <strong className="cheatsheet__title">Keyboard shortcuts</strong>
+          <strong id="cheatsheet-title" className="cheatsheet__title">Keyboard shortcuts</strong>
           <button className="cheatsheet__close" type="button" aria-label="Close" onClick={onClose}>
             <X size={16} />
           </button>

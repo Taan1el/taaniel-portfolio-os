@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { FileCode2, FileText, Folder, Globe, Image, UserSquare2 } from "lucide-react";
+import { FileCode2, FileText, Folder, FolderOpen, Globe, Image, Trash2, UserSquare2 } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
 import { useSystemStore } from "@/stores/system-store";
@@ -7,13 +7,31 @@ import type { DesktopEntry, DesktopGridMetrics, VirtualNode } from "@/types/syst
 
 const TOUCH_DRAG_DELAY_MS = 280;
 
+/** Accent colour for non-app desktop entries (files / folders). */
+function resolveFileAccent(entry: DesktopEntry, node?: VirtualNode): string | undefined {
+  if (entry.id === "trash") return "#ff6b6b";
+  if (entry.type === "folder") return "#ffb84d";
+  if (node?.kind === "file") {
+    if (node.mimeType.startsWith("image/")) return "#a78bfa";
+    if (node.extension === "pdf") return "#fb923c";
+    if (["ts", "tsx", "js", "jsx"].includes(node.extension)) return "#34d399";
+    if (["css", "html"].includes(node.extension)) return "#60a5fa";
+    if (["md", "txt"].includes(node.extension)) return "#94a3b8";
+  }
+  return "#94a3b8";
+}
+
 function resolveIcon(entry: DesktopEntry, node?: VirtualNode) {
   if (entry.type === "app" && entry.appId) {
     return getAppDefinition(entry.appId).icon;
   }
 
+  if (entry.id === "trash") {
+    return Trash2;
+  }
+
   if (entry.type === "folder") {
-    return Folder;
+    return entry.id === "portfolio" ? FolderOpen : Folder;
   }
 
   if (entry.type === "link") {
@@ -97,7 +115,7 @@ export function DesktopIcon({
   const appAccent =
     entry.type === "app" && entry.appId
       ? getAppDefinition(entry.appId).accent
-      : undefined;
+      : resolveFileAccent(entry, node);
 
   const clearLongPressTimeout = () => {
     if (longPressTimeoutRef.current === null) {

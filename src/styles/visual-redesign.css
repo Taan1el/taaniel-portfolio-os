@@ -220,8 +220,50 @@
   }
 }
 
+/* Styled tooltip for pinned-closed taskbar icons */
+.taskbar__item[data-tooltip] {
+  position: relative;
+}
 
-/* ── 6. Window frames — deeper glass ────────────────────────── */
+.taskbar__item[data-tooltip]::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: "Plus Jakarta Sans", "IBM Plex Sans", sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(20, 20, 30, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 3px 8px;
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 200;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .taskbar__item[data-tooltip]:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+
+/* ── 6. Menus & popovers — stronger glass blur ──────────────── */
+.context-menu,
+.start-menu,
+.calendar-popover {
+  backdrop-filter: blur(24px) saturate(1.5);
+}
+
+
+/* ── 7. Window frames — deeper glass ────────────────────────── */
 .window-frame {
   backdrop-filter: blur(22px) saturate(1.4);
 }

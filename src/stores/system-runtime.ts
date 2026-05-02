@@ -154,8 +154,11 @@ export function getDefaultWindowBounds(appId: AppId, index: number) {
     slotColumns > 1 ? 20 + Math.round((availableX / Math.max(1, slotColumns - 1)) * slotX) : 28;
   const cascadedY =
     slotRows > 1 ? 20 + Math.round((availableY / Math.max(1, slotRows - 1)) * slotY) : 24;
-  const baseX = Math.max(cascadedX, definition.defaultPosition?.x ?? 28);
-  const baseY = Math.max(cascadedY, definition.defaultPosition?.y ?? 24);
+  // Extra per-window cascade nudge so each new window visibly offsets from the last
+  const CASCADE_STEP = 36;
+  const nudge = (index % 6) * CASCADE_STEP;
+  const baseX = Math.max(cascadedX, definition.defaultPosition?.x ?? 28) + nudge;
+  const baseY = Math.max(cascadedY, definition.defaultPosition?.y ?? 24) + nudge;
 
   return clampWindowBoundsToViewport({
     x: clamp(baseX, 20, Math.max(20, window.innerWidth - width - 12)),

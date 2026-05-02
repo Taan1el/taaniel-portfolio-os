@@ -382,21 +382,6 @@ export function DesktopShell() {
           },
         },
         {
-          id: "open-about",
-          label: "Open About",
-          onSelect: () => launchApp({ appId: "about" }),
-        },
-        {
-          id: "open-explorer",
-          label: "Open File Explorer",
-          onSelect: () => launchApp({ appId: "files" }),
-        },
-        {
-          id: "open-terminal",
-          label: "Open Terminal",
-          onSelect: () => launchApp({ appId: "terminal" }),
-        },
-        {
           id: "personalize",
           label: "Personalize",
           onSelect: () => launchApp({ appId: "settings" }),
