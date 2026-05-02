@@ -172,14 +172,14 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
               </div>
             </div>
             <div className="window-frame__actions window-action-buttons">
-              <button type="button" aria-label="Close" className="is-close" onClick={onClose}>
-                <X size={9} />
-              </button>
               <button type="button" aria-label="Minimize" className="is-minimize" onClick={onMinimize}>
                 <Minus size={9} />
               </button>
               <button type="button" aria-label={window.maximized ? "Restore" : "Maximize"} className="is-maximize" onClick={onMaximize}>
                 {window.maximized ? <Minimize2 size={9} /> : <Maximize2 size={9} />}
+              </button>
+              <button type="button" aria-label="Close" className="is-close" onClick={onClose}>
+                <X size={9} />
               </button>
             </div>
           </header>

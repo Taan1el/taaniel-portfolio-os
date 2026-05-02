@@ -513,3 +513,73 @@
   ) !important;
   border-color: rgba(119, 199, 255, 0.25) !important;
 }
+
+
+/* ── 15. Taskbar item micro-lift on hover ──────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  .taskbar__item:hover {
+    transform: translateY(-2px);
+  }
+
+  .taskbar__item:active {
+    transform: translateY(0);
+  }
+}
+
+
+/* ── 16. Global thin scrollbar ─────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+
+/* ── 17. Window frame header — tighter, more refined ──────────── */
+.window-frame__title small {
+  font-size: 0.68rem;
+  opacity: 0.55;
+}
+
+/* Larger title icon badge */
+.window-frame__title-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+
+
+/* ── 18. Jump list (right-click taskbar menu) polish ──────────── */
+.taskbar__jump-list {
+  min-width: 200px;
+  border-radius: 14px;
+  padding: 0.35rem;
+}
+
+
+/* ── 19. Window preview card polish ────────────────────────────── */
+.taskbar__preview {
+  border-radius: 14px;
+}
+
+.taskbar__preview-frame {
+  border-radius: 10px;
+  overflow: hidden;
+}
