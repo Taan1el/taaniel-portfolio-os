@@ -534,31 +534,52 @@ img {
 
 .window-frame__actions {
   display: inline-flex;
-  gap: 0.2rem;
+  gap: 0.38rem;
+  align-items: center;
 }
 
 .window-action-buttons {
   touch-action: auto;
 }
 
+/* ── Traffic-light window buttons ────────────────────────── */
 .window-frame__actions button {
   display: grid;
-  width: 1.55rem;
-  height: 1.55rem;
+  width: 13px;
+  height: 13px;
   place-items: center;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text);
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: transparent;
   transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    transform 160ms ease;
+    filter 160ms ease,
+    transform 120ms ease,
+    color 120ms ease;
+  flex-shrink: 0;
 }
 
+.window-frame__actions button.is-close   { background: #ff5f56; }
+.window-frame__actions button.is-minimize { background: #ffbd2e; }
+.window-frame__actions button.is-maximize { background: #28c940; }
+
+/* Icon hidden by default, visible on header hover */
 .window-frame__actions button svg {
-  width: 12px;
-  height: 12px;
+  width: 9px;
+  height: 9px;
+  opacity: 0;
+  transition: opacity 100ms ease;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.window-frame__header:hover .window-frame__actions button svg,
+.window-frame__actions button:focus-visible svg {
+  opacity: 1;
+}
+
+/* Dim buttons when window not focused */
+.window-frame:not(.is-active) .window-frame__actions button {
+  filter: saturate(0) brightness(0.55);
 }
 
 .icon-button {
