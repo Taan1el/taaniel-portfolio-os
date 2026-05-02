@@ -2,6 +2,21 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSPropert
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
+import {
+  Copy,
+  Download,
+  ExternalLink,
+  FilePen,
+  Folder,
+  FolderOpen,
+  FolderSearch,
+  LayoutGrid,
+  MapPin,
+  RefreshCw,
+  Scissors,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import { themePresets } from "@/data/portfolio";
 import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { getOpenWithOptions, resolveEditApp } from "@/lib/file-registry";
@@ -362,6 +377,7 @@ export function DesktopShell() {
         {
           id: "new-folder",
           label: "New Folder",
+          icon: Folder,
           onSelect: () => {
             void createDirectory("/Desktop");
           },
@@ -369,26 +385,32 @@ export function DesktopShell() {
         {
           id: "new-note",
           label: "New Note",
+          icon: FilePen,
           onSelect: () => {
             void createTextFile("/Desktop");
           },
         },
         {
           id: "paste",
-          label: clipboard ? "Paste" : "Paste",
+          label: "Paste",
+          icon: LayoutGrid,
           disabled: !clipboard,
           onSelect: () => {
             void pasteIntoDirectory("/Desktop");
           },
         },
+        { id: "sep-1", label: "", separator: true, onSelect: () => {} },
         {
           id: "personalize",
-          label: "Personalize",
+          label: "Personalize…",
+          icon: Settings,
           onSelect: () => launchApp({ appId: "settings" }),
         },
+        { id: "sep-2", label: "", separator: true, onSelect: () => {} },
         {
           id: "reset-session",
           label: "Reset session",
+          icon: RefreshCw,
           danger: true,
           onSelect: () => {
             void resetSession();
@@ -414,12 +436,14 @@ export function DesktopShell() {
         {
           id: "open",
           label: entry.type === "link" ? "Open link" : "Open",
+          icon: entry.type === "link" ? ExternalLink : FolderOpen,
           onSelect: () => activateEntry(entry),
         },
         targetNode?.kind === "file" && getOpenWithOptions(targetNode).length > 1
           ? {
               id: "open-with",
               label: "Open with…",
+              icon: LayoutGrid,
               onSelect: () => {
                 if (targetPath && targetNode) {
                   setOpenWithTarget({ filePath: targetPath, node: targetNode });
@@ -431,14 +455,18 @@ export function DesktopShell() {
           ? {
               id: "edit",
               label: "Edit",
+              icon: FilePen,
               disabled: !resolveEditApp(targetNode ?? undefined),
               onSelect: () => editPath(targetPath),
             }
           : null,
+        targetPath ? { id: "sep-1", label: "", separator: true, onSelect: () => {} } : null,
         targetPath
           ? {
               id: "copy",
               label: "Copy",
+              icon: Copy,
+              shortcut: "⌘C",
               onSelect: () => setClipboard({ path: targetPath, operation: "copy" }),
             }
           : null,
@@ -446,6 +474,8 @@ export function DesktopShell() {
           ? {
               id: "cut",
               label: "Cut",
+              icon: Scissors,
+              shortcut: "⌘X",
               disabled: !canCutNode(targetPath),
               onSelect: () => setClipboard({ path: targetPath, operation: "cut" }),
             }
@@ -454,15 +484,20 @@ export function DesktopShell() {
           ? {
               id: "download",
               label: "Download",
+              icon: Download,
               onSelect: () => {
                 void downloadFileNode(targetNode);
               },
             }
           : null,
+        (entry.type !== "app" && (entry.directoryPath || entry.filePath))
+          ? { id: "sep-2", label: "", separator: true, onSelect: () => {} }
+          : null,
         entry.type !== "app" && entry.directoryPath
           ? {
               id: "open-folder",
               label: "Open in File Explorer",
+              icon: FolderSearch,
               onSelect: () =>
                 launchApp({
                   appId: "files",
@@ -474,6 +509,7 @@ export function DesktopShell() {
           ? {
               id: "open-location",
               label: "Reveal location",
+              icon: MapPin,
               onSelect: () => {
                 const filePath = entry.filePath;
 
@@ -491,9 +527,13 @@ export function DesktopShell() {
             }
           : null,
         entry.id === "trash"
+          ? { id: "sep-trash", label: "", separator: true, onSelect: () => {} }
+          : null,
+        entry.id === "trash"
           ? {
               id: "empty-trash",
               label: "Empty Trash",
+              icon: Trash2,
               danger: true,
               onSelect: () => { void emptyTrash(); },
             }

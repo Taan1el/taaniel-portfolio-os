@@ -118,8 +118,11 @@ export interface DesktopEntry {
 export interface ContextMenuAction {
   id: string;
   label: string;
+  icon?: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  shortcut?: string;
   danger?: boolean;
   disabled?: boolean;
+  separator?: boolean;
   onSelect: () => void;
 }
 
