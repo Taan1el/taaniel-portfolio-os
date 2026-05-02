@@ -19,19 +19,33 @@ export function ContextMenu({ menu, onClose }: ContextMenuProps) {
     >
       {menu.title ? <p className="context-menu__title">{menu.title}</p> : null}
       <div className="context-menu__actions">
-        {menu.actions.map((action) => (
-          <button
-            key={action.id}
-            className={cn("context-menu__item", action.danger && "is-danger")}
-            type="button"
-            disabled={action.disabled}
-            onClick={() => {
-              action.onSelect();
-              onClose();
-            }}
-          >
-            {action.label}
-          </button>
+        {menu.actions.map((action, index) => (
+          action.separator ? (
+            <div key={`sep-${index}`} className="context-menu__separator" aria-hidden="true" />
+          ) : (
+            <button
+              key={action.id}
+              className={cn("context-menu__item", action.danger && "is-danger")}
+              type="button"
+              disabled={action.disabled}
+              onClick={() => {
+                action.onSelect();
+                onClose();
+              }}
+            >
+              {action.icon ? (
+                <span className="context-menu__item-icon">
+                  <action.icon size={13} strokeWidth={1.8} />
+                </span>
+              ) : (
+                <span className="context-menu__item-icon context-menu__item-icon--empty" aria-hidden="true" />
+              )}
+              <span className="context-menu__item-label">{action.label}</span>
+              {action.shortcut ? (
+                <kbd className="context-menu__item-shortcut">{action.shortcut}</kbd>
+              ) : null}
+            </button>
+          )
         ))}
       </div>
     </motion.div>
