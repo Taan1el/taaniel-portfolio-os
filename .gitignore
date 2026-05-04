@@ -11,3 +11,4 @@ dist
 .codex-vite.err
 vite-*.log
 vite.config.ts.timestamp*
+.claude/
