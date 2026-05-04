@@ -277,11 +277,21 @@
 /* ── 7. Window frames — deeper glass ────────────────────────── */
 .window-frame {
   backdrop-filter: blur(22px) saturate(1.4);
+  transition: box-shadow 180ms ease, opacity 180ms ease;
 }
 
 .window-frame.is-active {
   border-color: rgba(119, 199, 255, 0.26);
   box-shadow: var(--shadow-window);
+}
+
+/* Drag-lift: window feels heavy and elevated while moving */
+.window-frame.is-dragging {
+  box-shadow:
+    0 48px 120px rgba(0, 0, 0, 0.72),
+    0 8px 32px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+  border-color: rgba(119, 199, 255, 0.35);
 }
 
 .window-frame__header {
@@ -292,6 +302,22 @@
     rgba(255, 255, 255, 0.055) 0%,
     rgba(255, 255, 255, 0.012) 100%
   );
+}
+
+/* Title icon in header — coloured accent dot */
+.window-frame__title-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--app-accent, #77c7ff) 22%, transparent);
+}
+
+/* Centred title text */
+.window-frame__title--centered strong {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  letter-spacing: -0.01em;
 }
 
 

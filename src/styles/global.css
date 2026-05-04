@@ -461,20 +461,39 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 0.3rem 0.55rem;
+  padding: 0 0.55rem;
+  height: 38px;
+  flex-shrink: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0));
   cursor: move;
   touch-action: none;
+  position: relative;
+}
+
+/* Centred title — sits in the absolute middle regardless of button widths */
+.window-frame__title--centered {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Right spacer matches left buttons to keep title truly centred */
+.window-frame__actions-spacer {
+  width: calc(3 * 13px + 2 * 0.38rem); /* 3 buttons + 2 gaps */
+  flex-shrink: 0;
 }
 
 .window-frame__title {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.78rem;
-  line-height: 1.3;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .window-frame__title strong,
