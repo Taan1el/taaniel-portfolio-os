@@ -151,7 +151,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           role="dialog"
           aria-labelledby={`window-title-${window.id}`}
           aria-modal="false"
-          className={cn("window-frame", wfStyles.surface, active && "is-active")}
+          className={cn("window-frame", wfStyles.surface, active && "is-active", interacting && "is-dragging")}
           onMouseDown={onFocus}
           onTouchStart={onFocus}
           onAnimationComplete={() => setInteracting(false)}
@@ -162,15 +162,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           transition={{ duration: 0.22, ease: [0.4, 0, 1, 1] }}
         >
           <header className="window-frame__header window-header" onDoubleClick={onMaximize}>
-            <div className="window-frame__title">
-              <span className="window-frame__title-icon" style={{ "--app-accent": definition.accent } as CSSProperties}>
-                <Icon size={15} />
-              </span>
-              <div>
-                <strong id={`window-title-${window.id}`}>{window.title}</strong>
-                <small>{definition.category}</small>
-              </div>
-            </div>
+            {/* Traffic lights — left side */}
             <div className="window-frame__actions window-action-buttons">
               <button type="button" aria-label="Minimize" className="is-minimize" onClick={onMinimize}>
                 <Minus size={9} />
@@ -182,6 +174,17 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
                 <X size={9} />
               </button>
             </div>
+
+            {/* Title — absolutely centred so it doesn't push the buttons */}
+            <div className="window-frame__title window-frame__title--centered">
+              <span className="window-frame__title-icon" style={{ "--app-accent": definition.accent } as CSSProperties}>
+                <Icon size={13} />
+              </span>
+              <strong id={`window-title-${window.id}`}>{window.title}</strong>
+            </div>
+
+            {/* Right spacer matches button area width so title stays truly centered */}
+            <div className="window-frame__actions-spacer" aria-hidden="true" />
           </header>
 
           <div className="window-frame__body">
