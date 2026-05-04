@@ -21,9 +21,9 @@
 - [x] **`pdfjs-dist` 5.6.205 → 5.7.284** — committed as 35b5dc7; NOTE: npm install blocked by Windows mount permissions; package.json updated but package-lock.json is stale
 - [x] **Fix GitHub Actions @v6 tags** — reverted `actions/checkout@v6` and `actions/setup-node@v6` to @v4 — commit ba74f95
 - [x] **`lucide-react` package-lock.json stale + missing .d.ts types** — tsc was failing with TS7016 across the entire codebase; extracted missing type declarations from official 1.14.0 tarball, patched package-lock.json with correct version/resolved/integrity for 1.14.0; tsc now clean — commit fe2b4ad (push blocked — no GitHub credentials in sandbox; run `git push` manually)
+- [x] **`v86` 0.5.334 → 0.5.357** — bumped package.json and package-lock.json (version, resolved, integrity) to latest 0.5.357 — commit 1c3c004 (push blocked — no GitHub credentials in sandbox; run `git push` manually)
 
 ## Pending
-- [ ] **`v86` 0.5.334 → 0.5.355** — 21-patch jump; update package.json and package-lock.json — low risk (runtime emulator, no TS API surface changes expected)
 - [ ] **`jsdom` lock file stale (29.1.0 → 29.1.1)** — package.json allows ^29.0.2, lock pinned to 29.1.0, latest is 29.1.1; update lock integrity — low risk
 - [ ] **`framer-motion` ^12.9.1 → ^12.38.0** — large minor jump; package-lock already at 12.38.0 so only package.json spec needs updating — low risk
 
