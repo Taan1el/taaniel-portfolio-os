@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { FileCode2, FileText, Folder, FolderOpen, Globe, Image, Trash2, UserSquare2 } from "lucide-react";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
@@ -105,6 +105,13 @@ export function DesktopIcon({
 }: DesktopIconProps) {
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
+  const [launching, setLaunching] = useState(false);
+
+  const triggerLaunch = () => {
+    setLaunching(true);
+    window.setTimeout(() => setLaunching(false), 400);
+    triggerLaunch();
+  };
 
   const isWindowOpen = useSystemStore((state) =>
     entry.type === "app" && entry.appId
@@ -135,7 +142,8 @@ export function DesktopIcon({
         "desktop-icon-button",
         selected && "is-selected",
         dragging && "is-dragging",
-        dragPointerSink && "is-dragging-sink"
+        dragPointerSink && "is-dragging-sink",
+        launching && "is-launching"
       )}
       style={
         {
@@ -197,7 +205,7 @@ export function DesktopIcon({
         clearLongPressTimeout();
 
         if (!longPressTriggeredRef.current) {
-          onActivate();
+          triggerLaunch();
         }
 
         longPressTriggeredRef.current = false;
@@ -216,7 +224,7 @@ export function DesktopIcon({
       onKeyDown={(event) => {
         if (event.key === "Enter") {
           event.preventDefault();
-          onActivate();
+          triggerLaunch();
         }
       }}
       onContextMenu={onContextMenu}
