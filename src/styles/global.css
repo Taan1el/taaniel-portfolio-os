@@ -490,7 +490,7 @@ img {
   white-space: nowrap;
 }
 
-/* Right spacer matches left buttons to keep title truly centred */
+/* Left spacer mirrors right buttons to keep title truly centred */
 .window-frame__actions-spacer {
   width: calc(3 * 13px + 2 * 0.38rem); /* 3 buttons + 2 gaps */
   flex-shrink: 0;
