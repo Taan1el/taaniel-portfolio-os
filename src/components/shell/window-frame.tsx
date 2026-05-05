@@ -162,7 +162,18 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           transition={{ duration: 0.22, ease: [0.4, 0, 1, 1] }}
         >
           <header className="window-frame__header window-header" onDoubleClick={onMaximize}>
-            {/* Traffic lights — left side */}
+            {/* Left spacer matches button area width so title stays truly centered */}
+            <div className="window-frame__actions-spacer" aria-hidden="true" />
+
+            {/* Title — absolutely centred so it doesn't push the buttons */}
+            <div className="window-frame__title window-frame__title--centered">
+              <span className="window-frame__title-icon" style={{ "--app-accent": definition.accent } as CSSProperties}>
+                <Icon size={13} />
+              </span>
+              <strong id={`window-title-${window.id}`}>{window.title}</strong>
+            </div>
+
+            {/* Traffic lights — right side */}
             <div className="window-frame__actions window-action-buttons">
               <button type="button" aria-label="Minimize" className="is-minimize" onClick={onMinimize}>
                 <Minus size={9} />
@@ -174,17 +185,6 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
                 <X size={9} />
               </button>
             </div>
-
-            {/* Title — absolutely centred so it doesn't push the buttons */}
-            <div className="window-frame__title window-frame__title--centered">
-              <span className="window-frame__title-icon" style={{ "--app-accent": definition.accent } as CSSProperties}>
-                <Icon size={13} />
-              </span>
-              <strong id={`window-title-${window.id}`}>{window.title}</strong>
-            </div>
-
-            {/* Right spacer matches button area width so title stays truly centered */}
-            <div className="window-frame__actions-spacer" aria-hidden="true" />
           </header>
 
           <div className="window-frame__body">
