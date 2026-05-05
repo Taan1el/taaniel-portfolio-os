@@ -11,6 +11,7 @@ import {
   socialLinks,
 } from "@/data/portfolio";
 import { SafeImage } from "@/components/ui/safe-image";
+import { LogoMark } from "@/components/ui/logo-mark";
 import styles from "@/components/recruiter/recruiter-view.module.css";
 
 const workGallery = [
@@ -75,6 +76,7 @@ export function RecruiterView() {
     <div className={styles.page}>
       <div className={styles.inner}>
         <header className={styles.hero}>
+          <LogoMark size={52} color="rgba(255,255,255,0.92)" className={styles.logoMark} />
           <p className={styles.eyebrow}>Portfolio · {profile.location}</p>
           <h1>{profile.name}</h1>
           <p className={styles.role}>{profile.role}</p>
