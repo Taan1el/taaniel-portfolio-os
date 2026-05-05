@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" fill="none">
+  <rect width="1200" height="750" fill="#0d1626"/>
+  <rect x="28" y="28" width="1144" height="694" rx="28" fill="#111f35" stroke="#233654" stroke-width="4"/>
+  <rect x="92" y="104" width="360" height="32" rx="16" fill="#6bb8ff" fill-opacity="0.9"/>
+  <rect x="92" y="166" width="528" height="18" rx="9" fill="#a5b4cc" fill-opacity="0.3"/>
+  <rect x="92" y="200" width="466" height="18" rx="9" fill="#a5b4cc" fill-opacity="0.2"/>
+  <rect x="92" y="256" width="256" height="320" rx="24" fill="#162843" stroke="#284166" stroke-width="3"/>
+  <rect x="390" y="256" width="718" height="320" rx="24" fill="#13233b" stroke="#223759" stroke-width="3"/>
+  <circle cx="220" cy="380" r="58" fill="#243c62"/>
+  <path d="M172 472l42-47 39 32 77-94 86 115H172z" fill="#6bb8ff" fill-opacity="0.85"/>
+  <rect x="440" y="320" width="420" height="26" rx="13" fill="#e2e8f0" fill-opacity="0.88"/>
+  <rect x="440" y="370" width="300" height="18" rx="9" fill="#9fb2cb" fill-opacity="0.4"/>
+  <rect x="440" y="404" width="352" height="18" rx="9" fill="#9fb2cb" fill-opacity="0.25"/>
+  <rect x="440" y="472" width="152" height="40" rx="20" fill="#ffb26a"/>
+  <text x="92" y="650" fill="#8fa3bf" font-family="IBM Plex Sans, Arial, sans-serif" font-size="34" letter-spacing="6">
+    PREVIEW UNAVAILABLE
+  </text>
+</svg>
