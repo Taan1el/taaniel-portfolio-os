@@ -6,9 +6,6 @@ dist
 .vite
 .vercel
 *.tsbuildinfo
-.codex/
-.codex-vite.log
-.codex-vite.err
 vite-*.log
 vite.config.ts.timestamp*
-.claude/
+output/
