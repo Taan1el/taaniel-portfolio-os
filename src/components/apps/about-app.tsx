@@ -1,4 +1,4 @@
-import { ArrowUpRight, Download, FolderOpen, Mail, TerminalSquare } from "lucide-react";
+import { ArrowUpRight, Download, FolderOpen, Mail } from "lucide-react";
 import { AppContent, AppScaffold, AppToolbar } from "@/components/apps/app-layout";
 import { photographyAssets, profile, quickStats, skills } from "@/data/portfolio";
 import { openFileSystemPath } from "@/lib/launchers";
@@ -13,7 +13,6 @@ export function AboutApp({ window }: AppComponentProps) {
 
   return (
     <AppScaffold className="about-app">
-      {/* Primary actions promoted to toolbar */}
       <AppToolbar>
         <div className="app-toolbar__group">
           <div className="app-toolbar__title">
@@ -40,14 +39,6 @@ export function AboutApp({ window }: AppComponentProps) {
             <Download size={14} />
             Resume
           </button>
-          <button
-            type="button"
-            className="pill-button"
-            onClick={() => launchApp({ appId: "terminal" })}
-          >
-            <TerminalSquare size={14} />
-            Terminal
-          </button>
         </div>
       </AppToolbar>
 
@@ -64,7 +55,7 @@ export function AboutApp({ window }: AppComponentProps) {
         {/* Positioning + How I work */}
         <section className="dashboard-grid">
           <article className="glass-card">
-            <p className="eyebrow">Positioning</p>
+            <p className="eyebrow">Background</p>
             <h2>{profile.role}</h2>
             <p>{profile.current}</p>
             <div className="stat-grid">
@@ -80,9 +71,9 @@ export function AboutApp({ window }: AppComponentProps) {
           <article className="glass-card">
             <p className="eyebrow">How I work</p>
             <div className="bullet-stack">
-              <p>I care about hierarchy, clarity, and how interaction supports understanding.</p>
-              <p>I like systems that feel expressive without becoming messy or hard to maintain.</p>
-              <p>This portfolio leans into that by making the shell itself part of the proof.</p>
+              <p>I care about clarity and hierarchy — the message should be obvious before anything else.</p>
+              <p>I like building systems that are easy to maintain and extend, not just visually polished.</p>
+              <p>This portfolio OS is built that way: the shell itself is part of the proof of work.</p>
             </div>
             <div className="token-list">
               {skills.map((skill) => (
@@ -97,8 +88,8 @@ export function AboutApp({ window }: AppComponentProps) {
           <article className="glass-card">
             <div className="section-row">
               <div>
-                <p className="eyebrow">Embedded content</p>
-                <h3>Portfolio files live in the OS</h3>
+                <p className="eyebrow">Portfolio files</p>
+                <h3>Case studies and assets in the file explorer</h3>
               </div>
               <button
                 type="button"
@@ -106,17 +97,17 @@ export function AboutApp({ window }: AppComponentProps) {
                 onClick={() => openFileSystemPath("/Portfolio", nodes, launchApp)}
               >
                 <FolderOpen size={15} />
-                Explore files
+                Browse files
               </button>
             </div>
-            <p>Use the explorer or search to open case studies, visuals, and documents.</p>
+            <p>Open the Portfolio folder to find case studies, visuals, and project documents.</p>
           </article>
 
           <article className="glass-card photo-strip">
             <div className="section-row">
               <div>
                 <p className="eyebrow">Photography</p>
-                <h3>Visual reference library</h3>
+                <h3>Personal work outside of design</h3>
               </div>
               <button
                 type="button"

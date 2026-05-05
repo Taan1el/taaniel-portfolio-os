@@ -25,10 +25,9 @@ export function ProjectsApp({ window }: AppComponentProps) {
         <section className="section-headline">
           <div>
             <p className="eyebrow">Featured work</p>
-            <h1>Frontend systems + campaign UI</h1>
+            <h1>Campaign design + frontend development</h1>
             <p className="lead">
-              The desktop shell below is project #1. Email and visual campaigns follow with the same structure: problem,
-              decisions, and outcomes.
+              Three campaign projects followed by how this portfolio OS is built — each with the same structure: what the problem was, what decisions were made, and what shipped.
             </p>
           </div>
         </section>
