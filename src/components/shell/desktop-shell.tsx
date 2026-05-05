@@ -211,6 +211,13 @@ export function DesktopShell() {
         return;
       case "open-external":
         openExternal(action.url);
+        return;
+      case "navigate-route":
+        navigate(action.path);
+        return;
+      case "reset-session":
+        void resetSession();
+        return;
     }
   };
 
@@ -588,7 +595,7 @@ export function DesktopShell() {
             className="os-mobile-banner__button"
             onClick={() => navigate("/simple")}
           >
-            Open /simple
+            Open recruiter view
           </button>
         </div>
       ) : null}

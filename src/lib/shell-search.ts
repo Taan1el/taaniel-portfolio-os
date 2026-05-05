@@ -1,3 +1,4 @@
+import { LayoutDashboard, RotateCcw, Sparkles } from "lucide-react";
 import {
   featuredProjects,
   photographyAssets,
@@ -18,18 +19,20 @@ import type {
   WindowPayload,
 } from "@/types/system";
 
-export type ShellSearchSectionId = "apps" | "files" | "links" | "portfolio";
+export type ShellSearchSectionId = "actions" | "apps" | "files" | "links" | "portfolio";
 export type ShellSearchMatchMode = "exact" | "semantic" | "keyword";
 
 export type ShellSearchAction =
   | { type: "launch-app"; appId: AppId; payload?: WindowPayload; title?: string }
   | { type: "open-path"; path: string }
-  | { type: "open-external"; url: string };
+  | { type: "open-external"; url: string }
+  | { type: "navigate-route"; path: string }
+  | { type: "reset-session" };
 
 export interface ShellSearchEntry {
   id: string;
   section: ShellSearchSectionId;
-  type: "app" | "file" | "folder" | "link" | "portfolio";
+  type: "action" | "app" | "file" | "folder" | "link" | "portfolio";
   title: string;
   subtitle: string;
   tokens: string;
@@ -70,6 +73,7 @@ export interface ShellSearchAiRanking {
 }
 
 interface ShellSearchIndex {
+  actions: ShellSearchEntry[];
   apps: ShellSearchEntry[];
   files: ShellSearchEntry[];
   links: ShellSearchEntry[];
@@ -87,6 +91,7 @@ interface SearchIntent {
 }
 
 const sectionLabels: Record<ShellSearchSectionId, { label: string; emptyLabel: string }> = {
+  actions: { label: "Actions", emptyLabel: "No matching actions." },
   apps: { label: "Apps", emptyLabel: "No matching apps." },
   files: { label: "Files", emptyLabel: "No matching files or folders." },
   links: { label: "Links", emptyLabel: "No matching links." },
@@ -160,6 +165,10 @@ const intentGroups = [
     terms: ["project", "projects", "case study", "case studies", "portfolio", "work", "workbench"],
   },
   {
+    tag: "actions",
+    terms: ["action", "actions", "command", "commands", "quick", "shortcut", "shortcuts"],
+  },
+  {
     tag: "contact",
     terms: ["contact", "email", "mail", "phone", "linkedin", "instagram", "github", "dribbble", "unsplash"],
   },
@@ -186,6 +195,14 @@ const intentGroups = [
   {
     tag: "resume",
     terms: ["resume", "cv"],
+  },
+  {
+    tag: "recruiter",
+    terms: ["recruiter", "simple", "quick portfolio", "quick view"],
+  },
+  {
+    tag: "reset",
+    terms: ["reset", "clear session", "start over", "fresh start"],
   },
 ];
 
@@ -409,12 +426,20 @@ function resolveActionBonus(entry: ShellSearchEntry, intent: SearchIntent) {
     bonus += 90;
   }
 
+  if (intent.semanticTags.includes("actions") && entry.type === "action") {
+    bonus += 92;
+  }
+
   if (intent.semanticTags.includes("notes") && entry.semanticTags.includes("notes")) {
     bonus += 90;
   }
 
   if (intent.semanticTags.includes("projects") && entry.semanticTags.includes("projects")) {
     bonus += 88;
+  }
+
+  if (intent.semanticTags.includes("recruiter") && entry.semanticTags.includes("recruiter")) {
+    bonus += 96;
   }
 
   if (intent.semanticTags.includes("photos") && entry.semanticTags.includes("photos")) {
@@ -431,6 +456,10 @@ function resolveActionBonus(entry: ShellSearchEntry, intent: SearchIntent) {
 
   if (intent.semanticTags.includes("resume") && entry.semanticTags.includes("resume")) {
     bonus += 84;
+  }
+
+  if (intent.semanticTags.includes("reset") && entry.semanticTags.includes("reset")) {
+    bonus += 96;
   }
 
   if (intent.semanticTags.includes("browser") && (entry.section === "links" || entry.semanticTags.includes("browser"))) {
@@ -623,6 +652,57 @@ function buildAppEntries(apps: AppDefinition[]) {
   });
 }
 
+function buildActionEntries() {
+  return [
+    {
+      id: "action:recruiter-view",
+      section: "actions",
+      type: "action",
+      title: "Quick portfolio",
+      subtitle: "Recruiter-first view at /simple",
+      icon: Sparkles,
+      action: { type: "navigate-route", path: "/simple" },
+      actionLabel: "Open route",
+      aliases: ["recruiter view", "simple view", "quick recruiter view", "portfolio summary"],
+      semanticTags: ["actions", "portfolio", "recruiter"],
+      previewText:
+        "Open the recruiter-first route for a fast overview of work, CV, and contact details.",
+      tokens: joinSearchParts(
+        "quick portfolio recruiter first simple view",
+        "overview cv contact projects"
+      ),
+    },
+    {
+      id: "action:desktop-os",
+      section: "actions",
+      type: "action",
+      title: "Open OS desktop",
+      subtitle: "Return to the full desktop shell",
+      icon: LayoutDashboard,
+      action: { type: "navigate-route", path: "/" },
+      actionLabel: "Open route",
+      aliases: ["desktop shell", "portfolio os", "main desktop"],
+      semanticTags: ["actions", "portfolio"],
+      previewText: "Return to the interactive desktop version of the portfolio.",
+      tokens: joinSearchParts("desktop shell full os main view portfolio os"),
+    },
+    {
+      id: "action:reset-session",
+      section: "actions",
+      type: "action",
+      title: "Reset session",
+      subtitle: "Clear saved windows, layout, and local filesystem state",
+      icon: RotateCcw,
+      action: { type: "reset-session" },
+      actionLabel: "Run action",
+      aliases: ["clear session", "fresh start", "reset desktop"],
+      semanticTags: ["actions", "system", "reset"],
+      previewText: "Reset the saved desktop session in this browser and start fresh.",
+      tokens: joinSearchParts("reset session clear desktop state fresh start"),
+    },
+  ] satisfies ShellSearchEntry[];
+}
+
 function buildFileEntries(nodes: FileSystemRecord) {
   return Object.values(nodes)
     .filter((node) => node.path !== "/")
@@ -800,17 +880,19 @@ function buildPortfolioEntries(nodes: FileSystemRecord) {
 
 export function buildShellSearchIndex(nodes: FileSystemRecord): ShellSearchIndex {
   const apps = getAppRegistry();
+  const actionEntries = buildActionEntries();
   const appEntries = buildAppEntries(apps);
   const fileEntries = buildFileEntries(nodes);
   const linkEntries = buildLinkEntries();
   const portfolioEntries = buildPortfolioEntries(nodes);
 
   return {
+    actions: actionEntries,
     apps: appEntries,
     files: fileEntries,
     links: linkEntries,
     portfolio: portfolioEntries,
-    all: [...appEntries, ...fileEntries, ...linkEntries, ...portfolioEntries],
+    all: [...actionEntries, ...appEntries, ...fileEntries, ...linkEntries, ...portfolioEntries],
   };
 }
 
@@ -833,6 +915,16 @@ export function queryShellSearch(index: ShellSearchIndex, rawQuery: string): She
 
   if (!intent.normalizedQuery) {
     return [
+      {
+        id: "actions",
+        ...sectionLabels.actions,
+        results: index.actions.slice(0, 3).map((entry) => ({
+          ...entry,
+          score: 0,
+          matchMode: "keyword" as const,
+          matchedTerms: [],
+        })),
+      },
       {
         id: "apps",
         ...sectionLabels.apps,
@@ -877,7 +969,7 @@ export function queryShellSearch(index: ShellSearchIndex, rawQuery: string): She
   }
 
   const resultsBySection = new Map<ShellSearchSectionId, ShellSearchResult[]>(
-    (["apps", "files", "links", "portfolio"] as ShellSearchSectionId[]).map((sectionId) => [sectionId, []])
+    (["actions", "apps", "files", "links", "portfolio"] as ShellSearchSectionId[]).map((sectionId) => [sectionId, []])
   );
 
   index.all.forEach((entry) => {
@@ -890,7 +982,7 @@ export function queryShellSearch(index: ShellSearchIndex, rawQuery: string): She
     resultsBySection.get(entry.section)?.push(result);
   });
 
-  return (["apps", "files", "links", "portfolio"] as ShellSearchSectionId[]).map((sectionId) => ({
+  return (["actions", "apps", "files", "links", "portfolio"] as ShellSearchSectionId[]).map((sectionId) => ({
     id: sectionId,
     ...sectionLabels[sectionId],
     results: (resultsBySection.get(sectionId) ?? []).sort(compareResults).slice(0, 6),
