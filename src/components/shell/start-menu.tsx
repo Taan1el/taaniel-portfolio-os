@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
-import { Mail } from "lucide-react";
+import { LayoutDashboard, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button, ScrollArea } from "@/components/apps/app-layout";
 import { liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
@@ -134,11 +134,14 @@ export function StartMenu({
             type="button"
             variant="panel"
             className="ghost-button"
-            onClick={() => onLaunchApp("contact")}
+            onClick={() => {
+              navigate("/simple");
+              onRequestClose();
+            }}
             onMouseMove={updateStartMenuSpotlight}
           >
-            <Mail size={14} />
-            Contact
+            <LayoutDashboard size={14} />
+            Quick portfolio
           </Button>
         </div>
       </div>
@@ -176,6 +179,18 @@ export function StartMenu({
                     <small>30-second tour</small>
                   </div>
                   <div className="action-row">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="quick-link"
+                      onClick={() => {
+                        navigate("/simple");
+                        onRequestClose();
+                      }}
+                      onMouseMove={updateStartMenuSpotlight}
+                    >
+                      Recruiter view
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"

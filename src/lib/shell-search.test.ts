@@ -21,8 +21,29 @@ describe("shell search", () => {
     const index = buildShellSearchIndex(buildSeedFileSystem());
     const sections = queryShellSearch(index, "");
 
-    expect(sections).toHaveLength(4);
+    expect(sections).toHaveLength(5);
     expect(sections.every((section) => section.results.length > 0)).toBe(true);
+  });
+
+  it("surfaces recruiter and reset actions from the actions section", () => {
+    const index = buildShellSearchIndex(buildSeedFileSystem());
+
+    const recruiterSections = queryShellSearch(index, "recruiter view");
+    const recruiterHit = recruiterSections
+      .find((section) => section.id === "actions")
+      ?.results.find((result) => result.id === "action:recruiter-view");
+
+    expect(recruiterHit?.action.type).toBe("navigate-route");
+    expect(
+      recruiterHit?.action.type === "navigate-route" ? recruiterHit.action.path : null
+    ).toBe("/simple");
+
+    const resetSections = queryShellSearch(index, "reset session");
+    const resetHit = resetSections
+      .find((section) => section.id === "actions")
+      ?.results.find((result) => result.id === "action:reset-session");
+
+    expect(resetHit?.action.type).toBe("reset-session");
   });
 
   it("surfaces the default note file in file search", () => {

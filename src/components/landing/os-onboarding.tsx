@@ -42,7 +42,8 @@ export function OsOnboarding() {
         <kbd>Alt</kbd> + <kbd>[</kbd> / <kbd>]</kbd> to cycle windows.
         <span>
           {" "}
-          Your session persists; use <strong>Start → Reset session</strong> to clear it.
+          Need the fast path? Open <strong>Start / Quick portfolio</strong>. Your session persists; use{" "}
+          <strong>Start / Reset session</strong> to clear it.
         </span>
       </p>
       <button

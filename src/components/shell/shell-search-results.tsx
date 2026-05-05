@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
 } from "react";
-import { ExternalLink, FileText, Folder } from "lucide-react";
+import { ExternalLink, FileText, Folder, Sparkles } from "lucide-react";
 import { ScrollArea, StatusBar } from "@/components/apps/app-layout";
 import type { ShellAiSearchStatus } from "@/hooks/use-shell-ai-search";
 import {
@@ -35,6 +35,8 @@ function SearchResultIcon({ result }: { result: ShellSearchResult }) {
     <span className="search-result__icon">
       {result.type === "folder" ? (
         <Folder size={16} />
+      ) : result.type === "action" ? (
+        <Sparkles size={16} />
       ) : result.type === "link" ? (
         <ExternalLink size={16} />
       ) : (
