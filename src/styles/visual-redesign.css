@@ -221,12 +221,11 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .taskbar__item:hover,
+  /* Non-item controls get a subtle background on hover (no lift) */
   .taskbar__start:hover,
   .taskbar__clock:hover,
   .taskbar__desktop:hover,
   .taskbar__search-field:hover {
-    transform: none;
     background: rgba(255, 255, 255, 0.08);
   }
 }

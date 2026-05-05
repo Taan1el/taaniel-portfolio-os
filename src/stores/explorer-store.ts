@@ -14,6 +14,7 @@ export interface ExplorerSession {
 interface ExplorerStoreState {
   sessions: Record<string, ExplorerSession>;
   ensureSession: (windowId: string, initialPath: string) => void;
+  destroySession: (windowId: string) => void;
   navigate: (windowId: string, nextPath: string) => void;
   goBack: (windowId: string) => void;
   goForward: (windowId: string) => void;
@@ -50,6 +51,15 @@ export const useExplorerStore = create<ExplorerStoreState>((set, get) => ({
           [windowId]: createSession(windowId, initialPath),
         },
       };
+    }),
+  destroySession: (windowId) =>
+    set((state) => {
+      if (!state.sessions[windowId]) {
+        return state;
+      }
+
+      const { [windowId]: _, ...remaining } = state.sessions;
+      return { sessions: remaining };
     }),
   navigate: (windowId, nextPath) =>
     set((state) => {

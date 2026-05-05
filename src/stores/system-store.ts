@@ -12,6 +12,7 @@ import {
   resolveWindowTitle,
   LEGACY_SYSTEM_STORAGE_KEY,
 } from "@/stores/system-runtime";
+import { useExplorerStore } from "@/stores/explorer-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useWindowStore } from "@/stores/window-store";
@@ -254,6 +255,9 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
       .windows.find((windowState) => windowState.id === windowId);
 
     useWindowStore.getState().closeWindow(windowId);
+    // Free the File Explorer navigation session for this window so it
+    // doesn't accumulate in memory across many open/close cycles.
+    useExplorerStore.getState().destroySession(windowId);
 
     if (targetWindow) {
       useProcessStore.getState().removeProcess(targetWindow.processId);

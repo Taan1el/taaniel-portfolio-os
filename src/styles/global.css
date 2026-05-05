@@ -1,6 +1,6 @@
 :root {
   font-size: clamp(14px, 0.28vw + 13px, 15.5px);
-  font-family: "IBM Plex Sans", "Sora", sans-serif;
+  font-family: "IBM Plex Sans", sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #eff4ff;
@@ -357,10 +357,7 @@ img {
   background: transparent;
 }
 
-.desktop-icon:hover,
-.desktop-icon.is-selected {
-  background: rgba(255, 255, 255, 0.06);
-}
+/* Hover + selected styles live in visual-redesign.css (blue tint + ring) */
 
 /* Opacity for the grid cell being dragged; keep pointer-events until a real move so double-click still works. */
 .desktop-icon.is-dragging {
@@ -1045,11 +1042,6 @@ h3 {
 .mini-facts {
   display: grid;
   gap: 0.85rem;
-}
-
-.mini-facts div {
-  display: grid;
-  gap: 0.3rem;
 }
 
 .mini-facts dt {

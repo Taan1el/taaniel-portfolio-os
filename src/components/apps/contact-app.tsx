@@ -2,10 +2,16 @@ import { Copy, Download, ExternalLink, LayoutGrid, Mail, Phone } from "lucide-re
 import { Link } from "react-router-dom";
 import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { getResumeDownloadUrls, liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
+import { toast } from "@/stores/toast-store";
 import type { AppComponentProps } from "@/types/system";
 
-function copyToClipboard(value: string) {
-  void navigator.clipboard?.writeText(value);
+async function copyToClipboard(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    toast("Copied to clipboard", "success");
+  } catch {
+    toast("Could not access clipboard", "error");
+  }
 }
 
 export function ContactApp({ window }: AppComponentProps) {
