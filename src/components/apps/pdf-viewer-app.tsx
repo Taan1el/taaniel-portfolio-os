@@ -116,13 +116,6 @@ export function PdfViewerApp({ window }: AppComponentProps) {
 
       <AppContent className="pdf-viewer__content" padded={false} scrollable={false}>
         <div className="pdf-viewer__stage">
-          <div className="pdf-viewer__meta">
-            <span>
-              Page {Math.min(pageNumber, Math.max(1, pageCount || 1))} / {Math.max(1, pageCount || 1)}
-            </span>
-            <span>Zoom {Math.round(scale * 100)}%</span>
-          </div>
-
           {renderMode === "browser" ? (
             <div className="pdf-viewer__browser">
               <iframe className="resume-app__frame" src={activeSource} title="PDF preview" />
