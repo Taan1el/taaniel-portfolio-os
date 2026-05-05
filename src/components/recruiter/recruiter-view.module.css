@@ -17,6 +17,11 @@
   border-bottom: 1px solid var(--border);
 }
 
+.logoMark {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
 .eyebrow {
   margin: 0;
   font-size: 0.78rem;
