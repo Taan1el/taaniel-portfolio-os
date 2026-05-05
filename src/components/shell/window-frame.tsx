@@ -40,6 +40,12 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
   const [interacting, setInteracting] = useState(false);
   const [snapZone, setSnapZone] = useState<SnapZone | null>(null);
   const snapZoneRef = useRef<SnapZone | null>(null);
+  // Track where the drag started so we don't fire snap zones until the user
+  // has actually moved the window away from its initial position. Without this,
+  // snapped windows (y=0) immediately trigger the "top" fullscreen snap on the
+  // first drag event before the user has moved the mouse at all.
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const DRAG_ACTIVATION_PX = 32; // px the user must move before snap zones activate
 
   const lockBodyScroll = () => {
     document.body.dataset.windowDragLock = "true";
@@ -76,22 +82,34 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         enableResizing={definition.resizable !== false && !window.maximized}
         dragHandleClassName="window-header"
         cancel=".window-action-buttons, .window-frame__body button, .window-frame__body input, .window-frame__body textarea, .window-frame__body a"
-        onDragStart={() => {
+        onDragStart={(_, data) => {
           setInteracting(true);
           lockBodyScroll();
+          dragStartRef.current = { x: data.x, y: data.y };
         }}
         onDrag={(_, data) => {
           const parent = (data.node as HTMLElement).parentElement;
           if (!parent) return;
           const parentWidth = parent.getBoundingClientRect().width;
 
+          // Only start checking for snap zones once the user has dragged at least
+          // DRAG_ACTIVATION_PX from the starting position. This prevents snapped
+          // windows (which start at y=0 or x=0) from immediately re-triggering
+          // the fullscreen or edge snap on the very first drag event.
+          const start = dragStartRef.current;
+          const hasMoved = start
+            ? Math.abs(data.x - start.x) + Math.abs(data.y - start.y) >= DRAG_ACTIVATION_PX
+            : true;
+
           let zone: SnapZone | null = null;
-          if (data.y <= SNAP_THRESHOLD) {
-            zone = "top";
-          } else if (data.x <= SNAP_THRESHOLD) {
-            zone = "left";
-          } else if (data.x + window.width >= parentWidth - SNAP_THRESHOLD) {
-            zone = "right";
+          if (hasMoved) {
+            if (data.y <= SNAP_THRESHOLD) {
+              zone = "top";
+            } else if (data.x <= SNAP_THRESHOLD) {
+              zone = "left";
+            } else if (data.x + window.width >= parentWidth - SNAP_THRESHOLD) {
+              zone = "right";
+            }
           }
 
           if (zone !== snapZoneRef.current) {
@@ -102,6 +120,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         onDragStop={(_, data) => {
           setInteracting(false);
           unlockBodyScroll();
+          dragStartRef.current = null;
 
           const zone = snapZoneRef.current;
           snapZoneRef.current = null;
