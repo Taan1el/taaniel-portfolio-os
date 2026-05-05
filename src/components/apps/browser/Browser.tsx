@@ -47,6 +47,18 @@ export function Browser({ window }: AppComponentProps) {
   const canOpenExternally = resolvedDocument?.kind === "remote";
   const displayedUrl = resolvedDocument?.displayUrl ?? currentUrl ?? address ?? "No URL loaded";
   const securityIndicatorTitle = proxyModeNotes[proxyMode];
+  const viewerStateLabel =
+    resolvedDocument?.kind === "local"
+      ? "Local"
+      : proxyMode === "direct"
+        ? "Direct"
+        : proxyMode === "wayback"
+          ? "Archive"
+          : "Proxy";
+  const viewerStateTitle =
+    resolvedDocument?.kind === "local"
+      ? "Local portfolio files render inside the viewer without iframe restrictions."
+      : proxyModeNotes[proxyMode];
 
   const openCurrentInNewTab = () => {
     if (!resolvedDocument || resolvedDocument.kind !== "remote") {
@@ -64,6 +76,8 @@ export function Browser({ window }: AppComponentProps) {
         proxyMode={proxyMode}
         loadState={loadState}
         securityIndicatorTitle={securityIndicatorTitle}
+        viewerStateLabel={viewerStateLabel}
+        viewerStateTitle={viewerStateTitle}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
         canOpenExternally={Boolean(canOpenExternally)}

@@ -13,6 +13,8 @@ interface BrowserToolbarProps {
   proxyMode: ProxyMode;
   loadState: BrowserLoadState;
   securityIndicatorTitle: string;
+  viewerStateLabel: string;
+  viewerStateTitle: string;
   canGoBack: boolean;
   canGoForward: boolean;
   canOpenExternally: boolean;
@@ -31,6 +33,8 @@ export function BrowserToolbar({
   proxyMode,
   loadState,
   securityIndicatorTitle,
+  viewerStateLabel,
+  viewerStateTitle,
   canGoBack,
   canGoForward,
   canOpenExternally,
@@ -78,6 +82,10 @@ export function BrowserToolbar({
       </form>
 
       <div className="browser-app__mode-cluster">
+        <span className="browser-app__state-chip" title={viewerStateTitle}>
+          {viewerStateLabel}
+        </span>
+
         <label className="browser-app__proxy-select-shell" title={securityIndicatorTitle}>
           <select
             className="browser-app__proxy-select"
@@ -103,7 +111,7 @@ export function BrowserToolbar({
 
       <Button type="button" variant="panel" onClick={onOpenInNewTab} disabled={!canOpenExternally}>
         <ExternalLink size={15} />
-        Open in new tab
+        Open externally
       </Button>
     </AppToolbar>
   );
