@@ -287,8 +287,8 @@ const registry: Record<AppId, AppDefinition> = {
   }),
   browser: defineApp({
     id: "browser",
-    title: "Browser",
-    description: "Embedded link workspace for external sites and bookmarks.",
+    title: "Web Viewer",
+    description: "Preview links, local paths, and bookmarks with clear fallback states for blocked sites.",
     category: "Workspace",
     icon: Globe2,
     accent: "#8be0ff",
@@ -296,7 +296,7 @@ const registry: Record<AppId, AppDefinition> = {
     defaultSize: { width: 940, height: 660 },
     multiple: true,
     load: async () => ({ default: (await import("@/components/apps/browser-app")).BrowserApp }),
-    resolveTitle: (payload) => payload?.externalUrl ?? "Browser",
+    resolveTitle: (payload) => payload?.externalUrl ?? "Web Viewer",
   }),
   pdf: defineApp({
     id: "pdf",

@@ -108,8 +108,8 @@ export function normalizeBrowserAddress(input: string) {
 export function getBrowserTitleFromUrl(url: string) {
   try {
     const parsed = new URL(url);
-    return parsed.hostname.replace(/^www\./i, "") || "Browser";
+    return parsed.hostname.replace(/^www\./i, "") || "Web Viewer";
   } catch {
-    return "Browser";
+    return "Web Viewer";
   }
 }

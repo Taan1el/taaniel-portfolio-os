@@ -17,7 +17,7 @@ export function BrowserSidebar({
 }: BrowserSidebarProps) {
   return (
     <AppSidebar className="browser-app__sidebar">
-      <p className="browser-app__sidebar-label">Bookmarks</p>
+      <p className="browser-app__sidebar-label">Saved links</p>
       <div className="browser-app__bookmark-list" role="toolbar" aria-label="Browser bookmarks">
         {bookmarks.map((bookmark) => {
           const bookmarkUrl = normalizeBrowserAddress(bookmark.url);

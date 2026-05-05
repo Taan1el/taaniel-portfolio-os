@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getStoredDirectEmbedOutcome,
+  rememberDirectEmbedOutcome,
+  type BrowserEmbedOutcome,
+} from "@/lib/browser/embed-memory";
 import { getBrowserHostRule, isLikelyEmbeddable } from "@/lib/browser/host-rules";
 import {
   applyProxy,
@@ -15,6 +20,7 @@ import {
 } from "@/lib/browser/urlUtils";
 import type {
   BrowserFailureRecord,
+  BrowserFallbackKind,
   BrowserFallbackState,
   BrowserLoadState,
   BrowserResolvedDocument,
@@ -33,6 +39,73 @@ interface UseBrowserStateOptions {
 interface BrowserResolution {
   document: BrowserResolvedDocument | null;
   error: string | null;
+}
+
+function getFallbackEyebrow(kind: BrowserFallbackKind) {
+  switch (kind) {
+    case "blocked":
+      return "Known restriction";
+    case "cached":
+      return "Likely blocked";
+    case "timeout":
+      return "No response";
+    case "error":
+      return "Load failed";
+    case "local":
+      return "Local preview";
+    default:
+      return "Unavailable";
+  }
+}
+
+function getFallbackRecommendation(kind: BrowserFallbackKind) {
+  switch (kind) {
+    case "blocked":
+    case "cached":
+      return "Open the live page externally or switch to a proxy preview.";
+    case "timeout":
+      return "Try again, switch to a proxy preview, or open the live page externally.";
+    case "error":
+      return "This page did not render cleanly in the Web Viewer. External open is the safest option.";
+    case "local":
+      return "Open the file with its native app or use File Explorer for a different preview path.";
+    default:
+      return "Try a different destination or return to a known local path.";
+  }
+}
+
+function mapFailureReasonToFallbackKind(
+  reason: BrowserFailureRecord["reason"],
+): BrowserFallbackKind {
+  switch (reason) {
+    case "blocked":
+      return "blocked";
+    case "cached":
+      return "cached";
+    case "error":
+      return "error";
+    case "local":
+      return "local";
+    case "timeout":
+      return "timeout";
+    default:
+      return "missing";
+  }
+}
+
+function mapFailureReasonToEmbedOutcome(
+  reason: BrowserFailureRecord["reason"],
+): BrowserEmbedOutcome | null {
+  switch (reason) {
+    case "blocked":
+      return "blocked";
+    case "error":
+      return "error";
+    case "timeout":
+      return "timeout";
+    default:
+      return null;
+  }
 }
 
 export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOptions) {
@@ -119,6 +192,14 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
         ...currentHistory.slice(-(FAILURE_HISTORY_LIMIT - 1)),
         nextRecord,
       ]);
+
+      if (document.kind === "remote" && proxyMode === "direct") {
+        const outcome = mapFailureReasonToEmbedOutcome(reason);
+
+        if (outcome) {
+          rememberDirectEmbedOutcome(document.displayUrl, outcome);
+        }
+      }
     },
     [proxyMode]
   );
@@ -137,10 +218,14 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
           ? currentUrl.split("/").filter(Boolean).at(-1) ?? currentUrl
           : getBrowserTitleFromUrl(getUrlOrSearch(currentUrl)));
       const url = activeDocument?.displayUrl ?? currentUrl;
+      const fallbackKind = mapFailureReasonToFallbackKind(reason);
 
       setViewMode("fallback");
       setLoadState("blocked");
       setFallback({
+        kind: fallbackKind,
+        eyebrow: getFallbackEyebrow(fallbackKind),
+        recommendation: getFallbackRecommendation(fallbackKind),
         title,
         url,
         message,
@@ -162,13 +247,16 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
       setViewMode("fallback");
       setLoadState("blocked");
       setFallback({
+        kind: "missing",
+        eyebrow: "Unavailable",
+        recommendation: "Try a different destination or return to a known local path.",
         title: currentUrl.startsWith("/")
           ? currentUrl.split("/").filter(Boolean).at(-1) ?? "Local file"
           : "Unable to open page",
         url: currentUrl,
         message: resolution.error ?? "This page could not be resolved.",
         details: currentUrl.startsWith("/")
-          ? "The requested local file could not be rendered in the Browser app."
+          ? "The requested local file could not be rendered in the Web Viewer."
           : undefined,
         retryProxyMode: null,
       });
@@ -179,7 +267,7 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
       if (resolution.error) {
         activateFallback(
           resolution.error,
-          "The requested local file could not be rendered in the Browser app.",
+          "The requested local file could not be rendered in the Web Viewer.",
           "local"
         );
         return;
@@ -192,6 +280,20 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
     }
 
     if (resolution.document.kind === "remote" && proxyMode === "direct") {
+      const cachedOutcome = getStoredDirectEmbedOutcome(
+        resolution.document.displayUrl,
+      );
+
+      if (cachedOutcome && cachedOutcome !== "ready") {
+        activateFallback(
+          "This site is likely to block the Web Viewer in direct mode",
+          "The site failed recently on this device, so the viewer is skipping the dead iframe step and sending you straight to safer options.",
+          "cached",
+          getRetryProxyMode(proxyMode)
+        );
+        return;
+      }
+
       const hostRule = getBrowserHostRule(resolution.document.displayUrl);
 
       if (!isLikelyEmbeddable(resolution.document.displayUrl) && hostRule.disposition === "blocked") {
@@ -211,8 +313,8 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
 
     loadTimeoutRef.current = globalThis.window.setTimeout(() => {
       activateFallback(
-        "This site cannot be embedded due to browser restrictions",
-        "The iframe did not finish loading before the timeout. Try opening the page in a new tab or retrying with a different proxy mode.",
+        "This site did not finish rendering in the Web Viewer",
+        "The iframe did not finish loading before the timeout. Try opening the live page externally or switching to a different preview mode.",
         "timeout"
       );
     }, REMOTE_EMBED_TIMEOUT_MS);
@@ -287,16 +389,21 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
 
   const handleFrameLoad = useCallback(() => {
     clearLoadTimeout();
+
+    if (activeDocument?.kind === "remote" && proxyMode === "direct") {
+      rememberDirectEmbedOutcome(activeDocument.displayUrl, "ready");
+    }
+
     setViewMode("web");
     setLoadState("ready");
     setFallback(null);
-  }, [clearLoadTimeout]);
+  }, [activeDocument, clearLoadTimeout, proxyMode]);
 
   const handleFrameError = useCallback(() => {
     clearLoadTimeout();
     activateFallback(
-      "This site cannot be embedded due to browser restrictions",
-      "The iframe reported a loading error. Try opening the page in a new tab or retrying with a different proxy mode.",
+      "This site reported a frame error in the Web Viewer",
+      "The iframe reported a loading error. Try opening the live page externally or switching to a different preview mode.",
       "error"
     );
   }, [activateFallback, clearLoadTimeout]);

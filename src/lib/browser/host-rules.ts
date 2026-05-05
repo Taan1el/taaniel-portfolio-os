@@ -48,8 +48,8 @@ const DIRECT_HOST_RULES: BrowserHostMatcherRule[] = [
 const BLOCKED_HOST_RULES: BrowserHostMatcherRule[] = [
   {
     disposition: "blocked",
-    message: "GitHub cannot be embedded directly in this Browser window",
-    details: "GitHub sends frame protections, so the Browser switches straight to fallback instead of waiting on a blank iframe.",
+    message: "GitHub cannot be embedded directly in the Web Viewer",
+    details: "GitHub sends frame protections, so the Web Viewer switches straight to fallback instead of waiting on a blank iframe.",
     retryProxyMode: "allorigins",
     test: (url) => /(^|\.)github\.com$/i.test(url.hostname),
   },
@@ -71,8 +71,8 @@ const BLOCKED_HOST_RULES: BrowserHostMatcherRule[] = [
   },
   {
     disposition: "blocked",
-    message: "This streaming platform does not embed cleanly inside the Browser window",
-    details: "Video platforms typically require full browser privileges or special embeds. The Browser shows fallback immediately to avoid a dead panel.",
+    message: "This streaming platform does not embed cleanly inside the Web Viewer",
+    details: "Video platforms typically require full browser privileges or special embeds. The Web Viewer shows fallback immediately to avoid a dead panel.",
     retryProxyMode: "allorigins",
     test: (url) =>
       [
