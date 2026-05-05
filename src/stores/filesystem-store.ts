@@ -74,7 +74,12 @@ interface FileSystemState {
 }
 
 async function persistNodes(nodes: FileSystemRecord) {
-  await saveFileSystem(nodes);
+  try {
+    await saveFileSystem(nodes);
+  } catch {
+    // Non-fatal — IndexedDB may be unavailable (private browsing, quota, etc.)
+    // The app continues with in-memory state for this session.
+  }
 }
 
 export const useFileSystemStore = create<FileSystemState>((set, get) => ({
@@ -85,10 +90,19 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       return;
     }
 
-    const storedNodes = await loadFileSystem();
-    const nodes = ensureSystemWorkspace(storedNodes);
+    let storedNodes;
+    try {
+      storedNodes = await loadFileSystem();
+    } catch {
+      // IndexedDB unavailable (e.g. Safari private browsing, storage quota
+      // exceeded). Fall back to the seed filesystem so the app still loads.
+      console.warn("[fs] IndexedDB unavailable — falling back to seed filesystem");
+      storedNodes = null;
+    }
 
-    if (nodes !== storedNodes) {
+    const nodes = ensureSystemWorkspace(storedNodes ?? buildSeedFileSystem());
+
+    if (storedNodes !== null && nodes !== storedNodes) {
       await persistNodes(nodes);
     }
 

@@ -232,7 +232,13 @@ export const useWindowStore = create<WindowStoreState>()(
         const windows = get().windows.map((windowState) => ({
           ...windowState,
           minimized: true,
-          minimizedByShowDesktop: !windowState.minimized,
+          // Only mark windows that are currently visible so restoreDesktop
+          // can bring them back. Already-minimized windows keep their existing
+          // flag — otherwise a second Show Desktop press wipes the flag for
+          // windows minimised by the first press, orphaning them permanently.
+          minimizedByShowDesktop: windowState.minimized
+            ? windowState.minimizedByShowDesktop
+            : true,
         }));
 
         set(syncWindowRuntime(windows, null));
