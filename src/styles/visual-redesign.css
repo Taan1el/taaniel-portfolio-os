@@ -401,12 +401,18 @@
   bottom: 88px;
 }
 
+/* Center both panels above the centered taskbar pill */
 .calendar-popover {
   bottom: 80px;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .start-menu {
   bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .search-panel {
@@ -428,6 +434,18 @@
     grid-template-columns: auto minmax(120px, 200px) minmax(0, 1fr) auto;
     height: auto;
     border-radius: 0.72rem;
+  }
+
+  /* On mobile the taskbar is full-width, so restore edge-anchored positions */
+  .start-menu {
+    left: 12px;
+    transform: none;
+  }
+
+  .calendar-popover {
+    left: auto;
+    right: 12px;
+    transform: none;
   }
 
   .desktop-surface {
