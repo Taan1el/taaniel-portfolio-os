@@ -13,49 +13,47 @@ import {
 import { SafeImage } from "@/components/ui/safe-image";
 import styles from "@/components/recruiter/recruiter-view.module.css";
 
-const LANDING_KEY = "portfolio-landing-dismissed";
-
 const workGallery = [
   {
     id: "vivus-202505",
     title: "Vivus — acquisition hero (2025)",
-    detail: "Hero concept shipped for a loan brand campaign. Contribution: layout + hierarchy + export-ready assets.",
+    detail: "Hero concept for a loan brand campaign. Layout, hierarchy, and export-ready assets.",
     src: "/assets/Work/Vivus_hero_202505.jpg",
   },
   {
     id: "vivus-mx",
-    title: "Vivus — Mexico market hero",
-    detail: "Market variant for the same brand system. Contribution: composition tweaks + localized layout.",
+    title: "Vivus — Mexico market variant",
+    detail: "Localized version of the same brand system. Composition and layout adapted for the market.",
     src: "/assets/Work/Vivus_om_mx_Hero.jpg",
   },
   {
     id: "sol-rem-1",
     title: "Solar panel brand — promo hero",
-    detail: "Landing/email hero visual. Contribution: typography, product framing, and CTA contrast.",
+    detail: "Landing and email hero visual. Typography, product framing, and CTA contrast.",
     src: "/assets/Work/Sol_Rem_1.png",
   },
   {
     id: "group-22",
-    title: "Fintech email layout — hero + module set",
-    detail: "Modular layout designed for email-safe rendering. Contribution: layout system + CTA hierarchy.",
+    title: "Fintech email — hero + module set",
+    detail: "Modular layout built for email-safe rendering. Layout system and CTA hierarchy.",
     src: "/assets/Work/Group 22.png",
   },
   {
     id: "group-16",
-    title: "Campaign hero variant — high contrast",
-    detail: "Hero exploration focusing on legibility and urgency. Contribution: layout + color/contrast pass.",
+    title: "Campaign hero — high contrast variant",
+    detail: "Hero focused on legibility and urgency. Layout and color pass.",
     src: "/assets/Work/Group 16.png",
   },
   {
     id: "group-1",
-    title: "Campaign hero variant — lifestyle framing",
-    detail: "Alternative hero approach with stronger lifestyle context. Contribution: composition + copy placement.",
+    title: "Campaign hero — lifestyle framing",
+    detail: "Alternative hero with stronger lifestyle context. Composition and copy placement.",
     src: "/assets/Work/Group 1.png",
   },
   {
     id: "group-17",
     title: "Mascot campaign — hero direction",
-    detail: "Mascot-led hero variant with mini UI card. Contribution: balancing personality with clarity.",
+    detail: "Mascot-led hero with a mini UI card. Balancing brand personality with a clear message.",
     src: "/assets/Work/Group 17.png",
   },
 ];
@@ -77,7 +75,7 @@ export function RecruiterView() {
     <div className={styles.page}>
       <div className={styles.inner}>
         <header className={styles.hero}>
-          <p className={styles.eyebrow}>Quick portfolio · static site content + full case list</p>
+          <p className={styles.eyebrow}>Portfolio · {profile.location}</p>
           <h1>{profile.name}</h1>
           <p className={styles.role}>{profile.role}</p>
           <p className={styles.lead} style={{ fontSize: "1.15rem", color: "var(--text-strong)" }}>
@@ -85,14 +83,6 @@ export function RecruiterView() {
           </p>
           <p className={styles.lead}>{classicPortfolio.home.intro}</p>
           <p className={styles.lead}>{landingCopy.valueStatement}</p>
-          <p className={styles.meta} style={{ marginTop: "0.6rem" }}>
-            Engineering sample: <strong>Taaniel OS</strong> — stateful desktop shell, virtual filesystem, app registry.{" "}
-            <a href={repoUrl} target="_blank" rel="noreferrer">
-              Repo
-            </a>{" "}
-            ·{" "}
-            <Link to="/">Open OS</Link>
-          </p>
           <div className={styles.actions}>
             <a className={styles.primaryBtn} href={primaryCv} download>
               Download CV
@@ -100,11 +90,8 @@ export function RecruiterView() {
             <a className={styles.secondaryBtn} href={profile.email}>
               Contact me
             </a>
-            <a className={styles.secondaryBtn} href={liveDemoUrl} target="_blank" rel="noreferrer">
-              Live demo
-            </a>
             <a className={styles.secondaryBtn} href={repoUrl} target="_blank" rel="noreferrer">
-              GitHub repo
+              GitHub
             </a>
             <Link className={styles.secondaryBtn} to="/">
               Open OS
@@ -165,7 +152,7 @@ export function RecruiterView() {
                   <SafeImage src={item.src} alt={item.title} />
                 </div>
                 <div className={styles.cardBody}>
-                  <p className={styles.eyebrow}>Hero visual</p>
+                  <p className={styles.eyebrow}>Campaign visual</p>
                   <h3>{item.title}</h3>
                   <p className={styles.meta}>{item.detail}</p>
                 </div>
@@ -178,12 +165,14 @@ export function RecruiterView() {
           <h2 id="built-heading">{portfolioBuilt.headline}</h2>
           <p className={styles.meta}>{portfolioBuilt.architectureSummary}</p>
           <p className={styles.meta} style={{ marginTop: "0.75rem" }}>
-            In the OS version, open <strong style={{ color: "var(--text-strong)" }}>OS Case Study.md</strong> on the desktop for a
-            quick architecture walkthrough.
+            Open <strong style={{ color: "var(--text-strong)" }}>OS Case Study.md</strong> on the desktop for a full walkthrough of the architecture and decisions.
           </p>
           <div className={styles.actions} style={{ marginTop: "0.9rem" }}>
             <a className={styles.secondaryBtn} href={liveDemoUrl} target="_blank" rel="noreferrer">
-              Open OS case study
+              Open the OS
+            </a>
+            <a className={styles.secondaryBtn} href={repoUrl} target="_blank" rel="noreferrer">
+              View source on GitHub
             </a>
           </div>
           <p className={styles.eyebrow} style={{ marginTop: "1rem" }}>
@@ -195,7 +184,7 @@ export function RecruiterView() {
             ))}
           </div>
           <p className={styles.eyebrow} style={{ marginTop: "1rem" }}>
-            Engineering decisions
+            Key decisions
           </p>
           <ul className={styles.builtList}>
             {portfolioBuilt.decisions.map((d) => (
@@ -240,17 +229,6 @@ export function RecruiterView() {
               </a>
             ))}
           </div>
-          <p style={{ marginTop: "1.25rem" }}>
-            <button
-              type="button"
-              className={styles.mutedLink}
-              onClick={() => {
-                localStorage.removeItem(LANDING_KEY);
-              }}
-            >
-              Reset desktop welcome overlay
-            </button>
-          </p>
         </section>
       </div>
     </div>

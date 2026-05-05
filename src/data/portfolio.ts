@@ -6,12 +6,12 @@ export const profile = {
   role: "Frontend developer (UI systems)",
   shortRole: "Frontend developer",
   location: "Tallinn, Estonia",
-  headline: "I build interfaces in React and TypeScript—from marketing sites to interactive UI systems like this desktop shell.",
+  headline: "I design and build web interfaces — marketing pages, campaign visuals, and frontend systems.",
   intro:
-    "I ship responsive web UI, email-safe layouts, and component-driven prototypes. This portfolio is also a technical sample: a browser desktop with windows, state, and a virtual filesystem so you can inspect how I structure frontend code—not just static case study pages.",
+    "I ship responsive web UI and campaign designs. This portfolio is also a live code sample: a browser-based desktop built with React and TypeScript, with a window manager and a virtual filesystem you can browse.",
   current:
-    "I build and ship marketing and campaign UI assets in a team environment while continuing to deepen frontend engineering (React + TypeScript) through projects like this portfolio OS.",
-  availability: "Open to junior–mid frontend roles and UI-engineering internships.",
+    "I design and ship marketing and campaign visuals in a team while building stronger frontend skills in React and TypeScript — this portfolio OS is the main proof of that.",
+  availability: "Open to junior and mid-level frontend roles.",
   email: "mailto:Taaniel.vananurm@gmail.com",
   emailText: "Taaniel.vananurm@gmail.com",
   phone: "tel:+37258948814",
@@ -20,7 +20,7 @@ export const profile = {
 
 export const landingCopy = {
   valueStatement:
-    "You get a fast, scannable profile on /simple, plus an interactive React + TypeScript shell when you want to go deeper.",
+    "The /simple page gives you a quick overview. The OS shell is a live React + TypeScript project you can explore in more depth.",
 };
 
 /** Primary CV URL (served from /public). Add a mirror if the main host blocks PDF fetch. */
@@ -54,10 +54,10 @@ export const skills = [
 ];
 
 export const quickStats = [
-  { label: "Focus", value: "Web UI, design-to-code, portfolio systems" },
+  { label: "Focus", value: "Web UI, campaign design, design-to-code" },
   { label: "Education", value: "Tallinn Polytechnic" },
-  { label: "Work context", value: "Marketing & email campaign production" },
-  { label: "Proof in this repo", value: "Window manager, FS, lazy apps" },
+  { label: "Work context", value: "Marketing and email campaign production" },
+  { label: "This portfolio OS", value: "React + TypeScript, window manager, virtual filesystem" },
 ];
 
 export const socialLinks: SocialLink[] = [
