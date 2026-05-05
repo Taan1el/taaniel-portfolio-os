@@ -95,7 +95,10 @@ export const useWindowStore = create<WindowStoreState>()(
         createdAt,
         zIndex,
       }) => {
-        const nextZ = zIndex ?? get().nextZ + 1;
+        const assignedZ = zIndex ?? get().nextZ + 1;
+        // Always advance the counter at least to the assigned value so future
+        // auto-generated windows never collide with or go below this one.
+        const nextCounter = Math.max(get().nextZ, assignedZ);
         const nextWindowId = windowId ?? createId("window");
         const nextWindow: WindowRecord = {
           id: nextWindowId,
@@ -105,7 +108,7 @@ export const useWindowStore = create<WindowStoreState>()(
           minimizedByShowDesktop: false,
           maximized,
           focused: false,
-          zIndex: nextZ,
+          zIndex: assignedZ,
           restoreBounds,
           createdAt: createdAt ?? Date.now(),
           ...clampWindowBoundsToViewport(bounds),
@@ -113,7 +116,7 @@ export const useWindowStore = create<WindowStoreState>()(
         const runtime = syncWindowRuntime([...get().windows, nextWindow], nextWindowId);
 
         set({
-          nextZ,
+          nextZ: nextCounter,
           ...runtime,
         });
 
