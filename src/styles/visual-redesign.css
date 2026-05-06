@@ -401,18 +401,23 @@
   bottom: 88px;
 }
 
-/* Center both panels above the centered taskbar pill */
+/* Center both panels above the centered taskbar pill.
+   Use left:0/right:0 + margin:auto instead of transform so Framer Motion
+   animations don't clobber the translateX(-50%) centering trick. */
 .calendar-popover {
   bottom: 80px;
-  right: auto;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .start-menu {
   bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .search-panel {
@@ -439,13 +444,16 @@
   /* On mobile the taskbar is full-width, so restore edge-anchored positions */
   .start-menu {
     left: 12px;
-    transform: none;
+    right: 12px;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .calendar-popover {
     left: auto;
     right: 12px;
-    transform: none;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .desktop-surface {
