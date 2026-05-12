@@ -22,6 +22,7 @@ import {
 } from "@/components/apps/app-layout";
 import { ExplorerSidebar, type ExplorerSidebarLocation } from "@/components/apps/explorer/explorer-sidebar";
 import { ExplorerToolbar, type ExplorerBreadcrumb } from "@/components/apps/explorer/explorer-toolbar";
+import { setPathDragPayload } from "@/lib/drag-payload";
 import { joinPath, normalizePath } from "@/lib/filesystem";
 import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
 import { openFileSystemPath } from "@/lib/launchers";
@@ -125,6 +126,11 @@ const ExplorerGridItem = memo(function ExplorerGridItem({
     <button
       type="button"
       className={cn("explorer-grid-item", selected && "is-selected")}
+      draggable={node.type === "file"}
+      onDragStart={(event) => {
+        if (node.type !== "file") return;
+        setPathDragPayload(event.dataTransfer, node.path);
+      }}
       onClick={() => {
         onSelect(node.path);
         onOpen(node);
@@ -178,6 +184,11 @@ const ExplorerListItem = memo(function ExplorerListItem({
     <button
       type="button"
       className={cn("explorer-list-item", selected && "is-selected")}
+      draggable={node.type === "file"}
+      onDragStart={(event) => {
+        if (node.type !== "file") return;
+        setPathDragPayload(event.dataTransfer, node.path);
+      }}
       onClick={() => {
         onSelect(node.path);
         onOpen(node);
