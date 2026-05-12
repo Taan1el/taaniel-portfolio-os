@@ -25,7 +25,8 @@ export type AppId =
   | "pdf"
   | "resume"
   | "paint"
-  | "calculator";
+  | "calculator"
+  | "about-os";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System" | "Lab";
 
