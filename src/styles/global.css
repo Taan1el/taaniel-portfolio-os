@@ -3986,6 +3986,212 @@ h3 {
   white-space: nowrap;
 }
 
+/* ── File picker dialog (system-wide reusable) ─────────────── */
+.file-picker-dialog {
+  min-width: 380px;
+  max-width: 480px;
+  width: 100%;
+  padding: 1rem 0.95rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 1.1rem;
+  background: var(--surface-strong);
+  backdrop-filter: blur(22px);
+  box-shadow: var(--shadow-ambient), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: 75vh;
+}
+
+.file-picker-dialog__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.file-picker-dialog__title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.file-picker-dialog__subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+}
+
+.file-picker-dialog__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.file-picker-dialog__nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.file-picker-dialog__nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+}
+
+.file-picker-dialog__nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.file-picker-dialog__filter {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+.file-picker-dialog__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 200px;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.file-picker-dialog__empty {
+  padding: 1.2rem 0.6rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.file-picker-dialog__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.36rem 0.55rem;
+  border: none;
+  border-radius: 0.42rem;
+  background: none;
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 100ms ease;
+}
+
+.file-picker-dialog__item:hover,
+.file-picker-dialog__item:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
+}
+
+.file-picker-dialog__item.is-selected {
+  background: color-mix(in oklch, var(--theme-accent, #77c7ff) 18%, transparent);
+  color: var(--text-strong);
+}
+
+.file-picker-dialog__item-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.file-picker-dialog__item.is-selected .file-picker-dialog__item-icon {
+  color: var(--theme-accent, #77c7ff);
+}
+
+.file-picker-dialog__item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-picker-dialog__filename {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.file-picker-dialog__filename input {
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.48rem;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-family: inherit;
+}
+
+.file-picker-dialog__filename input:focus {
+  outline: none;
+  border-color: var(--theme-accent, #77c7ff);
+}
+
+.file-picker-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+.file-picker-dialog__btn {
+  padding: 0.42rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.file-picker-dialog__btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+}
+
+.file-picker-dialog__btn.is-primary {
+  background: color-mix(in oklch, var(--theme-accent, #77c7ff) 28%, transparent);
+  border-color: color-mix(in oklch, var(--theme-accent, #77c7ff) 40%, transparent);
+  color: var(--text-strong);
+}
+
+.file-picker-dialog__btn.is-primary:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--theme-accent, #77c7ff) 38%, transparent);
+}
+
+.file-picker-dialog__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .open-with-dialog__footer {
   display: flex;
   justify-content: flex-end;

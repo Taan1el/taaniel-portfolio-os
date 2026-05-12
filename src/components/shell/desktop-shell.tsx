@@ -29,6 +29,7 @@ import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
+import { FilePickerDialog } from "@/components/system/file-picker-dialog";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
@@ -660,6 +661,8 @@ export function DesktopShell() {
         }}
         onClose={() => setOpenWithTarget(null)}
       />
+
+      <FilePickerDialog />
 
       <Taskbar
         entries={taskbarEntries}
