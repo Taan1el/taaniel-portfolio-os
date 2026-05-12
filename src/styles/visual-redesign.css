@@ -656,3 +656,48 @@
   border-radius: 10px;
   overflow: hidden;
 }
+
+
+/* ── Theatre mode — full-bleed view, chrome hidden ─────────── */
+.os-root.is-theatre .taskbar,
+.os-root.is-theatre .desktop-manager,
+.os-root.is-theatre .os-root__noise {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+/* Dim wallpaper so the active window pops. */
+.os-root.is-theatre .os-root__wallpaper {
+  filter: brightness(0.55) saturate(0.85);
+  transition: filter 220ms ease;
+}
+
+/* Window-host fills the entire viewport (taskbar height is reclaimed). */
+.os-root.is-theatre .window-manager {
+  inset: 0 !important;
+}
+
+.theatre-exit {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1200;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.55rem;
+  background: rgba(12, 18, 28, 0.72);
+  color: var(--text-strong);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.theatre-exit:hover {
+  background: rgba(20, 28, 40, 0.85);
+  border-color: rgba(119, 199, 255, 0.4);
+  transform: translateY(-1px);
+}

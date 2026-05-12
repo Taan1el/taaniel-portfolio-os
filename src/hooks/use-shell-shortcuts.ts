@@ -9,6 +9,7 @@ interface UseShellShortcutsOptions {
   onOpenTerminal: () => void;
   onToggleFullscreen: () => void;
   onToggleCheatsheet: () => void;
+  onToggleTheatre: () => void;
 }
 
 export function useShellShortcuts({
@@ -20,6 +21,7 @@ export function useShellShortcuts({
   onOpenTerminal,
   onToggleFullscreen,
   onToggleCheatsheet,
+  onToggleTheatre,
 }: UseShellShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -74,6 +76,12 @@ export function useShellShortcuts({
           onToggleCheatsheet();
           return;
         }
+        // Shift+T — toggle theatre mode (no modifier conflict, only fires outside inputs)
+        if (event.shiftKey && (event.key === "T" || event.key === "t")) {
+          event.preventDefault();
+          onToggleTheatre();
+          return;
+        }
       }
     };
 
@@ -88,5 +96,6 @@ export function useShellShortcuts({
     onOpenLauncherSearch,
     onToggleStartMenu,
     onToggleCheatsheet,
+    onToggleTheatre,
   ]);
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, ty
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
-import { Grid2x2, MonitorDown } from "lucide-react";
+import { Grid2x2, Maximize, MonitorDown } from "lucide-react";
 import { SearchInput } from "@/components/apps/app-layout";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
@@ -98,6 +98,7 @@ interface TaskbarProps {
   onPinApp: (appId: AppId) => void;
   onUnpinApp: (appId: AppId) => void;
   onShowDesktop: () => void;
+  onToggleTheatre: () => void;
 }
 
 export function Taskbar({
@@ -117,6 +118,7 @@ export function Taskbar({
   onPinApp,
   onUnpinApp,
   onShowDesktop,
+  onToggleTheatre,
 }: TaskbarProps) {
   const [now, setNow] = useState(() => new Date());
   const [previewEntry, setPreviewEntry] = useState<TaskbarPreviewEntry | null>(null);
@@ -456,6 +458,15 @@ export function Taskbar({
           >
             <strong>{formatClock(now)}</strong>
             <small>{formatDateLabel(now)}</small>
+          </button>
+          <button
+            className="taskbar__desktop"
+            type="button"
+            onClick={onToggleTheatre}
+            title="Theatre mode — hide chrome (Shift+T)"
+            aria-label="Toggle theatre mode"
+          >
+            <Maximize size={14} />
           </button>
           <button className="taskbar__desktop" type="button" onClick={onShowDesktop}>
             <MonitorDown size={14} />
