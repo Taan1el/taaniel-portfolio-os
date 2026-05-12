@@ -292,6 +292,16 @@
   box-shadow: var(--shadow-window);
 }
 
+/* Active drop target during cross-window file drag. */
+.window-frame.is-drop-target {
+  border-color: rgba(119, 199, 255, 0.55);
+  box-shadow:
+    var(--shadow-window),
+    inset 0 0 0 2px rgba(119, 199, 255, 0.35),
+    0 0 0 1px rgba(119, 199, 255, 0.35);
+  transition: box-shadow 100ms ease, border-color 100ms ease;
+}
+
 /* Drag-lift: window feels heavy and elevated while moving.
    Crucially, drop backdrop-filter during the drag — recomposing
    a 14-22px blur every frame is the #1 cause of drag stutter. */

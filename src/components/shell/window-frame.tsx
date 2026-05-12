@@ -4,7 +4,10 @@ import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { createPortal } from "react-dom";
 import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
+import { hasPathDragPayload, readPathDragPayload } from "@/lib/drag-payload";
+import { acceptsExtension } from "@/lib/file-registry";
 import { cn } from "@/lib/utils";
+import { useSystemStore } from "@/stores/system-store";
 import type { AppWindow } from "@/types/system";
 import wfStyles from "@/components/shell/window-frame.module.css";
 
@@ -37,7 +40,9 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
   const definition = getAppDefinition(window.appId);
   const Icon = definition.icon;
   const WindowComponent = getAppComponent(window.appId);
+  const launchApp = useSystemStore((state) => state.launchApp);
   const [interacting, setInteracting] = useState(false);
+  const [isDropTarget, setIsDropTarget] = useState(false);
   const [snapZone, setSnapZone] = useState<SnapZone | null>(null);
   const snapZoneRef = useRef<SnapZone | null>(null);
   // Track where the drag started so we don't fire snap zones until the user
@@ -170,9 +175,38 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           role="dialog"
           aria-labelledby={`window-title-${window.id}`}
           aria-modal="false"
-          className={cn("window-frame", wfStyles.surface, active && "is-active", interacting && "is-dragging")}
+          className={cn(
+            "window-frame",
+            wfStyles.surface,
+            active && "is-active",
+            interacting && "is-dragging",
+            isDropTarget && "is-drop-target"
+          )}
           onMouseDown={onFocus}
           onTouchStart={onFocus}
+          onDragOver={(event) => {
+            if (!hasPathDragPayload(event.dataTransfer)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            if (!isDropTarget) setIsDropTarget(true);
+          }}
+          onDragLeave={(event) => {
+            // Only clear when leaving the window-frame itself, not crossing children.
+            if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+            setIsDropTarget(false);
+          }}
+          onDrop={(event) => {
+            if (!hasPathDragPayload(event.dataTransfer)) return;
+            event.preventDefault();
+            setIsDropTarget(false);
+            const path = readPathDragPayload(event.dataTransfer);
+            if (!path) return;
+            // Derive extension from the path tail.
+            const dot = path.lastIndexOf(".");
+            const ext = dot >= 0 ? path.slice(dot).toLowerCase() : "";
+            if (!acceptsExtension(window.appId, ext)) return;
+            launchApp({ appId: window.appId, payload: { filePath: path } });
+          }}
           onAnimationComplete={() => setInteracting(false)}
           layout
           initial={{ opacity: 0, scale: 0.96, y: 18 }}
