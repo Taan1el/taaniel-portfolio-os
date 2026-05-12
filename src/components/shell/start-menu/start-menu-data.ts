@@ -1,6 +1,7 @@
 import {
   Beaker,
   BriefcaseBusiness,
+  Download,
   FileText,
   HardDriveDownload,
   Image,
@@ -10,6 +11,7 @@ import {
   Settings2,
   Sparkles,
   TerminalSquare,
+  Upload,
   Video,
 } from "lucide-react";
 import type { StartMenuCategoryDescriptor, StartMenuShortcut } from "@/types/system";
@@ -117,6 +119,18 @@ export const startMenuQuickLinks: StartMenuShortcut[] = [
 ];
 
 export const startMenuPowerActions: StartMenuShortcut[] = [
+  {
+    id: "export-session",
+    label: "Export snapshot",
+    icon: Download,
+    action: { type: "export-session" },
+  },
+  {
+    id: "import-session",
+    label: "Import snapshot",
+    icon: Upload,
+    action: { type: "import-session" },
+  },
   {
     id: "reset-session",
     label: "Reset session",

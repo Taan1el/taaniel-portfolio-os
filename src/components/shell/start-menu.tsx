@@ -4,6 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { Button, ScrollArea } from "@/components/apps/app-layout";
 import { liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
+import {
+  exportSession,
+  importSessionFromFilePicker,
+} from "@/lib/session-snapshot";
 import type { ShellAiSearchStatus } from "@/hooks/use-shell-ai-search";
 import type { ShellSearchAction, ShellSearchSection } from "@/lib/shell-search";
 import { ShellSearchResults, type ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
@@ -117,6 +121,12 @@ export function StartMenu({
         break;
       case "reset-session":
         onResetSession();
+        break;
+      case "export-session":
+        exportSession();
+        break;
+      case "import-session":
+        importSessionFromFilePicker();
         break;
     }
   };

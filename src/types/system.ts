@@ -179,7 +179,9 @@ export type StartMenuAction =
   | { type: "app"; appId: AppId }
   | { type: "directory"; directoryPath: string }
   | { type: "file"; filePath: string }
-  | { type: "reset-session" };
+  | { type: "reset-session" }
+  | { type: "export-session" }
+  | { type: "import-session" };
 
 export interface StartMenuShortcut {
   id: string;

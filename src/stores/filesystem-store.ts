@@ -71,6 +71,7 @@ interface FileSystemState {
   canCutNode: (path: string) => boolean;
   emptyTrash: () => Promise<void>;
   reset: () => Promise<void>;
+  importNodes: (nodes: FileSystemRecord) => Promise<void>;
 }
 
 async function persistNodes(nodes: FileSystemRecord) {
@@ -223,6 +224,11 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     const nodes = ensureSystemWorkspace(buildSeedFileSystem());
     set({ nodes, initialized: true });
     await clearPersistedFileSystem();
+    await persistNodes(nodes);
+  },
+  importNodes: async (incoming) => {
+    const nodes = ensureSystemWorkspace(incoming);
+    set({ nodes, initialized: true });
     await persistNodes(nodes);
   },
 }));
