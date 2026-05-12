@@ -48,6 +48,8 @@ import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  const theatreMode = useShellStore((s) => s.theatreMode);
+  const toggleTheatreMode = useShellStore((s) => s.toggleTheatreMode);
   const { processes } = useProcessStore(
     useShallow((state) => ({
       processes: state.processes,
@@ -276,6 +278,7 @@ export function DesktopShell() {
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
+    onToggleTheatre: toggleTheatreMode,
   });
 
   useEffect(() => {
@@ -569,7 +572,8 @@ export function DesktopShell() {
     <main
       className={cn(
         "os-root",
-        wallpaperPresentation.animated && "is-animated-wallpaper"
+        wallpaperPresentation.animated && "is-animated-wallpaper",
+        theatreMode && "is-theatre"
       )}
       style={
         {
@@ -583,6 +587,17 @@ export function DesktopShell() {
       onClick={() => setContextMenu(null)}
     >
       <OsOnboarding />
+      {theatreMode ? (
+        <button
+          type="button"
+          className="theatre-exit"
+          onClick={toggleTheatreMode}
+          aria-label="Exit theatre mode"
+          title="Exit theatre mode (Esc or Shift+T)"
+        >
+          Exit theatre
+        </button>
+      ) : null}
       {!online ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
           Offline — some previews and embeds may fail to load.
@@ -681,6 +696,7 @@ export function DesktopShell() {
         onPinApp={pinApp}
         onUnpinApp={unpinApp}
         onShowDesktop={showDesktop}
+        onToggleTheatre={toggleTheatreMode}
       />
     </main>
   );
