@@ -7,6 +7,7 @@
  * delegates to the same stores the in-app UI uses.
  */
 import { getAppRegistry, getAppDefinition } from "@/lib/app-registry";
+import { acceptsExtension, getAcceptedExtensionsForApp } from "@/lib/file-registry";
 import { openFileSystemPath, editFileSystemPath } from "@/lib/launchers";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -29,6 +30,10 @@ export interface TaanielOSPublicSdk {
   editPath: (path: string) => void;
   /** List installed apps (id, title, category, accent). */
   listApps: () => Array<{ id: AppId; title: string; category: string; accent: string }>;
+  /** List file extensions an app accepts (`.png`, `.mp3`, etc.). */
+  acceptedExtensions: (appId: AppId) => string[];
+  /** True if an app accepts a given extension. */
+  accepts: (appId: AppId, extension: string) => boolean;
   /** Close every open window. */
   closeAll: () => void;
   /** Print a friendly help banner to the console. */
@@ -68,6 +73,14 @@ function buildSdk(): TaanielOSPublicSdk {
         category: app.category,
         accent: app.accent,
       }));
+    },
+
+    acceptedExtensions(appId) {
+      return getAcceptedExtensionsForApp(appId);
+    },
+
+    accepts(appId, extension) {
+      return acceptsExtension(appId, extension);
     },
 
     closeAll() {

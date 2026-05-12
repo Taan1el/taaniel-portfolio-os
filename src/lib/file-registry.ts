@@ -430,6 +430,38 @@ const FAMILY_ALTERNATIVES: Partial<Record<string, AppId[]>> = {
   image: ["photos", "paint"],
 };
 
+/**
+ * Reverse lookup: which file extensions does an app accept?
+ *
+ * Derived from the registered open/edit handlers + family alternatives —
+ * a single source of truth, no per-app duplicate lists to drift out of sync.
+ * Used by the file-picker dialog, cross-window drop validation, and any
+ * UI that needs to surface an app's accepted types.
+ */
+export function getAcceptedExtensionsForApp(appId: AppId): string[] {
+  const matches = new Set<string>();
+
+  for (const assoc of Object.values(fileAssociations)) {
+    if (assoc.openWith === appId || assoc.editWith === appId) {
+      matches.add(assoc.extension);
+      continue;
+    }
+    // family-based alternatives (e.g. "paint" can edit any image)
+    const familyAlts = FAMILY_ALTERNATIVES[assoc.family] ?? [];
+    if (familyAlts.includes(appId)) {
+      matches.add(assoc.extension);
+    }
+  }
+
+  return [...matches].sort();
+}
+
+export function acceptsExtension(appId: AppId, extension: string): boolean {
+  const normalized = normalizeExtensionKey(extension);
+  if (!normalized) return false;
+  return getAcceptedExtensionsForApp(appId).includes(normalized);
+}
+
 export function getOpenWithOptions(node: VirtualNode): AppId[] {
   if (node.kind === "directory") return [];
 
