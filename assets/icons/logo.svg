@@ -1,0 +1,14 @@
+<svg viewBox="0 0 200 228" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .bar { stroke: #231F20; }
+    @media (prefers-color-scheme: dark) { .bar { stroke: #ffffff; } }
+  </style>
+  <!-- Left diagonal: upper-left → lower-center -->
+  <line class="bar" x1="28"  y1="14" x2="93"  y2="173" stroke-width="32" stroke-linecap="round"/>
+  <!-- Center vertical -->
+  <line class="bar" x1="100" y1="14" x2="100" y2="173" stroke-width="32" stroke-linecap="round"/>
+  <!-- Right diagonal: upper-right → lower-center -->
+  <line class="bar" x1="172" y1="14" x2="107" y2="173" stroke-width="32" stroke-linecap="round"/>
+  <!-- Base bar -->
+  <line class="bar" x1="12"  y1="210" x2="188" y2="210" stroke-width="32" stroke-linecap="round"/>
+</svg>
