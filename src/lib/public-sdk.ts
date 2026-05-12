@@ -13,6 +13,11 @@ import {
 import { getAppRegistry, getAppDefinition } from "@/lib/app-registry";
 import { acceptsExtension, getAcceptedExtensionsForApp } from "@/lib/file-registry";
 import { openFileSystemPath, editFileSystemPath } from "@/lib/launchers";
+import {
+  buildSnapshot,
+  exportSession,
+  importSessionFromJson,
+} from "@/lib/session-snapshot";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppId, WindowPayload } from "@/types/system";
@@ -44,6 +49,12 @@ export interface TaanielOSPublicSdk {
   showOpenFilePicker: typeof showOpenFilePicker;
   /** Show a system save dialog. Resolves to chosen path, or null on cancel. */
   showSaveFilePicker: typeof showSaveFilePicker;
+  /** Build a JSON-safe snapshot of the current filesystem. */
+  exportSession: () => void;
+  /** Build but don't download — useful for programmatic capture. */
+  captureSnapshot: typeof buildSnapshot;
+  /** Restore from a JSON snapshot string. Resolves to true on success. */
+  importSessionFromJson: typeof importSessionFromJson;
   /** Print a friendly help banner to the console. */
   help: () => void;
 }
@@ -98,6 +109,10 @@ function buildSdk(): TaanielOSPublicSdk {
 
     showOpenFilePicker,
     showSaveFilePicker,
+
+    exportSession,
+    captureSnapshot: buildSnapshot,
+    importSessionFromJson,
 
     help() {
       // eslint-disable-next-line no-console
