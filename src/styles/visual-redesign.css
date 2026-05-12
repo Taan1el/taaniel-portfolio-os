@@ -114,7 +114,7 @@
   height: var(--taskbar-height);
 
   border-radius: 18px;
-  backdrop-filter: blur(28px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.45);
   box-shadow:
     0 18px 52px rgba(0, 0, 0, 0.55),
     0 1.5px 0 rgba(255, 255, 255, 0.08) inset;
@@ -269,14 +269,22 @@
 .context-menu,
 .start-menu,
 .calendar-popover {
-  backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.4);
 }
 
 
-/* ── 7. Window frames — deeper glass ────────────────────────── */
+/* ── 7. Window frames — deeper glass ──────────────────────────
+   Reduced from 22px to 14px to cut backdrop-filter cost when
+   multiple windows stack. Promoted to its own compositor layer
+   via will-change + transform: translateZ(0) so drag/resize stays
+   on the GPU instead of repainting wallpaper + noise + glass.
+*/
 .window-frame {
-  backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.35);
   transition: box-shadow 180ms ease, opacity 180ms ease;
+  will-change: transform;
+  transform: translateZ(0);
+  contain: layout paint;
 }
 
 .window-frame.is-active {
@@ -284,8 +292,12 @@
   box-shadow: var(--shadow-window);
 }
 
-/* Drag-lift: window feels heavy and elevated while moving */
+/* Drag-lift: window feels heavy and elevated while moving.
+   Crucially, drop backdrop-filter during the drag — recomposing
+   a 14-22px blur every frame is the #1 cause of drag stutter. */
 .window-frame.is-dragging {
+  backdrop-filter: none;
+  background-color: rgba(12, 18, 28, 0.92);
   box-shadow:
     0 48px 120px rgba(0, 0, 0, 0.72),
     0 8px 32px rgba(0, 0, 0, 0.48),
