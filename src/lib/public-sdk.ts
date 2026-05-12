@@ -6,6 +6,10 @@
  * public app API (https://docs.puter.com/) — small, stable surface that
  * delegates to the same stores the in-app UI uses.
  */
+import {
+  showOpenFilePicker,
+  showSaveFilePicker,
+} from "@/components/system/file-picker-dialog";
 import { getAppRegistry, getAppDefinition } from "@/lib/app-registry";
 import { acceptsExtension, getAcceptedExtensionsForApp } from "@/lib/file-registry";
 import { openFileSystemPath, editFileSystemPath } from "@/lib/launchers";
@@ -36,6 +40,10 @@ export interface TaanielOSPublicSdk {
   accepts: (appId: AppId, extension: string) => boolean;
   /** Close every open window. */
   closeAll: () => void;
+  /** Show a system file picker. Resolves to selected path, or null on cancel. */
+  showOpenFilePicker: typeof showOpenFilePicker;
+  /** Show a system save dialog. Resolves to chosen path, or null on cancel. */
+  showSaveFilePicker: typeof showSaveFilePicker;
   /** Print a friendly help banner to the console. */
   help: () => void;
 }
@@ -87,6 +95,9 @@ function buildSdk(): TaanielOSPublicSdk {
       const state = useSystemStore.getState();
       for (const w of state.windows) state.closeWindow(w.id);
     },
+
+    showOpenFilePicker,
+    showSaveFilePicker,
 
     help() {
       // eslint-disable-next-line no-console
