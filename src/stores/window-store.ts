@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { getSafeLocalStorage } from "@/lib/safe-storage";
 import { createId } from "@/lib/utils";
 import {
   WINDOW_STORAGE_KEY,
@@ -280,7 +281,7 @@ export const useWindowStore = create<WindowStoreState>()(
     {
       name: WINDOW_STORAGE_KEY,
       version: 2,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(getSafeLocalStorage),
       migrate: (persistedState) => {
         const state = persistedState as
           | {

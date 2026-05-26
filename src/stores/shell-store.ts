@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { themePresets } from "@/data/portfolio";
 import { defaultDesktopWallpaper } from "@/data/wallpapers";
+import { getSafeLocalStorage } from "@/lib/safe-storage";
 import { reconcileDesktopGridPositions, resolveDesktopGridPlacement } from "@/lib/desktop-grid";
 import {
   SHELL_STORAGE_KEY,
@@ -221,7 +222,7 @@ export const useShellStore = create<ShellStoreState>()(
     {
       name: SHELL_STORAGE_KEY,
       version: 4,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(getSafeLocalStorage),
       migrate: (persistedState) => {
         const state = persistedState as
           | {
