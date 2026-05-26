@@ -3,6 +3,7 @@ import { Play, RotateCcw } from "lucide-react";
 import { ArcadeGameShell } from "@/components/apps/arcade-game-shell";
 import { Button } from "@/components/apps/app-layout";
 import { useArcadeBoardSize } from "@/hooks/use-arcade-board-size";
+import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
 import type { AppComponentProps } from "@/types/system";
 
 const SNAKE_COLUMNS = 18;
@@ -51,7 +52,7 @@ export function SnakeApp({ window: appWindow }: AppComponentProps) {
   const [running, setRunning] = useState(false);
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(() =>
-    Number(localStorage.getItem("taaniel-os-snake-best") ?? 0)
+    Number(readLocalStorage("taaniel-os-snake-best") ?? 0)
   );
 
   useEffect(() => {
@@ -59,7 +60,7 @@ export function SnakeApp({ window: appWindow }: AppComponentProps) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("taaniel-os-snake-best", String(bestScore));
+    writeLocalStorage("taaniel-os-snake-best", String(bestScore));
   }, [bestScore]);
 
   useEffect(() => {
