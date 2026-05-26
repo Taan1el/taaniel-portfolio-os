@@ -37,6 +37,11 @@ function isOppositeDirection(
   return current.x + next.x === 0 && current.y + next.y === 0;
 }
 
+function readBestScore() {
+  const savedScore = Number(readLocalStorage("taaniel-os-snake-best") ?? 0);
+  return Number.isFinite(savedScore) && savedScore > 0 ? savedScore : 0;
+}
+
 export function SnakeApp({ window: appWindow }: AppComponentProps) {
   void appWindow;
 
@@ -51,9 +56,7 @@ export function SnakeApp({ window: appWindow }: AppComponentProps) {
   const [food, setFood] = useState(() => createFood(START_SNAKE));
   const [running, setRunning] = useState(false);
   const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(() =>
-    Number(readLocalStorage("taaniel-os-snake-best") ?? 0)
-  );
+  const [bestScore, setBestScore] = useState(readBestScore);
 
   useEffect(() => {
     containerRef.current?.focus();
