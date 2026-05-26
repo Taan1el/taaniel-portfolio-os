@@ -4,10 +4,7 @@ import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { createPortal } from "react-dom";
 import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
-import { hasPathDragPayload, readPathDragPayload } from "@/lib/drag-payload";
-import { acceptsExtension } from "@/lib/file-registry";
 import { cn } from "@/lib/utils";
-import { useSystemStore } from "@/stores/system-store";
 import type { AppWindow } from "@/types/system";
 import wfStyles from "@/components/shell/window-frame.module.css";
 
@@ -40,17 +37,9 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
   const definition = getAppDefinition(window.appId);
   const Icon = definition.icon;
   const WindowComponent = getAppComponent(window.appId);
-  const launchApp = useSystemStore((state) => state.launchApp);
   const [interacting, setInteracting] = useState(false);
-  const [isDropTarget, setIsDropTarget] = useState(false);
   const [snapZone, setSnapZone] = useState<SnapZone | null>(null);
   const snapZoneRef = useRef<SnapZone | null>(null);
-  // Track where the drag started so we don't fire snap zones until the user
-  // has actually moved the window away from its initial position. Without this,
-  // snapped windows (y=0) immediately trigger the "top" fullscreen snap on the
-  // first drag event before the user has moved the mouse at all.
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const DRAG_ACTIVATION_PX = 32; // px the user must move before snap zones activate
 
   const lockBodyScroll = () => {
     document.body.dataset.windowDragLock = "true";
@@ -87,34 +76,22 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         enableResizing={definition.resizable !== false && !window.maximized}
         dragHandleClassName="window-header"
         cancel=".window-action-buttons, .window-frame__body button, .window-frame__body input, .window-frame__body textarea, .window-frame__body a"
-        onDragStart={(_, data) => {
+        onDragStart={() => {
           setInteracting(true);
           lockBodyScroll();
-          dragStartRef.current = { x: data.x, y: data.y };
         }}
         onDrag={(_, data) => {
           const parent = (data.node as HTMLElement).parentElement;
           if (!parent) return;
           const parentWidth = parent.getBoundingClientRect().width;
 
-          // Only start checking for snap zones once the user has dragged at least
-          // DRAG_ACTIVATION_PX from the starting position. This prevents snapped
-          // windows (which start at y=0 or x=0) from immediately re-triggering
-          // the fullscreen or edge snap on the very first drag event.
-          const start = dragStartRef.current;
-          const hasMoved = start
-            ? Math.abs(data.x - start.x) + Math.abs(data.y - start.y) >= DRAG_ACTIVATION_PX
-            : true;
-
           let zone: SnapZone | null = null;
-          if (hasMoved) {
-            if (data.y <= SNAP_THRESHOLD) {
-              zone = "top";
-            } else if (data.x <= SNAP_THRESHOLD) {
-              zone = "left";
-            } else if (data.x + window.width >= parentWidth - SNAP_THRESHOLD) {
-              zone = "right";
-            }
+          if (data.y <= SNAP_THRESHOLD) {
+            zone = "top";
+          } else if (data.x <= SNAP_THRESHOLD) {
+            zone = "left";
+          } else if (data.x + window.width >= parentWidth - SNAP_THRESHOLD) {
+            zone = "right";
           }
 
           if (zone !== snapZoneRef.current) {
@@ -125,7 +102,6 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         onDragStop={(_, data) => {
           setInteracting(false);
           unlockBodyScroll();
-          dragStartRef.current = null;
 
           const zone = snapZoneRef.current;
           snapZoneRef.current = null;
@@ -175,38 +151,9 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           role="dialog"
           aria-labelledby={`window-title-${window.id}`}
           aria-modal="false"
-          className={cn(
-            "window-frame",
-            wfStyles.surface,
-            active && "is-active",
-            interacting && "is-dragging",
-            isDropTarget && "is-drop-target"
-          )}
+          className={cn("window-frame", wfStyles.surface, active && "is-active", interacting && "is-dragging")}
           onMouseDown={onFocus}
           onTouchStart={onFocus}
-          onDragOver={(event) => {
-            if (!hasPathDragPayload(event.dataTransfer)) return;
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "copy";
-            if (!isDropTarget) setIsDropTarget(true);
-          }}
-          onDragLeave={(event) => {
-            // Only clear when leaving the window-frame itself, not crossing children.
-            if (event.currentTarget.contains(event.relatedTarget as Node)) return;
-            setIsDropTarget(false);
-          }}
-          onDrop={(event) => {
-            if (!hasPathDragPayload(event.dataTransfer)) return;
-            event.preventDefault();
-            setIsDropTarget(false);
-            const path = readPathDragPayload(event.dataTransfer);
-            if (!path) return;
-            // Derive extension from the path tail.
-            const dot = path.lastIndexOf(".");
-            const ext = dot >= 0 ? path.slice(dot).toLowerCase() : "";
-            if (!acceptsExtension(window.appId, ext)) return;
-            launchApp({ appId: window.appId, payload: { filePath: path } });
-          }}
           onAnimationComplete={() => setInteracting(false)}
           layout
           initial={{ opacity: 0, scale: 0.96, y: 18 }}
