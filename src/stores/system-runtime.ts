@@ -2,6 +2,7 @@ import { desktopEntries, themePresets } from "@/data/portfolio";
 import { getAppDefinition } from "@/lib/app-registry";
 import { LEGACY_WELCOME_PATH } from "@/lib/system-workspace";
 import { clamp, createId } from "@/lib/utils";
+import { readLocalStorage } from "@/lib/safe-storage";
 import type {
   AppId,
   AppProcess,
@@ -54,7 +55,7 @@ function readLegacySystemState() {
     return null;
   }
 
-  const rawValue = window.localStorage.getItem(LEGACY_SYSTEM_STORAGE_KEY);
+  const rawValue = readLocalStorage(LEGACY_SYSTEM_STORAGE_KEY);
 
   if (!rawValue) {
     return null;
