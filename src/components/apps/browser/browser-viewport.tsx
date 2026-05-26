@@ -86,9 +86,6 @@ export function BrowserViewport({
 
   if (viewMode === "fallback") {
     const fallbackState = fallback ?? {
-      kind: "missing",
-      eyebrow: "Unavailable",
-      recommendation: "Try a different destination or return to a known local path.",
       title: document?.title ?? "Unable to open page",
       url: document?.displayUrl ?? "No URL available",
       message: "This site cannot be embedded due to browser restrictions",
@@ -108,9 +105,6 @@ export function BrowserViewport({
     return (
       <BrowserFallbackPanel
         fallback={{
-          kind: "missing",
-          eyebrow: "Unavailable",
-          recommendation: "Try a different destination or return to a known local path.",
           title: "Unable to open page",
           url: "No URL available",
           message: "This site cannot be embedded due to browser restrictions",
@@ -129,14 +123,6 @@ export function BrowserViewport({
           <span />
         </div>
       ) : null}
-
-      <div className="browser-app__frame-badge">
-        {document.kind === "local"
-          ? document.localKind === "directory"
-            ? "Local directory preview"
-            : "Local document preview"
-          : "Embedded web preview"}
-      </div>
 
       <iframe
         ref={iframeRef}
