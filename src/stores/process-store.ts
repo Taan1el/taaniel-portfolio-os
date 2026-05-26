@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { getSafeLocalStorage } from "@/lib/safe-storage";
 import {
   PROCESS_STORAGE_KEY,
   createProcessFromApp,
@@ -67,7 +68,7 @@ export const useProcessStore = create<ProcessStoreState>()(
     {
       name: PROCESS_STORAGE_KEY,
       version: 2,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(getSafeLocalStorage),
       migrate: (persistedState) => {
         const state = persistedState as { processes?: PersistedProcessV1[] } | undefined;
 
