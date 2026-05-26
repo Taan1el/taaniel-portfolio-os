@@ -25,8 +25,7 @@ export type AppId =
   | "pdf"
   | "resume"
   | "paint"
-  | "calculator"
-  | "about-os";
+  | "calculator";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System" | "Lab";
 
@@ -179,9 +178,7 @@ export type StartMenuAction =
   | { type: "app"; appId: AppId }
   | { type: "directory"; directoryPath: string }
   | { type: "file"; filePath: string }
-  | { type: "reset-session" }
-  | { type: "export-session" }
-  | { type: "import-session" };
+  | { type: "reset-session" };
 
 export interface StartMenuShortcut {
   id: string;
