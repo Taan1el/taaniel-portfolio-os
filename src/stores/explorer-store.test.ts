@@ -41,5 +41,50 @@ describe("explorer-store", () => {
     expect(session.currentPath).toBe("/Documents/Notes");
     expect(session.searchQuery).toBe("");
     expect(session.selectedPath).toBeNull();
+    expect(session.selectedPaths).toEqual([]);
+  });
+
+  it("supports multi-select via toggle and extendSelection", () => {
+    const store = useExplorerStore.getState();
+    store.ensureSession("window-3", "/Desktop");
+    const order = ["/Desktop/a", "/Desktop/b", "/Desktop/c", "/Desktop/d"];
+
+    store.setSelectedPath("window-3", "/Desktop/a");
+    store.toggleSelected("window-3", "/Desktop/c");
+    let session = useExplorerStore.getState().sessions["window-3"];
+    expect(session.selectedPaths).toEqual(["/Desktop/a", "/Desktop/c"]);
+    expect(session.selectedPath).toBe("/Desktop/c");
+
+    // shift-click from anchor /Desktop/c to /Desktop/a → reverse range
+    store.extendSelection("window-3", "/Desktop/a", order);
+    session = useExplorerStore.getState().sessions["window-3"];
+    expect(session.selectedPaths).toEqual(["/Desktop/a", "/Desktop/b", "/Desktop/c"]);
+
+    // toggling an existing entry removes it
+    store.toggleSelected("window-3", "/Desktop/b");
+    session = useExplorerStore.getState().sessions["window-3"];
+    expect(session.selectedPaths).toEqual(["/Desktop/a", "/Desktop/c"]);
+  });
+
+  it("tracks inline rename mode", () => {
+    const store = useExplorerStore.getState();
+    store.ensureSession("window-4", "/Documents");
+    store.beginRename("window-4", "/Documents/My Note.txt");
+    let session = useExplorerStore.getState().sessions["window-4"];
+    expect(session.renamingPath).toBe("/Documents/My Note.txt");
+    expect(session.selectedPaths).toEqual(["/Documents/My Note.txt"]);
+
+    store.endRename("window-4");
+    session = useExplorerStore.getState().sessions["window-4"];
+    expect(session.renamingPath).toBeNull();
+  });
+
+  it("stores sort preferences per session", () => {
+    const store = useExplorerStore.getState();
+    store.ensureSession("window-5", "/Desktop");
+    store.setSort("window-5", "date", "desc");
+    const session = useExplorerStore.getState().sessions["window-5"];
+    expect(session.sortKey).toBe("date");
+    expect(session.sortDirection).toBe("desc");
   });
 });

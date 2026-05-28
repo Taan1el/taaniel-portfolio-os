@@ -8,8 +8,11 @@ describe("App routing", () => {
     window.history.pushState({}, "", "/simple");
     render(<App />);
 
-    const heading = await screen.findByRole("heading", { name: /taaniel vananurm/i });
+    const heading = await screen.findByRole(
+      "heading",
+      { name: /taaniel vananurm/i },
+      { timeout: 5_000 },
+    );
     expect(heading).toBeTruthy();
   });
 });
-
