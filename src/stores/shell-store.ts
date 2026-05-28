@@ -41,7 +41,6 @@ interface ShellStoreState {
   viewportMode: ViewportMode;
   focusedWindowId: string | null;
   focusedProcessId: string | null;
-  theatreMode: boolean;
   setStartMenuOpen: (open: boolean) => void;
   toggleStartMenu: () => void;
   requestStartMenuSearchFocus: () => void;
@@ -74,8 +73,6 @@ interface ShellStoreState {
   }) => void;
   closeOverlays: () => void;
   resetShell: () => void;
-  setTheatreMode: (on: boolean) => void;
-  toggleTheatreMode: () => void;
 }
 
 const legacyShellSeed = getLegacyShellSeed();
@@ -96,7 +93,6 @@ const initialShellState = {
   viewportMode: getViewportMode(),
   focusedWindowId: null,
   focusedProcessId: null,
-  theatreMode: false,
 };
 
 export const useShellStore = create<ShellStoreState>()(
@@ -216,8 +212,6 @@ export const useShellStore = create<ShellStoreState>()(
           desktopIconPositions: initialIconPositions,
           viewportMode: getViewportMode(),
         }),
-      setTheatreMode: (on) => set({ theatreMode: on }),
-      toggleTheatreMode: () => set((state) => ({ theatreMode: !state.theatreMode })),
     }),
     {
       name: SHELL_STORAGE_KEY,

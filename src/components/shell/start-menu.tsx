@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
-import { LayoutDashboard, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button, ScrollArea } from "@/components/apps/app-layout";
 import { liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
-import {
-  exportSession,
-  importSessionFromFilePicker,
-} from "@/lib/session-snapshot";
 import type { ShellAiSearchStatus } from "@/hooks/use-shell-ai-search";
 import type { ShellSearchAction, ShellSearchSection } from "@/lib/shell-search";
 import { ShellSearchResults, type ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
@@ -122,12 +118,6 @@ export function StartMenu({
       case "reset-session":
         onResetSession();
         break;
-      case "export-session":
-        exportSession();
-        break;
-      case "import-session":
-        importSessionFromFilePicker();
-        break;
     }
   };
 
@@ -144,14 +134,11 @@ export function StartMenu({
             type="button"
             variant="panel"
             className="ghost-button"
-            onClick={() => {
-              navigate("/simple");
-              onRequestClose();
-            }}
+            onClick={() => onLaunchApp("contact")}
             onMouseMove={updateStartMenuSpotlight}
           >
-            <LayoutDashboard size={14} />
-            Quick portfolio
+            <Mail size={14} />
+            Contact
           </Button>
         </div>
       </div>
@@ -189,18 +176,6 @@ export function StartMenu({
                     <small>30-second tour</small>
                   </div>
                   <div className="action-row">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="quick-link"
-                      onClick={() => {
-                        navigate("/simple");
-                        onRequestClose();
-                      }}
-                      onMouseMove={updateStartMenuSpotlight}
-                    >
-                      Recruiter view
-                    </Button>
                     <Button
                       type="button"
                       variant="ghost"

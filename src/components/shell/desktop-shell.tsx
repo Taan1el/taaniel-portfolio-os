@@ -29,7 +29,6 @@ import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
-import { FilePickerDialog } from "@/components/system/file-picker-dialog";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
@@ -48,8 +47,6 @@ import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
-  const theatreMode = useShellStore((s) => s.theatreMode);
-  const toggleTheatreMode = useShellStore((s) => s.toggleTheatreMode);
   const { processes } = useProcessStore(
     useShallow((state) => ({
       processes: state.processes,
@@ -214,13 +211,6 @@ export function DesktopShell() {
         return;
       case "open-external":
         openExternal(action.url);
-        return;
-      case "navigate-route":
-        navigate(action.path);
-        return;
-      case "reset-session":
-        void resetSession();
-        return;
     }
   };
 
@@ -278,7 +268,6 @@ export function DesktopShell() {
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
-    onToggleTheatre: toggleTheatreMode,
   });
 
   useEffect(() => {
@@ -572,8 +561,7 @@ export function DesktopShell() {
     <main
       className={cn(
         "os-root",
-        wallpaperPresentation.animated && "is-animated-wallpaper",
-        theatreMode && "is-theatre"
+        wallpaperPresentation.animated && "is-animated-wallpaper"
       )}
       style={
         {
@@ -587,17 +575,6 @@ export function DesktopShell() {
       onClick={() => setContextMenu(null)}
     >
       <OsOnboarding />
-      {theatreMode ? (
-        <button
-          type="button"
-          className="theatre-exit"
-          onClick={toggleTheatreMode}
-          aria-label="Exit theatre mode"
-          title="Exit theatre mode (Esc or Shift+T)"
-        >
-          Exit theatre
-        </button>
-      ) : null}
       {!online ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
           Offline — some previews and embeds may fail to load.
@@ -611,7 +588,7 @@ export function DesktopShell() {
             className="os-mobile-banner__button"
             onClick={() => navigate("/simple")}
           >
-            Open recruiter view
+            Open /simple
           </button>
         </div>
       ) : null}
@@ -677,8 +654,6 @@ export function DesktopShell() {
         onClose={() => setOpenWithTarget(null)}
       />
 
-      <FilePickerDialog />
-
       <Taskbar
         entries={taskbarEntries}
         pinnedAppIds={pinnedAppIds}
@@ -696,7 +671,6 @@ export function DesktopShell() {
         onPinApp={pinApp}
         onUnpinApp={unpinApp}
         onShowDesktop={showDesktop}
-        onToggleTheatre={toggleTheatreMode}
       />
     </main>
   );

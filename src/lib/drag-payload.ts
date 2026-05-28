@@ -1,32 +1,75 @@
 /**
- * Cross-window file drag payload.
+ * Custom MIME type used for in-app file/folder drag operations.
  *
- * Custom MIME type used by the file explorer, desktop icons, and any
- * other surface that wants to advertise a virtual-FS path as a drag
- * source. Window frames listen for this type and route accepted drops
- * to the target app via `launchApp({ appId, payload: { filePath } })`.
+ * The payload is a JSON-encoded `{ paths: string[] }` so multi-select drags
+ * can carry every selected node. Single-item drags just put one entry in the
+ * array.
  *
- * We use a custom MIME (not just `text/plain`) so OS-level text drags
- * never accidentally launch apps.
+ * We deliberately use a custom MIME (rather than `text/plain`) so external
+ * drags into the browser — where the dataTransfer only has `Files` — never
+ * collide with our internal payload.
  */
 export const TAANIEL_PATH_MIME = "application/x-taaniel-path";
 
-export function setPathDragPayload(dataTransfer: DataTransfer, path: string) {
-  try {
-    dataTransfer.setData(TAANIEL_PATH_MIME, path);
-    // Provide text fallback so users dragging into a text field get the path.
-    dataTransfer.setData("text/plain", path);
-    dataTransfer.effectAllowed = "copyMove";
-  } catch {
-    // setData can throw in protected contexts (e.g. cross-origin iframes).
+export interface TaanielDragPayload {
+  paths: string[];
+}
+
+export function setPathDragPayload(dataTransfer: DataTransfer | null, paths: string[]) {
+  if (!dataTransfer || paths.length === 0) {
+    return;
   }
+
+  const payload: TaanielDragPayload = { paths };
+  const encoded = JSON.stringify(payload);
+
+  try {
+    dataTransfer.setData(TAANIEL_PATH_MIME, encoded);
+    // Browsers strip unknown MIMEs in some flows (drag between windows on Safari)
+    // — fall back to text/plain so the data survives the round-trip.
+    dataTransfer.setData("text/plain", encoded);
+  } catch {
+    /* Some browsers throw on setData during certain phases — ignore. */
+  }
+
+  dataTransfer.effectAllowed = "copyMove";
 }
 
-export function readPathDragPayload(dataTransfer: DataTransfer): string | null {
-  const path = dataTransfer.getData(TAANIEL_PATH_MIME);
-  return path && path.startsWith("/") ? path : null;
+export function readPathDragPayload(dataTransfer: DataTransfer | null): string[] {
+  if (!dataTransfer) {
+    return [];
+  }
+
+  const tryParse = (raw: string | null): string[] => {
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const decoded = JSON.parse(raw) as TaanielDragPayload;
+      if (decoded && Array.isArray(decoded.paths)) {
+        return decoded.paths.filter((entry): entry is string => typeof entry === "string");
+      }
+    } catch {
+      /* Not our payload — ignore. */
+    }
+
+    return [];
+  };
+
+  const native = tryParse(dataTransfer.getData(TAANIEL_PATH_MIME));
+  if (native.length > 0) {
+    return native;
+  }
+
+  return tryParse(dataTransfer.getData("text/plain"));
 }
 
-export function hasPathDragPayload(dataTransfer: DataTransfer): boolean {
-  return Array.from(dataTransfer.types).includes(TAANIEL_PATH_MIME);
+export function hasPathDragPayload(dataTransfer: DataTransfer | null): boolean {
+  if (!dataTransfer) {
+    return false;
+  }
+
+  const types = Array.from(dataTransfer.types ?? []);
+  return types.includes(TAANIEL_PATH_MIME);
 }
