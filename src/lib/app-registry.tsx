@@ -13,7 +13,6 @@ import {
   Globe2,
   Hexagon,
   Image,
-  LayoutGrid,
   Mail,
   MonitorCog,
   Music4,
@@ -288,8 +287,8 @@ const registry: Record<AppId, AppDefinition> = {
   }),
   browser: defineApp({
     id: "browser",
-    title: "Web Viewer",
-    description: "Preview links, local paths, and bookmarks with clear fallback states for blocked sites.",
+    title: "Browser",
+    description: "Embedded link workspace for external sites and bookmarks.",
     category: "Workspace",
     icon: Globe2,
     accent: "#8be0ff",
@@ -297,7 +296,7 @@ const registry: Record<AppId, AppDefinition> = {
     defaultSize: { width: 940, height: 660 },
     multiple: true,
     load: async () => ({ default: (await import("@/components/apps/browser-app")).BrowserApp }),
-    resolveTitle: (payload) => payload?.externalUrl ?? "Web Viewer",
+    resolveTitle: (payload) => payload?.externalUrl ?? "Browser",
   }),
   pdf: defineApp({
     id: "pdf",
@@ -351,18 +350,6 @@ const registry: Record<AppId, AppDefinition> = {
     minSize: { width: 280, height: 420 },
     resizable: false,
     load: async () => ({ default: (await import("@/components/apps/calculator-app")).CalculatorApp }),
-  }),
-  "about-os": defineApp({
-    id: "about-os",
-    title: "About this OS",
-    description: "Tech stack, tour stops, and a peek under the hood.",
-    category: "Portfolio",
-    icon: LayoutGrid,
-    accent: "#bba9ff",
-    defaultPosition: { x: 168, y: 104 },
-    defaultSize: { width: 880, height: 640 },
-    minSize: { width: 520, height: 480 },
-    load: async () => ({ default: (await import("@/components/apps/about-os-app")).AboutOsApp }),
   }),
 };
 
