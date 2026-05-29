@@ -279,7 +279,12 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
               >
                 <SkipBack size={16} />
               </IconButton>
-              <button type="button" className="music-player__play" onClick={() => void togglePlayback()}>
+              <button
+                type="button"
+                className="music-player__play"
+                aria-label={isPlaying ? "Pause" : "Play"}
+                onClick={() => void togglePlayback()}
+              >
                 {isPlaying ? <Pause size={18} /> : <Play size={18} />}
               </button>
               <IconButton
