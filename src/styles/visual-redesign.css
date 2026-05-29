@@ -464,6 +464,14 @@
   box-shadow: 0 0 0 1.5px rgba(119, 199, 255, 0.22);
 }
 
+.desktop-icon-button:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+  border-radius: 10px;
+  background: rgba(119, 199, 255, 0.1);
+  box-shadow: 0 0 0 1.5px rgba(119, 199, 255, 0.22);
+}
+
 .desktop-icon.is-selected .desktop-icon__label {
   background: rgba(77, 155, 255, 0.28);
   border-radius: 4px;
