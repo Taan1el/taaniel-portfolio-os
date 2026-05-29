@@ -4,8 +4,8 @@ import { render, screen } from "@testing-library/react";
 import { App } from "@/app/App";
 
 describe("App routing", () => {
-  it("renders /simple recruiter view", async () => {
-    window.history.pushState({}, "", "/simple");
+  it("renders /portfolio recruiter view", async () => {
+    window.history.pushState({}, "", "/portfolio");
     render(<App />);
 
     const heading = await screen.findByRole(

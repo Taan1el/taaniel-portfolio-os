@@ -17,7 +17,7 @@ This repo is a browser-based desktop OS portfolio built with **React + TypeScrip
 
 ## Runtime flow
 
-1. **Routing**: `/simple` renders the recruiter view, `/` renders the OS shell.  
+1. **Routing**: `/portfolio` renders the recruiter view, `/` renders the OS shell.  
    `src/app/App.tsx`
 2. **Shell boot**: initializes filesystem + shell session state, then renders desktop + windows + overlays.  
    `src/components/shell/desktop-shell.tsx`

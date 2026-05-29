@@ -20,7 +20,7 @@ export const profile = {
 
 export const landingCopy = {
   valueStatement:
-    "The /simple page gives you a quick overview. The OS shell is a live React + TypeScript project you can explore in more depth.",
+    "A focused portfolio overview is one click away. The OS shell is a live React + TypeScript project you can explore in more depth.",
 };
 
 /** Primary CV URL (served from /public). Add a mirror if the main host blocks PDF fetch. */
@@ -267,7 +267,7 @@ export const desktopEntries: DesktopEntry[] = [
     id: "simple-portfolio",
     label: "Portfolio",
     type: "link",
-    externalUrl: "/simple",
+    externalUrl: "/portfolio",
     defaultGridPosition: { gridX: 1, gridY: 2 },
   },
   {

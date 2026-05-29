@@ -27,7 +27,7 @@ export function LandingOverlay() {
 
   const quickPortfolio = useCallback(() => {
     dismiss();
-    navigate("/simple");
+    navigate("/portfolio");
   }, [dismiss, navigate]);
 
   if (!open) {

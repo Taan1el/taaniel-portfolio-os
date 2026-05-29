@@ -586,9 +586,9 @@ export function DesktopShell() {
           <button
             type="button"
             className="os-mobile-banner__button"
-            onClick={() => navigate("/simple")}
+            onClick={() => navigate("/portfolio")}
           >
-            Open /simple
+            Open portfolio
           </button>
         </div>
       ) : null}

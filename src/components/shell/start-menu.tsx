@@ -262,7 +262,7 @@ export function StartMenu({
             className="quick-link"
             onClick={() => {
               onRequestClose();
-              navigate("/simple");
+              navigate("/portfolio");
             }}
             onMouseMove={updateStartMenuSpotlight}
           >
