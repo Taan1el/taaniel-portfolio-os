@@ -110,7 +110,7 @@ export function DesktopIcon({
   const triggerLaunch = () => {
     setLaunching(true);
     window.setTimeout(() => setLaunching(false), 400);
-    triggerLaunch();
+    onActivate();
   };
 
   const isWindowOpen = useSystemStore((state) =>
