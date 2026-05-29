@@ -75,7 +75,7 @@ ${socialLinks.map((link) => `- [${link.label}](${link.url})`).join("\n")}
 
 const uiNotes = `export const portfolioPositioning = {
   shell: "browser desktop as technical sample",
-  fastPath: "/simple for recruiters",
+  fastPath: "/portfolio for recruiters",
   focus: ["React", "TypeScript", "UI systems", "design-to-code"],
 };
 `;

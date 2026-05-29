@@ -76,7 +76,7 @@ export function ContactApp({ window }: AppComponentProps) {
           <p className="eyebrow">Fast path</p>
         </div>
         <div className="link-grid" style={{ marginBottom: "0.75rem" }}>
-          <Link className="contact-link-card" to="/simple">
+          <Link className="contact-link-card" to="/portfolio">
             <strong>Quick portfolio</strong>
             <span>Scrollable page without the desktop shell</span>
             <LayoutGrid size={15} />
