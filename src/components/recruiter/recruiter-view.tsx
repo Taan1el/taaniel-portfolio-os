@@ -14,50 +14,7 @@ import { SafeImage } from "@/components/ui/safe-image";
 import { LogoMark } from "@/components/ui/logo-mark";
 import styles from "@/components/recruiter/recruiter-view.module.css";
 
-const workGallery = [
-  {
-    id: "vivus-202505",
-    title: "Vivus — acquisition hero (2025)",
-    detail: "Hero concept for a loan brand campaign. Layout, hierarchy, and export-ready assets.",
-    src: "/assets/Work/Vivus_hero_202505.jpg",
-  },
-  {
-    id: "vivus-mx",
-    title: "Vivus — Mexico market variant",
-    detail: "Localized version of the same brand system. Composition and layout adapted for the market.",
-    src: "/assets/Work/Vivus_om_mx_Hero.jpg",
-  },
-  {
-    id: "sol-rem-1",
-    title: "Solar panel brand — promo hero",
-    detail: "Landing and email hero visual. Typography, product framing, and CTA contrast.",
-    src: "/assets/Work/Sol_Rem_1.png",
-  },
-  {
-    id: "group-22",
-    title: "Fintech email — hero + module set",
-    detail: "Modular layout built for email-safe rendering. Layout system and CTA hierarchy.",
-    src: "/assets/Work/Group 22.png",
-  },
-  {
-    id: "group-16",
-    title: "Campaign hero — high contrast variant",
-    detail: "Hero focused on legibility and urgency. Layout and color pass.",
-    src: "/assets/Work/Group 16.png",
-  },
-  {
-    id: "group-1",
-    title: "Campaign hero — lifestyle framing",
-    detail: "Alternative hero with stronger lifestyle context. Composition and copy placement.",
-    src: "/assets/Work/Group 1.png",
-  },
-  {
-    id: "group-17",
-    title: "Mascot campaign — hero direction",
-    detail: "Mascot-led hero with a mini UI card. Balancing brand personality with a clear message.",
-    src: "/assets/Work/Group 17.png",
-  },
-];
+const workGallery = classicPortfolio.workGallery;
 
 export function RecruiterView() {
   useEffect(() => {
@@ -154,7 +111,7 @@ export function RecruiterView() {
                   <SafeImage src={item.src} alt={item.title} />
                 </div>
                 <div className={styles.cardBody}>
-                  <p className={styles.eyebrow}>Campaign visual</p>
+                  <p className={styles.eyebrow}>{item.category}</p>
                   <h3>{item.title}</h3>
                   <p className={styles.meta}>{item.detail}</p>
                 </div>
