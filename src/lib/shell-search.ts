@@ -201,7 +201,7 @@ const appAliases: Partial<Record<AppId, string[]>> = {
   notes: ["memo", "sticky notes", "to do", "todo list", "notepad"],
   paint: ["drawing", "canvas", "image editor"],
   pdf: ["pdf", "document reader"],
-  photos: ["gallery", "images", "pictures", "viewer"],
+  photos: ["gallery", "images", "pictures", "viewer", "photo", "photography"],
   projects: ["work", "case studies", "portfolio work"],
   settings: ["theme", "wallpaper", "preferences"],
   terminal: ["console", "command line", "shell"],
