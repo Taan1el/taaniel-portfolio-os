@@ -31,4 +31,4 @@ Interactive OS-style portfolio site with desktop shell, apps, media viewers, gam
 ## Automation Checks
 - Run `npm run test` and `npm run build`.
 - Watch for chunk-size warnings, v86/PDF worker asset paths, GitHub Pages base path regressions, and dirty generated `dist/`.
-- Current audit risk: `@huggingface/transformers` -> `onnxruntime-web` -> `protobufjs`; npm only offers a breaking/unsafe force path.
+- Current high audit status should stay clean through the `protobufjs` override in `package.json`; avoid force upgrades unless a normal patch path appears.
