@@ -49,6 +49,76 @@ interface WindowStoreState {
   resetWindows: () => void;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
+}
+
+function getFiniteNumber(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function sanitizeRestoreBounds(value: unknown): WindowBounds | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  if (
+    typeof value.x !== "number" ||
+    typeof value.y !== "number" ||
+    typeof value.width !== "number" ||
+    typeof value.height !== "number"
+  ) {
+    return undefined;
+  }
+
+  return clampWindowBoundsToViewport({
+    x: value.x,
+    y: value.y,
+    width: value.width,
+    height: value.height,
+  });
+}
+
+export function sanitizePersistedWindows(value: unknown): WindowRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((windowState): WindowRecord[] => {
+    if (!isRecord(windowState)) {
+      return [];
+    }
+
+    if (typeof windowState.id !== "string" || typeof windowState.processId !== "string") {
+      return [];
+    }
+
+    const fallbackBounds = { x: 120, y: 88, width: 720, height: 480 };
+    const bounds = clampWindowBoundsToViewport({
+      x: getFiniteNumber(windowState.x, fallbackBounds.x),
+      y: getFiniteNumber(windowState.y, fallbackBounds.y),
+      width: getFiniteNumber(windowState.width, fallbackBounds.width),
+      height: getFiniteNumber(windowState.height, fallbackBounds.height),
+    });
+
+    return [
+      {
+        id: windowState.id,
+        processId: windowState.processId,
+        title: typeof windowState.title === "string" ? windowState.title : "Window",
+        minimized: Boolean(windowState.minimized),
+        minimizedByShowDesktop: Boolean(windowState.minimizedByShowDesktop),
+        maximized: Boolean(windowState.maximized),
+        focused: Boolean(windowState.focused),
+        zIndex: getFiniteNumber(windowState.zIndex, 2),
+        createdAt: getFiniteNumber(windowState.createdAt, Date.now()),
+        restoreBounds: sanitizeRestoreBounds(windowState.restoreBounds),
+        ...bounds,
+      },
+    ];
+  });
+}
+
 function resolveActiveWindowId(windows: WindowRecord[], requestedActiveWindowId: string | null) {
   if (
     requestedActiveWindowId &&
@@ -291,12 +361,7 @@ export const useWindowStore = create<WindowStoreState>()(
             }
           | undefined;
 
-        const windows =
-          state?.windows?.map((windowState) => ({
-            ...windowState,
-            title: windowState.title ?? "Window",
-            focused: Boolean(windowState.focused),
-          })) ?? [];
+        const windows = sanitizePersistedWindows(state?.windows);
 
         const runtime = syncWindowRuntime(windows, state?.activeWindowId ?? null);
 
