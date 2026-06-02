@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { themePresets } from "@/data/portfolio";
 import { defaultDesktopWallpaper } from "@/data/wallpapers";
+import { getAppDefinition } from "@/lib/app-registry";
 import { getSafeLocalStorage } from "@/lib/safe-storage";
 import { reconcileDesktopGridPositions, resolveDesktopGridPlacement } from "@/lib/desktop-grid";
 import {
@@ -22,6 +23,25 @@ import type {
 } from "@/types/system";
 
 export const DEFAULT_PINNED_APPS: AppId[] = ["about", "files", "terminal", "browser"];
+
+export function isKnownAppId(value: unknown): value is AppId {
+  return typeof value === "string" && Boolean(getAppDefinition(value as AppId));
+}
+
+export function sanitizePinnedAppIds(value: unknown): AppId[] {
+  if (!Array.isArray(value)) {
+    return DEFAULT_PINNED_APPS;
+  }
+
+  const pinnedAppIds = Array.from(new Set(value.filter(isKnownAppId)));
+  return pinnedAppIds.length > 0 ? pinnedAppIds : DEFAULT_PINNED_APPS;
+}
+
+export function sanitizeThemeId(value: unknown) {
+  return typeof value === "string" && themePresets.some((theme) => theme.id === value)
+    ? value
+    : themePresets[0].id;
+}
 
 interface ShellStoreState {
   selectedIconId: string | null;
@@ -122,7 +142,7 @@ export const useShellStore = create<ShellStoreState>()(
         })),
       pinApp: (appId) =>
         set((state) =>
-          state.pinnedAppIds.includes(appId)
+          !isKnownAppId(appId) || state.pinnedAppIds.includes(appId)
             ? state
             : { pinnedAppIds: [...state.pinnedAppIds, appId] }
         ),
@@ -133,7 +153,7 @@ export const useShellStore = create<ShellStoreState>()(
       setOpenWithTarget: (openWithTarget) => set({ openWithTarget }),
       setClipboard: (clipboard) => set({ clipboard }),
       clearClipboard: () => set({ clipboard: null }),
-      setThemeId: (themeId) => set({ themeId }),
+      setThemeId: (themeId) => set({ themeId: sanitizeThemeId(themeId) }),
       setWallpaper: (wallpaper) => set({ wallpaper }),
       setWallpaperPreset: (mode, presetId) =>
         set({
@@ -229,7 +249,7 @@ export const useShellStore = create<ShellStoreState>()(
           | undefined;
 
         return {
-          themeId: state?.themeId ?? themePresets[0].id,
+          themeId: sanitizeThemeId(state?.themeId),
           wallpaper:
             state?.wallpaper ??
             (state?.customWallpaperSource
@@ -240,7 +260,7 @@ export const useShellStore = create<ShellStoreState>()(
                 }
               : defaultDesktopWallpaper),
           desktopIconPositions: state?.desktopIconPositions ?? initialIconPositions,
-          pinnedAppIds: state?.pinnedAppIds ?? DEFAULT_PINNED_APPS,
+          pinnedAppIds: sanitizePinnedAppIds(state?.pinnedAppIds),
         };
       },
       partialize: (state) => ({
