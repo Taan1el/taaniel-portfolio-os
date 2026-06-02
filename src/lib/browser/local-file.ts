@@ -15,6 +15,7 @@ interface LocalBrowserResolution {
 }
 
 const HTML_EXTENSIONS = new Set(["htm", "html"]);
+const SAFE_MEDIA_SOURCE_PATTERN = /^(?:https?:\/\/|blob:|\/|data:(?:image|video|audio)\/)/i;
 
 function escapeHtml(input: string) {
   return input
@@ -364,7 +365,7 @@ function buildLocalFileDocument(file: FileNode): BrowserResolvedDocument | null 
     };
   }
 
-  if (typeof file.source === "string") {
+  if (typeof file.source === "string" && SAFE_MEDIA_SOURCE_PATTERN.test(file.source.trim())) {
     const escapedSource = escapeHtml(file.source);
 
     if (file.mimeType?.startsWith("image/")) {

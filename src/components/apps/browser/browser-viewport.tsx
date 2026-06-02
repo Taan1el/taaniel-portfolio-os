@@ -27,6 +27,11 @@ interface BrowserViewportProps {
   onRetryWithProxy: () => void;
 }
 
+const REMOTE_FRAME_SANDBOX =
+  "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts";
+const LOCAL_FRAME_SANDBOX =
+  "allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin";
+
 export function BrowserViewport({
   document,
   viewMode,
@@ -130,7 +135,7 @@ export function BrowserViewport({
         src={document.frameSource.kind === "src" ? document.frameSource.value : undefined}
         srcDoc={document.frameSource.kind === "srcDoc" ? document.frameSource.value : undefined}
         title={document.title}
-        sandbox="allow-downloads allow-forms allow-modals allow-pointer-lock allow-popups allow-presentation allow-same-origin allow-scripts"
+        sandbox={document.kind === "local" ? LOCAL_FRAME_SANDBOX : REMOTE_FRAME_SANDBOX}
         referrerPolicy="no-referrer"
         credentialless={supportsCredentialless ? "credentialless" : undefined}
         onLoad={handleFrameLoad}
