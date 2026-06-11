@@ -14,6 +14,8 @@ import type { AppId, TaskbarWindowEntry, WindowPayload } from "@/types/system";
 const TASKBAR_PREVIEW_WIDTH = 256;
 const TASKBAR_PREVIEW_OFFSET = 12;
 const PREVIEW_FALLBACK_APPS = new Set<AppId>(["browser", "dino", "doom", "editor", "hextris", "paint", "terminal", "v86"]);
+/** How long a captured window preview stays fresh before hover re-captures it. */
+const PREVIEW_CACHE_TTL_MS = 5000;
 
 function getPreviewPlacement(button: HTMLButtonElement) {
   const buttonRect = button.getBoundingClientRect();
@@ -124,6 +126,7 @@ export function Taskbar({
   const [jumpListMenu, setJumpListMenu] = useState<JumpListMenu | null>(null);
   const windowsRef = useRef<HTMLDivElement | null>(null);
   const captureQueueRef = useRef<Set<string>>(new Set());
+  const captureTimestampsRef = useRef<Map<string, number>>(new Map());
   const taskbarSearchInputRef = useRef<HTMLInputElement>(null);
   const startMenuSearchFocusNonce = useShellStore((state) => state.startMenuSearchFocusNonce);
   const searching = searchQuery.trim().length > 0;
@@ -183,8 +186,13 @@ export function Taskbar({
   }, [jumpListMenu]);
 
   useEffect(() => {
+    const activeWindowIds = new Set(entries.map((entry) => entry.windowId));
+    for (const windowId of captureTimestampsRef.current.keys()) {
+      if (!activeWindowIds.has(windowId)) {
+        captureTimestampsRef.current.delete(windowId);
+      }
+    }
     setPreviewImages((current) => {
-      const activeWindowIds = new Set(entries.map((entry) => entry.windowId));
       const nextEntries = Object.entries(current).filter(([windowId]) => activeWindowIds.has(windowId));
       if (nextEntries.length === Object.keys(current).length) return current;
       return Object.fromEntries(nextEntries);
@@ -212,6 +220,11 @@ export function Taskbar({
   const capturePreview = async (entry: TaskbarWindowEntry) => {
     if (entry.minimized || PREVIEW_FALLBACK_APPS.has(entry.appId) || captureQueueRef.current.has(entry.windowId)) {
       setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));
+      captureTimestampsRef.current.delete(entry.windowId);
+      return;
+    }
+    const capturedAt = captureTimestampsRef.current.get(entry.windowId);
+    if (capturedAt !== undefined && Date.now() - capturedAt < PREVIEW_CACHE_TTL_MS) {
       return;
     }
     captureQueueRef.current.add(entry.windowId);
@@ -222,6 +235,7 @@ export function Taskbar({
         return;
       }
       const image = await toPng(node, { cacheBust: true, pixelRatio: 0.7, skipFonts: true, backgroundColor: "#09101a" });
+      captureTimestampsRef.current.set(entry.windowId, Date.now());
       setPreviewImages((current) => ({ ...current, [entry.windowId]: image }));
     } catch {
       setPreviewImages((current) => ({ ...current, [entry.windowId]: null }));

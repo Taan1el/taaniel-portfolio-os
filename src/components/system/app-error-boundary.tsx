@@ -38,7 +38,7 @@ export class AppErrorBoundary extends Component<Props, State> {
             <h1 style={{ marginTop: 0 }}>Something went wrong</h1>
             <p style={{ opacity: 0.85 }}>{this.state.error.message}</p>
             <p>
-              <Link to="/simple" style={{ color: "#77c7ff" }}>
+              <Link to="/portfolio" style={{ color: "#77c7ff" }}>
                 Open quick portfolio
               </Link>
               {" · "}
