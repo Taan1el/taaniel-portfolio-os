@@ -2,6 +2,7 @@ import { desktopEntries, themePresets } from "@/data/portfolio";
 import { getAppDefinition } from "@/lib/app-registry";
 import { LEGACY_WELCOME_PATH } from "@/lib/system-workspace";
 import { clamp, createId } from "@/lib/utils";
+import { readLocalStorage } from "@/lib/safe-storage";
 import type {
   AppId,
   AppProcess,
@@ -49,12 +50,20 @@ interface LegacyPersistedState {
   state?: LegacySystemState;
 }
 
+function getSafeLegacyAppId(appId: unknown): AppId {
+  if (typeof appId === "string" && getAppDefinition(appId as AppId)) {
+    return appId as AppId;
+  }
+
+  return "about";
+}
+
 function readLegacySystemState() {
   if (typeof window === "undefined") {
     return null;
   }
 
-  const rawValue = window.localStorage.getItem(LEGACY_SYSTEM_STORAGE_KEY);
+  const rawValue = readLocalStorage(LEGACY_SYSTEM_STORAGE_KEY);
 
   if (!rawValue) {
     return null;
@@ -239,8 +248,8 @@ function sanitizeLegacyWindows(windows: LegacyWindowState[]) {
       .filter((windowState) => windowState.id && windowState.processId)
       .filter((windowState) => windowState.payload?.filePath !== LEGACY_WELCOME_PATH)
       .map<WindowRecord>((windowState) => {
-      const legacyAppId = windowState.appId ?? "about";
-      const fallbackBounds = getDefaultWindowBounds(windowState.appId ?? "about", 0);
+      const legacyAppId = getSafeLegacyAppId(windowState.appId);
+      const fallbackBounds = getDefaultWindowBounds(legacyAppId, 0);
       const clampedBounds = clampWindowBoundsToViewport({
         x: typeof windowState.x === "number" ? windowState.x : fallbackBounds.x,
         y: typeof windowState.y === "number" ? windowState.y : fallbackBounds.y,
@@ -283,9 +292,11 @@ function buildLegacyProcesses(
       return;
     }
 
+    const legacyAppId = getSafeLegacyAppId(legacyWindow.appId);
+
     processes.push({
       id: windowState.processId,
-      appId: legacyWindow.appId,
+      appId: legacyAppId,
       status: resolveProcessStatus(windowState, activeWindowId),
       launchPayload: legacyWindow.payload,
       createdAt: windowState.createdAt,

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWindowStore } from "@/stores/window-store";
+import { sanitizePersistedWindows, useWindowStore } from "@/stores/window-store";
 
 const BOUNDS = { x: 100, y: 100, width: 800, height: 600 };
 
@@ -110,7 +110,7 @@ describe("window-store", () => {
     useWindowStore.getState().showDesktop(); // minimizes all, marks minimizedByShowDesktop=true
     expect(useWindowStore.getState().windows.every((w) => w.minimized)).toBe(true);
 
-    useWindowStore.getState().showDesktop(); // no visible windows → triggers restoreDesktop
+    useWindowStore.getState().showDesktop(); // no visible windows -> triggers restoreDesktop
     expect(useWindowStore.getState().windows.every((w) => !w.minimized)).toBe(true);
     expect(useWindowStore.getState().activeWindowId).not.toBeNull();
   });
@@ -128,5 +128,79 @@ describe("window-store", () => {
     expect(restored.maximized).toBe(false);
     expect(restored.width).toBe(before.width);
     expect(restored.height).toBe(before.height);
+  });
+});
+
+describe("window store persistence sanitizers", () => {
+  it("normalizes persisted windows with missing optional fields", () => {
+    expect(
+      sanitizePersistedWindows([
+        {
+          id: "window-1",
+          processId: "process-1",
+          x: 40,
+          y: 50,
+          width: 640,
+          height: 420,
+          zIndex: 7,
+          createdAt: 123,
+        },
+      ])[0],
+    ).toEqual(
+      expect.objectContaining({
+        id: "window-1",
+        processId: "process-1",
+        title: "Window",
+        minimized: false,
+        maximized: false,
+        focused: false,
+        zIndex: 7,
+        createdAt: 123,
+      }),
+    );
+  });
+
+  it("drops malformed windows", () => {
+    expect(
+      sanitizePersistedWindows([
+        {
+          id: "window-1",
+          x: 40,
+          y: 50,
+          width: 640,
+          height: 420,
+        },
+        null,
+        "window-2",
+      ]),
+    ).toEqual([]);
+  });
+
+  it("falls back to safe bounds for non-finite persisted geometry", () => {
+    expect(
+      sanitizePersistedWindows([
+        {
+          id: "window-1",
+          processId: "process-1",
+          x: Number.NaN,
+          y: Number.POSITIVE_INFINITY,
+          width: "wide",
+          height: null,
+          zIndex: "top",
+        },
+      ])[0],
+    ).toEqual(
+      expect.objectContaining({
+        x: 120,
+        y: 88,
+        width: 720,
+        height: 480,
+        zIndex: 2,
+      }),
+    );
+  });
+
+  it("falls back to an empty window list for non-array values", () => {
+    expect(sanitizePersistedWindows({ windows: [] })).toEqual([]);
   });
 });

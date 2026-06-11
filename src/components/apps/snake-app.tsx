@@ -3,6 +3,7 @@ import { Play, RotateCcw } from "lucide-react";
 import { ArcadeGameShell } from "@/components/apps/arcade-game-shell";
 import { Button } from "@/components/apps/app-layout";
 import { useArcadeBoardSize } from "@/hooks/use-arcade-board-size";
+import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
 import type { AppComponentProps } from "@/types/system";
 
 const SNAKE_COLUMNS = 18;
@@ -36,6 +37,11 @@ function isOppositeDirection(
   return current.x + next.x === 0 && current.y + next.y === 0;
 }
 
+function readBestScore() {
+  const savedScore = Number(readLocalStorage("taaniel-os-snake-best") ?? 0);
+  return Number.isFinite(savedScore) && savedScore > 0 ? savedScore : 0;
+}
+
 export function SnakeApp({ window: appWindow }: AppComponentProps) {
   void appWindow;
 
@@ -50,16 +56,14 @@ export function SnakeApp({ window: appWindow }: AppComponentProps) {
   const [food, setFood] = useState(() => createFood(START_SNAKE));
   const [running, setRunning] = useState(false);
   const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(() =>
-    Number(localStorage.getItem("taaniel-os-snake-best") ?? 0)
-  );
+  const [bestScore, setBestScore] = useState(readBestScore);
 
   useEffect(() => {
     containerRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("taaniel-os-snake-best", String(bestScore));
+    writeLocalStorage("taaniel-os-snake-best", String(bestScore));
   }, [bestScore]);
 
   useEffect(() => {
