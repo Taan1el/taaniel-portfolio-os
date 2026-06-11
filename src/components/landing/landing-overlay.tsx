@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getResumeDownloadUrls, landingCopy, profile } from "@/data/portfolio";
+import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
 import styles from "@/components/landing/landing-overlay.module.css";
 
 const STORAGE_KEY = "portfolio-landing-dismissed";
 
 export function LandingOverlay() {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(() => typeof localStorage !== "undefined" && !localStorage.getItem(STORAGE_KEY));
+  const [open, setOpen] = useState(() => readLocalStorage(STORAGE_KEY) === null);
 
   useEffect(() => {
     const handler = () => setOpen(true);
@@ -16,7 +17,7 @@ export function LandingOverlay() {
   }, []);
 
   const dismiss = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, "1");
+    writeLocalStorage(STORAGE_KEY, "1");
     setOpen(false);
     window.dispatchEvent(new CustomEvent("portfolio:landing-dismissed"));
   }, []);

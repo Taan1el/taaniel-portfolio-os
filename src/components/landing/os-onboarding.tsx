@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
 import styles from "@/components/landing/os-onboarding.module.css";
 
 const ONBOARDING_KEY = "portfolio-onboarding-seen";
@@ -8,14 +9,14 @@ export function OsOnboarding() {
 
   useEffect(() => {
     const show = () => {
-      if (!localStorage.getItem(ONBOARDING_KEY)) {
+      if (readLocalStorage(ONBOARDING_KEY) === null) {
         setVisible(true);
       }
     };
 
     window.addEventListener("portfolio:landing-dismissed", show);
 
-    if (localStorage.getItem("portfolio-landing-dismissed") && !localStorage.getItem(ONBOARDING_KEY)) {
+    if (readLocalStorage("portfolio-landing-dismissed") !== null && readLocalStorage(ONBOARDING_KEY) === null) {
       setVisible(true);
     }
 
@@ -49,7 +50,7 @@ export function OsOnboarding() {
         type="button"
         className={styles.dismiss}
         onClick={() => {
-          localStorage.setItem(ONBOARDING_KEY, "1");
+          writeLocalStorage(ONBOARDING_KEY, "1");
           setVisible(false);
         }}
       >
