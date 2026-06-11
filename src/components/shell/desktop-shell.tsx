@@ -21,6 +21,7 @@ import { themePresets } from "@/data/portfolio";
 import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { getOpenWithOptions, resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
+import { prefersStaticWallpaper } from "@/lib/device-capabilities";
 import { downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { cn } from "@/lib/utils";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
@@ -561,7 +562,7 @@ export function DesktopShell() {
     <main
       className={cn(
         "os-root",
-        wallpaperPresentation.animated && "is-animated-wallpaper"
+        wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
       )}
       style={
         {
