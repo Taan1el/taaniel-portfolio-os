@@ -58,6 +58,23 @@ interface DesktopIconShellProps {
   node?: VirtualNode;
 }
 
+/** Let filenames wrap before the extension ("Resume" / ".pdf") instead of mid-word. */
+function renderIconLabel(label: string) {
+  const dot = label.lastIndexOf(".");
+
+  if (dot <= 0 || dot === label.length - 1 || label.includes(" ")) {
+    return label;
+  }
+
+  return (
+    <>
+      {label.slice(0, dot)}
+      <wbr />
+      {label.slice(dot)}
+    </>
+  );
+}
+
 function DesktopIconContent({ entry, node }: DesktopIconShellProps) {
   const Icon = resolveIcon(entry, node);
 
@@ -66,7 +83,7 @@ function DesktopIconContent({ entry, node }: DesktopIconShellProps) {
       <span className="desktop-icon__glyph">
         <Icon size={28} strokeWidth={1.6} />
       </span>
-      <span className="desktop-icon__label">{entry.label}</span>
+      <span className="desktop-icon__label">{renderIconLabel(entry.label)}</span>
     </>
   );
 }
