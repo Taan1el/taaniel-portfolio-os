@@ -267,6 +267,13 @@
   outline-offset: 3px;
 }
 
+@media (pointer: coarse) {
+  .primaryBtn,
+  .secondaryBtn {
+    min-height: 44px;
+  }
+}
+
 .section {
   padding: 2.25rem 0;
   border-bottom: 1px solid var(--border);
