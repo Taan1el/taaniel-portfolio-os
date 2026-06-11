@@ -162,14 +162,20 @@ export const ShellSearchResults = forwardRef<ShellSearchResultsHandle, ShellSear
     browseRef.current = { activeResultId, flatResults, onSelectResult, topResult };
 
     const displaySections = useMemo(() => {
-      if (!query.trim() || !topResult) {
+      if (!query.trim()) {
         return sections;
       }
 
-      return sections.map((section) => ({
-        ...section,
-        results: section.results.filter((result) => result.id !== topResult.id),
-      }));
+      const withoutTop = topResult
+        ? sections.map((section) => ({
+            ...section,
+            results: section.results.filter((result) => result.id !== topResult.id),
+          }))
+        : sections;
+
+      // While a query is active, empty sections are noise — show only sections with hits.
+      const withHits = withoutTop.filter((section) => section.results.length > 0);
+      return withHits.length > 0 ? withHits : withoutTop;
     }, [query, sections, topResult]);
 
     useImperativeHandle(ref, () => ({
