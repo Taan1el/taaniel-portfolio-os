@@ -430,12 +430,22 @@
     border-radius: 0.72rem;
   }
 
+  /* Keep the icon grid clear of the mobile recruiter banner pinned at the top */
   .desktop-surface {
-    inset: 0 0 84px;
+    inset: 4.5rem 0 84px;
   }
 
   .window-manager {
     inset: 0 0 84px;
+  }
+
+  .os-mobile-banner {
+    top: 0.6rem;
+    left: 0.6rem;
+    right: 0.6rem;
+    transform: none;
+    justify-content: space-between;
+    border-radius: 12px;
   }
 
   .taskbar__item-indicator {
