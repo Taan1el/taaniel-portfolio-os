@@ -37,7 +37,7 @@ export function RecruiterView() {
           <p className={styles.eyebrow}>Portfolio · {profile.location}</p>
           <h1>{profile.name}</h1>
           <p className={styles.role}>{profile.role}</p>
-          <p className={styles.lead} style={{ fontSize: "1.15rem", color: "var(--text-strong)" }}>
+          <p className={`${styles.lead} ${styles.leadStrong}`}>
             {classicPortfolio.home.headline}
           </p>
           <p className={styles.lead}>{classicPortfolio.home.intro}</p>
@@ -104,7 +104,7 @@ export function RecruiterView() {
           <p className={styles.eyebrow}>{classicPortfolio.work.eyebrow}</p>
           <h2 id="projects-heading">{classicPortfolio.work.title}</h2>
           <p className={styles.meta}>{classicPortfolio.work.intro}</p>
-          <div className={styles.grid} style={{ marginTop: "1.25rem" }}>
+          <div className={`${styles.grid} ${styles.gridSpaced}`}>
             {workGallery.map((item) => (
               <article key={item.id} className={styles.card}>
                 <div className={styles.cardImage}>
@@ -123,10 +123,10 @@ export function RecruiterView() {
         <section className={styles.section} aria-labelledby="built-heading">
           <h2 id="built-heading">{portfolioBuilt.headline}</h2>
           <p className={styles.meta}>{portfolioBuilt.architectureSummary}</p>
-          <p className={styles.meta} style={{ marginTop: "0.75rem" }}>
-            Open <strong style={{ color: "var(--text-strong)" }}>OS Case Study.md</strong> on the desktop for a full walkthrough of the architecture and decisions.
+          <p className={`${styles.meta} ${styles.metaSpaced}`}>
+            Open <strong className={styles.strongText}>OS Case Study.md</strong> on the desktop for a full walkthrough of the architecture and decisions.
           </p>
-          <div className={styles.actions} style={{ marginTop: "0.9rem" }}>
+          <div className={`${styles.actions} ${styles.actionsSpaced}`}>
             <a className={styles.secondaryBtn} href={liveDemoUrl} target="_blank" rel="noreferrer">
               Open the OS
             </a>
@@ -134,7 +134,7 @@ export function RecruiterView() {
               View source on GitHub
             </a>
           </div>
-          <p className={styles.eyebrow} style={{ marginTop: "1rem" }}>
+          <p className={`${styles.eyebrow} ${styles.eyebrowSpaced}`}>
             Stack
           </p>
           <div className={styles.stack}>
@@ -142,7 +142,7 @@ export function RecruiterView() {
               <span key={item}>{item}</span>
             ))}
           </div>
-          <p className={styles.eyebrow} style={{ marginTop: "1rem" }}>
+          <p className={`${styles.eyebrow} ${styles.eyebrowSpaced}`}>
             Key decisions
           </p>
           <ul className={styles.builtList}>
@@ -156,15 +156,15 @@ export function RecruiterView() {
           <p className={styles.eyebrow}>{classicPortfolio.about.eyebrow}</p>
           <h2 id="about-heading">{classicPortfolio.about.title}</h2>
           <p className={styles.meta}>{classicPortfolio.about.intro}</p>
-          <p className={styles.meta} style={{ marginTop: "1rem" }}>
-            <strong style={{ color: "var(--text-strong)" }}>{classicPortfolio.about.focusHeading}: </strong>
+          <p className={`${styles.meta} ${styles.metaSpacedLg}`}>
+            <strong className={styles.strongText}>{classicPortfolio.about.focusHeading}: </strong>
             {classicPortfolio.about.focus}
           </p>
           <p className={styles.meta}>
-            <strong style={{ color: "var(--text-strong)" }}>{classicPortfolio.about.approachHeading}: </strong>
+            <strong className={styles.strongText}>{classicPortfolio.about.approachHeading}: </strong>
             {classicPortfolio.about.approach}
           </p>
-          <p className={styles.meta} style={{ marginTop: "0.75rem" }}>
+          <p className={`${styles.meta} ${styles.metaSpaced}`}>
             {profile.availability}
           </p>
         </section>
@@ -178,7 +178,7 @@ export function RecruiterView() {
             {" · "}
             {profile.location}
           </p>
-          <p className={styles.meta} style={{ marginTop: "0.35rem" }}>
+          <p className={`${styles.meta} ${styles.metaSpacedSm}`}>
             Best: email. Typical response time: within 24 hours.
           </p>
           <div className={styles.footerLinks}>
