@@ -34,6 +34,7 @@ import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
+import { DesktopWidget } from "@/components/shell/desktop-widget";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
@@ -595,6 +596,8 @@ export function DesktopShell() {
       ) : null}
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
+
+      <DesktopWidget />
 
       <DesktopManager
         nodes={nodes}
