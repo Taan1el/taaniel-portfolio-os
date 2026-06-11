@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
-import { Mail } from "lucide-react";
+import { FileText, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button, ScrollArea } from "@/components/apps/app-layout";
 import { liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
@@ -160,7 +160,7 @@ export function StartMenu({
                 {
                   id: "resume",
                   label: "Open Resume.pdf",
-                  icon: Mail,
+                  icon: FileText,
                   action: { type: "file", filePath: "/Documents/Taaniel-Vananurm-CV.pdf" },
                 },
                 ...startMenuSidebarLinks,
