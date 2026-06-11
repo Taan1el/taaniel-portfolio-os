@@ -57,6 +57,11 @@
   line-height: 1.6;
 }
 
+.leadStrong {
+  font-size: 1.15rem;
+  color: var(--text-strong);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -371,6 +376,34 @@
   margin: 0;
   font-size: 0.88rem;
   color: var(--text-muted);
+}
+
+.metaSpacedSm {
+  margin-top: 0.35rem;
+}
+
+.metaSpaced {
+  margin-top: 0.75rem;
+}
+
+.metaSpacedLg {
+  margin-top: 1rem;
+}
+
+.eyebrowSpaced {
+  margin-top: 1rem;
+}
+
+.gridSpaced {
+  margin-top: 1.25rem;
+}
+
+.actionsSpaced {
+  margin-top: 0.9rem;
+}
+
+.strongText {
+  color: var(--text-strong);
 }
 
 .stack {
