@@ -430,12 +430,22 @@
     border-radius: 0.72rem;
   }
 
+  /* Keep the icon grid clear of the mobile recruiter banner pinned at the top */
   .desktop-surface {
-    inset: 0 0 84px;
+    inset: 4.5rem 0 84px;
   }
 
   .window-manager {
     inset: 0 0 84px;
+  }
+
+  .os-mobile-banner {
+    top: 0.6rem;
+    left: 0.6rem;
+    right: 0.6rem;
+    transform: none;
+    justify-content: space-between;
+    border-radius: 12px;
   }
 
   .taskbar__item-indicator {
@@ -461,6 +471,14 @@
 .desktop-icon.is-selected {
   background: rgba(119, 199, 255, 0.1);
   border-radius: 10px;
+  box-shadow: 0 0 0 1.5px rgba(119, 199, 255, 0.22);
+}
+
+.desktop-icon-button:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 3px;
+  border-radius: 10px;
+  background: rgba(119, 199, 255, 0.1);
   box-shadow: 0 0 0 1.5px rgba(119, 199, 255, 0.22);
 }
 

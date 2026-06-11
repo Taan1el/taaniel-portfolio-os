@@ -12,19 +12,26 @@ interface SafeImageProps {
 
 export function SafeImage({ src, alt, className, loading = "lazy" }: SafeImageProps) {
   const [current, setCurrent] = useState(src);
+  const [loaded, setLoaded] = useState(false);
 
   return (
-    <img
-      src={current}
-      alt={alt}
-      className={className}
-      loading={loading}
-      decoding="async"
-      onError={() => {
-        if (current !== PLACEHOLDER) {
-          setCurrent(PLACEHOLDER);
-        }
-      }}
-    />
+    <span className="safe-image-wrapper" aria-hidden={!alt || undefined}>
+      {!loaded && <span className="safe-image-skeleton" aria-hidden="true" />}
+      <img
+        src={current}
+        alt={alt}
+        className={className}
+        loading={loading}
+        decoding="async"
+        style={loaded ? undefined : { opacity: 0, position: "absolute" }}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          if (current !== PLACEHOLDER) {
+            setCurrent(PLACEHOLDER);
+          }
+          setLoaded(true);
+        }}
+      />
+    </span>
   );
 }

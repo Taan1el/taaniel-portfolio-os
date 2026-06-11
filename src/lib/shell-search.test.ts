@@ -37,6 +37,16 @@ describe("shell search", () => {
     expect(noteHit?.action.type).toBe("open-path");
   });
 
+  it("surfaces Photos app or Photography folder as top result for 'photo'", () => {
+    const index = buildShellSearchIndex(buildSeedFileSystem());
+    const sections = queryShellSearch(index, "photo");
+    const topResult = getTopSearchResult(sections);
+
+    expect(topResult).not.toBeNull();
+    const title = topResult?.title.toLowerCase() ?? "";
+    expect(title.includes("photo")).toBe(true);
+  });
+
   it("handles action-oriented folder queries without needing web search", () => {
     const index = buildShellSearchIndex(buildSeedFileSystem());
     const sections = queryShellSearch(index, "open photography folder");

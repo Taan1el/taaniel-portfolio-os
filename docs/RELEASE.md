@@ -13,7 +13,7 @@ npm run deploy:gh
 
 - [ ] `npm test`
 - [ ] `npm run build`
-- [ ] Verify `/simple` loads and scrolls correctly
+- [ ] Verify `/portfolio` loads and scrolls correctly
 - [ ] Verify Resume opens (PDF viewer iframe mode)
 - [ ] Verify Photos opens + zoom/pan works
 - [ ] Verify Start menu search works and apps launch

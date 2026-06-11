@@ -12,9 +12,17 @@
 
 .hero {
   display: grid;
-  gap: 1.25rem;
-  padding-bottom: 2.5rem;
+  gap: 1.15rem;
+  padding: clamp(1.5rem, 4vw, 2.75rem) 0 2.75rem;
   border-bottom: 1px solid var(--border);
+}
+
+.hero h1 + .role {
+  margin-top: -0.35rem;
+}
+
+.hero .lead:first-of-type {
+  margin-top: 0.4rem;
 }
 
 .logoMark {
@@ -47,6 +55,11 @@
   max-width: 42rem;
   color: var(--text-muted);
   line-height: 1.6;
+}
+
+.leadStrong {
+  font-size: 1.15rem;
+  color: var(--text-strong);
 }
 
 .actions {
@@ -110,6 +123,21 @@
   overflow: hidden;
   background: rgba(12, 22, 38, 0.72);
   border: 1px solid var(--border);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.classicCard:hover {
+  transform: translateY(-4px);
+  border-color: var(--theme-accent);
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(119, 199, 255, 0.25);
+}
+
+.classicCardImage img {
+  transition: transform 320ms ease;
+}
+
+.classicCard:hover .classicCardImage img {
+  transform: scale(1.04);
 }
 
 .classicCardImage {
@@ -160,6 +188,13 @@
   font-size: 0.82rem;
   color: var(--text-muted);
   text-align: center;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.toolItem:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--border-strong);
+  color: var(--text);
 }
 
 .toolItem img {
@@ -197,6 +232,13 @@
   color: #0a1628;
   background: linear-gradient(135deg, var(--theme-accent), #9fd6ff);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.primaryBtn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 10px 26px -12px rgba(119, 199, 255, 0.7);
 }
 
 .primaryBtn:focus-visible {
@@ -216,11 +258,25 @@
   color: var(--text);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-strong);
+  transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.secondaryBtn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--theme-accent);
 }
 
 .secondaryBtn:focus-visible {
   outline: 2px solid var(--theme-accent);
   outline-offset: 3px;
+}
+
+@media (pointer: coarse) {
+  .primaryBtn,
+  .secondaryBtn {
+    min-height: 44px;
+  }
 }
 
 .section {
@@ -259,17 +315,49 @@
   background: rgba(12, 22, 38, 0.72);
   border: 1px solid var(--border);
   text-align: left;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--theme-accent);
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(119, 199, 255, 0.25);
 }
 
 .cardImage {
   aspect-ratio: 16 / 10;
   background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
 
 .cardImage img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 320ms ease;
+}
+
+.card:hover .cardImage img {
+  transform: scale(1.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .classicCard,
+  .cardImage img,
+  .classicCardImage img {
+    transition: none;
+  }
+
+  .card:hover,
+  .classicCard:hover {
+    transform: none;
+  }
+
+  .card:hover .cardImage img,
+  .classicCard:hover .classicCardImage img {
+    transform: none;
+  }
 }
 
 .cardBody {
@@ -288,6 +376,34 @@
   margin: 0;
   font-size: 0.88rem;
   color: var(--text-muted);
+}
+
+.metaSpacedSm {
+  margin-top: 0.35rem;
+}
+
+.metaSpaced {
+  margin-top: 0.75rem;
+}
+
+.metaSpacedLg {
+  margin-top: 1rem;
+}
+
+.eyebrowSpaced {
+  margin-top: 1rem;
+}
+
+.gridSpaced {
+  margin-top: 1.25rem;
+}
+
+.actionsSpaced {
+  margin-top: 0.9rem;
+}
+
+.strongText {
+  color: var(--text-strong);
 }
 
 .stack {

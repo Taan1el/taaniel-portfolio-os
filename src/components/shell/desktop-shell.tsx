@@ -21,6 +21,7 @@ import { themePresets } from "@/data/portfolio";
 import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { getOpenWithOptions, resolveEditApp } from "@/lib/file-registry";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
+import { prefersStaticWallpaper } from "@/lib/device-capabilities";
 import { downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { cn } from "@/lib/utils";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
@@ -33,6 +34,7 @@ import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
+import { DesktopWidget } from "@/components/shell/desktop-widget";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
@@ -561,7 +563,7 @@ export function DesktopShell() {
     <main
       className={cn(
         "os-root",
-        wallpaperPresentation.animated && "is-animated-wallpaper"
+        wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
       )}
       style={
         {
@@ -586,14 +588,16 @@ export function DesktopShell() {
           <button
             type="button"
             className="os-mobile-banner__button"
-            onClick={() => navigate("/simple")}
+            onClick={() => navigate("/portfolio")}
           >
-            Open /simple
+            Open portfolio
           </button>
         </div>
       ) : null}
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
+
+      <DesktopWidget />
 
       <DesktopManager
         nodes={nodes}
