@@ -188,7 +188,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           </header>
 
           <div className="window-frame__body">
-            <Suspense fallback={<div className="app-loading">Loading application...</div>}>
+            <Suspense fallback={<div className="app-loading-skeleton" role="status" aria-label="Loading application" />}>
               <WindowComponent window={window} />
             </Suspense>
           </div>

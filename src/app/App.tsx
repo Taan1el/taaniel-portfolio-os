@@ -32,7 +32,7 @@ export function App() {
       <AppErrorBoundary>
         <Routes>
           <Route
-            path="/simple"
+            path="/portfolio"
             element={
               <Suspense fallback={<RecruiterRouteFallback />}>
                 <RecruiterView />

@@ -8,6 +8,6 @@ export const portfolioBuilt = {
     "Used Zustand for state management — keeps window and taskbar updates fast and predictable.",
     "Virtual filesystem backed by IndexedDB so files and layout changes survive a page refresh.",
     "Apps load only when opened (React.lazy) so the initial page loads quickly.",
-    "Added a separate /simple page for anyone who wants a clean, straightforward portfolio overview.",
+    "Added a separate /portfolio page for anyone who wants a clean, straightforward portfolio overview.",
   ],
 };
