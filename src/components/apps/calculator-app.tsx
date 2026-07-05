@@ -116,7 +116,7 @@ function reducer(state: CalcState, action: CalcAction): CalcState {
 }
 
 // ── Component ─────────────────────────────────────────────────────
-export function CalculatorApp(_props: AppComponentProps) {
+export function CalculatorApp({ window: appWindow }: AppComponentProps) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
@@ -134,9 +134,15 @@ export function CalculatorApp(_props: AppComponentProps) {
   }, []);
 
   useEffect(() => {
+    // Only capture keys while this window is focused, so typing in other
+    // apps (notes, terminal) does not feed the calculator.
+    if (!appWindow.focused) {
+      return;
+    }
+
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleKey]);
+  }, [appWindow.focused, handleKey]);
 
   const isError = state.display === "Error";
 
