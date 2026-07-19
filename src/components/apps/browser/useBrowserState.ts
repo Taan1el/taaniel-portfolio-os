@@ -23,6 +23,8 @@ import type {
 import type { FileSystemRecord } from "@/types/system";
 
 const REMOTE_EMBED_TIMEOUT_MS = 9000;
+/** Proxied loads pay the proxy's own fetch on top of the page load, so give them longer. */
+const PROXIED_EMBED_TIMEOUT_MS = 16000;
 const FAILURE_HISTORY_LIMIT = 12;
 
 interface UseBrowserStateOptions {
@@ -215,7 +217,7 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
         "The iframe did not finish loading before the timeout. Try opening the page in a new tab or retrying with a different proxy mode.",
         "timeout"
       );
-    }, REMOTE_EMBED_TIMEOUT_MS);
+    }, proxyMode === "direct" ? REMOTE_EMBED_TIMEOUT_MS : PROXIED_EMBED_TIMEOUT_MS);
 
     return () => clearLoadTimeout();
   }, [activateFallback, clearLoadTimeout, currentUrl, proxyMode, refreshToken, resolution]);
