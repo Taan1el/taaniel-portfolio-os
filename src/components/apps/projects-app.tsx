@@ -1,7 +1,7 @@
 import { ExternalLink, FileText, FolderOpen, Image as ImageIcon } from "lucide-react";
 import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { portfolioBuilt } from "@/data/portfolio-built";
-import { featuredProjects } from "@/data/portfolio";
+import { codeProjects, featuredProjects } from "@/data/portfolio";
 import { openFileSystemPath } from "@/lib/launchers";
 import { getImageFileMetaFromUrl } from "@/lib/image-path";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -25,9 +25,9 @@ export function ProjectsApp({ window }: AppComponentProps) {
         <section className="section-headline">
           <div>
             <p className="eyebrow">Featured work</p>
-            <h1>Campaign design + frontend development</h1>
+            <h1>Campaign design, frontend, and product builds</h1>
             <p className="lead">
-              Three campaign projects followed by how this portfolio OS is built — each with the same structure: what the problem was, what decisions were made, and what shipped.
+              Production campaign work, selected GitHub builds, and the portfolio OS itself. Each project explains the problem, decisions, and delivered result.
             </p>
           </div>
         </section>
@@ -146,6 +146,47 @@ export function ProjectsApp({ window }: AppComponentProps) {
                       GitHub
                     </a>
                   ) : null}
+                  {project.liveUrl ? (
+                    <a className="pill-button" href={project.liveUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink size={15} />
+                      Live
+                    </a>
+                  ) : null}
+                </div>
+                <div className="token-list">
+                  {project.stack.map((item) => (
+                    <span key={item}>{item}</span>
+                  ))}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <section className="section-headline" style={{ marginTop: "2rem" }}>
+          <div>
+            <p className="eyebrow">Selected GitHub builds</p>
+            <h2>Full-stack projects</h2>
+            <p className="lead">
+              Two projects selected for clear scope, credible technical depth, and reviewable source code.
+            </p>
+          </div>
+        </section>
+
+        <div className="project-card-grid">
+          {codeProjects.map((project) => (
+            <article key={project.id} className="project-showcase">
+              <div className="project-showcase__body">
+                <div>
+                  <p className="eyebrow">{project.type}</p>
+                  <h2>{project.title}</h2>
+                  <p>{project.description}</p>
+                </div>
+                <div className="action-row">
+                  <a className="pill-button" href={project.repoUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink size={15} />
+                    GitHub
+                  </a>
                   {project.liveUrl ? (
                     <a className="pill-button" href={project.liveUrl} target="_blank" rel="noreferrer">
                       <ExternalLink size={15} />

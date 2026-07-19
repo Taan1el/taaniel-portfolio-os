@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { portfolioBuilt } from "@/data/portfolio-built";
 import { classicPortfolio } from "@/data/classic-portfolio";
 import {
+  codeProjects,
   getResumeDownloadUrls,
   landingCopy,
   liveDemoUrl,
@@ -150,6 +151,37 @@ export function RecruiterView() {
               <li key={d}>{d}</li>
             ))}
           </ul>
+        </section>
+
+        <section className={styles.section} aria-labelledby="github-builds-heading">
+          <p className={styles.eyebrow}>Selected GitHub builds</p>
+          <h2 id="github-builds-heading">Full-stack projects with clear technical scope.</h2>
+          <div className={styles.grid}>
+            {codeProjects.map((project) => (
+              <article key={project.id} className={styles.card}>
+                <div className={styles.cardBody}>
+                  <p className={styles.eyebrow}>{project.type}</p>
+                  <h3>{project.title}</h3>
+                  <p className={styles.meta}>{project.description}</p>
+                  <div className={styles.stack}>
+                    {project.stack.map((item) => (
+                      <span key={item}>{item}</span>
+                    ))}
+                  </div>
+                  <div className={styles.links}>
+                    <a href={project.repoUrl} target="_blank" rel="noreferrer">
+                      View source on GitHub
+                    </a>
+                    {project.liveUrl ? (
+                      <a href={project.liveUrl} target="_blank" rel="noreferrer">
+                        Open live project
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className={styles.section} aria-labelledby="about-heading">

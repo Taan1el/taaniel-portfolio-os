@@ -9,16 +9,16 @@ export const classicPortfolio = {
     eyebrow: "Frontend developer (UI systems)",
     headline: "I build web interfaces in React + TypeScript.",
     intro:
-      "I design and build landing pages, websites, and campaign visuals — from idea to working code. I ship marketing and campaign work in a team while deepening my frontend skills in React and TypeScript.",
+      "I design and build landing pages, websites, and campaign visuals from idea to working code. I recently completed a Fiizy OÜ internship and am deepening my frontend skills in React and TypeScript.",
   },
   proof: [
-    { label: "Now", text: "Designing and shipping marketing and campaign visuals in a team." },
+    { label: "Education", text: "Multimedia specialist, graduated with honours from Tallinn Polytechnic." },
     { label: "Focus", text: "Landing pages, web UI, and reusable design components." },
     { label: "Also", text: "React + TypeScript frontend development — this portfolio OS is the proof." },
   ],
   featured: {
     eyebrow: "Selected work",
-    title: "My 3 most recent projects.",
+    title: "Campaign work from Fiizy OÜ.",
   },
   projects: [
     {
@@ -71,7 +71,7 @@ export const classicPortfolio = {
     eyebrow: "About",
     title: "Clear design, strong hierarchy, and fast execution.",
     intro:
-      "I'm a frontend developer and web designer based in Tallinn, Estonia. I build landing pages, websites, and campaign visuals from concept to code. I studied at Tallinn Polytechnic and gained hands-on experience at Fiizy OÜ, working on marketing and email campaign visuals.",
+      "I'm a multimedia specialist and frontend developer based in Viimsi, Estonia. I build landing pages, websites, and campaign visuals from concept to code. I graduated with honours from Tallinn Polytechnic and completed a Fiizy OÜ internship, creating marketing and email campaign visuals for international finance partners.",
     focusHeading: "What I do",
     focus:
       "I design and build landing pages, websites, and campaign visuals where the message needs to be immediate and easy to understand.",

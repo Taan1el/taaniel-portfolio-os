@@ -40,7 +40,7 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 
 ## Stack
 
-- React 18, TypeScript, Vite
+- React 19, TypeScript, Vite
 - Zustand (shell, window, filesystem, explorer, process, system)
 - Framer Motion, react-rnd, xterm.js, Monaco, pdf.js
 - `@huggingface/transformers` — runs the `all-MiniLM-L6-v2` embedding model entirely in-browser (via ONNX WASM) to rerank Start menu search results by semantic similarity, with no server round-trip
@@ -100,4 +100,3 @@ The Browser app is intentionally an iframe-based web viewer, not a full browser 
 - **Local browser paths**: Enter `/`, `/Documents`, `/Media`, or any other filesystem directory path in the Browser to get a lightweight directory index and open local previews inside the same window.
 - **Themes**: Defaults to **Cloud Archive**; change wallpaper and accent in **Settings**.
 - **Session data**: Desktop layout, windows, and the virtual filesystem persist in the browser (localStorage / IndexedDB). Use **Reset session** in the Start menu to clear.
-

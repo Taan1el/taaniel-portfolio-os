@@ -3,15 +3,15 @@ import type { DesktopEntry, FeaturedProject, SocialLink, ThemePreset } from "@/t
 
 export const profile = {
   name: "Taaniel Vananurm",
-  role: "Frontend developer (UI systems)",
+  role: "Multimeedia spetsialist · Frontend developer",
   shortRole: "Frontend developer",
-  location: "Tallinn, Estonia",
-  headline: "I design and build web interfaces — marketing pages, campaign visuals, and frontend systems.",
+  location: "Viimsi, Harjumaa, Estonia",
+  headline: "I design and build campaign visuals, web interfaces, and frontend systems.",
   intro:
-    "I ship responsive web UI and campaign designs. This portfolio is also a live code sample: a browser-based desktop built with React and TypeScript, with a window manager and a virtual filesystem you can browse.",
+    "I am a multimedia specialist who designs and builds responsive web UI and campaign work. This portfolio is also a live code sample: a browser-based desktop built with React and TypeScript, with a window manager and a virtual filesystem you can browse.",
   current:
-    "I design and ship marketing and campaign visuals in a team while building stronger frontend skills in React and TypeScript — this portfolio OS is the main proof of that.",
-  availability: "Open to junior and mid-level frontend roles.",
+    "I completed a marketing and web internship at Fiizy OÜ, creating campaign visuals and HTML/CSS email assets for international finance partners across multiple markets. I am now building deeper frontend experience in React and TypeScript.",
+  availability: "Open to junior frontend, web design, and digital marketing roles.",
   email: "mailto:Taaniel.vananurm@gmail.com",
   emailText: "Taaniel.vananurm@gmail.com",
   phone: "tel:+37258948814",
@@ -51,12 +51,14 @@ export const skills = [
   "Component architecture",
   "Zustand",
   "Vite",
+  "Next.js",
+  "Python / Starlette",
 ];
 
 export const quickStats = [
   { label: "Focus", value: "Web UI, campaign design, design-to-code" },
-  { label: "Education", value: "Tallinn Polytechnic" },
-  { label: "Work context", value: "Marketing and email campaign production" },
+  { label: "Education", value: "Multimeedia spetsialist (kiitusega), Tallinna Polütehnikum" },
+  { label: "Work context", value: "Fiizy OÜ internship: international campaign and email production" },
   { label: "This portfolio OS", value: "React + TypeScript, window manager, virtual filesystem" },
 ];
 
@@ -80,6 +82,28 @@ export const socialLinks: SocialLink[] = [
   {
     label: "Dribbble",
     url: "https://dribbble.com/taaniel-vananurm",
+  },
+];
+
+export const codeProjects = [
+  {
+    id: "slow-pour",
+    title: "Slow Pour",
+    type: "Full-stack final project",
+    description:
+      "A production-style web project combining frontend work with an Express backend, database layer, and automated browser, accessibility, and integration checks.",
+    stack: ["HTML/CSS/JavaScript", "Express", "Database", "GitHub Pages", "Testing"],
+    repoUrl: "https://github.com/Taan1el/Multimeedia_eksam",
+    liveUrl: "https://taan1el.github.io/Multimeedia_eksam/",
+  },
+  {
+    id: "adcraft-ai",
+    title: "AdCraft AI",
+    type: "Full-stack AI tool",
+    description:
+      "A tool for critiquing static ad creatives with measurable image signals, structured recommendations, and an optional LLM layer validated against a strict JSON schema.",
+    stack: ["Next.js", "TypeScript", "Python", "Starlette", "Pillow", "LLM APIs"],
+    repoUrl: "https://github.com/Taan1el/AdCraft",
   },
 ];
 
