@@ -19,9 +19,9 @@ describe("applyProxy", () => {
     );
   });
 
-  it("wraps urls with the wayback pattern", () => {
+  it("wraps urls with the frame-friendly wayback snapshot pattern", () => {
     expect(applyProxy(url, "wayback")).toBe(
-      "https://web.archive.org/web/*/https://example.com/docs?q=browser%20test"
+      "https://web.archive.org/web/2if_/https://example.com/docs?q=browser%20test"
     );
   });
 
