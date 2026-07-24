@@ -639,6 +639,7 @@ img {
   width: 13px;
   height: 13px;
   place-items: center;
+  padding: 0;
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
