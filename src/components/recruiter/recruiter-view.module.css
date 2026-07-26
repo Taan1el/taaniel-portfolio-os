@@ -94,7 +94,7 @@
 
 .proofItem dt {
   margin: 0 0 0.35rem;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -378,6 +378,14 @@
   color: var(--text-muted);
 }
 
+.meta a {
+  color: var(--theme-accent);
+}
+
+.meta a:hover {
+  text-decoration: underline;
+}
+
 .metaSpacedSm {
   margin-top: 0.35rem;
 }
@@ -413,8 +421,8 @@
 }
 
 .stack span {
-  font-size: 0.72rem;
-  padding: 0.2rem 0.45rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-muted);
