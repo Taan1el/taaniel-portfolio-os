@@ -60,32 +60,8 @@ export const bundledMusicLibrary: BundledReadonlyFileAsset[] = [
   },
 ];
 
-export const bundledPortfolioAssets: BundledReadonlyFileAsset[] = [
-  {
-    path: `${PORTFOLIO_WORKBENCH_PATH}/Group 16.png`,
-    extension: "png",
-    mimeType: "image/png",
-    source: resolvePublicAssetUrl("assets/Work/Group 16.png"),
-  },
-  {
-    path: `${PORTFOLIO_WORKBENCH_PATH}/Sol Rem 1.png`,
-    extension: "png",
-    mimeType: "image/png",
-    source: resolvePublicAssetUrl("assets/Work/Sol_Rem_1.png"),
-  },
-  {
-    path: `${PORTFOLIO_WORKBENCH_PATH}/Vivus Hero 202505.jpg`,
-    extension: "jpg",
-    mimeType: "image/jpeg",
-    source: resolvePublicAssetUrl("assets/Work/Vivus_hero_202505.jpg"),
-  },
-  {
-    path: `${PORTFOLIO_WORKBENCH_PATH}/Vivus OM MX Hero.jpg`,
-    extension: "jpg",
-    mimeType: "image/jpeg",
-    source: resolvePublicAssetUrl("assets/Work/Vivus_om_mx_Hero.jpg"),
-  },
-];
+// Campaign files are withheld until publication permission is confirmed.
+export const bundledPortfolioAssets: BundledReadonlyFileAsset[] = [];
 
 export const bundledWorkspaceDirectories = [PORTFOLIO_WORKBENCH_PATH] as const;
 

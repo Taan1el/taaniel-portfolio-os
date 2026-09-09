@@ -27,7 +27,7 @@ export function ProjectsApp({ window }: AppComponentProps) {
             <p className="eyebrow">Featured work</p>
             <h1>Campaign design + frontend development</h1>
             <p className="lead">
-              Three campaign projects followed by how this portfolio OS is built — each with the same structure: what the problem was, what decisions were made, and what shipped.
+              Web projects with source code, public demos, and the limits of each implementation.
             </p>
           </div>
         </section>
@@ -36,7 +36,7 @@ export function ProjectsApp({ window }: AppComponentProps) {
           {featuredProjects.map((project) => (
             <article key={project.id} className="project-showcase">
               <div className="project-showcase__image">
-                <SafeImage src={project.hero} alt="" />
+                <SafeImage src={project.hero} alt={project.heroAlt ?? project.title} />
               </div>
               <div className="project-showcase__body">
                 <div>

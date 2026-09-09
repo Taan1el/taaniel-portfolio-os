@@ -26,7 +26,7 @@ export function ContactApp({ window }: AppComponentProps) {
           <h1>{profile.name}</h1>
           <p>{profile.location}</p>
           <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
-            Best: email. Typical response time: within 24 hours.
+            Email is the best way to reach me.
           </p>
         </div>
         <a className="ghost-button" href={profile.email}>
