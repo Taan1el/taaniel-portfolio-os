@@ -25,7 +25,7 @@ export function ProjectsApp({ window }: AppComponentProps) {
         <section className="section-headline">
           <div>
             <p className="eyebrow">Featured work</p>
-            <h1>Campaign design + frontend development</h1>
+            <h1>Web projects</h1>
             <p className="lead">
               Web projects with source code, public demos, and the limits of each implementation.
             </p>

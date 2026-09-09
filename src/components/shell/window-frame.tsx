@@ -70,8 +70,8 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         bounds="parent"
         size={{ width: window.width, height: window.height }}
         position={{ x: window.x, y: window.y }}
-        minWidth={definition.minSize?.width ?? 320}
-        minHeight={definition.minSize?.height ?? 240}
+        minWidth={Math.min(definition.minSize?.width ?? 320, window.width)}
+        minHeight={Math.min(definition.minSize?.height ?? 240, window.height)}
         disableDragging={window.maximized}
         enableResizing={definition.resizable !== false && !window.maximized}
         dragHandleClassName="window-header"
