@@ -3,15 +3,16 @@ import type { DesktopEntry, FeaturedProject, SocialLink, ThemePreset } from "@/t
 
 export const profile = {
   name: "Taaniel Vananurm",
-  role: "Frontend developer (UI systems)",
-  shortRole: "Frontend developer",
+  role: "Junior frontend developer and web designer",
+  shortRole: "Junior frontend developer",
   location: "Tallinn, Estonia",
-  headline: "I design and build web interfaces — marketing pages, campaign visuals, and frontend systems.",
+  headline: "Web design, frontend development, and campaign visuals.",
   intro:
-    "I ship responsive web UI and campaign designs. This portfolio is also a live code sample: a browser-based desktop built with React and TypeScript, with a window manager and a virtual filesystem you can browse.",
+    "I'm a multimedia graduate based in Tallinn. My projects include a coffee shop website and this React and TypeScript portfolio, with draggable windows and a browser-local filesystem.",
   current:
-    "I design and ship marketing and campaign visuals in a team while building stronger frontend skills in React and TypeScript — this portfolio OS is the main proof of that.",
-  availability: "Open to junior and mid-level frontend roles.",
+    "During my Fiizy OÜ internship (3 March–19 June 2026), I designed and coded HTML/CSS email banners and campaign visuals for different markets.",
+  availability: "Seeking junior frontend, web design and digital design roles.",
+  education: "Tallinn Polytechnic: Multimedia Specialist, level 4, 2023–2026. Graduated with honours.",
   email: "mailto:Taaniel.vananurm@gmail.com",
   emailText: "Taaniel.vananurm@gmail.com",
   phone: "tel:+37258948814",
@@ -55,8 +56,8 @@ export const skills = [
 
 export const quickStats = [
   { label: "Focus", value: "Web UI, campaign design, design-to-code" },
-  { label: "Education", value: "Tallinn Polytechnic" },
-  { label: "Work context", value: "Marketing and email campaign production" },
+  { label: "Education", value: "Multimedia Specialist, level 4, 2023–2026; graduated with honours" },
+  { label: "Experience", value: "Fiizy OÜ internship, 3 March–19 June 2026" },
   { label: "This portfolio OS", value: "React + TypeScript, window manager, virtual filesystem" },
 ];
 
@@ -77,98 +78,50 @@ export const socialLinks: SocialLink[] = [
     label: "Unsplash",
     url: "https://unsplash.com/@taanielv",
   },
-  {
-    label: "Dribbble",
-    url: "https://dribbble.com/taaniel-vananurm",
-  },
 ];
 
 export const featuredProjects: FeaturedProject[] = [
   {
-    id: "dineromon",
-    title: "Fintech Email Campaign (0% Offer)",
-    type: "Email campaign",
-    oneLiner:
-      "I designed a focused hero banner and modular email layout that makes the 0% offer obvious and leads to a single CTA.",
-    role: "Team member — design",
-    challenge:
-      "Communicate the offer instantly while balancing conversion clarity, trust, and campaign personality inside an email-safe layout.",
-    outcome:
-      "Delivered a high-contrast hero treatment and readable content structure that keeps the value proposition visible through the click.",
-    hero: resolvePublicAssetUrl("assets/Work/Dineromon_hero_v2.png"),
-    layouts: [resolvePublicAssetUrl("assets/Work/Group 22.png")],
-    stack: ["Figma", "Photoshop", "Email layout systems"],
-    problem:
-      "Email campaigns have tight constraints (limited CSS support, small viewports, fast scanning). The goal was to make the 0% offer instantly understandable and guide users to one primary CTA.",
+    id: "slow-pour",
+    title: "Slow Pour",
+    type: "Multimedia final exam",
+    oneLiner: "A coffee shop website with a product catalogue, filtering, and a browser-local shopping cart.",
+    role: "Student project: web design, frontend implementation, and a separate backend module.",
+    problem: "Present a coffee range and let visitors browse products and try an order flow on desktop and mobile.",
+    challenge: "Keep the static demo usable while separating it from features that need a server.",
+    outcome: "A public front-end demo on GitHub Pages. Products load from JSON; cart state stays in localStorage. Forms simulate submission, not real orders or email delivery.",
+    hero: resolvePublicAssetUrl("assets/projects/slow-pour.png"),
+    heroAlt: "Slow Pour home page with Estonian navigation, a coffee cup, and a link to browse coffees.",
+    layouts: [],
+    stack: ["Nunjucks", "JavaScript", "CSS", "Vite", "Express", "SQLite"],
     technicalHighlights: [
-      "Designed for email-safe layout constraints (clear hierarchy, reliable spacing, readable CTA).",
-      "Built modular sections so content can be rearranged for different audiences without redesigning everything.",
-      "Optimized contrast and typography for quick scanning on mobile.",
+      "Module 3 builds Nunjucks templates into static pages, with JavaScript filtering and cart interactions.",
+      "Module 4 contains an Express server, Nunjucks views, SQLite storage, and contact and admin routes.",
     ],
-    challengesAndTradeoffs:
-      "Email-safe layouts limit advanced styling and interactivity. The design leans on typography, spacing, and contrast rather than complex effects.",
-    whatILearned:
-      "The fastest-performing campaign visuals are usually the simplest: one message, one CTA, and consistent spacing rules across modules.",
-    screenshots: [
-      resolvePublicAssetUrl("assets/Work/Dineromon_hero_v2.png"),
-      resolvePublicAssetUrl("assets/Work/Group 22.png"),
-    ],
-    measurableOutcome: "NDA-safe: shipped as a production campaign hero + template used for rollout variants.",
+    challengesAndTradeoffs: "GitHub Pages serves only the front-end demo. The Express backend and SQLite database require a separate server and do not run on GitHub Pages.",
+    liveUrl: "https://taan1el.github.io/Multimeedia_eksam/",
+    repoUrl: "https://github.com/Taan1el/Multimeedia_eksam",
   },
   {
-    id: "credito365",
-    title: "Fast-Loan Hero + Template",
-    type: "Hero + template",
-    oneLiner:
-      "I built a speed-led visual concept that highlights a 10-minute claim and gives the campaign a stronger shopping context.",
-    role: "Team member — design",
-    challenge:
-      "Push urgency without making the visual system feel noisy or untrustworthy in a high-friction financial category.",
-    outcome:
-      "Created a campaign direction that highlights timing, keeps the CTA readable, and supports acquisition and sign-up flows.",
-    hero: resolvePublicAssetUrl("assets/Work/Credito365_2605.jpg"),
-    layouts: [resolvePublicAssetUrl("assets/Work/Group 1.png")],
-    stack: ["Figma", "Photoshop", "Marketing design"],
-    problem:
-      "Communicate a high-friction financial offer quickly and credibly: speed promise, clear CTA, and a layout that can be reused across variants.",
+    id: "portfolio-os",
+    title: "Portfolio OS",
+    type: "Interactive frontend",
+    oneLiner: "A browser-based desktop with a conventional portfolio page for a quicker overview.",
+    role: "Personal portfolio project: interface design and frontend implementation.",
+    problem: "Show working frontend code without making employers navigate a desktop interface to find projects or contact details.",
+    challenge: "Coordinate windows, application state, and browser-local files while keeping a direct portfolio route.",
+    outcome: "A React and TypeScript application with draggable and resizable windows, a virtual filesystem, and a separate /portfolio page.",
+    hero: resolvePublicAssetUrl("assets/projects/portfolio-os.png"),
+    heroAlt: "Portfolio OS desktop with application windows and taskbar.",
+    layouts: [],
+    stack: ["React", "TypeScript", "Zustand", "IndexedDB", "Vite", "Vitest"],
     technicalHighlights: [
-      "Hero template supports multiple market/copy variants without breaking the hierarchy.",
-      "CTA placement and spacing tuned for readability across common email/landing breakpoints.",
-      "Visual cues (timing, context) reinforce the offer without overwhelming the layout.",
+      "Separate stores manage windows, processes, and the virtual filesystem.",
+      "App modules use dynamic imports; browser-local files are persisted with IndexedDB.",
     ],
-    challengesAndTradeoffs:
-      "Urgency can hurt trust in finance categories. The design uses cleaner composition and consistent spacing to avoid a noisy 'spammy' look.",
-    whatILearned:
-      "In finance, trust signals (clean layout, readable CTA, balanced contrast) matter as much as the offer itself.",
-    screenshots: [resolvePublicAssetUrl("assets/Work/Credito365_2605.jpg"), resolvePublicAssetUrl("assets/Work/Group 1.png")],
-    measurableOutcome: "Shipped as a reusable hero direction + template for campaign iterations.",
-  },
-  {
-    id: "cozmo",
-    title: "Mascot-Driven Email Campaign",
-    type: "Brand campaign",
-    oneLiner:
-      "I combined a mascot-led hero with a mini UI card so the offer becomes understandable at a glance.",
-    role: "Team member — design",
-    challenge: "Translate brand personality into a performance-oriented email that still explains the offer quickly.",
-    outcome:
-      "Shipped a more memorable campaign visual with enough structure to keep the financial message clear and actionable.",
-    hero: resolvePublicAssetUrl("assets/Work/Cozmo_2605.jpg"),
-    layouts: [resolvePublicAssetUrl("assets/Work/Group 17.png")],
-    stack: ["Figma", "Illustrator", "Campaign systems"],
-    problem:
-      "The mascot creates attention, but the offer still needs to be understood instantly. The goal was to balance personality with a structured message and CTA.",
-    technicalHighlights: [
-      "Mini UI card turns an abstract offer into a concrete, scannable block.",
-      "Layout keeps the mascot secondary to the core message hierarchy.",
-      "Template-ready structure supports quick campaign variations.",
-    ],
-    challengesAndTradeoffs:
-      "Mascots can compete with the message. The layout intentionally constrains the mascot’s footprint so CTA and offer remain dominant.",
-    whatILearned:
-      "Brand personality performs best when it supports clarity, not when it becomes the main content.",
-    screenshots: [resolvePublicAssetUrl("assets/Work/Cozmo_2605.jpg"), resolvePublicAssetUrl("assets/Work/Group 17.png")],
-    measurableOutcome: "Shipped as a campaign hero variant aligned to the brand system.",
+    challengesAndTradeoffs: "This is a desktop-style web application, not an operating system. Local files belong to the browser's storage and can be lost if that storage is cleared.",
+    liveUrl: liveDemoUrl,
+    repoUrl,
   },
 ];
 

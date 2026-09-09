@@ -1,5 +1,5 @@
 :root {
-  font-size: clamp(14px, 0.28vw + 13px, 15.5px);
+  font-size: 16px;
   font-family: "IBM Plex Sans", sans-serif;
   line-height: 1.5;
   font-weight: 400;

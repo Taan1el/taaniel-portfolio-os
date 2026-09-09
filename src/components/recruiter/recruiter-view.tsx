@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Download, ExternalLink, Code2, Mail, Monitor } from "lucide-react";
 import { portfolioBuilt } from "@/data/portfolio-built";
 import { classicPortfolio } from "@/data/classic-portfolio";
 import {
   getResumeDownloadUrls,
-  landingCopy,
+  featuredProjects,
   liveDemoUrl,
   profile,
   repoUrl,
@@ -13,8 +13,6 @@ import {
 import { SafeImage } from "@/components/ui/safe-image";
 import { LogoMark } from "@/components/ui/logo-mark";
 import styles from "@/components/recruiter/recruiter-view.module.css";
-
-const workGallery = classicPortfolio.workGallery;
 
 export function RecruiterView() {
   useEffect(() => {
@@ -31,6 +29,7 @@ export function RecruiterView() {
 
   return (
     <div className={styles.page}>
+      <a className={styles.skipLink} href="#main-content">Skip to projects</a>
       <div className={styles.inner}>
         <header className={styles.hero}>
           <LogoMark size={52} color="rgba(255,255,255,0.92)" className={styles.logoMark} />
@@ -41,20 +40,20 @@ export function RecruiterView() {
             {classicPortfolio.home.headline}
           </p>
           <p className={styles.lead}>{classicPortfolio.home.intro}</p>
-          <p className={styles.lead}>{landingCopy.valueStatement}</p>
+          <p className={styles.lead}>{profile.availability}</p>
           <div className={styles.actions}>
             <a className={styles.primaryBtn} href={primaryCv} download>
-              Download CV
+              <Download size={17} aria-hidden="true" /> Download CV (Estonian PDF)
             </a>
             <a className={styles.secondaryBtn} href={profile.email}>
-              Contact me
+              <Mail size={17} aria-hidden="true" /> Email me
             </a>
-            <a className={styles.secondaryBtn} href={repoUrl} target="_blank" rel="noreferrer">
-              GitHub
+            <a className={styles.secondaryBtn} href="https://github.com/Taan1el" target="_blank" rel="noreferrer">
+              <Code2 size={17} aria-hidden="true" /> GitHub profile
             </a>
-            <Link className={styles.secondaryBtn} to="/">
-              Open OS
-            </Link>
+            <a className={styles.secondaryBtn} href={import.meta.env.BASE_URL}>
+              <Monitor size={17} aria-hidden="true" /> Open OS
+            </a>
           </div>
 
           <dl className={styles.proofStrip}>
@@ -67,19 +66,37 @@ export function RecruiterView() {
           </dl>
         </header>
 
+        <main id="main-content" tabIndex={-1}>
         <section className={styles.section} aria-labelledby="classic-work-heading">
           <p className={styles.eyebrow}>{classicPortfolio.featured.eyebrow}</p>
           <h2 id="classic-work-heading">{classicPortfolio.featured.title}</h2>
           <div className={styles.classicFeatured}>
-            {classicPortfolio.projects.map((project) => (
+            {featuredProjects.map((project) => (
               <article key={project.id} className={styles.classicCard}>
                 <div className={styles.classicCardImage}>
-                  <SafeImage src={project.hero} alt={project.heroAlt} />
+                  <SafeImage src={project.hero} alt={project.heroAlt ?? project.title} />
                 </div>
                 <div className={styles.classicCardBody}>
-                  <p className={styles.eyebrow}>{project.kicker}</p>
+                  <p className={styles.eyebrow}>{project.type}</p>
                   <h3>{project.title}</h3>
                   <p className={styles.meta}>{project.oneLiner}</p>
+                  <dl className={styles.projectFacts}>
+                    <div><dt>Problem</dt><dd>{project.problem}</dd></div>
+                    <div><dt>My role</dt><dd>{project.role}</dd></div>
+                    <div><dt>Result</dt><dd>{project.outcome}</dd></div>
+                  </dl>
+                  <p className={styles.meta}>{project.challengesAndTradeoffs}</p>
+                  <ul className={styles.stack} aria-label={`${project.title} technologies`}>
+                    {project.stack.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                  <div className={styles.links}>
+                    <a href={project.liveUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink size={16} aria-hidden="true" /> {project.title} demo
+                    </a>
+                    <a href={project.repoUrl} target="_blank" rel="noreferrer">
+                      <Code2 size={16} aria-hidden="true" /> {project.title} source
+                    </a>
+                  </div>
                 </div>
               </article>
             ))}
@@ -104,20 +121,9 @@ export function RecruiterView() {
           <p className={styles.eyebrow}>{classicPortfolio.work.eyebrow}</p>
           <h2 id="projects-heading">{classicPortfolio.work.title}</h2>
           <p className={styles.meta}>{classicPortfolio.work.intro}</p>
-          <div className={`${styles.grid} ${styles.gridSpaced}`}>
-            {workGallery.map((item) => (
-              <article key={item.id} className={styles.card}>
-                <div className={styles.cardImage}>
-                  <SafeImage src={item.src} alt={item.title} />
-                </div>
-                <div className={styles.cardBody}>
-                  <p className={styles.eyebrow}>{item.category}</p>
-                  <h3>{item.title}</h3>
-                  <p className={styles.meta}>{item.detail}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+          <p className={`${styles.meta} ${styles.metaSpaced}`}>{classicPortfolio.work.dates}</p>
+          <p className={`${styles.meta} ${styles.metaSpaced}`}>{classicPortfolio.work.outcome}</p>
+          <p className={`${styles.meta} ${styles.metaSpaced}`}>{classicPortfolio.work.confidentiality}</p>
         </section>
 
         <section className={styles.section} aria-labelledby="built-heading">
@@ -179,7 +185,7 @@ export function RecruiterView() {
             {profile.location}
           </p>
           <p className={`${styles.meta} ${styles.metaSpacedSm}`}>
-            Best: email. Typical response time: within 24 hours.
+            Email is the best way to reach me.
           </p>
           <div className={styles.footerLinks}>
             {socialLinks.map((link) => (
@@ -189,6 +195,7 @@ export function RecruiterView() {
             ))}
           </div>
         </section>
+        </main>
       </div>
     </div>
   );

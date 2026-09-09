@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { toast } from "@/stores/toast-store";
+import { refreshPortfolioWorkspace } from "@/lib/portfolio-workspace";
 import {
   clearPersistedFileSystem,
   createBinaryFileRecord,
@@ -100,7 +101,9 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       storedNodes = null;
     }
 
-    const nodes = ensureSystemWorkspace(storedNodes ?? buildSeedFileSystem());
+    const nodes = ensureSystemWorkspace(
+      storedNodes ? await refreshPortfolioWorkspace(storedNodes) : buildSeedFileSystem()
+    );
 
     if (storedNodes !== null && nodes !== storedNodes) {
       await persistNodes(nodes);

@@ -269,6 +269,7 @@ export interface FeaturedProject {
   challenge: string;
   outcome: string;
   hero: string;
+  heroAlt?: string;
   layouts: string[];
   stack: string[];
   /** Deeper case study fields (optional). */

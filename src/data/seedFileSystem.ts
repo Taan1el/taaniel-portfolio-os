@@ -84,7 +84,7 @@ const labReadme = `# Media folders
 
 - \`/Media/Photography\` is seeded from \`public/assets/Photography\`.
 - \`/Media/Music\` is seeded from \`public/assets/Music\`.
-- \`/Portfolio/Workbench\` contains workbench images you can open in the Photos app.
+- Campaign materials are not bundled in this public portfolio.
 `;
 
 const buildJournalMarkdown = `# Building a Portfolio OS
@@ -95,7 +95,7 @@ Turning a portfolio into a desktop-style product changes the expectation from "s
 
 - It demonstrates interface architecture, not just visual taste.
 - It shows how content can live inside a system instead of beside it.
-- It gives recruiters more than screenshots. They can feel the product thinking directly.
+- It gives recruiters more than screenshots. They can try the window manager and file explorer.
 `;
 
 const frontendNotesMarkdown = `# Frontend Notes
@@ -142,9 +142,9 @@ It’s designed as a technical sample: you can click around, open apps, inspect 
 
 ## Constraints and tradeoffs
 
-- **Browser-only** (GitHub Pages friendly): no server runtime, everything is client-side.
+- **Hosting**: the shell runs client-side on GitHub Pages. Optional proxy modes depend on external services.
 - **Embedded browser** uses iframes: some sites block embedding via CSP/X-Frame-Options; fallback UI is shown instead.
-- **Performance**: heavy apps/workers are lazy-loaded to keep first paint fast.
+- **Loading**: app modules and heavy workers use dynamic imports; the desktop shell is separate from the portfolio route.
 
 ## How to evaluate it quickly (30 seconds)
 
@@ -155,7 +155,7 @@ It’s designed as a technical sample: you can click around, open apps, inspect 
 
 const appsCatalogMarkdown = `# Apps catalog
 
-This OS is a portfolio, so each app is included to demonstrate a specific UI/system skill.
+The portfolio combines custom interface code with third-party libraries and embedded games. These integrations are not claims that their underlying engines were built from scratch.
 
 ## Portfolio
 

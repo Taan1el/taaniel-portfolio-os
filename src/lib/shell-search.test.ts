@@ -58,10 +58,10 @@ describe("shell search", () => {
 
   it("ranks project summaries for semantic portfolio queries", () => {
     const index = buildShellSearchIndex(buildSeedFileSystem());
-    const sections = queryShellSearch(index, "0 offer fintech email campaign");
+    const sections = queryShellSearch(index, "coffee catalogue shopping cart");
     const portfolioSection = sections.find((section) => section.id === "portfolio");
 
-    expect(portfolioSection?.results.some((result) => result.title.includes("Fintech Email Campaign"))).toBe(true);
+    expect(portfolioSection?.results.some((result) => result.title.includes("Slow Pour"))).toBe(true);
   });
 
   it("builds AI candidates from local search results", () => {

@@ -56,12 +56,12 @@ describe("terminal shell", () => {
   });
 
   it("opens project-specific views by name", () => {
-    const result = executeTerminalCommand("projects dineromon", createContext());
+    const result = executeTerminalCommand("projects slow-pour", createContext());
 
     expect(result.actions?.[0]).toMatchObject({
       type: "launch-app",
       appId: "projects",
-      payload: { projectId: "dineromon" },
+      payload: { projectId: "slow-pour" },
     });
   });
 });
