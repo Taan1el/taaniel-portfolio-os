@@ -471,8 +471,8 @@ export function Taskbar({
             <strong>{formatClock(now)}</strong>
             <small>{formatDateLabel(now)}</small>
           </button>
-          <button className="taskbar__desktop" type="button" onClick={onShowDesktop}>
-            <MonitorDown size={14} />
+          <button className="taskbar__desktop" type="button" aria-label="Show desktop" data-tooltip="Show desktop" onClick={onShowDesktop}>
+            <MonitorDown size={14} aria-hidden="true" />
           </button>
         </div>
       </footer>
