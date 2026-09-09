@@ -13,4 +13,7 @@ if (!fs.existsSync(indexHtml)) {
 }
 
 fs.copyFileSync(indexHtml, dest);
+// A directory entry avoids a 404 response when opening the portfolio directly.
+fs.mkdirSync(path.join(dist, "portfolio"), { recursive: true });
+fs.copyFileSync(indexHtml, path.join(dist, "portfolio", "index.html"));
 console.log("copy-404: wrote dist/404.html for GitHub Pages SPA routing.");
