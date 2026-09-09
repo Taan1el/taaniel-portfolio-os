@@ -13,3 +13,6 @@ vite-*.log
 vite.config.ts.timestamp*
 .claude/
 .claude-flow/
+.omx/
+.playwright-cli/
+output/
