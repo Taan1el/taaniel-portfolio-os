@@ -15,7 +15,7 @@ export function ToastContainer() {
   const removeToast = useToastStore((state) => state.removeToast);
 
   return createPortal(
-    <div className="toast-container" aria-live="polite" aria-label="Notifications">
+    <div className="toast-container" role="region" aria-live="polite" aria-label="Notifications">
       <AnimatePresence>
         {toasts.map((t) => {
           const Icon = ICONS[t.type];

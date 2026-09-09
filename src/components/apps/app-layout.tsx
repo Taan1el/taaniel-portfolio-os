@@ -7,7 +7,7 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 
-interface AppContentProps extends ComponentPropsWithoutRef<"main"> {
+interface AppContentProps extends ComponentPropsWithoutRef<"div"> {
   padded?: boolean;
   scrollable?: boolean;
   stacked?: boolean;
@@ -58,12 +58,12 @@ export const AppSidebar = forwardRef<HTMLElement, ComponentPropsWithoutRef<"asid
   }
 );
 
-export const AppContent = forwardRef<HTMLElement, AppContentProps>(function AppContent(
+export const AppContent = forwardRef<HTMLDivElement, AppContentProps>(function AppContent(
   { className, padded = false, scrollable = true, stacked = true, ...props },
   ref
 ) {
   return (
-    <main
+    <div
       ref={ref}
       className={cn(
         "app-content",
