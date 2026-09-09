@@ -6,7 +6,8 @@ This portfolio OS is designed to load quickly on static hosting (GitHub Pages).
 
 - **Lazy-load apps**: most apps are loaded via dynamic import from the app registry (`src/lib/app-registry.tsx`).
 - **On-demand workers**: the semantic search worker is only created when search query length is >= 3 (`src/hooks/use-shell-ai-search.ts`).
-- **Avoid server dependencies**: all features run client-side.
+- **Separate entry points**: the desktop shell is dynamically imported, so opening `/portfolio` does not load the desktop or heavy app workers.
+- **Static shell hosting**: the app runs client-side. Optional proxy modes and model downloads still depend on external services.
 
 ## Practical budget (targets)
 
@@ -18,4 +19,3 @@ This portfolio OS is designed to load quickly on static hosting (GitHub Pages).
 - Keep large optional apps hidden/collapsed in UX so recruiters hit the high-signal path first.
 - Prefer moving rarely-used features behind explicit actions (open app, enable toggle) so they stay cold by default.
 - If needed, split vendor chunks further in `vite.config.ts` using `manualChunks`.
-
