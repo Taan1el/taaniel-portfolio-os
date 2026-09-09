@@ -1,7 +1,4 @@
 import { useState } from "react";
-import { resolvePublicAssetUrl } from "@/lib/assets";
-
-const PLACEHOLDER = resolvePublicAssetUrl("assets/project-image-placeholder.svg");
 
 interface SafeImageProps {
   src: string;
@@ -10,15 +7,23 @@ interface SafeImageProps {
   loading?: "lazy" | "eager";
 }
 
-export function SafeImage({ src, alt, className, loading = "lazy" }: SafeImageProps) {
-  const [current, setCurrent] = useState(src);
+export function SafeImage(props: SafeImageProps) {
+  return <ImageState key={props.src} {...props} />;
+}
+
+function ImageState({ src, alt, className, loading = "lazy" }: SafeImageProps) {
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return <span className="safe-image-wrapper" role={alt ? "img" : undefined} aria-label={alt || undefined}>Image unavailable</span>;
+  }
 
   return (
     <span className="safe-image-wrapper" aria-hidden={!alt || undefined}>
       {!loaded && <span className="safe-image-skeleton" aria-hidden="true" />}
       <img
-        src={current}
+        src={src}
         alt={alt}
         className={className}
         loading={loading}
@@ -26,10 +31,7 @@ export function SafeImage({ src, alt, className, loading = "lazy" }: SafeImagePr
         style={loaded ? undefined : { opacity: 0, position: "absolute" }}
         onLoad={() => setLoaded(true)}
         onError={() => {
-          if (current !== PLACEHOLDER) {
-            setCurrent(PLACEHOLDER);
-          }
-          setLoaded(true);
+          setFailed(true);
         }}
       />
     </span>
