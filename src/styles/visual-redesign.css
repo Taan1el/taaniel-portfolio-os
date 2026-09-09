@@ -377,6 +377,26 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.mini-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.project-showcase .mini-facts {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.project-showcase .mini-facts div {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.project-showcase__image img {
+  object-fit: contain;
+}
+
 .contact-link-card {
   border-radius: 10px;
   padding: 0.85rem 1rem;
@@ -425,18 +445,110 @@
     width: auto;
     max-width: none;
     display: grid;
-    grid-template-columns: auto minmax(120px, 200px) minmax(0, 1fr) auto;
-    height: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 44px 44px;
+    height: 100px;
+    padding: 4px 8px;
     border-radius: 0.72rem;
   }
 
   /* Keep the icon grid clear of the mobile recruiter banner pinned at the top */
   .desktop-surface {
-    inset: 4.5rem 0 84px;
+    inset: 4.5rem 0 112px;
   }
 
   .window-manager {
-    inset: 0 0 84px;
+    inset: 0 0 108px;
+  }
+
+  .taskbar__start {
+    height: 44px;
+    justify-content: center;
+    letter-spacing: 0;
+  }
+
+  .taskbar__search-field {
+    height: 44px;
+    width: min(170px, 44vw);
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+  }
+
+  .taskbar__windows {
+    order: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .taskbar__window-strip {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+  }
+
+  .taskbar__item {
+    flex: 0 0 auto;
+    height: 44px;
+    min-width: 44px;
+    max-width: 120px;
+    justify-content: center;
+  }
+
+  .taskbar__tray {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .taskbar__clock {
+    flex: 0 0 auto;
+    height: 44px;
+    white-space: nowrap;
+  }
+
+  .taskbar__desktop {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .hero-panel h1, .section-headline h1 {
+    font-size: 1.5rem;
+    line-height: 1.25;
+  }
+
+  .window-frame__header {
+    min-height: 52px;
+  }
+
+  .window-frame__actions button {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+  }
+
+  .window-frame__actions button.is-close,
+  .window-frame__actions button.is-minimize,
+  .window-frame__actions button.is-maximize {
+    background: transparent;
+  }
+
+  .window-frame__actions button::before {
+    display: none;
+  }
+
+  .window-frame__actions button svg {
+    width: 18px;
+    height: 18px;
+    opacity: 1;
+    color: var(--text);
+  }
+
+  .start-menu, .search-panel, .calendar-panel {
+    bottom: 120px;
   }
 
   .os-mobile-banner {

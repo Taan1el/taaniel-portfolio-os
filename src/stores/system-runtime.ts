@@ -82,7 +82,8 @@ export function getDesktopHeight() {
     return 720 - TASKBAR_HEIGHT - 18;
   }
 
-  return Math.max(480, window.innerHeight - TASKBAR_HEIGHT - 18);
+  const reservedSpace = isCompactViewport() ? 132 : TASKBAR_HEIGHT + 18;
+  return Math.max(1, window.innerHeight - reservedSpace);
 }
 
 export function isCompactViewport() {
@@ -117,8 +118,9 @@ export function clampWindowBoundsToViewport(windowState: Pick<WindowBounds, "x" 
   }
 
   const desktopHeight = getDesktopHeight();
-  const width = clamp(windowState.width, 360, Math.max(360, window.innerWidth - 24));
-  const height = clamp(windowState.height, 280, Math.max(280, desktopHeight));
+  const maxWidth = Math.max(1, window.innerWidth - 24);
+  const width = clamp(windowState.width, Math.min(360, maxWidth), maxWidth);
+  const height = clamp(windowState.height, Math.min(280, desktopHeight), desktopHeight);
 
   return {
     width,

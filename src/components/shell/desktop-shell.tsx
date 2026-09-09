@@ -582,7 +582,7 @@ export function DesktopShell() {
           Offline — some previews and embeds may fail to load.
         </div>
       ) : null}
-      {viewportMode === "mobile" ? (
+      {viewportMode === "mobile" && !windows.some((entry) => !entry.minimized) ? (
         <div className="os-mobile-banner" role="status" aria-live="polite">
           <span>Tip: use the quick recruiter view on mobile.</span>
           <button
