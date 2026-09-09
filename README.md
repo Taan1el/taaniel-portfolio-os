@@ -5,11 +5,7 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 <div align="center">
  <br />
  <a href="https://taan1el.github.io/taaniel-portfolio-os/">
-  <img src="https://i.imgur.com/nYcKAOo.png" width="720" alt="Taaniel OS screenshot" />
- </a>
- <br />
- <a href="https://taan1el.github.io/taaniel-portfolio-os/">
-  <img src="https://i.imgur.com/RldAtLw.png" width="720" alt="Taaniel OS screenshot (apps)" />
+  <img src="public/assets/projects/portfolio-os.png" width="720" alt="Portfolio OS desktop and application window" />
  </a>
  <br />
 </div>
@@ -17,7 +13,7 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 ## Links
 
 - **Live demo**: https://taan1el.github.io/taaniel-portfolio-os/
-- **Quick portfolio (`/portfolio`)**: https://taan1el.github.io/taaniel-portfolio-os/#/portfolio
+- **Quick portfolio (`/portfolio`)**: https://taan1el.github.io/taaniel-portfolio-os/portfolio/
 - **Repository**: https://github.com/Taan1el/taaniel-portfolio-os
 - **Download CV**: https://taan1el.github.io/taaniel-portfolio-os/assets/CV_Taaniel_Vananurm.pdf
 - **Contributing**: `CONTRIBUTING.md`
@@ -40,10 +36,10 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 
 ## Stack
 
-- React 18, TypeScript, Vite
+- React 19, TypeScript, Vite
 - Zustand (shell, window, filesystem, explorer, process, system)
 - Framer Motion, react-rnd, xterm.js, Monaco, pdf.js
-- `@huggingface/transformers` — runs the `all-MiniLM-L6-v2` embedding model entirely in-browser (via ONNX WASM) to rerank Start menu search results by semantic similarity, with no server round-trip
+- `@huggingface/transformers` runs the `all-MiniLM-L6-v2` embedding model in-browser via ONNX WASM to rerank Start menu search results. Model files must first be downloaded; inference runs locally.
 
 ## Development
 
@@ -75,6 +71,7 @@ Project site base path:
 
 ```bash
 npm run build:gh
+npm run preview -- --base=/taaniel-portfolio-os/
 npm run deploy:gh
 ```
 
@@ -96,8 +93,11 @@ The Browser app is intentionally an iframe-based web viewer, not a full browser 
 
 ## Notes
 
+- **Portfolio content**: junior-role positioning and completed education/internship dates are shared by the portfolio and desktop views. Slow Pour's static demo is separate from its Express/SQLite backend.
+- **CV source**: `docs/cv.html` is the editable Estonian CV; its A4 PDF is `public/assets/CV_Taaniel_Vananurm.pdf`.
+- **Confidentiality**: campaign assets are not distributed. Removing files from a new build does not remove older deployments or Git history.
+
 - **Embedded browser**: The Browser app uses capability detection before iframe loading. Known restricted hosts skip straight to fallback, while frame-friendly pages stay direct and no longer fall back after a successful load timeout cycle.
 - **Local browser paths**: Enter `/`, `/Documents`, `/Media`, or any other filesystem directory path in the Browser to get a lightweight directory index and open local previews inside the same window.
 - **Themes**: Defaults to **Cloud Archive**; change wallpaper and accent in **Settings**.
 - **Session data**: Desktop layout, windows, and the virtual filesystem persist in the browser (localStorage / IndexedDB). Use **Reset session** in the Start menu to clear.
-
