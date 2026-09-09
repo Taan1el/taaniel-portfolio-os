@@ -18,9 +18,9 @@ export function usePdfViewer(sourceList: string[]) {
   const [scale, setScale] = useState(1);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [canvas, canvasRef] = useState<HTMLCanvasElement | null>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
-  const documentRef = useRef<PDFDocumentProxy | null>(null);
+  const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const sourcesKey = sources.join("\0");
 
   useEffect(() => {
@@ -29,6 +29,8 @@ export function usePdfViewer(sourceList: string[]) {
   }, [sourcesKey]);
 
   useEffect(() => {
+    setDocumentProxy(null);
+    setPageCount(0);
     if (!activeSource) {
       setErrorMessage("No PDF URL available.");
       setLoading(false);
@@ -48,7 +50,7 @@ export function usePdfViewer(sourceList: string[]) {
           return;
         }
 
-        documentRef.current = documentProxy;
+        setDocumentProxy(documentProxy);
         setPageCount(documentProxy.numPages);
         setPageNumber((currentPage) => Math.min(Math.max(1, currentPage), documentProxy.numPages));
       })
@@ -75,15 +77,10 @@ export function usePdfViewer(sourceList: string[]) {
       cancelled = true;
       renderTaskRef.current?.cancel();
       void loadingTask.destroy();
-      void documentRef.current?.destroy();
-      documentRef.current = null;
     };
   }, [activeSource, sourcesKey, sources.length]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const documentProxy = documentRef.current;
-
     if (!canvas || !documentProxy || errorMessage) {
       return;
     }
@@ -129,7 +126,7 @@ export function usePdfViewer(sourceList: string[]) {
       disposed = true;
       renderTaskRef.current?.cancel();
     };
-  }, [errorMessage, pageNumber, scale]);
+  }, [canvas, documentProxy, errorMessage, pageNumber, scale]);
 
   return {
     canvasRef,
