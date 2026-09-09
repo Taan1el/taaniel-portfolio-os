@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Download, Printer, Search, SearchX } from "lucide-react";
+import { Download, Printer, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { AppContent, AppScaffold, AppToolbar, ScrollArea } from "@/components/apps/app-layout";
 import { getResumeDownloadUrls, resumePdfPath } from "@/data/portfolio";
 import { getNodeByPath } from "@/lib/filesystem";
@@ -57,7 +57,7 @@ export function PdfViewerApp({ window }: AppComponentProps) {
           <strong>{selectedFile?.kind === "file" ? selectedFile.name : "Resume PDF"}</strong>
           <small>
             PDF viewer{fileSize != null ? ` | ${formatBytes(fileSize)}` : ""}
-            {pageCount > 0 ? ` | ${pageCount} pages` : ""}
+            {pageCount > 0 ? ` | ${pageCount} ${pageCount === 1 ? "page" : "pages"}` : ""}
           </small>
         </div>
         <div className="app-toolbar__group">
@@ -72,25 +72,28 @@ export function PdfViewerApp({ window }: AppComponentProps) {
             type="button"
             className="icon-button"
             aria-label="Zoom out"
+            disabled={renderMode === "browser"}
             onClick={() => setScale((currentScale) => Math.max(0.6, currentScale - 0.15))}
           >
-            <SearchX size={15} />
+            <ZoomOut size={15} />
           </button>
-          <button type="button" className="icon-button" aria-label="Reset zoom" onClick={() => setScale(1)}>
-            <Search size={15} />
+          <button type="button" className="icon-button" aria-label="Reset zoom" disabled={renderMode === "browser"} onClick={() => setScale(1)}>
+            <Scan size={15} />
           </button>
           <button
             type="button"
             className="icon-button"
             aria-label="Zoom in"
+            disabled={renderMode === "browser"}
             onClick={() => setScale((currentScale) => Math.min(2.75, currentScale + 0.15))}
           >
-            <Search size={15} />
+            <ZoomIn size={15} />
           </button>
           <label className="pdf-viewer__page-input">
             <span>Page</span>
             <input
               type="number"
+              disabled={renderMode === "browser"}
               min={1}
               max={Math.max(1, pageCount)}
               value={pageNumber}
@@ -120,7 +123,7 @@ export function PdfViewerApp({ window }: AppComponentProps) {
             <span>
               Page {Math.min(pageNumber, Math.max(1, pageCount || 1))} / {Math.max(1, pageCount || 1)}
             </span>
-            <span>Zoom {Math.round(scale * 100)}%</span>
+            {renderMode === "canvas" ? <span>Zoom {Math.round(scale * 100)}%</span> : null}
           </div>
 
           {renderMode === "browser" ? (
