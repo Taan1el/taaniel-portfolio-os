@@ -1,11 +1,15 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { DesktopShell } from "@/components/shell/desktop-shell";
 import { AppErrorBoundary } from "@/components/system/app-error-boundary";
 
 const RecruiterView = lazy(async () => {
   const module = await import("@/components/recruiter/recruiter-view");
   return { default: module.RecruiterView };
+});
+
+const DesktopShell = lazy(async () => {
+  const module = await import("@/components/shell/desktop-shell");
+  return { default: module.DesktopShell };
 });
 
 const routerBasename =
@@ -39,7 +43,7 @@ export function App() {
               </Suspense>
             }
           />
-          <Route path="/*" element={<DesktopShell />} />
+          <Route path="/*" element={<Suspense fallback={<RecruiterRouteFallback />}><DesktopShell /></Suspense>} />
         </Routes>
       </AppErrorBoundary>
     </BrowserRouter>
