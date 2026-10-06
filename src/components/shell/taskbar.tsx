@@ -281,32 +281,25 @@ export function Taskbar({
                 return (
                   <motion.div
                     key={previewEntry.id}
-                    className="taskbar__preview"
+                    className="taskbar__preview w11-flyout w11-thumb"
                     style={{ left: previewEntry.left, bottom: previewEntry.bottom, width: TASKBAR_PREVIEW_WIDTH, "--app-accent": definition.accent } as CSSProperties}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 6 }}
                     transition={{ duration: 0.14 }}
                   >
-                    <div className="taskbar__preview-frame">
+                    <div className="w11-thumb__header">
+                      <Icon size={16} />
+                      <span>{previewEntry.title}</span>
+                    </div>
+                    <div className="w11-thumb__frame">
                       {previewImage ? (
-                        <img className="taskbar__preview-image" src={previewImage} alt={`${previewEntry.title} preview`} />
+                        <img src={previewImage} alt={`${previewEntry.title} preview`} />
                       ) : (
-                        <div className="taskbar__preview-fallback">
-                          <span className="taskbar__preview-fallback-icon"><Icon size={24} /></span>
-                          <small>
-                            {previewEntry.minimized
-                              ? "Preview unavailable while minimized"
-                              : "Using an app card because this window doesn't capture cleanly"}
-                          </small>
-                        </div>
+                        // Windows shows the app's icon when it has no live thumbnail.
+                        <Icon size={48} />
                       )}
                     </div>
-                    <strong>{previewEntry.preview.title}</strong>
-                    <small>{previewEntry.preview.subtitle}</small>
-                    <span className={`taskbar__preview-status is-${previewEntry.preview.status}`}>
-                      {previewEntry.preview.status}
-                    </span>
                   </motion.div>
                 );
               })()
@@ -327,7 +320,7 @@ export function Taskbar({
                 return (
                   <motion.div
                     key={jumpListMenu.appId}
-                    className="taskbar__jump-list"
+                    className="taskbar__jump-list w11-flyout w11-jump"
                     style={{ left: jumpListMenu.left, bottom: jumpListMenu.bottom, "--app-accent": def.accent } as CSSProperties}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
