@@ -244,7 +244,11 @@ export function DesktopShell() {
       return;
     }
 
-    await pasteNode(clipboard.path, directoryPath, clipboard.operation);
+    for (const path of clipboard.paths) {
+      // Sequential on purpose: each paste reads the store the previous one wrote.
+      // eslint-disable-next-line no-await-in-loop
+      await pasteNode(path, directoryPath, clipboard.operation);
+    }
 
     if (clipboard.operation === "cut") {
       clearClipboard();
@@ -467,8 +471,8 @@ export function DesktopShell() {
               id: "copy",
               label: "Copy",
               icon: Copy,
-              shortcut: "⌘C",
-              onSelect: () => setClipboard({ path: targetPath, operation: "copy" }),
+              shortcut: "Ctrl+C",
+              onSelect: () => setClipboard({ paths: [targetPath], operation: "copy" }),
             }
           : null,
         targetPath
@@ -476,9 +480,9 @@ export function DesktopShell() {
               id: "cut",
               label: "Cut",
               icon: Scissors,
-              shortcut: "⌘X",
+              shortcut: "Ctrl+X",
               disabled: !canCutNode(targetPath),
-              onSelect: () => setClipboard({ path: targetPath, operation: "cut" }),
+              onSelect: () => setClipboard({ paths: [targetPath], operation: "cut" }),
             }
           : null,
         targetNode?.kind === "file"

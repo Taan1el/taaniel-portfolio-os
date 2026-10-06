@@ -151,7 +151,8 @@ export interface ContextMenuState {
 }
 
 export interface ClipboardState {
-  path: string;
+  /** Every item that was selected when Copy/Cut ran, in selection order. */
+  paths: string[];
   operation: "copy" | "cut";
 }
 
