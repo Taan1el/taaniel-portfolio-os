@@ -381,10 +381,7 @@ img {
   width: clamp(50px, calc(var(--desktop-cell-width) * 0.72), 58px);
   height: clamp(50px, calc(var(--desktop-cell-width) * 0.72), 58px);
   place-items: center;
-  border-radius: 0.8rem;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04));
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22);
+  border-radius: 0;
 }
 
 .desktop-icon__label {
@@ -617,8 +614,7 @@ img {
   width: 2rem;
   height: 2rem;
   place-items: center;
-  border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--app-accent) 22%, rgba(255, 255, 255, 0.06));
+  border-radius: 0;
   color: color-mix(in srgb, var(--app-accent) 82%, white 18%);
 }
 
@@ -2934,8 +2930,7 @@ h3 {
   width: 2.5rem;
   height: 2.5rem;
   place-items: center;
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--app-accent) 16%, rgba(255, 255, 255, 0.06));
+  border-radius: 0;
   color: color-mix(in srgb, var(--app-accent) 80%, white 20%);
 }
 
@@ -4064,8 +4059,7 @@ h3 {
   width: 3.2rem;
   height: 3.2rem;
   place-items: center;
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--app-accent) 22%, rgba(255, 255, 255, 0.06));
+  border-radius: 0;
   color: color-mix(in srgb, var(--app-accent) 82%, white 18%);
 }
 
@@ -4568,8 +4562,7 @@ h3 {
   height: 2rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--app-accent, var(--theme-accent)) 22%, rgba(255, 255, 255, 0.06));
+  border-radius: 0;
 }
 
 .search-result__meta {

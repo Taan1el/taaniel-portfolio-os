@@ -55,26 +55,16 @@
 .desktop-icon__glyph {
   width:  clamp(54px, calc(var(--desktop-cell-width) * 0.75), var(--icon-size));
   height: clamp(54px, calc(var(--desktop-cell-width) * 0.75), var(--icon-size));
-  border-radius: var(--icon-radius);
-  background: linear-gradient(
-    145deg,
-    color-mix(in oklch, var(--app-accent) 80%, white 20%),
-    color-mix(in oklch, var(--app-accent) 60%, #0a0f1f 40%)
-  );
-  box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.4),
-    0 2px 0 rgba(255, 255, 255, 0.16) inset;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 180ms ease;
+  border-radius: 0;
+  display: grid;
+  place-items: center;
+  transition: transform 120ms ease;
 }
 
 /* Hover lift — like Puter icons */
 @media (hover: hover) and (pointer: fine) {
   .desktop-icon:hover .desktop-icon__glyph {
-    transform: translateY(-5px) scale(1.06);
-    box-shadow:
-      0 18px 40px rgba(0, 0, 0, 0.55),
-      0 2px 0 rgba(255, 255, 255, 0.2) inset;
+    transform: scale(1.04);
   }
 }
 
@@ -307,8 +297,7 @@
 .window-frame__title-icon {
   width: 20px;
   height: 20px;
-  border-radius: 6px;
-  background: color-mix(in oklch, var(--app-accent, #77c7ff) 22%, transparent);
+  border-radius: 0;
 }
 
 /* Centred title text */
