@@ -21,7 +21,8 @@ export const WINDOW_STORAGE_KEY = "taaniel-os-windows-v1";
 export const PROCESS_STORAGE_KEY = "taaniel-os-processes-v1";
 export const SHELL_STORAGE_KEY = "taaniel-os-shell-v1";
 
-const TASKBAR_HEIGHT = 72;
+/** Windows 11 taskbar: a flush 48px bar along the bottom edge. */
+const TASKBAR_HEIGHT = 48;
 
 export const initialIconPositions = desktopEntries.reduce<Record<string, DesktopGridPosition>>(
   (positions, entry) => {
@@ -79,10 +80,10 @@ function readLegacySystemState() {
 
 export function getDesktopHeight() {
   if (typeof window === "undefined") {
-    return 720 - TASKBAR_HEIGHT - 18;
+    return 720 - TASKBAR_HEIGHT;
   }
 
-  const reservedSpace = isCompactViewport() ? 132 : TASKBAR_HEIGHT + 18;
+  const reservedSpace = isCompactViewport() ? 132 : TASKBAR_HEIGHT;
   return Math.max(1, window.innerHeight - reservedSpace);
 }
 
@@ -96,13 +97,14 @@ export function getViewportMode(): ViewportMode {
 
 export function getMaximizedBounds() {
   if (typeof window === "undefined") {
-    return { x: 12, y: 12, width: 1200, height: getDesktopHeight() };
+    return { x: 0, y: 0, width: 1200, height: getDesktopHeight() };
   }
 
+  // Maximized windows fill the work area edge to edge, like Windows.
   return {
-    x: 12,
-    y: 12,
-    width: window.innerWidth - 24,
+    x: 0,
+    y: 0,
+    width: window.innerWidth,
     height: getDesktopHeight(),
   };
 }

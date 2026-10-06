@@ -119,8 +119,8 @@ export function StartMenu({
 
       if (
         menuRef.current?.contains(target) ||
-        target.closest(".taskbar__start") ||
-        target.closest(".taskbar__search-field")
+        target.closest(".w11-taskbar__start") ||
+        target.closest(".w11-taskbar__search")
       ) {
         return;
       }
