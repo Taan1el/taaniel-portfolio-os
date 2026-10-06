@@ -950,3 +950,8 @@
   margin: 4px 0;
   background: var(--w11-divider);
 }
+
+/* Start carries the portfolio's own TV monogram, in the accent colour. */
+.w11-taskbar__start svg {
+  color: var(--w11-start-logo);
+}
