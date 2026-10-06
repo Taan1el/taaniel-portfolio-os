@@ -10,6 +10,8 @@ import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace } from "@/lib/system-workspace";
 import {
   createShellSession,
+  highlightShellInput,
+  predictFromHistory,
   runShellCommand,
   sanitizeForTerminal,
   stripAnsi,
@@ -196,5 +198,21 @@ describe("terminal hardening", () => {
     const looped = await run(".\\loop.ps1");
     expect(looped.success).toBe(false);
     expect(looped.text).toContain("call depth overflow");
+  });
+});
+
+describe("PSReadLine-style input", () => {
+  it("only adds colour, never changes the visible text", () => {
+    const line = "Get-ChildItem -Path 'C:\\Users' | sls \"md\" > out.txt; $x = 5 # note";
+    expect(stripAnsi(highlightShellInput(line))).toBe(line);
+    expect(highlightShellInput("ls -Force")).toBe("\x1b[93mls\x1b[0m \x1b[90m-Force\x1b[0m");
+  });
+
+  it("predicts from the newest matching history entry", () => {
+    const history = ["ls /Media", "git status", "ls /Documents"];
+    expect(predictFromHistory("ls /", history)).toBe("Documents");
+    expect(predictFromHistory("git", history)).toBe(" status");
+    expect(predictFromHistory("", history)).toBe("");
+    expect(predictFromHistory("ls /Documents", history)).toBe("");
   });
 });
