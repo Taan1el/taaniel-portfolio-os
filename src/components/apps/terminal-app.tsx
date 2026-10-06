@@ -9,7 +9,9 @@ import {
   completeShellInput,
   createShellSession,
   formatPrompt,
+  highlightShellInput,
   POWERSHELL_VERSION,
+  predictFromHistory,
   runShellCommand,
   TERMINAL_HOME_PATH,
   type ShellFileSystem,
@@ -131,15 +133,20 @@ export function TerminalApp({ window }: AppComponentProps) {
 
     const prompt = () => formatPrompt(session.cwd);
 
-    /** Repaint prompt + input in place. Wrap-safe: climbs to the input's first row before redrawing. */
-    const render = () => {
+    /**
+     * Repaint prompt + input in place, coloured like PSReadLine, with the
+     * grey history prediction after the cursor. Wrap-safe: climbs to the
+     * input's first row before redrawing.
+     */
+    const render = (showPrediction = true) => {
       const cols = terminal.cols;
       const promptWidth = prompt().length;
+      const prediction = showPrediction && cursor === line.length ? predictFromHistory(line, session.history) : "";
       const rowsUp = Math.floor((promptWidth + drawnCursor) / cols);
       let sequence = rowsUp > 0 ? `\x1b[${rowsUp}A` : "";
-      sequence += `\r\x1b[J${prompt()}${line}`;
+      sequence += `\r\x1b[J${prompt()}${highlightShellInput(line)}${prediction ? `\x1b[90m${prediction}\x1b[0m` : ""}`;
 
-      const end = promptWidth + line.length;
+      const end = promptWidth + line.length + prediction.length;
       // Writing exactly to the last column leaves xterm in a pending-wrap state; step onto the next row.
       if (end > 0 && end % cols === 0) sequence += " \b";
 
@@ -177,8 +184,18 @@ export function TerminalApp({ window }: AppComponentProps) {
 
     const finishLine = () => {
       cursor = line.length;
-      render();
+      render(false);
       terminal.write("\r\n");
+    };
+
+    /** Right arrow or End at the end of the line takes the grey prediction, as in PSReadLine. */
+    const acceptPrediction = () => {
+      const prediction = cursor === line.length ? predictFromHistory(line, session.history) : "";
+      if (!prediction) return false;
+      line += prediction;
+      cursor = line.length;
+      render();
+      return true;
     };
 
     const execute = async () => {
@@ -285,6 +302,7 @@ export function TerminalApp({ window }: AppComponentProps) {
           render();
           return;
         case "\x1b[C":
+          if (acceptPrediction()) return;
           cursor = Math.min(line.length, cursor + 1);
           render();
           return;
@@ -301,6 +319,7 @@ export function TerminalApp({ window }: AppComponentProps) {
         case "\x1b[F":
         case "\x1bOF":
         case "\x1b[4~":
+          if (acceptPrediction()) return;
           cursor = line.length;
           render();
           return;

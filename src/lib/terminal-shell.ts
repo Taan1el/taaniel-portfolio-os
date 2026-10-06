@@ -2533,3 +2533,91 @@ export function completeShellInput(line: string, cursor: number, session: ShellS
 
   return { line, cursor, candidates: matches.map((match) => match.display) };
 }
+
+// ------------------------------------------------------------- highlighting
+
+/** PSReadLine's default token colours. */
+const SYNTAX = {
+  command: `${CSI}93m`,
+  parameter: `${CSI}90m`,
+  string: `${CSI}36m`,
+  variable: `${CSI}92m`,
+  number: `${CSI}97m`,
+  operator: `${CSI}90m`,
+  comment: `${CSI}32m`,
+};
+
+/**
+ * Colour the line being typed the way PSReadLine does. Only escape codes are
+ * added, so the visible text - and therefore cursor maths - is unchanged.
+ */
+export function highlightShellInput(line: string) {
+  let out = "";
+  let index = 0;
+  let expectCommand = true;
+
+  while (index < line.length) {
+    const char = line[index];
+
+    if (/\s/.test(char)) {
+      out += char;
+      index += 1;
+      continue;
+    }
+
+    if (char === "#") {
+      out += `${SYNTAX.comment}${line.slice(index)}${RESET}`;
+      break;
+    }
+
+    if (char === "'" || char === '"') {
+      let end = index + 1;
+      while (end < line.length && line[end] !== char) end += 1;
+      end = Math.min(line.length, end + 1);
+      out += `${SYNTAX.string}${line.slice(index, end)}${RESET}`;
+      index = end;
+      expectCommand = false;
+      continue;
+    }
+
+    if (char === "|" || char === ";") {
+      out += `${SYNTAX.operator}${char}${RESET}`;
+      index += 1;
+      expectCommand = true;
+      continue;
+    }
+
+    if (char === ">") {
+      const end = line[index + 1] === ">" ? index + 2 : index + 1;
+      out += `${SYNTAX.operator}${line.slice(index, end)}${RESET}`;
+      index = end;
+      continue;
+    }
+
+    let end = index;
+    while (end < line.length && !/[\s|;>'"]/.test(line[end])) end += 1;
+    const word = line.slice(index, end);
+    let colour = "";
+    if (word.startsWith("$")) colour = SYNTAX.variable;
+    else if (/^-?\d+(\.\d+)?([kmgt]b)?$/i.test(word)) colour = SYNTAX.number;
+    else if (expectCommand) colour = SYNTAX.command;
+    else if (/^-[A-Za-z]/.test(word)) colour = SYNTAX.parameter;
+    else if (/^[=+*/%-]+$/.test(word)) colour = SYNTAX.operator;
+
+    out += colour ? `${colour}${word}${RESET}` : word;
+    expectCommand = false;
+    index = end;
+  }
+
+  return out;
+}
+
+/** The newest history entry that extends what has been typed, as PSReadLine's inline prediction shows it. */
+export function predictFromHistory(line: string, history: string[]) {
+  if (!line.trim()) return "";
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const entry = history[index];
+    if (entry.length > line.length && entry.startsWith(line)) return entry.slice(line.length);
+  }
+  return "";
+}
