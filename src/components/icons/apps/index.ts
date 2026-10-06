@@ -16,6 +16,7 @@ export { NotesIcon } from "./notes";
 export { PaintIcon } from "./paint";
 export { PdfIcon } from "./pdf";
 export { PhotosIcon } from "./photos";
+export { PortfolioIcon } from "./portfolio";
 export { ProjectsIcon } from "./projects";
 export { RecycleBinEmptyIcon, RecycleBinFullIcon } from "./recycle-bin";
 export { ResumeIcon } from "./resume";
