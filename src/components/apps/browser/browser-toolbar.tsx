@@ -1,110 +1,139 @@
-import { ArrowLeft, ArrowRight, ExternalLink, Globe2, LoaderCircle, RefreshCcw } from "lucide-react";
-import { AppToolbar, Button, IconButton, SearchInput } from "@/components/apps/app-layout";
-import {
-  proxyModeLabels,
-  proxyModes,
-  type ProxyMode,
-} from "@/lib/browser/proxy";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { ArrowLeft, ArrowRight, FileText, Home, Lock, MoreHorizontal, RotateCw, Search, Star, TriangleAlert } from "lucide-react";
+import { NEW_TAB_URL } from "@/lib/browser/urlUtils";
 import type { BrowserLoadState } from "@/lib/browser/types";
+import { cn } from "@/lib/utils";
+
+export type SiteSecurity = "secure" | "insecure" | "local" | "internal";
 
 interface BrowserToolbarProps {
   address: string;
-  displayedUrl: string;
-  proxyMode: ProxyMode;
+  security: SiteSecurity;
   loadState: BrowserLoadState;
-  securityIndicatorTitle: string;
   canGoBack: boolean;
   canGoForward: boolean;
-  canOpenExternally: boolean;
+  isFavorite: boolean;
+  canFavorite: boolean;
+  /** Bumped by Ctrl+L to focus and select the address. */
+  focusAddressNonce: number;
   onAddressChange: (value: string) => void;
+  onSubmit: () => void;
+  onRevert: () => void;
   onBack: () => void;
   onForward: () => void;
   onReload: () => void;
-  onSubmit: () => void;
-  onProxyModeChange: (mode: ProxyMode) => void;
-  onOpenInNewTab: () => void;
+  onHome: () => void;
+  onToggleFavorite: () => void;
+  onMenu: (event: MouseEvent<HTMLButtonElement>) => void;
 }
+
+const SECURITY = {
+  secure: { icon: Lock, label: "Connection is secure" },
+  insecure: { icon: TriangleAlert, label: "Not secure" },
+  local: { icon: FileText, label: "File on this PC" },
+  internal: { icon: Search, label: "Browser page" },
+} as const;
 
 export function BrowserToolbar({
   address,
-  displayedUrl,
-  proxyMode,
+  security,
   loadState,
-  securityIndicatorTitle,
   canGoBack,
   canGoForward,
-  canOpenExternally,
+  isFavorite,
+  canFavorite,
+  focusAddressNonce,
   onAddressChange,
+  onSubmit,
+  onRevert,
   onBack,
   onForward,
   onReload,
-  onSubmit,
-  onProxyModeChange,
-  onOpenInNewTab,
+  onHome,
+  onToggleFavorite,
+  onMenu,
 }: BrowserToolbarProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [editing, setEditing] = useState(false);
+  const SecurityIcon = SECURITY[security].icon;
+  // The new tab page shows an empty address bar, as real browsers do.
+  const shown = address === NEW_TAB_URL ? "" : address;
+
+  useEffect(() => {
+    if (focusAddressNonce === 0) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [focusAddressNonce]);
+
   return (
-    <AppToolbar className="browser-app__toolbar">
-      <div className="app-toolbar__group">
-        <IconButton type="button" disabled={!canGoBack} onClick={onBack} aria-label="Back">
-          <ArrowLeft size={15} />
-        </IconButton>
-        <IconButton type="button" disabled={!canGoForward} onClick={onForward} aria-label="Forward">
-          <ArrowRight size={15} />
-        </IconButton>
-        <IconButton type="button" onClick={onReload} aria-label="Reload">
-          <RefreshCcw size={15} />
-        </IconButton>
-      </div>
+    <div className="w11-browser__toolbar">
+      <button type="button" className="w11-browser__tool" onClick={onBack} disabled={!canGoBack} aria-label="Back (Alt+Left)" title="Back (Alt+Left)">
+        <ArrowLeft size={16} />
+      </button>
+      <button type="button" className="w11-browser__tool" onClick={onForward} disabled={!canGoForward} aria-label="Forward (Alt+Right)" title="Forward (Alt+Right)">
+        <ArrowRight size={16} />
+      </button>
+      <button type="button" className="w11-browser__tool" onClick={onReload} aria-label="Refresh (F5)" title="Refresh (F5)">
+        <RotateCw size={15} className={cn(loadState === "loading" && "is-spinning")} />
+      </button>
+      <button type="button" className="w11-browser__tool" onClick={onHome} aria-label="Home (Alt+Home)" title="Home (Alt+Home)">
+        <Home size={16} />
+      </button>
 
       <form
-        className="browser-app__address-form"
+        className={cn("w11-browser__address", editing && "is-editing")}
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit();
+          inputRef.current?.blur();
         }}
       >
-        <SearchInput
-          containerClassName="browser-app__address"
-          placeholder="Enter a URL, search, or /local/path"
-          title={displayedUrl}
-          type="text"
+        <span
+          className={cn("w11-browser__security", `is-${security}`)}
+          title={SECURITY[security].label}
+          aria-label={SECURITY[security].label}
+          role="img"
+        >
+          <SecurityIcon size={14} />
+          {security === "insecure" ? <span>Not secure</span> : null}
+        </span>
+        <input
+          ref={inputRef}
+          value={shown}
+          placeholder="Search or enter web address"
+          aria-label="Address and search bar"
           spellCheck={false}
-          autoCapitalize="none"
-          autoCorrect="off"
-          value={address}
+          autoComplete="off"
           onChange={(event) => onAddressChange(event.target.value)}
-          icon={<Globe2 size={14} />}
+          onFocus={(event) => {
+            setEditing(true);
+            event.currentTarget.select();
+          }}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onRevert();
+              event.currentTarget.blur();
+            }
+          }}
         />
+        <button
+          type="button"
+          className={cn("w11-browser__star", isFavorite && "is-favorite")}
+          onClick={onToggleFavorite}
+          disabled={!canFavorite}
+          aria-pressed={isFavorite}
+          aria-label={isFavorite ? "Remove from favorites (Ctrl+D)" : "Add this page to favorites (Ctrl+D)"}
+          title={isFavorite ? "Remove from favorites (Ctrl+D)" : "Add this page to favorites (Ctrl+D)"}
+        >
+          <Star size={15} />
+        </button>
       </form>
 
-      <div className="browser-app__mode-cluster">
-        <label className="browser-app__proxy-select-shell" title={securityIndicatorTitle}>
-          <select
-            className="browser-app__proxy-select"
-            aria-label="Proxy mode"
-            value={proxyMode}
-            onChange={(event) => onProxyModeChange(event.target.value as ProxyMode)}
-          >
-            {proxyModes.map((mode) => (
-              <option key={mode} value={mode}>
-                {proxyModeLabels[mode]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {loadState === "loading" ? (
-          <span className="browser-app__loading-chip" aria-live="polite">
-            <LoaderCircle size={13} />
-            <span>Loading</span>
-          </span>
-        ) : null}
-      </div>
-
-      <Button type="button" variant="panel" onClick={onOpenInNewTab} disabled={!canOpenExternally}>
-        <ExternalLink size={15} />
-        Open in new tab
-      </Button>
-    </AppToolbar>
+      <button type="button" className="w11-browser__tool" onClick={onMenu} aria-label="Settings and more" title="Settings and more" aria-haspopup="menu">
+        <MoreHorizontal size={16} />
+      </button>
+    </div>
   );
 }
