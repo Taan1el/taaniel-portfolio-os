@@ -1,5 +1,22 @@
 import type { ComponentType } from "react";
-import type { LucideIcon } from "lucide-react";
+
+/**
+ * The contract every icon in the shell satisfies.
+ *
+ * Deliberately narrower than lucide-reacts LucideIcon: these three props are
+ * the only ones any of the 15 render sites actually pass. Keeping it narrow
+ * means a bespoke full-colour SVG component is a drop-in replacement for a
+ * lucide glyph, while LucideIcon itself stays assignable to it - so the two
+ * can coexist while the icon set is migrated app by app.
+ *
+ * strokeWidth is accepted and ignored by full-colour icons; it only has
+ * meaning for single-stroke glyphs.
+ */
+export type AppIcon = ComponentType<{
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
+}>;
 
 export type AppId =
   | "about"
@@ -118,7 +135,7 @@ export interface DesktopEntry {
 export interface ContextMenuAction {
   id: string;
   label: string;
-  icon?: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  icon?: AppIcon;
   shortcut?: string;
   danger?: boolean;
   disabled?: boolean;
@@ -149,7 +166,7 @@ export interface AppModule {
 export interface AppDefinition {
   id: AppId;
   title: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   load: () => Promise<AppModule>;
   defaultSize: {
     width: number;
@@ -183,7 +200,7 @@ export type StartMenuAction =
 export interface StartMenuShortcut {
   id: string;
   label: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   description?: string;
   action: StartMenuAction;
   danger?: boolean;
@@ -193,7 +210,7 @@ export interface StartMenuCategoryDescriptor {
   category: AppCategory;
   label: string;
   description: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   defaultExpanded: boolean;
 }
 
