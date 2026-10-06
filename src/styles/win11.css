@@ -559,3 +559,15 @@
 .window-frame:not(.is-active) .w11-caption__button:not(:hover) {
   color: var(--w11-text-2);
 }
+
+/* ------------------------------------------------------------------ desktop */
+
+/*
+ * The desktop root must never scroll. `overflow: hidden` only hides the
+ * scrollbar - focus() and scrollIntoView() can still shift it, which slides
+ * every window sideways (seen after a viewport resize left scrollLeft at 24px).
+ * `clip` makes it unscrollable, programmatically too.
+ */
+.os-root {
+  overflow: clip;
+}
