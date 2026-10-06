@@ -60,6 +60,8 @@ export function toFileNode(node: VirtualNode): FileNode {
       type: "folder",
       createdAt: node.createdAt,
       updatedAt: node.updatedAt,
+      originalPath: node.originalPath,
+      deletedAt: node.deletedAt,
     };
   }
 
@@ -75,6 +77,8 @@ export function toFileNode(node: VirtualNode): FileNode {
     source: node.source,
     size: node.size,
     readonly: node.readonly,
+    originalPath: node.originalPath,
+    deletedAt: node.deletedAt,
   };
 }
 
@@ -552,6 +556,50 @@ export function renameRecord(nodes: FileSystemRecord, path: string, nextName: st
     nodes: renameNodeRecord(nodes, normalizedPath, uniqueName),
     path: nextPath,
   };
+}
+
+/**
+ * Move a top-level Recycle Bin item back to where it was deleted from,
+ * recreating missing parent folders the way Windows does. Returns the
+ * restored path, or null when the item cannot be restored.
+ */
+export function restoreFromTrashRecord(nodes: FileSystemRecord, trashedPath: string, trashRoot: string) {
+  const source = normalizePath(trashedPath);
+  const node = nodes[source];
+
+  if (!node || getParentPath(source) !== normalizePath(trashRoot)) {
+    return { nodes, path: null };
+  }
+
+  const original = normalizePath(node.originalPath ?? `/Desktop/${node.name}`);
+  const targetDirectory = getParentPath(original);
+  let next = nodes;
+  let current = "";
+
+  for (const segment of targetDirectory.split("/").filter(Boolean)) {
+    current = `${current}/${segment}`;
+    const existing = next[current];
+    if (!existing) next = mkdirRecord(next, current).nodes;
+    else if (existing.kind !== "directory") return { nodes, path: null };
+  }
+
+  const finalName = ensureUniqueName(next, targetDirectory, getPathName(original), node.kind === "directory");
+  const finalPath = joinPath(targetDirectory, finalName);
+  const now = Date.now();
+  const moved: FileSystemRecord = {};
+
+  listDescendants(next, source).forEach((entry) => {
+    const nextPath = entry.path === source ? finalPath : entry.path.replace(`${source}/`, `${finalPath}/`);
+    const { originalPath: _originalPath, deletedAt: _deletedAt, ...rest } = entry;
+    moved[nextPath] = {
+      ...rest,
+      path: nextPath,
+      name: nextPath === finalPath ? finalName : rest.name,
+      updatedAt: now,
+    } as VirtualNode;
+  });
+
+  return { nodes: { ...deleteNodeRecord(next, source), ...moved }, path: finalPath };
 }
 
 export function deleteNodeRecord(nodes: FileSystemRecord, path: string) {
