@@ -1011,3 +1011,433 @@
   margin: 4px -4px;
   background: var(--w11-divider);
 }
+
+/* ------------------------------------------------------------ File Explorer */
+
+.w11-explorer {
+  --w11-explorer-chrome: #202020;
+  --w11-explorer-content: #191919;
+  --w11-explorer-line: rgba(255, 255, 255, 0.06);
+  --w11-explorer-field: rgba(255, 255, 255, 0.045);
+  --w11-explorer-selected: rgba(255, 255, 255, 0.1);
+  --w11-explorer-disabled: rgba(255, 255, 255, 0.36);
+
+  background: var(--w11-explorer-content);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+  font-size: 13px;
+}
+
+.w11-explorer__chrome {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid var(--w11-explorer-line);
+  background: var(--w11-explorer-chrome);
+}
+
+.w11-explorer__address-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.w11-explorer__nav {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.w11-explorer__nav-button,
+.w11-explorer__command,
+.w11-explorer__status-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.w11-explorer__nav-button:hover:not(:disabled),
+.w11-explorer__command:hover:not(:disabled),
+.w11-explorer__status-view:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-explorer__nav-button:disabled,
+.w11-explorer__command:disabled {
+  color: var(--w11-explorer-disabled);
+}
+
+.w11-explorer__address,
+.w11-explorer__search {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 32px;
+  border: 1px solid var(--w11-explorer-line);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-explorer-field);
+}
+
+.w11-explorer__address {
+  flex: 1;
+  padding: 0 4px 0 10px;
+}
+
+.w11-explorer__address.is-editing,
+.w11-explorer__search:focus-within {
+  border-bottom: 2px solid var(--w11-accent);
+  background: #1c1c1c;
+}
+
+.w11-explorer__address-input,
+.w11-explorer__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  outline: none;
+}
+
+.w11-explorer__address-icon {
+  display: grid;
+  flex: none;
+}
+
+.w11-explorer__crumbs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+}
+
+.w11-explorer__crumb-group {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.w11-explorer__crumb-separator {
+  margin: 0 2px;
+  color: var(--w11-text-2);
+}
+
+.w11-explorer__crumb {
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.w11-explorer__crumb:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-explorer__address-fill {
+  flex: 1;
+  align-self: stretch;
+  min-width: 24px;
+  border: 0;
+  background: transparent;
+  cursor: text;
+}
+
+.w11-explorer__search {
+  flex: 0 1 260px;
+  gap: 8px;
+  min-width: 120px;
+  padding: 0 10px;
+  color: var(--w11-text-2);
+}
+
+.w11-explorer__search input::placeholder {
+  color: var(--w11-text-2);
+}
+
+.w11-explorer__commandbar {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.w11-explorer__command-slot {
+  display: inline-flex;
+  align-items: center;
+}
+
+.w11-explorer__command-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 6px;
+  background: var(--w11-explorer-line);
+}
+
+.w11-explorer__command.has-label {
+  padding: 0 10px;
+}
+
+.w11-explorer :is(button, input):focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: -2px;
+}
+
+/* Navigation pane */
+.w11-explorer .explorer-window__layout,
+.w11-explorer .explorer-window__content {
+  background: var(--w11-explorer-content);
+}
+
+.w11-explorer .explorer-window__sidebar {
+  width: 200px;
+  padding: 6px;
+  border-right: 1px solid var(--w11-explorer-line);
+  background: var(--w11-explorer-chrome);
+}
+
+.w11-explorer .explorer-window__sidebar-heading {
+  display: none;
+}
+
+.w11-explorer .explorer-window__sidebar-item {
+  position: relative;
+  justify-content: flex-start;
+  gap: 10px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  box-shadow: none;
+  color: var(--w11-text);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.w11-explorer .explorer-window__sidebar-item:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-explorer .explorer-window__sidebar-item.is-active {
+  background: var(--w11-explorer-selected);
+}
+
+/* The accent pill Windows draws beside the selected navigation item. */
+.w11-explorer .explorer-window__sidebar-item.is-active::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--w11-accent);
+  content: "";
+  transform: translateY(-50%);
+}
+
+/* Large icons */
+.w11-explorer .explorer-grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  box-shadow: none;
+  color: var(--w11-text);
+}
+
+.w11-explorer .explorer-grid-item__thumb {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.w11-explorer .explorer-grid-item__thumb img {
+  max-width: 64px;
+  max-height: 64px;
+  border-radius: 2px;
+  object-fit: contain;
+}
+
+.w11-explorer .explorer-grid-item__label {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.w11-explorer :is(.explorer-grid-item, .w11-details__row):hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-explorer :is(.explorer-grid-item, .w11-details__row).is-selected {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--w11-explorer-selected);
+}
+
+.w11-explorer :is(.explorer-grid-item, .w11-details__row).is-drop-target {
+  border-color: var(--w11-accent);
+  background: rgba(96, 205, 255, 0.14);
+}
+
+/* Cut items stay faded until they are pasted. */
+.w11-explorer .is-cut {
+  opacity: 0.5;
+}
+
+/* Details */
+.w11-details {
+  --w11-details-columns: minmax(180px, 3fr) minmax(130px, 1.5fr) minmax(110px, 1.3fr) minmax(64px, 0.7fr);
+
+  display: flex;
+  min-width: 520px;
+  flex-direction: column;
+  font-size: 12px;
+}
+
+.w11-details__header {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: grid;
+  grid-template-columns: var(--w11-details-columns);
+  border-bottom: 1px solid var(--w11-explorer-line);
+  background: var(--w11-explorer-content);
+}
+
+.w11-details__column {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid var(--w11-explorer-line);
+  background: transparent;
+  color: var(--w11-text-2);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.w11-details__column:hover:not(:disabled) {
+  background: var(--w11-subtle-hover);
+  color: var(--w11-text);
+}
+
+.w11-explorer .w11-details__row.explorer-list-item {
+  display: grid;
+  grid-template-columns: var(--w11-details-columns);
+  align-items: center;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  box-shadow: none;
+  color: var(--w11-text);
+}
+
+.w11-details__cell {
+  overflow: hidden;
+  padding: 0 10px;
+  color: var(--w11-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w11-details__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--w11-text);
+}
+
+.w11-details__icon {
+  display: grid;
+  flex: none;
+}
+
+.w11-details__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.w11-details__size {
+  text-align: right;
+}
+
+/* Status bar */
+.w11-explorer .w11-explorer__status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px 0 12px;
+  border-top: 0;
+  background: var(--w11-explorer-content);
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
+
+.w11-explorer__status-size {
+  margin-left: 12px;
+}
+
+.w11-explorer__status-spacer {
+  flex: 1;
+}
+
+.w11-explorer .w11-explorer__status-view {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+}
+
+.w11-explorer .w11-explorer__status-view.is-active {
+  background: var(--w11-explorer-selected);
+}
+
+@media (max-width: 720px) {
+  .w11-explorer .explorer-window__sidebar {
+    display: none;
+  }
+
+  .w11-explorer__search {
+    flex-basis: 140px;
+  }
+}
