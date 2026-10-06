@@ -13,10 +13,13 @@ import {
   runShellCommand,
   TERMINAL_HOME_PATH,
   type ShellFileSystem,
+  type ShellHost,
   type TerminalAction,
 } from "@/lib/terminal-shell";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
+import { useWindowStore } from "@/stores/window-store";
 import type { AppComponentProps } from "@/types/system";
 
 /** Shared by every terminal window, like PSReadLine's history file. */
@@ -107,6 +110,25 @@ export function TerminalApp({ window }: AppComponentProps) {
     let busy = false;
     let queued = "";
 
+    // What the shell can reach beyond files: the desktop's real apps and the real clipboard.
+    const host: ShellHost = {
+      listProcesses: () => {
+        const windows = useWindowStore.getState().windows;
+        return useProcessStore.getState().processes.map((process) => {
+          const owned = windows.find((entry) => entry.processId === process.id);
+          return { id: process.id, name: process.appId, title: owned?.title ?? "", minimized: owned?.minimized ?? false };
+        });
+      },
+      stopProcess: (id) => {
+        useWindowStore
+          .getState()
+          .windows.filter((entry) => entry.processId === id)
+          .forEach((entry) => closeWindow(entry.id));
+      },
+      readClipboard: () => navigator.clipboard.readText(),
+      writeClipboard: (text) => navigator.clipboard.writeText(text),
+    };
+
     const prompt = () => formatPrompt(session.cwd);
 
     /** Repaint prompt + input in place. Wrap-safe: climbs to the input's first row before redrawing. */
@@ -172,7 +194,7 @@ export function TerminalApp({ window }: AppComponentProps) {
 
       busy = true;
       try {
-        const result = await runShellCommand(input, session, fileSystem);
+        const result = await runShellCommand(input, session, fileSystem, host);
         if (disposed) return;
         if (result.clear) terminal.write("\x1b[2J\x1b[3J\x1b[H");
         writeLines(result.lines);
