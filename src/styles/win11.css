@@ -439,3 +439,123 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ------------------------------------------------------------- app windows */
+
+/*
+ * App mode. Windows 11 lets the shell ("Windows mode") and apps ("App mode")
+ * use different themes - Settings > Personalization > Colors > Custom. App
+ * interiors here are dark-only, so app windows pin the dark token set while
+ * Start, the taskbar and flyouts follow the OS theme.
+ */
+.window-frame {
+  --w11-text: #ffffff;
+  --w11-text-2: rgba(255, 255, 255, 0.786);
+  --w11-subtle-hover: rgba(255, 255, 255, 0.061);
+  --w11-subtle-press: rgba(255, 255, 255, 0.042);
+  --w11-focus-outer: #ffffff;
+  --w11-focus-inner: rgba(0, 0, 0, 0.7);
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--w11-radius-overlay);
+  background: #202020;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.26);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.window-frame.is-active,
+.window-frame.is-dragging {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.37), 0 2px 21px rgba(0, 0, 0, 0.37);
+}
+
+.window-frame:not(.is-active) {
+  opacity: 1;
+}
+
+.window-frame.is-maximized {
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.w11-titlebar.window-frame__header {
+  height: 32px;
+  gap: 12px;
+  padding: 0 0 0 12px;
+  border-bottom: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.w11-titlebar__title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+  font-size: 12px;
+}
+
+.w11-titlebar__title svg {
+  flex: none;
+}
+
+.w11-titlebar__title strong {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w11-caption {
+  display: flex;
+  flex: none;
+  align-self: stretch;
+}
+
+.w11-caption__button {
+  display: grid;
+  width: 46px;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--w11-text);
+  cursor: default;
+}
+
+.w11-caption__button:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-caption__button:active {
+  background: var(--w11-subtle-press);
+  color: var(--w11-text-2);
+}
+
+.w11-caption__button--close:hover {
+  background: #c42b1c;
+  color: #ffffff;
+}
+
+.w11-caption__button--close:active {
+  background: rgba(196, 43, 28, 0.9);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.w11-caption__button:focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: -2px;
+}
+
+/* Inactive windows: title and glyphs dim, as in Windows. */
+.window-frame:not(.is-active) .w11-titlebar__title,
+.window-frame:not(.is-active) .w11-caption__button:not(:hover) {
+  color: var(--w11-text-2);
+}
