@@ -19,9 +19,8 @@
   --w11-radius-control: 4px;
   --w11-ease-decelerate: cubic-bezier(0, 0, 0, 1);
 
-  /* The taskbar is still the floating pill (52px tall, 14px off the bottom);
-     Start sits 12px above it, as in Windows. */
-  --w11-start-offset: calc(var(--taskbar-height, 52px) + 14px + 12px);
+  /* Start floats 12px above the taskbar, as in Windows. */
+  --w11-start-offset: calc(var(--w11-taskbar-height) + 12px);
 
   /* Light theme (default). Values follow the WinUI 3 light resource set. */
   --w11-acrylic: rgba(238, 238, 238, 0.84);
@@ -570,4 +569,266 @@
  */
 .os-root {
   overflow: clip;
+}
+
+/* ----------------------------------------------------------------- taskbar */
+
+:root {
+  --w11-taskbar-height: 48px;
+  --w11-taskbar: rgba(238, 238, 238, 0.85);
+  --w11-taskbar-stroke: rgba(0, 0, 0, 0.08);
+  --w11-indicator-open: rgba(0, 0, 0, 0.45);
+  --w11-start-logo: #0067c0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --w11-taskbar: rgba(28, 28, 28, 0.85);
+    --w11-taskbar-stroke: rgba(255, 255, 255, 0.08);
+    --w11-indicator-open: rgba(255, 255, 255, 0.54);
+    --w11-start-logo: #4cc2ff;
+  }
+}
+
+:root[data-theme="dark"] {
+  --w11-taskbar: rgba(28, 28, 28, 0.85);
+  --w11-taskbar-stroke: rgba(255, 255, 255, 0.08);
+  --w11-indicator-open: rgba(255, 255, 255, 0.54);
+  --w11-start-logo: #4cc2ff;
+}
+
+/* Overrides the floating-pill .taskbar rules in global.css / visual-redesign.css. */
+.taskbar.w11-taskbar {
+  position: fixed;
+  z-index: 60;
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: none;
+  align-items: center;
+  gap: 0;
+  width: auto;
+  max-width: none;
+  height: var(--w11-taskbar-height);
+  margin: 0;
+  padding: 0;
+  transform: none;
+  border: 0;
+  border-top: 1px solid var(--w11-taskbar-stroke);
+  border-radius: 0;
+  background: var(--w11-taskbar);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+}
+
+.w11-taskbar__center {
+  display: flex;
+  min-width: 0;
+  grid-column: 2;
+  align-items: center;
+  justify-self: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.w11-taskbar__apps {
+  display: flex;
+  min-width: 0;
+  max-width: 60vw;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.w11-taskbar__apps::-webkit-scrollbar {
+  display: none;
+}
+
+.w11-taskbar__start,
+.w11-taskbar__app {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  cursor: default;
+  transition: background-color 83ms linear;
+}
+
+.w11-taskbar__start svg,
+.w11-taskbar__app svg {
+  transition: transform 120ms var(--w11-ease-decelerate);
+}
+
+.w11-taskbar__start:hover,
+.w11-taskbar__app:hover,
+.w11-taskbar__tray-button:hover,
+.w11-taskbar__show-desktop:hover {
+  background: var(--w11-subtle-hover);
+}
+
+/* Windows shrinks a taskbar icon slightly while it is pressed. */
+.w11-taskbar__start:active svg,
+.w11-taskbar__app:active svg {
+  transform: scale(0.86);
+}
+
+.w11-taskbar__start.is-active,
+.w11-taskbar__app.is-active,
+.w11-taskbar__tray-button.is-active {
+  border-color: var(--w11-control-stroke);
+  background: var(--w11-control);
+}
+
+/* Running-app indicator: short grey pill when open, long accent pill when focused. */
+.w11-taskbar__indicator {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 6px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--w11-indicator-open);
+  transform: translateX(-50%);
+  transition: width 167ms var(--w11-ease-decelerate), background-color 167ms linear;
+}
+
+.w11-taskbar__app.is-active .w11-taskbar__indicator {
+  width: 16px;
+  background: var(--w11-accent);
+}
+
+/* Search pill. Overrides the generic .search-input control from app-layout. */
+.w11-taskbar__search.search-input {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  width: 216px;
+  min-width: 0;
+  max-width: none;
+  height: 32px;
+  min-height: 0;
+  margin: 0 4px;
+  padding: 0 12px;
+  border: 1px solid var(--w11-control-stroke);
+  border-radius: 16px;
+  background: var(--w11-control);
+  box-shadow: none;
+  color: var(--w11-text-2);
+}
+
+.w11-taskbar__search.search-input:hover {
+  background: var(--w11-control-hover);
+}
+
+.w11-taskbar__search.search-input:focus-within {
+  border-color: var(--w11-accent);
+}
+
+.w11-taskbar__search .search-input__icon {
+  display: grid;
+  color: inherit;
+}
+
+.w11-taskbar__search .search-input__field {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.w11-taskbar__search .search-input__field::placeholder {
+  color: var(--w11-text-2);
+}
+
+.w11-taskbar__search .search-input__field:focus,
+.w11-taskbar__search .search-input__field:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* System tray. */
+.w11-taskbar__tray {
+  display: flex;
+  grid-column: 3;
+  align-items: center;
+  justify-self: end;
+  gap: 2px;
+  height: 100%;
+}
+
+.w11-taskbar__tray-button {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  cursor: default;
+}
+
+.w11-taskbar__quick {
+  gap: 10px;
+  padding: 0 10px;
+}
+
+.w11-taskbar__clock {
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The sliver at the far right edge that shows the desktop. */
+.w11-taskbar__show-desktop {
+  align-self: stretch;
+  width: 12px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--w11-divider);
+  background: transparent;
+  cursor: default;
+}
+
+.w11-taskbar :is(button, input):focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: -2px;
+}
+
+@media (max-width: 700px) {
+  .taskbar.w11-taskbar {
+    grid-template-columns: 0 minmax(0, 1fr) auto;
+  }
+
+  .w11-taskbar__search.search-input,
+  .w11-taskbar__quick {
+    display: none;
+  }
 }
