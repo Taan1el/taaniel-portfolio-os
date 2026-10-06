@@ -1,0 +1,441 @@
+/*
+ * Windows 11 design layer.
+ *
+ * Loaded last (see main.tsx), so these rules win over global.css and
+ * visual-redesign.css without needing !important. Shell chrome that has been
+ * rebuilt for Windows 11 uses `w11-*` class names, so none of the older
+ * cascade applies to it at all.
+ *
+ * Theme follows the operating system (prefers-color-scheme), the way Windows
+ * apps do. Setting <html data-theme="light"> or "dark" overrides it.
+ */
+
+/* ------------------------------------------------------------------ tokens */
+
+:root {
+  --w11-font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system,
+    "Helvetica Neue", Arial, sans-serif;
+  --w11-radius-overlay: 8px;
+  --w11-radius-control: 4px;
+  --w11-ease-decelerate: cubic-bezier(0, 0, 0, 1);
+
+  /* The taskbar is still the floating pill (52px tall, 14px off the bottom);
+     Start sits 12px above it, as in Windows. */
+  --w11-start-offset: calc(var(--taskbar-height, 52px) + 14px + 12px);
+
+  /* Light theme (default). Values follow the WinUI 3 light resource set. */
+  --w11-acrylic: rgba(238, 238, 238, 0.84);
+  --w11-flyout: rgba(252, 252, 252, 0.96);
+  --w11-text: rgba(0, 0, 0, 0.896);
+  --w11-text-2: rgba(0, 0, 0, 0.606);
+  --w11-subtle-hover: rgba(0, 0, 0, 0.037);
+  --w11-subtle-press: rgba(0, 0, 0, 0.024);
+  --w11-control: rgba(255, 255, 255, 0.7);
+  --w11-control-hover: rgba(249, 249, 249, 0.5);
+  --w11-control-stroke: rgba(0, 0, 0, 0.058);
+  --w11-control-stroke-strong: rgba(0, 0, 0, 0.162);
+  --w11-surface-stroke: rgba(117, 117, 117, 0.4);
+  --w11-divider: rgba(0, 0, 0, 0.08);
+  --w11-accent: #005fb8;
+  --w11-on-accent: #ffffff;
+  --w11-shadow-flyout: 0 8px 16px rgba(0, 0, 0, 0.14);
+  --w11-shadow-overlay: 0 32px 64px rgba(0, 0, 0, 0.19), 0 2px 21px rgba(0, 0, 0, 0.15);
+  --w11-focus-outer: rgba(0, 0, 0, 0.896);
+  --w11-focus-inner: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --w11-acrylic: rgba(36, 36, 36, 0.86);
+    --w11-flyout: rgba(44, 44, 44, 0.96);
+    --w11-text: #ffffff;
+    --w11-text-2: rgba(255, 255, 255, 0.786);
+    --w11-subtle-hover: rgba(255, 255, 255, 0.061);
+    --w11-subtle-press: rgba(255, 255, 255, 0.042);
+    --w11-control: rgba(255, 255, 255, 0.061);
+    --w11-control-hover: rgba(255, 255, 255, 0.084);
+    --w11-control-stroke: rgba(255, 255, 255, 0.07);
+    --w11-control-stroke-strong: rgba(255, 255, 255, 0.544);
+    --w11-surface-stroke: rgba(0, 0, 0, 0.36);
+    --w11-divider: rgba(255, 255, 255, 0.084);
+    --w11-accent: #60cdff;
+    --w11-on-accent: #000000;
+    --w11-shadow-flyout: 0 8px 16px rgba(0, 0, 0, 0.26);
+    --w11-shadow-overlay: 0 32px 64px rgba(0, 0, 0, 0.37), 0 2px 21px rgba(0, 0, 0, 0.37);
+    --w11-focus-outer: #ffffff;
+    --w11-focus-inner: rgba(0, 0, 0, 0.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  --w11-acrylic: rgba(36, 36, 36, 0.86);
+  --w11-flyout: rgba(44, 44, 44, 0.96);
+  --w11-text: #ffffff;
+  --w11-text-2: rgba(255, 255, 255, 0.786);
+  --w11-subtle-hover: rgba(255, 255, 255, 0.061);
+  --w11-subtle-press: rgba(255, 255, 255, 0.042);
+  --w11-control: rgba(255, 255, 255, 0.061);
+  --w11-control-hover: rgba(255, 255, 255, 0.084);
+  --w11-control-stroke: rgba(255, 255, 255, 0.07);
+  --w11-control-stroke-strong: rgba(255, 255, 255, 0.544);
+  --w11-surface-stroke: rgba(0, 0, 0, 0.36);
+  --w11-divider: rgba(255, 255, 255, 0.084);
+  --w11-accent: #60cdff;
+  --w11-on-accent: #000000;
+  --w11-shadow-flyout: 0 8px 16px rgba(0, 0, 0, 0.26);
+  --w11-shadow-overlay: 0 32px 64px rgba(0, 0, 0, 0.37), 0 2px 21px rgba(0, 0, 0, 0.37);
+  --w11-focus-outer: #ffffff;
+  --w11-focus-inner: rgba(0, 0, 0, 0.7);
+}
+
+/* -------------------------------------------------------- shared controls */
+
+.w11-start :is(button, input):focus-visible,
+.w11-flyout :is(button, input):focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 1px var(--w11-focus-inner);
+}
+
+.w11-flyout {
+  padding: 4px;
+  border: 1px solid var(--w11-surface-stroke);
+  border-radius: var(--w11-radius-overlay);
+  background: var(--w11-flyout);
+  box-shadow: var(--w11-shadow-flyout);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+}
+
+.w11-flyout__item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.w11-flyout__item svg {
+  grid-row: span 2;
+}
+
+.w11-flyout__item small {
+  grid-column: 2;
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
+
+.w11-flyout__item:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-flyout__item:active {
+  background: var(--w11-subtle-press);
+}
+
+.w11-flyout__text {
+  margin: 8px 12px 12px;
+  color: var(--w11-text-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.w11-flyout__actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+
+.w11-button {
+  flex: 1;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--w11-control-stroke);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-control);
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.w11-button:hover {
+  background: var(--w11-control-hover);
+}
+
+.w11-button--accent {
+  border-color: transparent;
+  background: var(--w11-accent);
+  color: var(--w11-on-accent);
+}
+
+.w11-button--accent:hover {
+  background: var(--w11-accent);
+  opacity: 0.9;
+}
+
+/* -------------------------------------------------------------- Start menu */
+
+.w11-start {
+  position: fixed;
+  z-index: 70;
+  right: 0;
+  bottom: var(--w11-start-offset);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100dvh - var(--w11-start-offset) - 24px);
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--w11-surface-stroke);
+  border-radius: var(--w11-radius-overlay);
+  background: var(--w11-acrylic);
+  box-shadow: var(--w11-shadow-overlay);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+  font-size: 14px;
+}
+
+.w11-start__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 32px 12px;
+}
+
+.w11-start__search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--w11-control-stroke);
+  border-bottom-color: var(--w11-control-stroke-strong);
+  border-radius: 18px;
+  background: var(--w11-control);
+  color: var(--w11-text-2);
+}
+
+.w11-start__search:focus-within {
+  border-color: var(--w11-accent);
+}
+
+.w11-start__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.w11-start__search input::placeholder {
+  color: var(--w11-text-2);
+}
+
+.w11-start__search input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.w11-start__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--w11-accent);
+  color: var(--w11-on-accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.w11-start__power-wrap {
+  position: relative;
+  flex: none;
+}
+
+.w11-start__icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  cursor: pointer;
+}
+
+.w11-start__icon-button:hover,
+.w11-start__icon-button[aria-expanded="true"] {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-start__power-menu {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 248px;
+}
+
+.w11-start__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 32px 24px;
+  scrollbar-width: thin;
+}
+
+.w11-start__heading {
+  margin: 4px 0 8px;
+  padding: 0 8px;
+  color: var(--w11-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.w11-start__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.w11-start__tile {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px 8px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.w11-start__tile span {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  line-height: 16px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.w11-start__tile:hover,
+.w11-start__rec-item:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-start__tile:active,
+.w11-start__rec-item:active {
+  background: var(--w11-subtle-press);
+}
+
+.w11-start__divider {
+  height: 1px;
+  margin: 12px 8px;
+  border: 0;
+  background: var(--w11-divider);
+}
+
+.w11-start__recommended {
+  margin-top: 20px;
+}
+
+.w11-start__rec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.w11-start__rec-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.w11-start__rec-item svg {
+  flex: none;
+}
+
+.w11-start__rec-item > span {
+  min-width: 0;
+}
+
+.w11-start__rec-item strong,
+.w11-start__rec-item small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w11-start__rec-item strong {
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.w11-start__rec-item small {
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
+
+.w11-start__results {
+  min-height: 320px;
+}
+
+@media (max-width: 560px) {
+  .w11-start__top {
+    padding: 16px 16px 8px;
+  }
+
+  .w11-start__body {
+    padding: 8px 16px 16px;
+  }
+
+  .w11-start__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .w11-start__rec-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

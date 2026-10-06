@@ -1,31 +1,49 @@
 import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
-import { FileText, Mail } from "lucide-react";
+import { motion } from "framer-motion";
+import { LogOut, Power, RotateCcw, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Button, ScrollArea } from "@/components/apps/app-layout";
-import { liveDemoUrl, profile, repoUrl, socialLinks } from "@/data/portfolio";
+import { FileIcon, PdfIcon } from "@/components/icons/apps";
+import { profile } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
 import type { ShellAiSearchStatus } from "@/hooks/use-shell-ai-search";
 import type { ShellSearchAction, ShellSearchSection } from "@/lib/shell-search";
 import { ShellSearchResults, type ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
-import { StartAppList } from "@/components/shell/start-menu/start-app-list";
-import {
-  startMenuCategories,
-  startMenuPowerActions,
-  startMenuQuickLinks,
-  startMenuSidebarLinks,
-} from "@/components/shell/start-menu/start-menu-data";
-import { StartMenuShell } from "@/components/shell/start-menu/start-menu-shell";
-import { StartPowerSection } from "@/components/shell/start-menu/start-power-section";
-import { StartQuickLinks } from "@/components/shell/start-menu/start-quick-links";
-import { StartSidebar } from "@/components/shell/start-menu/start-sidebar";
-import { updateStartMenuSpotlight } from "@/components/shell/start-menu/spotlight";
-import type { AppCategory, AppId, StartMenuShortcut } from "@/types/system";
+import type { AppDefinition, AppIcon, AppId } from "@/types/system";
+
+/** Apps pinned to the top row, in order. Everything else is listed alphabetically below. */
+const PINNED_APPS: AppId[] = ["about", "projects", "contact", "files", "browser", "terminal"];
+
+interface RecommendedItem {
+  id: string;
+  label: string;
+  detail: string;
+  icon: AppIcon;
+  filePath: string;
+}
+
+const RECOMMENDED: RecommendedItem[] = [
+  {
+    id: "resume",
+    label: "Taaniel-Vananurm-CV.pdf",
+    detail: "Documents",
+    icon: PdfIcon,
+    filePath: "/Documents/Taaniel-Vananurm-CV.pdf",
+  },
+  {
+    id: "case-study",
+    label: "OS-Case-Study.md",
+    detail: "Portfolio",
+    icon: FileIcon,
+    filePath: "/Portfolio/OS-Case-Study.md",
+  },
+];
 
 interface StartMenuProps {
   onLaunchApp: (appId: AppId) => void;
   onOpenDirectory: (directoryPath: string) => void;
   onOpenFile: (filePath: string) => void;
   searchQuery: string;
+  onSearchQueryChange?: (query: string) => void;
   searchBrowseRef: RefObject<ShellSearchResultsHandle | null>;
   searchSections: ShellSearchSection[];
   aiStatus: ShellAiSearchStatus;
@@ -35,11 +53,31 @@ interface StartMenuProps {
   onRequestClose: () => void;
 }
 
+function initialsOf(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function AppTile({ app, onLaunch }: { app: AppDefinition; onLaunch: (appId: AppId) => void }) {
+  const Icon = app.icon;
+
+  return (
+    <button type="button" className="w11-start__tile" onClick={() => onLaunch(app.id)} title={app.description}>
+      <Icon size={32} />
+      <span>{app.title}</span>
+    </button>
+  );
+}
+
 export function StartMenu({
   onLaunchApp,
-  onOpenDirectory,
   onOpenFile,
   searchQuery,
+  onSearchQueryChange,
   searchBrowseRef,
   searchSections,
   aiStatus,
@@ -49,15 +87,27 @@ export function StartMenu({
   onRequestClose,
 }: StartMenuProps) {
   const navigate = useNavigate();
-  const [expandedCategories, setExpandedCategories] = useState<Record<AppCategory, boolean>>(() =>
-    startMenuCategories.reduce<Record<AppCategory, boolean>>((state, category) => {
-      state[category.category] = category.defaultExpanded;
-      return state;
-    }, {} as Record<AppCategory, boolean>)
-  );
   const menuRef = useRef<HTMLElement>(null);
-  const apps = getAppRegistry();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [powerMenu, setPowerMenu] = useState<"closed" | "open" | "confirm-reset">("closed");
   const searching = searchQuery.trim().length > 0;
+
+  const { pinned, others } = useMemo(() => {
+    const visible = getAppRegistry().filter((app) => !app.hidden);
+    const byId = new Map(visible.map((app) => [app.id, app]));
+    const pinnedApps = PINNED_APPS.map((id) => byId.get(id)).filter((app): app is AppDefinition => Boolean(app));
+    const rest = visible
+      .filter((app) => !PINNED_APPS.includes(app.id))
+      .sort((a, b) => a.title.localeCompare(b.title));
+    return { pinned: pinnedApps, others: rest };
+  }, []);
+
+  // Like Windows: Start opens with the caret in search, so typing searches immediately.
+  useEffect(() => {
+    if (onSearchQueryChange) {
+      searchRef.current?.focus({ preventScroll: true });
+    }
+  }, [onSearchQueryChange]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -84,201 +134,187 @@ export function StartMenu({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onRequestClose();
+      if (event.key !== "Escape") {
+        return;
       }
+
+      if (powerMenu !== "closed") {
+        setPowerMenu("closed");
+        return;
+      }
+
+      if (searching && onSearchQueryChange) {
+        onSearchQueryChange("");
+        return;
+      }
+
+      onRequestClose();
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onRequestClose]);
-
-  const appsByCategory = useMemo(
-    () =>
-      startMenuCategories
-        .map((category) => ({
-          category,
-          items: apps.filter((app) => app.category === category.category),
-        }))
-        .filter((group) => group.items.length > 0),
-    [apps]
-  );
-
-  const executeShortcut = (shortcut: StartMenuShortcut) => {
-    switch (shortcut.action.type) {
-      case "app":
-        onLaunchApp(shortcut.action.appId);
-        break;
-      case "directory":
-        onOpenDirectory(shortcut.action.directoryPath);
-        break;
-      case "file":
-        onOpenFile(shortcut.action.filePath);
-        break;
-      case "reset-session":
-        onResetSession();
-        break;
-    }
-  };
+  }, [onRequestClose, onSearchQueryChange, powerMenu, searching]);
 
   return (
-    <StartMenuShell menuRef={menuRef as RefObject<HTMLElement>} className={searching ? "is-searching" : undefined}>
-      <div className="start-menu__top">
-        <div className="start-menu__hero">
-          <div>
-            <p className="eyebrow">Portfolio OS</p>
-            <h2>{profile.name}</h2>
-            <p>{profile.headline}</p>
-          </div>
-          <Button
+    <motion.aside
+      ref={menuRef}
+      className="w11-start"
+      aria-label="Start"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 16 }}
+      transition={{ duration: 0.18, ease: [0, 0, 0, 1] }}
+    >
+      <div className="w11-start__top">
+        <label className="w11-start__search">
+          <Search size={16} aria-hidden="true" />
+          <input
+            ref={searchRef}
+            type="search"
+            placeholder="Search for apps, settings, and documents"
+            value={searchQuery}
+            readOnly={!onSearchQueryChange}
+            onChange={(event) => onSearchQueryChange?.(event.target.value)}
+            aria-label="Search"
+          />
+        </label>
+
+        <button
+          type="button"
+          className="w11-start__avatar"
+          onClick={() => onLaunchApp("about")}
+          title={`${profile.name} - open About`}
+        >
+          {initialsOf(profile.name)}
+        </button>
+
+        <div className="w11-start__power-wrap">
+          <button
             type="button"
-            variant="panel"
-            className="ghost-button"
-            onClick={() => onLaunchApp("contact")}
-            onMouseMove={updateStartMenuSpotlight}
+            className="w11-start__icon-button"
+            aria-label="Power"
+            aria-haspopup="menu"
+            aria-expanded={powerMenu !== "closed"}
+            onClick={() => setPowerMenu((state) => (state === "closed" ? "open" : "closed"))}
           >
-            <Mail size={14} />
-            Contact
-          </Button>
+            <Power size={16} />
+          </button>
+
+          {powerMenu === "open" ? (
+            <div className="w11-flyout w11-start__power-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className="w11-flyout__item"
+                onClick={() => {
+                  onRequestClose();
+                  navigate("/portfolio");
+                }}
+              >
+                <LogOut size={16} />
+                <span>Sign out</span>
+                <small>Quick portfolio view</small>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="w11-flyout__item"
+                onClick={() => setPowerMenu("confirm-reset")}
+              >
+                <RotateCcw size={16} />
+                <span>Reset this PC…</span>
+                <small>Erase files you created</small>
+              </button>
+            </div>
+          ) : null}
+
+          {powerMenu === "confirm-reset" ? (
+            <div className="w11-flyout w11-start__power-menu" role="alertdialog" aria-label="Reset this PC">
+              <p className="w11-flyout__text">
+                This removes every file and folder you created and restores the original desktop.
+              </p>
+              <div className="w11-flyout__actions">
+                <button
+                  type="button"
+                  className="w11-button w11-button--accent"
+                  onClick={() => {
+                    setPowerMenu("closed");
+                    onResetSession();
+                  }}
+                >
+                  Reset
+                </button>
+                <button type="button" className="w11-button" onClick={() => setPowerMenu("closed")}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <div className="start-menu__body">
+      <div className="w11-start__body">
         {searching ? (
-          <ShellSearchResults
-            ref={searchBrowseRef as Ref<ShellSearchResultsHandle>}
-            query={searchQuery}
-            sections={searchSections}
-            aiStatus={aiStatus}
-            aiEnabled={aiEnabled}
-            onSelectResult={onSearchSelect}
-          />
+          <div className="w11-start__results">
+            <ShellSearchResults
+              ref={searchBrowseRef as Ref<ShellSearchResultsHandle>}
+              query={searchQuery}
+              sections={searchSections}
+              aiStatus={aiStatus}
+              aiEnabled={aiEnabled}
+              onSelectResult={onSearchSelect}
+            />
+          </div>
         ) : (
           <>
-            <StartSidebar
-              shortcuts={[
-                {
-                  id: "resume",
-                  label: "Open Resume.pdf",
-                  icon: FileText,
-                  action: { type: "file", filePath: "/Documents/Taaniel-Vananurm-CV.pdf" },
-                },
-                ...startMenuSidebarLinks,
-              ]}
-              onExecuteAction={executeShortcut}
-            />
+            <section aria-labelledby="w11-start-pinned">
+              <h2 id="w11-start-pinned" className="w11-start__heading">
+                Pinned
+              </h2>
+              <div className="w11-start__grid">
+                {pinned.map((app) => (
+                  <AppTile key={app.id} app={app} onLaunch={onLaunchApp} />
+                ))}
+              </div>
+            </section>
 
-            <div className="start-menu__main">
-              <ScrollArea className="start-menu__content">
-                <section className="start-menu__section" aria-label="Try these">
-                  <div className="section-row">
-                    <p className="eyebrow">Try these</p>
-                    <small>30-second tour</small>
-                  </div>
-                  <div className="action-row">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="quick-link"
-                      onClick={() => onOpenFile("/Portfolio/OS-Case-Study.md")}
-                      onMouseMove={updateStartMenuSpotlight}
-                    >
-                      OS Case Study
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="quick-link"
-                      onClick={() => onOpenFile("/Portfolio/Apps.md")}
-                      onMouseMove={updateStartMenuSpotlight}
-                    >
-                      Apps catalog
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="quick-link"
-                      onClick={() => onOpenDirectory("/Portfolio/Case Studies")}
-                      onMouseMove={updateStartMenuSpotlight}
-                    >
-                      Featured work
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="quick-link"
-                      onClick={() => onLaunchApp("photos")}
-                      onMouseMove={updateStartMenuSpotlight}
-                    >
-                      Photos
-                    </Button>
-                  </div>
-                </section>
-                <StartQuickLinks links={startMenuQuickLinks} onExecuteAction={executeShortcut} />
+            <hr className="w11-start__divider" />
 
-                <StartAppList
-                  categories={startMenuCategories}
-                  appsByCategory={appsByCategory}
-                  expandedCategories={expandedCategories}
-                  onToggleCategory={(category) =>
-                    setExpandedCategories((current) => ({
-                      ...current,
-                      [category]: !current[category as AppCategory],
-                    }))
-                  }
-                  onLaunchSettings={() => onLaunchApp("settings")}
-                  onLaunchApp={onLaunchApp}
-                />
-              </ScrollArea>
-            </div>
+            <section aria-label="All apps">
+              <div className="w11-start__grid">
+                {others.map((app) => (
+                  <AppTile key={app.id} app={app} onLaunch={onLaunchApp} />
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby="w11-start-recommended" className="w11-start__recommended">
+              <h2 id="w11-start-recommended" className="w11-start__heading">
+                Recommended
+              </h2>
+              <div className="w11-start__rec-grid">
+                {RECOMMENDED.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="w11-start__rec-item"
+                      onClick={() => onOpenFile(item.filePath)}
+                    >
+                      <Icon size={32} />
+                      <span>
+                        <strong>{item.label}</strong>
+                        <small>{item.detail}</small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           </>
         )}
       </div>
-
-      <div className="start-menu__footer">
-        <div className="start-menu__footer-actions">
-          <StartPowerSection actions={startMenuPowerActions} onExecuteAction={executeShortcut} />
-          <small className="start-menu__persist-note">
-            Session state is saved in your browser (IndexedDB/localStorage).
-          </small>
-        </div>
-        <div className="start-menu__footer-meta">
-          <div className="start-menu__links">
-            <a href={liveDemoUrl} target="_blank" rel="noreferrer">
-              Live demo
-            </a>
-            <a href={repoUrl} target="_blank" rel="noreferrer">
-              GitHub repo
-            </a>
-            {socialLinks.slice(0, 4).map((link) => (
-              <a key={link.label} href={link.url} target="_blank" rel="noreferrer">
-                {link.label}
-              </a>
-            ))}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            className="quick-link"
-            onClick={() => {
-              onRequestClose();
-              navigate("/portfolio");
-            }}
-            onMouseMove={updateStartMenuSpotlight}
-          >
-            Quick portfolio
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="quick-link"
-            onClick={() => onOpenDirectory("/Portfolio/Case Studies")}
-            onMouseMove={updateStartMenuSpotlight}
-          >
-            Featured work
-          </Button>
-        </div>
-      </div>
-    </StartMenuShell>
+    </motion.aside>
   );
 }
