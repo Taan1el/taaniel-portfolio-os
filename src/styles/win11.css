@@ -955,3 +955,59 @@
 .w11-taskbar__start svg {
   color: var(--w11-start-logo);
 }
+
+/* ------------------------------------------------------------ context menu */
+
+/* Shell surface, so it follows Windows mode (light or dark), like Start. */
+.context-menu {
+  min-width: 220px;
+  padding: 4px;
+  border: 1px solid var(--w11-surface-stroke);
+  border-radius: var(--w11-radius-overlay);
+  background: var(--w11-flyout);
+  box-shadow: var(--w11-shadow-flyout);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+}
+
+/* Windows context menus have no heading. */
+.context-menu__title {
+  display: none;
+}
+
+.context-menu__actions {
+  gap: 0;
+}
+
+.context-menu__item {
+  gap: 12px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--w11-radius-control);
+  color: var(--w11-text);
+  font-size: 13px;
+}
+
+.context-menu__item:hover:not(:disabled) {
+  background: var(--w11-subtle-hover);
+}
+
+.context-menu__item-icon,
+.context-menu__item:hover .context-menu__item-icon,
+.context-menu__item.is-danger,
+.context-menu__item.is-danger .context-menu__item-icon {
+  color: var(--w11-text);
+}
+
+.context-menu__item-shortcut {
+  color: var(--w11-text-2);
+  font-size: 12px;
+  opacity: 1;
+}
+
+.context-menu__separator {
+  margin: 4px -4px;
+  background: var(--w11-divider);
+}
