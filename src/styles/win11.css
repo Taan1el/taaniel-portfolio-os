@@ -832,3 +832,12 @@
     display: none;
   }
 }
+
+/* The sci-fi layers over the wallpaper (screen-blend glow, dot grid, noise)
+   have no Windows equivalent: the wallpaper is shown as-is. */
+.os-root__wallpaper::before,
+.os-root__wallpaper::after,
+.os-root__noise,
+.desktop-surface__overlay {
+  display: none;
+}
