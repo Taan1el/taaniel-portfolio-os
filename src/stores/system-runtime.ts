@@ -336,7 +336,8 @@ export function getLegacyProcessSeed() {
 
 export function getLegacyShellSeed() {
   const legacyState = readLegacySystemState();
-  const defaultThemeId = themePresets.find((preset) => preset.id === "ember-grid")?.id ?? themePresets[0].id;
+  // First visit: the Windows Bloom theme (themePresets[0]) and its own wallpaper.
+  const defaultThemeId = themePresets[0].id;
   const themeId =
     themePresets.find((preset) => preset.id === legacyState?.themeId)?.id ?? defaultThemeId;
 
@@ -349,9 +350,9 @@ export function getLegacyShellSeed() {
           presetId: null,
         }
       : {
-          mode: "animated" as const,
+          mode: "theme" as const,
           imageSource: null,
-          presetId: "solar-drift",
+          presetId: null,
         },
     desktopIconPositions: legacyState?.desktopIconPositions ?? initialIconPositions,
   };
