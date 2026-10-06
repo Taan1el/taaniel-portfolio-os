@@ -7,6 +7,8 @@ import { createAppIcon } from "../app-icon";
 export const TerminalIcon = createAppIcon("TerminalIcon", {
   full: (
     <>
+      {/* light rim, so the dark tile still reads on dark backgrounds */}
+      <rect x="2.5" y="4.5" width="43" height="39" rx="5.5" fill="#5A5E69" />
       {/* console body */}
       <path
         d="M8 6H40A4 4 0 0 1 44 10V38A4 4 0 0 1 40 42H8A4 4 0 0 1 4 38V10A4 4 0 0 1 8 6Z"
@@ -30,6 +32,8 @@ export const TerminalIcon = createAppIcon("TerminalIcon", {
   ),
   micro: (
     <>
+      {/* light rim, so the dark tile still reads on dark backgrounds */}
+      <rect x="2.5" y="4.5" width="43" height="39" rx="5.5" fill="#5A5E69" />
       <path
         d="M8 6H40A4 4 0 0 1 44 10V38A4 4 0 0 1 40 42H8A4 4 0 0 1 4 38V10A4 4 0 0 1 8 6Z"
         fill="#1B1C22"

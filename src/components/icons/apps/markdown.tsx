@@ -9,6 +9,8 @@ import { createAppIcon } from "../app-icon";
 export const MarkdownIcon = createAppIcon("MarkdownIcon", {
   full: (
     <>
+      {/* light rim, so the dark tile still reads on dark backgrounds */}
+      <rect x="2.5" y="8.5" width="43" height="31" rx="5.5" fill="#5A6878" />
       <rect x="4" y="10" width="40" height="28" rx="4" fill="#1F2933" />
       <rect x="6" y="12" width="36" height="24" rx="3" fill="#2E3A47" />
       {/* M */}
@@ -25,6 +27,7 @@ export const MarkdownIcon = createAppIcon("MarkdownIcon", {
   ),
   micro: (
     <>
+      <rect x="1.5" y="6.5" width="45" height="35" rx="5.5" fill="#5A6878" />
       <rect x="3" y="8" width="42" height="32" rx="4" fill="#1F2933" />
       <path
         d="M7 33 L7 15 L13 15 L16 20 L19 15 L25 15 L25 33 L19.5 33 L19.5 24 L16 29 L12.5 24 L12.5 33 Z"
