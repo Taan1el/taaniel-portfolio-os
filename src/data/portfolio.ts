@@ -226,6 +226,13 @@ export const desktopEntries: DesktopEntry[] = [
     defaultGridPosition: { gridX: 1, gridY: 1 },
   },
   {
+    id: "browser-app",
+    label: "Browser",
+    type: "app",
+    appId: "browser",
+    defaultGridPosition: { gridX: 2, gridY: 1 },
+  },
+  {
     id: "simple-portfolio",
     label: "Portfolio",
     type: "link",
@@ -234,7 +241,7 @@ export const desktopEntries: DesktopEntry[] = [
   },
   {
     id: "trash",
-    label: "Trash",
+    label: "Recycle Bin",
     type: "folder",
     directoryPath: "/Trash",
     defaultGridPosition: { gridX: 2, gridY: 2 },

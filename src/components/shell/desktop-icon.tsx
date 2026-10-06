@@ -6,6 +6,7 @@ import {
   FolderIcon,
   PdfIcon,
   PhotosIcon,
+  PortfolioIcon,
   RecycleBinEmptyIcon,
   RecycleBinFullIcon,
 } from "@/components/icons/apps";
@@ -46,7 +47,8 @@ function resolveIcon(entry: DesktopEntry, node: VirtualNode | undefined, trashHa
   }
 
   if (entry.type === "link") {
-    return BrowserIcon;
+    // Links inside this site (the quick portfolio page) carry the portfolio mark, not a browser icon.
+    return entry.externalUrl?.startsWith("/") ? PortfolioIcon : BrowserIcon;
   }
 
   if (node?.kind === "file" && node.mimeType.startsWith("image/")) {
