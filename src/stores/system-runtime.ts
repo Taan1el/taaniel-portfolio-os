@@ -87,6 +87,15 @@ export function getDesktopHeight() {
   return Math.max(1, window.innerHeight - reservedSpace);
 }
 
+/**
+ * A hidden tab, a collapsed embed or a mid-rotation frame can report a 0x0
+ * viewport. Laying windows out for that would shrink them to nothing and save
+ * it, so layout waits until the viewport is real.
+ */
+export function hasUsableViewport() {
+  return typeof window !== "undefined" && window.innerWidth >= 200 && window.innerHeight >= 200;
+}
+
 export function isCompactViewport() {
   return typeof window !== "undefined" && window.innerWidth < 820;
 }
