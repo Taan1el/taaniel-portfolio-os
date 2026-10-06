@@ -626,6 +626,7 @@ export function DesktopShell() {
             }
             onOpenFile={openPath}
             searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             searchBrowseRef={shellSearchBrowseRef}
             searchSections={smartSearchSections}
             aiStatus={aiStatus}
