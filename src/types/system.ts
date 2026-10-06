@@ -309,6 +309,10 @@ export interface VirtualNodeBase {
   name: string;
   createdAt: number;
   updatedAt: number;
+  /** Set on items in the Recycle Bin: where Restore puts them back. */
+  originalPath?: string;
+  /** Set on items in the Recycle Bin: when they were deleted. */
+  deletedAt?: number;
 }
 
 export interface VirtualDirectory extends VirtualNodeBase {
@@ -339,6 +343,8 @@ export interface FileNode {
   source?: string;
   size?: number;
   readonly?: boolean;
+  originalPath?: string;
+  deletedAt?: number;
 }
 
 export type FileAssociationFamily =
