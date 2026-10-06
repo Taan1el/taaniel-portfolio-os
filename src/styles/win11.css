@@ -841,3 +841,15 @@
 .desktop-surface__overlay {
   display: none;
 }
+
+/* ---------------------------------------------------------------- terminal */
+
+/* Windows Terminal: flat Campbell black, no gradient, a little inset padding. */
+.terminal-app,
+.terminal-app__viewport {
+  background: #0c0c0c;
+}
+
+.terminal-app__viewport {
+  padding: 8px 4px 4px 12px;
+}
