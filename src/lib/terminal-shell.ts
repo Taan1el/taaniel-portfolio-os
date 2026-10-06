@@ -1,5 +1,5 @@
 import { featuredProjects, profile, socialLinks } from "@/data/portfolio";
-import { getParentPath, normalizePath } from "@/lib/filesystem";
+import { getParentPath, getPathName, normalizePath } from "@/lib/filesystem";
 import { TRASH_PATH } from "@/lib/system-workspace";
 import {
   childrenOf,
@@ -63,10 +63,36 @@ export interface ShellFileSystem {
   pasteNode: (sourcePath: string, destinationDirectoryPath: string, operation: "copy" | "cut") => Promise<void>;
 }
 
+export type ShellValue = string | number | boolean | string[];
+
 export interface ShellSession {
   cwd: string;
   previousCwd: string | null;
   history: string[];
+  /** $name = value assignments made in this session. Keys are lower-case. */
+  variables: Record<string, ShellValue>;
+  /** Push-Location / Pop-Location stack. */
+  locationStack: string[];
+}
+
+export interface ShellProcessInfo {
+  id: string;
+  name: string;
+  title: string;
+  minimized: boolean;
+}
+
+/**
+ * Everything outside the filesystem the shell can touch. The terminal app
+ * supplies real implementations; tests supply fakes; every member is optional
+ * so a missing capability fails politely instead of crashing.
+ */
+export interface ShellHost {
+  listProcesses?: () => ShellProcessInfo[];
+  stopProcess?: (id: string) => void;
+  readClipboard?: () => Promise<string>;
+  writeClipboard?: (text: string) => Promise<void>;
+  fetch?: typeof fetch;
 }
 
 export interface ShellResult {
@@ -77,12 +103,15 @@ export interface ShellResult {
 }
 
 export function createShellSession(cwd = TERMINAL_HOME_PATH): ShellSession {
-  return { cwd: normalizePath(cwd), previousCwd: null, history: [] };
+  return { cwd: normalizePath(cwd), previousCwd: null, history: [], variables: {}, locationStack: [] };
 }
 
 interface Ctx {
   session: ShellSession;
   fs: ShellFileSystem;
+  host: ShellHost;
+  /** Nesting level of .ps1 scripts, to stop runaway recursion. */
+  depth: number;
   lines: string[];
   actions: TerminalAction[];
   clear: boolean;
@@ -104,10 +133,23 @@ interface CommandSpec {
 
 const ok = (out: string[] = []): Output => ({ out, ok: true });
 
+/**
+ * Strip control characters from text the user didn't type - file contents,
+ * file names, web responses - so it can't drive the terminal with escape
+ * sequences (recolouring, cursor tricks, title or clipboard requests).
+ * Tabs and newlines survive.
+ */
+export function sanitizeForTerminal(text: string) {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
+}
+
 function fail(ctx: Ctx, command: string, message: string): Output {
-  message.split("\n").forEach((line, index) => {
-    ctx.lines.push(`${RED}${index === 0 ? `${command}: ` : ""}${line}${RESET}`);
-  });
+  sanitizeForTerminal(message)
+    .split("\n")
+    .forEach((line, index) => {
+      ctx.lines.push(`${RED}${index === 0 ? `${command}: ` : ""}${line}${RESET}`);
+    });
   return { out: [], ok: false };
 }
 
@@ -283,16 +325,33 @@ function environment(ctx: Ctx): Record<string, string> {
   };
 }
 
+/** Look up $name: environment, automatic variables, then the session's own. */
+function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
+  const name = rawName.toLowerCase();
+  if (name.startsWith("env:")) return environment(ctx)[name.slice(4)];
+  switch (name) {
+    case "home":
+      return PROFILE_ROOT;
+    case "pwd":
+      return toWindowsPath(ctx.session.cwd);
+    case "true":
+      return true;
+    case "false":
+      return false;
+    case "null":
+      return "";
+    case "host":
+      return `Taaniel OS terminal (PowerShell ${POWERSHELL_VERSION})`;
+    default:
+      return ctx.session.variables[name];
+  }
+}
+
 function expandVariables(word: string, ctx: Ctx) {
   return word.replace(/\$(env:)?([A-Za-z_][A-Za-z0-9_]*)/gi, (_match, env: string | undefined, name: string) => {
-    const key = name.toLowerCase();
-    if (env) return environment(ctx)[key] ?? "";
-    if (key === "home") return PROFILE_ROOT;
-    if (key === "pwd") return toWindowsPath(ctx.session.cwd);
-    if (key === "true") return "True";
-    if (key === "false") return "False";
-    if (key === "psversiontable") return `PSVersion ${POWERSHELL_VERSION}`;
-    return "";
+    const value = readVariable(`${env ?? ""}${name}`, ctx);
+    if (value === undefined) return "";
+    return Array.isArray(value) ? value.join(" ") : typeof value === "boolean" ? (value ? "True" : "False") : String(value);
   });
 }
 
@@ -422,13 +481,14 @@ function modeOf(node: VirtualNode, hidden = false) {
 }
 
 function formatTable(directoryPath: string, entries: VirtualNode[], nameOnly = false) {
-  if (nameOnly) return entries.map((node) => node.name);
+  if (nameOnly) return entries.map((node) => sanitizeForTerminal(node.name));
 
   const header = `${"Mode".padEnd(15)}${"LastWriteTime".padStart(19)}${"Length".padStart(15)} Name`;
   const rule = `${"----".padEnd(15)}${"-------------".padStart(19)}${"------".padStart(15)} ----`;
   const rows = entries.map((node) => {
     const hidden = node.path === TRASH_PATH;
-    const name = node.kind === "directory" ? `${DIRECTORY}${node.name}${RESET}` : node.name;
+    const safeName = sanitizeForTerminal(node.name);
+    const name = node.kind === "directory" ? `${DIRECTORY}${safeName}${RESET}` : safeName;
     return `${modeOf(node, hidden).padEnd(15)}${formatWriteTime(node.updatedAt)} ${fileLength(node).padStart(14)} ${name}`;
   });
 
@@ -478,6 +538,9 @@ const EXECUTABLES: Record<string, AppId> = {
   wmplayer: "music",
   acrord32: "pdf",
   winver: "about",
+  // The Windows Subsystem for Linux, here: the v86 x86 emulator running a real Linux.
+  wsl: "v86",
+  bash: "v86",
 };
 
 const PATH_SHORTCUTS: Record<string, string> = {
@@ -496,6 +559,11 @@ function isUrl(value: string) {
 async function launchExecutable(name: string, args: string[], ctx: Ctx): Promise<Output> {
   const appId = EXECUTABLES[name];
   const target = args.find((arg) => !arg.startsWith("-"));
+
+  if (appId === "v86") {
+    ctx.actions.push({ type: "launch-app", appId });
+    return ok(["Starting the Linux virtual machine (v86 - a real x86 emulator running in your browser)…"]);
+  }
 
   if (appId === "browser" && target) {
     const url = isUrl(target) ? (target.startsWith("www.") ? `https://${target}` : target) : target;
@@ -647,7 +715,7 @@ const getContent: CommandFn = (args, _stdin, ctx, name) => {
       okay = false;
       continue;
     }
-    let lines = text.length ? text.split(/\r?\n/) : [];
+    let lines = text.length ? sanitizeForTerminal(text).split("\n") : [];
     if (Number.isFinite(head) && head >= 0) lines = lines.slice(0, head);
     if (Number.isFinite(tail) && tail >= 0) lines = tail === 0 ? [] : lines.slice(-tail);
     out.push(...lines);
@@ -1051,13 +1119,13 @@ function treeLines(nodes: FileSystemRecord, directory: string, prefix: string, s
   const lines: string[] = [];
 
   if (showFiles && files.length) {
-    files.forEach((file) => lines.push(`${prefix}${directories.length ? glyph.pipe : "    "}${file.name}`));
+    files.forEach((file) => lines.push(`${prefix}${directories.length ? glyph.pipe : "    "}${sanitizeForTerminal(file.name)}`));
     lines.push(`${prefix}${directories.length ? glyph.pipeEnd : ""}`.trimEnd());
   }
 
   directories.forEach((node, index) => {
     const last = index === directories.length - 1;
-    lines.push(`${prefix}${last ? glyph.last : glyph.branch}${node.name}`);
+    lines.push(`${prefix}${last ? glyph.last : glyph.branch}${sanitizeForTerminal(node.name)}`);
     lines.push(...treeLines(nodes, node.path, `${prefix}${last ? "    " : glyph.pipe}`, showFiles, ascii));
   });
 
@@ -1121,7 +1189,7 @@ const selectString: CommandFn = (args, stdin, ctx, name) => {
       for (const file of files) {
         const text = textContent(file);
         if (text === null) continue;
-        text.split(/\r?\n/).forEach((line, index) => {
+        sanitizeForTerminal(text).split("\n").forEach((line, index) => {
           if (test(line)) out.push(`${displayRelative(file.path, ctx.session.cwd)}:${index + 1}:${render(line)}`);
         });
       }
@@ -1245,6 +1313,836 @@ const resume: CommandFn = (_args, _stdin, ctx) => {
   return ok();
 };
 
+// ------------------------------------------------------------- expressions
+
+/*
+ * A small, hand-written PowerShell expression evaluator: numbers, strings,
+ * variables, + - * / %, parentheses and -eq/-ne/-gt/-ge/-lt/-le/-like/-match/
+ * -and/-or. Nothing typed here is ever handed to eval() or new Function().
+ */
+
+type ExprToken =
+  | { t: "num"; v: number }
+  | { t: "str"; v: string; interpolate: boolean }
+  | { t: "var"; v: string }
+  | { t: "op"; v: string }
+  | { t: "lp" }
+  | { t: "rp" };
+
+const COMPARISON_OPERATORS = ["-eq", "-ne", "-gt", "-ge", "-lt", "-le", "-like", "-notlike", "-match", "-notmatch", "-and", "-or"];
+const SIZE_SUFFIX: Record<string, number> = { kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 };
+
+function lexExpression(text: string): ExprToken[] | null {
+  const tokens: ExprToken[] = [];
+  let i = 0;
+
+  while (i < text.length) {
+    const char = text[i];
+    const rest = text.slice(i);
+
+    if (/\s/.test(char)) {
+      i += 1;
+      continue;
+    }
+
+    const comparison = rest.match(/^-[a-z]+/i)?.[0]?.toLowerCase();
+    if (comparison && COMPARISON_OPERATORS.includes(comparison)) {
+      tokens.push({ t: "op", v: comparison });
+      i += comparison.length;
+      continue;
+    }
+
+    const number = rest.match(/^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?(kb|mb|gb|tb)?/i);
+    if (number && /[\d.]/.test(char)) {
+      const suffix = number[3]?.toLowerCase();
+      tokens.push({ t: "num", v: parseFloat(number[1] + (number[2] ?? "")) * (suffix ? SIZE_SUFFIX[suffix] : 1) });
+      i += number[0].length;
+      continue;
+    }
+
+    if (char === "'") {
+      let value = "";
+      i += 1;
+      while (i < text.length) {
+        if (text[i] === "'" && text[i + 1] === "'") {
+          value += "'";
+          i += 2;
+        } else if (text[i] === "'") {
+          break;
+        } else {
+          value += text[i];
+          i += 1;
+        }
+      }
+      if (text[i] !== "'") return null;
+      i += 1;
+      tokens.push({ t: "str", v: value, interpolate: false });
+      continue;
+    }
+
+    if (char === '"') {
+      let value = "";
+      i += 1;
+      while (i < text.length && text[i] !== '"') {
+        if (text[i] === "`" && i + 1 < text.length) {
+          value += unescapeBacktick(text[i + 1]);
+          i += 2;
+        } else {
+          value += text[i];
+          i += 1;
+        }
+      }
+      if (text[i] !== '"') return null;
+      i += 1;
+      tokens.push({ t: "str", v: value, interpolate: true });
+      continue;
+    }
+
+    const variable = rest.match(/^\$(env:)?[A-Za-z_][A-Za-z0-9_]*/i);
+    if (variable) {
+      tokens.push({ t: "var", v: variable[0].slice(1) });
+      i += variable[0].length;
+      continue;
+    }
+
+    if ("+-*/%".includes(char)) {
+      tokens.push({ t: "op", v: char });
+      i += 1;
+      continue;
+    }
+
+    if (char === "(") {
+      tokens.push({ t: "lp" });
+      i += 1;
+      continue;
+    }
+
+    if (char === ")") {
+      tokens.push({ t: "rp" });
+      i += 1;
+      continue;
+    }
+
+    return null;
+  }
+
+  return tokens;
+}
+
+class ExpressionError extends Error {}
+
+function toNumber(value: ShellValue): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  const text = Array.isArray(value) ? value.join("") : value;
+  if (text.trim() !== "" && Number.isFinite(Number(text))) return Number(text);
+  throw new ExpressionError(`Cannot convert value "${text}" to type "System.Int32". Error: "Input string was not in a correct format."`);
+}
+
+function toText(value: ShellValue): string {
+  if (typeof value === "boolean") return value ? "True" : "False";
+  if (typeof value === "number") return formatNumber(value);
+  if (Array.isArray(value)) return value.join(" ");
+  return value;
+}
+
+function formatNumber(value: number) {
+  if (Number.isInteger(value)) return String(value);
+  return String(Number(value.toPrecision(15)));
+}
+
+function wildcardRegex(pattern: string) {
+  return new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`, "i");
+}
+
+function compareValues(operator: string, left: ShellValue, right: ShellValue): boolean {
+  if (operator === "-and") return Boolean(left) && Boolean(right);
+  if (operator === "-or") return Boolean(left) || Boolean(right);
+
+  const numeric = typeof left === "number";
+  const a = numeric ? left : toText(left).toLowerCase();
+  const b = numeric ? toNumber(right) : toText(right).toLowerCase();
+
+  switch (operator) {
+    case "-eq":
+      return a === b;
+    case "-ne":
+      return a !== b;
+    case "-gt":
+      return a > b;
+    case "-ge":
+      return a >= b;
+    case "-lt":
+      return a < b;
+    case "-le":
+      return a <= b;
+    case "-like":
+      return wildcardRegex(toText(right)).test(toText(left));
+    case "-notlike":
+      return !wildcardRegex(toText(right)).test(toText(left));
+    case "-match":
+    case "-notmatch": {
+      let matched: boolean;
+      try {
+        matched = new RegExp(toText(right), "i").test(toText(left));
+      } catch {
+        throw new ExpressionError(`The regular expression pattern ${toText(right)} is not valid.`);
+      }
+      return operator === "-match" ? matched : !matched;
+    }
+    default:
+      throw new ExpressionError(`Unexpected token '${operator}' in expression or statement.`);
+  }
+}
+
+function applyArithmetic(operator: string, left: ShellValue, right: ShellValue): ShellValue {
+  if (operator === "+") {
+    if (Array.isArray(left)) return [...left, ...(Array.isArray(right) ? right : [toText(right)])];
+    if (typeof left === "string") return left + toText(right);
+    return toNumber(left) + toNumber(right);
+  }
+  if (operator === "*") {
+    if (typeof left === "string") return left.repeat(Math.max(0, Math.floor(toNumber(right))));
+    return toNumber(left) * toNumber(right);
+  }
+  const a = toNumber(left);
+  const b = toNumber(right);
+  if ((operator === "/" || operator === "%") && b === 0) throw new ExpressionError("Attempted to divide by zero.");
+  if (operator === "-") return a - b;
+  if (operator === "/") return a / b;
+  return a % b;
+}
+
+/** Evaluate a whole line as an expression. Returns undefined when it is not one (so it runs as a command). */
+function evaluateExpression(text: string, ctx: Ctx): { value: ShellValue } | { error: string } | undefined {
+  const tokens = lexExpression(text);
+  if (!tokens || tokens.length === 0) return undefined;
+  let position = 0;
+
+  const peek = () => tokens[position];
+  const take = () => tokens[position++];
+
+  const primary = (): ShellValue => {
+    const token = take();
+    if (!token) throw new ExpressionError("You must provide a value expression following the operator.");
+    if (token.t === "num") return token.v;
+    if (token.t === "str") return token.interpolate ? expandVariables(token.v, ctx) : token.v;
+    if (token.t === "var") {
+      const value = readVariable(token.v, ctx);
+      return value ?? "";
+    }
+    if (token.t === "lp") {
+      const value = comparison();
+      if (take()?.t !== "rp") throw new ExpressionError("Missing closing ')' in expression.");
+      return value;
+    }
+    throw new ExpressionError("You must provide a value expression following the operator.");
+  };
+
+  const unary = (): ShellValue => {
+    const token = peek();
+    if (token?.t === "op" && token.v === "-") {
+      take();
+      return -toNumber(unary());
+    }
+    return primary();
+  };
+
+  const term = (): ShellValue => {
+    let value = unary();
+    while (peek()?.t === "op" && ["*", "/", "%"].includes((peek() as { v: string }).v)) {
+      const operator = (take() as { v: string }).v;
+      value = applyArithmetic(operator, value, unary());
+    }
+    return value;
+  };
+
+  const additive = (): ShellValue => {
+    let value = term();
+    while (peek()?.t === "op" && ["+", "-"].includes((peek() as { v: string }).v)) {
+      const operator = (take() as { v: string }).v;
+      value = applyArithmetic(operator, value, term());
+    }
+    return value;
+  };
+
+  function comparison(): ShellValue {
+    let value = additive();
+    while (peek()?.t === "op" && COMPARISON_OPERATORS.includes((peek() as { v: string }).v)) {
+      const operator = (take() as { v: string }).v;
+      value = compareValues(operator, value, additive());
+    }
+    return value;
+  }
+
+  try {
+    const value = comparison();
+    if (position !== tokens.length) return undefined;
+    return { value };
+  } catch (error) {
+    if (error instanceof ExpressionError) return { error: error.message };
+    return undefined;
+  }
+}
+
+function formatValue(value: ShellValue): string[] {
+  if (Array.isArray(value)) return value;
+  return [toText(value)];
+}
+
+const PS_VERSION_TABLE = (): string[] => {
+  const rows: Array<[string, string]> = [
+    ["PSVersion", POWERSHELL_VERSION],
+    ["PSEdition", "Core"],
+    ["GitCommitId", POWERSHELL_VERSION],
+    ["OS", `Taaniel OS (${typeof navigator === "undefined" ? "browser" : navigator.userAgent.split(" ")[0]})`],
+    ["Platform", "Win32NT"],
+    ["PSCompatibleVersions", "{1.0, 2.0, 3.0, 4.0…}"],
+    ["PSRemotingProtocolVersion", "2.3"],
+    ["SerializationVersion", "1.1.0.1"],
+    ["WSManStackVersion", "3.0"],
+  ];
+  return [
+    "",
+    `${TABLE}${"Name".padEnd(31)}Value${RESET}`,
+    `${TABLE}${"----".padEnd(31)}-----${RESET}`,
+    ...rows.map(([name, value]) => `${name.padEnd(31)}${value}`),
+    "",
+  ];
+};
+
+// ---------------------------------------------------------- host commands
+
+const CONSOLE_COLORS: Record<string, string> = {
+  black: "30",
+  darkblue: "34",
+  darkgreen: "32",
+  darkcyan: "36",
+  darkred: "31",
+  darkmagenta: "35",
+  darkyellow: "33",
+  gray: "37",
+  darkgray: "90",
+  blue: "94",
+  green: "92",
+  cyan: "96",
+  red: "91",
+  magenta: "95",
+  yellow: "93",
+  white: "97",
+};
+
+const writeHost: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["NoNewline"], params: ["ForegroundColor", "BackgroundColor", "Object", "Separator"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const fg = parsed.params.ForegroundColor ? CONSOLE_COLORS[parsed.params.ForegroundColor.toLowerCase()] : undefined;
+  const bgCode = parsed.params.BackgroundColor ? CONSOLE_COLORS[parsed.params.BackgroundColor.toLowerCase()] : undefined;
+  if (parsed.params.ForegroundColor && !fg) {
+    return fail(ctx, name, `Cannot bind parameter 'ForegroundColor'. Cannot convert value "${parsed.params.ForegroundColor}" to type "System.ConsoleColor".`);
+  }
+  const bg = bgCode ? String(Number(bgCode) + 10) : undefined;
+  const text = [...(parsed.params.Object ? [parsed.params.Object] : []), ...parsed.positional, ...(stdin ?? [])].join(parsed.params.Separator ?? " ");
+  const codes = [fg, bg].filter(Boolean).join(";");
+  return ok([codes ? `${CSI}${codes}m${text}${RESET}` : text]);
+};
+
+/** A stable, PowerShell-looking numeric id for an OS process. */
+function processNumber(id: string) {
+  let hash = 0;
+  for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
+  return 1000 + (hash % 9000);
+}
+
+const getProcess: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Name", "Id"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const processes = ctx.host.listProcesses?.() ?? [];
+  const nameFilter = parsed.params.Name ?? parsed.positional[0];
+  const idFilter = parsed.params.Id ? Number(parsed.params.Id) : undefined;
+  const matches = processes.filter((process) => {
+    if (idFilter !== undefined && processNumber(process.id) !== idFilter) return false;
+    if (nameFilter && !wildcardRegex(nameFilter).test(process.name)) return false;
+    return true;
+  });
+
+  if (matches.length === 0) {
+    if (idFilter !== undefined) return fail(ctx, name, `Cannot find a process with the process identifier ${idFilter}.`);
+    if (nameFilter) return fail(ctx, name, `Cannot find a process with the name "${nameFilter}". Verify the process name and call the cmdlet again.`);
+    return ok();
+  }
+
+  return ok([
+    "",
+    `${TABLE}${"Id".padStart(6)} ${"ProcessName".padEnd(14)} ${"Status".padEnd(10)} MainWindowTitle${RESET}`,
+    `${TABLE}${"--".padStart(6)} ${"-----------".padEnd(14)} ${"------".padEnd(10)} ---------------${RESET}`,
+    ...matches.map(
+      (process) =>
+        `${String(processNumber(process.id)).padStart(6)} ${process.name.padEnd(14)} ${(process.minimized ? "Minimized" : "Running").padEnd(10)} ${sanitizeForTerminal(process.title)}`
+    ),
+    "",
+  ]);
+};
+
+const stopProcess: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Force"], params: ["Name", "Id"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const processes = ctx.host.listProcesses?.() ?? [];
+  const positional = parsed.positional[0];
+  const idValue = parsed.params.Id ?? (positional && /^\d+$/.test(positional) ? positional : undefined);
+  const nameValue = parsed.params.Name ?? (idValue === undefined ? positional : undefined);
+
+  if (idValue === undefined && !nameValue) return fail(ctx, name, "Cannot bind argument to parameter 'Id' because it is null.");
+
+  const targets = processes.filter((process) =>
+    idValue !== undefined ? processNumber(process.id) === Number(idValue) : wildcardRegex(nameValue!).test(process.name)
+  );
+
+  if (targets.length === 0) {
+    return idValue !== undefined
+      ? fail(ctx, name, `Cannot find a process with the process identifier ${idValue}.`)
+      : fail(ctx, name, `Cannot find a process with the name "${nameValue}". Verify the process name and call the cmdlet again.`);
+  }
+
+  targets.forEach((process) => ctx.host.stopProcess?.(process.id));
+  return ok();
+};
+
+const getComputerInfo: CommandFn = () => {
+  const nav = typeof navigator === "undefined" ? undefined : navigator;
+  const screenInfo = typeof screen === "undefined" ? undefined : screen;
+  const memory = (nav as (Navigator & { deviceMemory?: number }) | undefined)?.deviceMemory;
+  const browser = nav?.userAgent.match(/(Edg|Chrome|Firefox|Safari)\/[\d.]+/)?.[0]?.replace("Edg", "Edge") ?? "Unknown browser";
+  const rows: Array<[string, string]> = [
+    ["OsName", "Taaniel OS"],
+    ["OsVersion", "11.0 (portfolio build)"],
+    ["CsName", SHELL_HOST],
+    ["CsUserName", `${SHELL_HOST.toLowerCase()}\\${SHELL_USER.toLowerCase()}`],
+    ["HostBrowser", browser],
+    ["CsNumberOfLogicalProcessors", String(nav?.hardwareConcurrency ?? "Unknown")],
+    ["CsPhysicallyInstalledMemory", memory ? `${memory} GB (reported by the browser, rounded)` : "Not reported by this browser"],
+    ["DisplayResolution", screenInfo ? `${screenInfo.width} x ${screenInfo.height} @ ${globalThis.devicePixelRatio ?? 1}x` : "Unknown"],
+    ["OsLocale", nav?.language ?? "Unknown"],
+    ["TimeZone", Intl.DateTimeFormat().resolvedOptions().timeZone],
+    ["NetworkStatus", nav?.onLine === false ? "Offline" : "Online"],
+  ];
+  return ok(["", ...rows.map(([key, value]) => `${key.padEnd(28)}: ${value}`), ""]);
+};
+
+const MAX_RESPONSE_BYTES = 512 * 1024;
+const REQUEST_TIMEOUT_MS = 15_000;
+
+function normalizeRequestUrl(input: string) {
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(input) ? input : `https://${input}`;
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Read at most MAX_RESPONSE_BYTES of a response body, so a huge download can't freeze the page. */
+async function readCapped(response: Response) {
+  const reader = response.body?.getReader();
+  if (!reader) return { text: await response.text(), truncated: false };
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    size += value.byteLength;
+    if (size >= MAX_RESPONSE_BYTES) {
+      truncated = true;
+      await reader.cancel();
+      break;
+    }
+  }
+  const bytes = new Uint8Array(Math.min(size, MAX_RESPONSE_BYTES));
+  let offset = 0;
+  for (const chunk of chunks) {
+    const slice = chunk.subarray(0, Math.max(0, bytes.length - offset));
+    bytes.set(slice, offset);
+    offset += slice.byteLength;
+  }
+  return { text: new TextDecoder().decode(bytes), truncated };
+}
+
+function formatJson(value: unknown, depth = 0): string[] {
+  if (Array.isArray(value)) {
+    if (value.every((entry) => entry === null || typeof entry !== "object")) return [value.map((entry) => String(entry)).join(", ")];
+    return value.slice(0, 50).flatMap((entry, index) => [...(index ? [""] : []), ...formatJson(entry, depth)]);
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    const width = Math.min(28, Math.max(...entries.map(([key]) => key.length), 1));
+    return entries.map(([key, entry]) => {
+      const shown =
+        entry && typeof entry === "object"
+          ? depth > 0
+            ? "{…}"
+            : JSON.stringify(entry).slice(0, 120)
+          : String(entry);
+      return `${key.padEnd(width)} : ${sanitizeForTerminal(shown)}`;
+    });
+  }
+  return [sanitizeForTerminal(String(value))];
+}
+
+async function webRequest(args: string[], ctx: Ctx, name: string, rest: boolean): Promise<Output> {
+  const parsed = parseArgs(args, { switches: ["UseBasicParsing"], params: ["Uri", "Method", "OutFile"] });
+  // curl/wget muscle memory: ignore their single-letter flags.
+  const target = parsed.params.Uri ?? parsed.positional.find((arg) => !arg.startsWith("-"));
+  if (!target) return fail(ctx, name, "Cannot bind argument to parameter 'Uri' because it is null.");
+
+  const url = normalizeRequestUrl(target);
+  if (!url) return fail(ctx, name, `The URI prefix is not recognized: '${target}'. Only http and https are supported.`);
+
+  const method = (parsed.params.Method ?? "GET").toUpperCase();
+  if (!["GET", "HEAD"].includes(method)) return fail(ctx, name, `Only GET and HEAD requests are allowed from this terminal (got ${method}).`);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const doFetch = ctx.host.fetch ?? globalThis.fetch?.bind(globalThis);
+  if (!doFetch) return fail(ctx, name, "This browser can't make web requests.");
+
+  try {
+    // Never send cookies or a referrer: the request is anonymous.
+    const response = await doFetch(url, {
+      method,
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      cache: "no-store",
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    const { text, truncated } = method === "HEAD" ? { text: "", truncated: false } : await readCapped(response);
+    const clean = sanitizeForTerminal(text);
+
+    if (parsed.params.OutFile) {
+      const written = await writeContent(ctx, name, parsed.params.OutFile, [clean], false);
+      return written.ok ? ok() : written;
+    }
+
+    if (rest) {
+      try {
+        return ok(["", ...formatJson(JSON.parse(text)), ""]);
+      } catch {
+        return ok(clean.split("\n").slice(0, 200));
+      }
+    }
+
+    const headers: string[] = [];
+    response.headers.forEach((value, key) => headers.push(`[${key}, ${sanitizeForTerminal(value)}]`));
+    return ok([
+      "",
+      `StatusCode        : ${response.status}`,
+      `StatusDescription : ${response.statusText || (response.ok ? "OK" : "")}`,
+      `Content           : ${clean.slice(0, 200).replace(/\s+/g, " ")}${clean.length > 200 ? "…" : ""}`,
+      `Headers           : {${headers.slice(0, 4).join(", ")}${headers.length > 4 ? "…" : ""}}`,
+      `RawContentLength  : ${text.length}${truncated ? " (stopped at 512 KB)" : ""}`,
+      "",
+    ]);
+  } catch (error) {
+    if ((error as Error)?.name === "AbortError") return fail(ctx, name, "The operation has timed out.");
+    return fail(
+      ctx,
+      name,
+      "Unable to connect to the remote server. Browsers only let a page read sites that allow it (CORS); APIs such as api.github.com do."
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const invokeWebRequest: CommandFn = (args, _stdin, ctx, name) => webRequest(args, ctx, name, false);
+const invokeRestMethod: CommandFn = (args, _stdin, ctx, name) => webRequest(args, ctx, name, true);
+
+/** ICMP is impossible from a web page, so reachability is timed over HTTPS - and the output says so. */
+async function timeHttps(host: string, ctx: Ctx) {
+  const doFetch = ctx.host.fetch ?? globalThis.fetch?.bind(globalThis);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  const started = performance.now();
+  try {
+    await doFetch?.(`https://${host}/`, { mode: "no-cors", credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer", signal: controller.signal });
+    return Math.max(1, Math.round(performance.now() - started));
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function hostFromTarget(target: string) {
+  const url = normalizeRequestUrl(target);
+  return url ? new URL(url).hostname : null;
+}
+
+const ping: CommandFn = async (args, _stdin, ctx, name) => {
+  const countIndex = args.findIndex((arg) => /^[-/]n$/i.test(arg));
+  const count = Math.min(10, Math.max(1, countIndex >= 0 ? Number(args[countIndex + 1]) || 4 : 4));
+  const target = args.find((arg, index) => !/^[-/]/.test(arg) && (countIndex < 0 || index !== countIndex + 1));
+  const host = target ? hostFromTarget(target) : null;
+  if (!host) return fail(ctx, name, "Ping request could not find the host. Please check the name and try again.");
+
+  const times: number[] = [];
+  const lines = [``, `Pinging ${host} over HTTPS (browsers can't send ICMP):`];
+  for (let attempt = 0; attempt < count; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const time = await timeHttps(host, ctx);
+    if (time === null) lines.push("Request timed out.");
+    else {
+      times.push(time);
+      lines.push(`Reply from ${host}: time=${time}ms`);
+    }
+  }
+  lines.push("", `Ping statistics for ${host}:`, `    Packets: Sent = ${count}, Received = ${times.length}, Lost = ${count - times.length} (${Math.round(((count - times.length) / count) * 100)}% loss),`);
+  if (times.length) {
+    lines.push(
+      "Approximate round trip times in milli-seconds:",
+      `    Minimum = ${Math.min(...times)}ms, Maximum = ${Math.max(...times)}ms, Average = ${Math.round(times.reduce((a, b) => a + b, 0) / times.length)}ms`
+    );
+  }
+  return { out: lines, ok: times.length > 0 };
+};
+
+const testConnection: CommandFn = async (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Quiet"], params: ["TargetName", "Count"] });
+  const host = hostFromTarget(parsed.params.TargetName ?? parsed.positional[0] ?? "");
+  if (!host) return fail(ctx, name, "Cannot bind argument to parameter 'TargetName' because it is null.");
+  const count = Math.min(10, Math.max(1, Number(parsed.params.Count) || 4));
+  const rows: string[] = [];
+  let received = 0;
+  for (let attempt = 1; attempt <= count; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const time = await timeHttps(host, ctx);
+    if (time !== null) received += 1;
+    rows.push(`${String(attempt).padStart(4)} ${SHELL_HOST.padEnd(16)} ${host.padEnd(28)} ${String(time ?? "*").padStart(7)} ${(time === null ? "TimedOut" : "Success").padStart(9)}`);
+  }
+  if (parsed.switches.has("Quiet")) return ok([received > 0 ? "True" : "False"]);
+  return {
+    out: [
+      "",
+      `   Destination: ${host}   (timed over HTTPS)`,
+      "",
+      `${TABLE}${"Ping".padStart(4)} ${"Source".padEnd(16)} ${"Address".padEnd(28)} ${"Latency".padStart(7)} ${"Status".padStart(9)}${RESET}`,
+      `${TABLE}${"".padStart(4)} ${"".padEnd(16)} ${"".padEnd(28)} ${"(ms)".padStart(7)} ${"".padStart(9)}${RESET}`,
+      `${TABLE}${"----".padStart(4)} ${"------".padEnd(16)} ${"-------".padEnd(28)} ${"-------".padStart(7)} ${"------".padStart(9)}${RESET}`,
+      ...rows,
+      "",
+    ],
+    ok: received > 0,
+  };
+};
+
+const HASH_ALGORITHMS: Record<string, string> = { sha1: "SHA-1", sha256: "SHA-256", sha384: "SHA-384", sha512: "SHA-512" };
+
+function fileBytes(node: VirtualNode): Uint8Array<ArrayBuffer> | null {
+  if (node.kind !== "file") return null;
+  if (typeof node.content === "string") return new TextEncoder().encode(node.content);
+  if (node.source?.startsWith("data:")) {
+    const base64 = node.source.slice(node.source.indexOf(",") + 1);
+    try {
+      return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+const getFileHash: CommandFn = async (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Path", "Algorithm"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const algorithm = (parsed.params.Algorithm ?? "SHA256").toUpperCase();
+  const subtleName = HASH_ALGORITHMS[algorithm.toLowerCase()];
+  if (!subtleName) {
+    return fail(ctx, name, algorithm === "MD5" ? "MD5 isn't available in browser cryptography; use SHA256." : `Cannot validate argument on parameter 'Algorithm'. The argument "${algorithm}" does not belong to the set "SHA1,SHA256,SHA384,SHA512".`);
+  }
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) return fail(ctx, name, "Cryptography is not available in this browser.");
+
+  const targets = parsed.params.Path ? [parsed.params.Path, ...parsed.positional] : parsed.positional;
+  if (!targets.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+  const nodes = ctx.fs.getNodes();
+  const hashes: Array<{ hex: string; path: string }> = [];
+  let okay = true;
+
+  for (const { path } of expandPaths(targets, ctx)) {
+    const node = nodes[path];
+    const bytes = node ? fileBytes(node) : null;
+    if (!node || node.kind !== "file" || !bytes) {
+      fail(ctx, name, node ? `Unable to read the file '${toWindowsPath(path)}'.` : `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      okay = false;
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const digest = new Uint8Array(await subtle.digest(subtleName, bytes));
+    hashes.push({ hex: Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase(), path });
+  }
+
+  if (!hashes.length) return { out: [], ok: okay };
+  const width = Math.max(...hashes.map((entry) => entry.hex.length)) + 2;
+  return {
+    out: [
+      "",
+      `${TABLE}${"Algorithm".padEnd(16)}${"Hash".padEnd(width)}Path${RESET}`,
+      `${TABLE}${"---------".padEnd(16)}${"----".padEnd(width)}----${RESET}`,
+      ...hashes.map((entry) => `${algorithm.padEnd(16)}${entry.hex.padEnd(width)}${toWindowsPath(entry.path)}`),
+      "",
+    ],
+    ok: okay,
+  };
+};
+
+const getClipboard: CommandFn = async (_args, _stdin, ctx, name) => {
+  const read = ctx.host.readClipboard ?? (() => navigator.clipboard.readText());
+  try {
+    return ok(sanitizeForTerminal(await read()).split("\n"));
+  } catch {
+    return fail(ctx, name, "The clipboard is not available: the browser denied access.");
+  }
+};
+
+const setClipboard: CommandFn = async (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Append"], params: ["Value"] });
+  const text = [...(parsed.params.Value !== undefined ? [parsed.params.Value] : parsed.positional), ...(stdin ?? [])].map(stripAnsi).join("\n");
+  const write = ctx.host.writeClipboard ?? ((value: string) => navigator.clipboard.writeText(value));
+  try {
+    await write(text);
+    return ok();
+  } catch {
+    return fail(ctx, name, "The clipboard is not available: the browser denied access.");
+  }
+};
+
+function secureRandom() {
+  const buffer = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(buffer);
+  return buffer[0] / 2 ** 32;
+}
+
+const getRandom: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Minimum", "Maximum", "Count"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  if (stdin && stdin.length) {
+    const count = Math.max(1, Number(parsed.params.Count) || 1);
+    const pool = [...stdin];
+    const picks: string[] = [];
+    while (picks.length < count && pool.length) picks.push(pool.splice(Math.floor(secureRandom() * pool.length), 1)[0]);
+    return ok(picks);
+  }
+  const minimum = Number(parsed.params.Minimum ?? 0);
+  const maximum = Number(parsed.params.Maximum ?? parsed.positional[0] ?? 2147483647);
+  if (!(maximum > minimum)) return fail(ctx, name, `The Minimum value (${minimum}) cannot be greater than or equal to the Maximum value (${maximum}).`);
+  return ok([String(Math.floor(minimum + secureRandom() * (maximum - minimum)))]);
+};
+
+const startSleep: CommandFn = async (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Seconds", "Milliseconds"] });
+  const milliseconds = parsed.params.Milliseconds !== undefined ? Number(parsed.params.Milliseconds) : Number(parsed.params.Seconds ?? parsed.positional[0] ?? 0) * 1000;
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return fail(ctx, name, "Cannot validate argument on parameter 'Seconds'.");
+  await new Promise((resolve) => setTimeout(resolve, Math.min(milliseconds, 60_000)));
+  return ok();
+};
+
+const testPath: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Path", "PathType"] });
+  const target = parsed.params.Path ?? parsed.positional[0];
+  if (!target) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+  const nodes = ctx.fs.getNodes();
+  const node = nodes[resolveShellPath(target, ctx.session.cwd, nodes)];
+  const type = parsed.params.PathType?.toLowerCase();
+  const matches = Boolean(node) && (!type || type === "any" || (type === "container" ? node!.kind === "directory" : node!.kind === "file"));
+  return ok([matches ? "True" : "False"]);
+};
+
+const getItem: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Path"] });
+  const targets = parsed.params.Path ? [parsed.params.Path, ...parsed.positional] : parsed.positional;
+  if (!targets.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+  const nodes = ctx.fs.getNodes();
+  const out: string[] = [];
+  let okay = true;
+  for (const { path } of expandPaths(targets, ctx)) {
+    const node = nodes[path];
+    if (!node) {
+      fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      okay = false;
+      continue;
+    }
+    out.push(
+      "",
+      `Name          : ${sanitizeForTerminal(node.name)}`,
+      `FullName      : ${toWindowsPath(path)}`,
+      `Mode          : ${modeOf(node, path === TRASH_PATH)}`,
+      ...(node.kind === "file" ? [`Length        : ${fileLength(node) || 0}`, `Extension     : .${node.extension}`] : []),
+      `CreationTime  : ${new Date(node.createdAt).toLocaleString()}`,
+      `LastWriteTime : ${new Date(node.updatedAt).toLocaleString()}`,
+      ...(node.kind === "file" && node.readonly ? ["IsReadOnly    : True"] : [])
+    );
+  }
+  if (out.length) out.push("");
+  return { out, ok: okay };
+};
+
+const pushLocation: CommandFn = (args, stdin, ctx) => {
+  const previous = ctx.session.cwd;
+  const result = setLocation(args, stdin, ctx, "Push-Location") as Output;
+  if (result.ok) ctx.session.locationStack.push(previous);
+  return result;
+};
+
+const popLocation: CommandFn = (_args, _stdin, ctx) => {
+  const target = ctx.session.locationStack.pop();
+  if (target && ctx.fs.getNodes()[target]?.kind === "directory") {
+    ctx.session.previousCwd = ctx.session.cwd;
+    ctx.session.cwd = target;
+  }
+  return ok();
+};
+
+const clearHistory: CommandFn = (_args, _stdin, ctx) => {
+  ctx.session.history.length = 0;
+  return ok();
+};
+
+const getVariable: CommandFn = (args, _stdin, ctx) => {
+  const filter = args[0] ? wildcardRegex(args[0].replace(/^\$/, "")) : null;
+  const entries = Object.entries(ctx.session.variables).filter(([key]) => !filter || filter.test(key));
+  return ok([
+    "",
+    `${TABLE}${"Name".padEnd(31)}Value${RESET}`,
+    `${TABLE}${"----".padEnd(31)}-----${RESET}`,
+    ...entries.map(([key, value]) => `${key.padEnd(31)}${sanitizeForTerminal(toText(value)).slice(0, 80)}`),
+    "",
+  ]);
+};
+
+const EXTRA_COMMANDS: Record<string, CommandSpec> = {
+  "Write-Host": { aliases: [], synopsis: "Print coloured text: Write-Host 'hi' -ForegroundColor Cyan.", syntax: "Write-Host [<object>] [-ForegroundColor <color>] [-BackgroundColor <color>]", run: writeHost },
+  "Get-Process": { aliases: ["ps", "gps"], synopsis: "List the apps running on this desktop.", syntax: "Get-Process [[-Name] <string>] [-Id <int>]", run: getProcess },
+  "Stop-Process": { aliases: ["kill", "spps"], synopsis: "Close a running app by Id or name.", syntax: "Stop-Process [-Id] <int> | -Name <string>", run: stopProcess },
+  "Get-ComputerInfo": { aliases: ["systeminfo", "gin"], synopsis: "Show real details about this device and browser.", syntax: "Get-ComputerInfo", run: getComputerInfo },
+  "Invoke-WebRequest": { aliases: ["iwr", "curl", "wget"], synopsis: "Fetch a web page (anonymously; CORS rules apply).", syntax: "Invoke-WebRequest [-Uri] <string> [-Method GET|HEAD] [-OutFile <path>]", run: invokeWebRequest },
+  "Invoke-RestMethod": { aliases: ["irm"], synopsis: "Fetch and format JSON: irm api.github.com/users/Taan1el", syntax: "Invoke-RestMethod [-Uri] <string>", run: invokeRestMethod },
+  "Test-Connection": { aliases: [], synopsis: "Check a host is reachable (timed over HTTPS).", syntax: "Test-Connection [-TargetName] <string> [-Count <int>] [-Quiet]", run: testConnection },
+  ping: { aliases: [], synopsis: "Ping a host (timed over HTTPS - browsers can't send ICMP).", syntax: "ping <host> [-n <count>]", run: ping },
+  "Get-FileHash": { aliases: [], synopsis: "Compute a real SHA hash of a file.", syntax: "Get-FileHash [-Path] <string[]> [-Algorithm SHA1|SHA256|SHA384|SHA512]", run: getFileHash },
+  "Get-Clipboard": { aliases: ["gcb"], synopsis: "Paste the clipboard into the terminal.", syntax: "Get-Clipboard", run: getClipboard },
+  "Set-Clipboard": { aliases: ["scb", "clip"], synopsis: "Copy text or piped output: ls | clip", syntax: "Set-Clipboard [-Value] <string>", run: setClipboard },
+  "Get-Random": { aliases: ["random"], synopsis: "A cryptographically random number, or a random piped line.", syntax: "Get-Random [-Minimum <int>] [-Maximum <int>]", run: getRandom },
+  "Start-Sleep": { aliases: ["sleep"], synopsis: "Wait for a number of seconds (up to 60).", syntax: "Start-Sleep [-Seconds] <double>", run: startSleep },
+  "Test-Path": { aliases: [], synopsis: "True when a path exists.", syntax: "Test-Path [-Path] <string> [-PathType Container|Leaf]", run: testPath },
+  "Get-Item": { aliases: ["gi"], synopsis: "Show details about a file or folder.", syntax: "Get-Item [-Path] <string[]>", run: getItem },
+  "Push-Location": { aliases: ["pushd"], synopsis: "Change folder, remembering the current one.", syntax: "Push-Location [<path>]", run: pushLocation },
+  "Pop-Location": { aliases: ["popd"], synopsis: "Return to the folder saved by Push-Location.", syntax: "Pop-Location", run: popLocation },
+  "Clear-History": { aliases: ["clhy"], synopsis: "Forget this terminal's command history.", syntax: "Clear-History", run: clearHistory },
+  "Get-Variable": { aliases: ["gv"], synopsis: "List variables set in this session.", syntax: "Get-Variable [<name>]", run: getVariable },
+};
+
 // ------------------------------------------------------------------ registry
 
 const COMMANDS: Record<string, CommandSpec> = {
@@ -1326,6 +2224,21 @@ const HELP_OVERVIEW = [
   `${TABLE}Portfolio${RESET}`,
   "  about, projects [id], contact, resume",
   "",
+  `${TABLE}System and network${RESET}`,
+  "  ps, kill         Running apps; close one          ps, kill -Name notes",
+  "  systeminfo       Real details of this device      systeminfo",
+  "  irm, iwr, curl   Web requests (no cookies sent)   irm api.github.com/users/Taan1el",
+  "  ping             Reachability over HTTPS          ping github.com",
+  "  Get-FileHash     Real SHA-256 of a file           Get-FileHash Welcome.md",
+  "  clip, gcb        Clipboard                        ls | clip",
+  "  wsl              Boot the Linux virtual machine   wsl",
+  "",
+  `${TABLE}Scripting${RESET}`,
+  "  $x = 5           Variables, maths, comparisons    $x * 2, 'ab' * 3, 5 -gt 3",
+  "  .\\script.ps1     Run a script from this drive     echo 'Write-Host hi -ForegroundColor Cyan' > a.ps1",
+  "  Write-Host       Coloured output                  Write-Host hi -ForegroundColor Green",
+  "  Test-Path, gi    Check or inspect a path          Test-Path Documents",
+  "",
   `${TABLE}Shell${RESET}`,
   "  cls, history, Get-Date, whoami, Get-Command, Get-Alias, help <command>, exit",
   "  Tab completes commands and paths. Up/Down recalls history. Ctrl+C cancels, Ctrl+L clears.",
@@ -1360,10 +2273,45 @@ COMMANDS["Get-Help"] = { aliases: ["help", "man"], synopsis: "Show help for the 
   COMMANDS[canonical].aliases.forEach((alias) => COMMAND_LOOKUP.set(alias.toLowerCase(), canonical));
 });
 
+Object.entries(EXTRA_COMMANDS).forEach(([canonical, spec]) => {
+  COMMANDS[canonical] = spec;
+  COMMAND_LOOKUP.set(canonical.toLowerCase(), canonical);
+  spec.aliases.forEach((alias) => COMMAND_LOOKUP.set(alias.toLowerCase(), canonical));
+});
+
 // ------------------------------------------------------------------ execution
 
+const MAX_SCRIPT_DEPTH = 4;
+const MAX_SCRIPT_LINES = 500;
+
+/** Run a .ps1 file from the virtual drive, line by line, through this same interpreter. */
+async function runScript(path: string, ctx: Ctx): Promise<Output> {
+  if (ctx.depth >= MAX_SCRIPT_DEPTH) return fail(ctx, getPathName(path), "The script failed due to call depth overflow.");
+  const node = ctx.fs.getNodes()[path];
+  const text = node ? textContent(node) : null;
+  if (text === null) return fail(ctx, getPathName(path), `Cannot read the script '${toWindowsPath(path)}'.`);
+
+  let okay = true;
+  const lines = text.split(/\r?\n/).slice(0, MAX_SCRIPT_LINES);
+  for (const line of lines) {
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const result = await runShellCommand(line, ctx.session, ctx.fs, ctx.host, ctx.depth + 1);
+    if (result.clear) {
+      ctx.clear = true;
+      ctx.lines.length = 0;
+    }
+    ctx.lines.push(...result.lines);
+    ctx.actions.push(...result.actions);
+    okay &&= result.success;
+  }
+  return { out: [], ok: okay };
+}
+
 async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promise<Output> {
-  const [rawName, ...args] = argv;
+  // The call (&) and dot-source (.) operators just run what follows.
+  const words = (argv[0] === "&" || argv[0] === ".") && argv.length > 1 ? argv.slice(1) : argv;
+  const [rawName, ...args] = words;
   const key = rawName.toLowerCase();
 
   // PowerShell ships cd.. and cd\ as built-in functions.
@@ -1377,11 +2325,12 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
   const executable = key.replace(/\.exe$/, "");
   if (EXECUTABLES[executable]) return launchExecutable(executable, args, ctx);
 
-  // Typing a path to a document opens it, as in PowerShell.
   if (/[\\/.]/.test(rawName)) {
     const nodes = ctx.fs.getNodes();
     const path = resolveShellPath(rawName, ctx.session.cwd, nodes);
     if (nodes[path]) {
+      if (/\.ps1$/i.test(path)) return runScript(path, ctx);
+      // Typing a path to a document opens it, as in PowerShell.
       ctx.actions.push({ type: "open-path", path });
       return ok();
     }
@@ -1394,35 +2343,104 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
   );
 }
 
-export async function runShellCommand(input: string, session: ShellSession, fs: ShellFileSystem): Promise<ShellResult> {
-  const ctx: Ctx = { session, fs, lines: [], actions: [], clear: false };
+async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok: boolean }> {
   const parsed = parseStatements(tokenize(input), ctx);
 
   if (typeof parsed === "string") {
     fail(ctx, "ParserError", parsed);
-    return { lines: ctx.lines, clear: false, actions: [], success: false };
+    return { out: [], ok: false };
   }
 
+  const collected: string[] = [];
   let success = true;
   for (const statement of parsed) {
     let stdin: string[] | null = null;
     let output: Output = ok();
 
     for (let index = 0; index < statement.stages.length; index += 1) {
+      // eslint-disable-next-line no-await-in-loop
       output = await runStage(statement.stages[index], stdin, ctx);
       if (index < statement.stages.length - 1) stdin = output.out.map(stripAnsi);
     }
 
     if (statement.redirect) {
+      // eslint-disable-next-line no-await-in-loop
       const written = await writeContent(ctx, "Out-File", statement.redirect.target, output.out, statement.redirect.append);
       success &&= output.ok && written.ok;
     } else {
-      ctx.lines.push(...output.out);
+      collected.push(...output.out);
       success &&= output.ok;
     }
   }
+  return { out: collected, ok: success };
+}
 
-  return { lines: ctx.lines, clear: ctx.clear, actions: ctx.actions, success };
+const ASSIGNMENT = /^\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|=)\s*(.*)$/;
+
+export async function runShellCommand(
+  input: string,
+  session: ShellSession,
+  fs: ShellFileSystem,
+  host: ShellHost = {},
+  depth = 0
+): Promise<ShellResult> {
+  const ctx: Ctx = { session, fs, host, depth, lines: [], actions: [], clear: false };
+  const trimmed = input.trim();
+
+  // $name = value, $name += value: the value is an expression, or the output of a command.
+  const assignment = trimmed.match(ASSIGNMENT);
+  if (assignment && !assignment[3].startsWith("=")) {
+    const [, rawName, operator, rhs] = assignment;
+    const name = rawName.toLowerCase();
+    if (["true", "false", "null", "home", "pwd", "host"].includes(name)) {
+      fail(ctx, "SessionStateUnauthorizedAccessException", `Cannot overwrite variable ${rawName} because it is read-only or constant.`);
+      return { lines: ctx.lines, clear: false, actions: [], success: false };
+    }
+
+    const evaluated = evaluateExpression(rhs, ctx);
+    let value: ShellValue;
+    if (evaluated && "error" in evaluated) {
+      fail(ctx, "RuntimeException", evaluated.error);
+      return { lines: ctx.lines, clear: false, actions: [], success: false };
+    } else if (evaluated) {
+      value = evaluated.value;
+    } else {
+      const piped = await runPipeline(rhs, ctx);
+      const lines = piped.out.map(stripAnsi).filter((line) => line.trim() !== "");
+      value = lines.length === 1 ? lines[0] : lines;
+    }
+
+    const current = session.variables[name];
+    try {
+      session.variables[name] =
+        operator === "=" || current === undefined ? value : applyArithmetic(operator === "+=" ? "+" : "-", current, value);
+    } catch (error) {
+      fail(ctx, "RuntimeException", (error as Error).message);
+      return { lines: ctx.lines, clear: false, actions: [], success: false };
+    }
+    return { lines: ctx.lines, clear: ctx.clear, actions: ctx.actions, success: true };
+  }
+
+  // $PSVersionTable prints as a table, the way PowerShell shows it.
+  if (/^\$psversiontable$/i.test(trimmed)) {
+    return { lines: PS_VERSION_TABLE(), clear: false, actions: [], success: true };
+  }
+
+  // A line that is an expression (2 + 2, "Hello $name", $x * 3, 5 -gt 3) is evaluated and printed.
+  if (/^[\d("'$.-]/.test(trimmed) && !/^-[A-Za-z]/.test(trimmed)) {
+    const evaluated = evaluateExpression(trimmed, ctx);
+    if (evaluated && "error" in evaluated) {
+      fail(ctx, "RuntimeException", evaluated.error);
+      return { lines: ctx.lines, clear: false, actions: [], success: false };
+    }
+    if (evaluated) {
+      return { lines: formatValue(evaluated.value), clear: false, actions: [], success: true };
+    }
+  }
+
+  const result = await runPipeline(input, ctx);
+  ctx.lines.push(...result.out);
+  return { lines: ctx.lines, clear: ctx.clear, actions: ctx.actions, success: result.ok };
 }
 
 // ----------------------------------------------------------------- completion
