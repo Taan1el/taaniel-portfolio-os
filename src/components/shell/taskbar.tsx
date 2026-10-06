@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
 import { BatteryFull, Volume2, Wifi } from "lucide-react";
 import { SearchInput } from "@/components/apps/app-layout";
+import { LogoMark } from "@/components/ui/logo-mark";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn, formatClock } from "@/lib/utils";
@@ -27,18 +28,6 @@ function getPreviewPlacement(button: HTMLButtonElement) {
     )
   );
   return { left, bottom: window.innerHeight - buttonRect.top + TASKBAR_PREVIEW_OFFSET };
-}
-
-/** The Start button mark: four rounded squares in a 2x2 grid. */
-function WindowsLogo() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="2" y="2" width="9.4" height="9.4" rx="1.2" fill="var(--w11-start-logo)" />
-      <rect x="12.6" y="2" width="9.4" height="9.4" rx="1.2" fill="var(--w11-start-logo)" />
-      <rect x="2" y="12.6" width="9.4" height="9.4" rx="1.2" fill="var(--w11-start-logo)" />
-      <rect x="12.6" y="12.6" width="9.4" height="9.4" rx="1.2" fill="var(--w11-start-logo)" />
-    </svg>
-  );
 }
 
 /** Tray date the way Windows prints it: numeric, in the visitor's locale (6.10.2026, 10/6/2026, ...). */
@@ -396,7 +385,7 @@ export function Taskbar({
             aria-pressed={startMenuOpen}
             onClick={onToggleStartMenu}
           >
-            <WindowsLogo />
+            <LogoMark size={18} />
           </button>
 
           <SearchInput
