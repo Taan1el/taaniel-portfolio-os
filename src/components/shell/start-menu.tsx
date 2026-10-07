@@ -103,8 +103,9 @@ export function StartMenu({
   }, []);
 
   // Like Windows: Start opens with the caret in search, so typing searches immediately.
+  // Not on touch screens, where focusing would throw the on-screen keyboard over the menu.
   useEffect(() => {
-    if (onSearchQueryChange) {
+    if (onSearchQueryChange && globalThis.matchMedia?.("(pointer: fine)").matches) {
       searchRef.current?.focus({ preventScroll: true });
     }
   }, [onSearchQueryChange]);
