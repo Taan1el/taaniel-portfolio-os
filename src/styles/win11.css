@@ -2089,3 +2089,30 @@
   color: var(--w11-on-accent);
   font-weight: 600;
 }
+
+@media (max-width: 520px) {
+  /* Explorer: keep Back and Up, give the address bar the room, search on its own row. */
+  .w11-explorer__nav-button[aria-label^="Forward"],
+  .w11-explorer__nav-button[aria-label^="Refresh"] {
+    display: none;
+  }
+
+  .w11-explorer__address-row {
+    flex-wrap: wrap;
+  }
+
+  .w11-explorer__search {
+    flex: 1 1 100%;
+  }
+
+  /* Icon-only commands, so Sort and View fit without sideways scrolling. */
+  .w11-explorer__command.has-label span {
+    display: none;
+  }
+
+  /* Browser: Back and Refresh stay; Forward and Home make way for the address. */
+  .w11-browser__tool[aria-label^="Forward"],
+  .w11-browser__tool[aria-label^="Home"] {
+    display: none;
+  }
+}
