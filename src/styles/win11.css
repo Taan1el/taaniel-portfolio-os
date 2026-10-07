@@ -2116,3 +2116,8 @@
     display: none;
   }
 }
+
+/* Pages fill the browser edge to edge; the old viewport padding showed as a white frame. */
+.w11-browser__viewport.browser-app__viewport {
+  padding: 0;
+}
