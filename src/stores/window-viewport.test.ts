@@ -13,7 +13,8 @@ describe("window viewport bounds", () => {
     ]) {
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-      expect(bounds.y + bounds.height).toBeLessThanOrEqual(height - 120);
+      // Never under the 48px taskbar.
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(height - 48);
     }
   });
 });

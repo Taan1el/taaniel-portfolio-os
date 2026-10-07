@@ -83,7 +83,8 @@ export function getDesktopHeight() {
     return 720 - TASKBAR_HEIGHT;
   }
 
-  const reservedSpace = isCompactViewport() ? 132 : TASKBAR_HEIGHT;
+  // Phones get the same single-row taskbar as desktops, so windows can use everything above it.
+  const reservedSpace = TASKBAR_HEIGHT;
   return Math.max(1, window.innerHeight - reservedSpace);
 }
 
