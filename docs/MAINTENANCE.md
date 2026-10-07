@@ -1,5 +1,40 @@
 # Portfolio maintenance
 
+## 2026-10-07
+
+Completed:
+- Moved PDF.js to the 6.x line; documents are torn down through the loading task.
+- Updated Transformers, which pulls patched sharp, onnxruntime-node and adm-zip
+  and drops the roarr/sprintf-js chain. No overrides or forced majors.
+- Repaired the Browser's Wayback fallback (frame-friendly `2if_` snapshots) and
+  stopped re-encoding addresses that were already normalized.
+
+### Dependency changes
+
+| Package | Before | After |
+| --- | --- | --- |
+| pdfjs-dist | 5.6.205 | 6.4.299 |
+| DOMPurify | 3.4.15 | 3.4.16 |
+| @huggingface/transformers | 4.2.0 | 4.3.1 |
+| onnxruntime-web (transitive) | 1.26.0-dev | 1.31.0-dev |
+| onnxruntime-node (transitive) | 1.24.3 | 1.30.0 |
+| sharp (transitive) | 0.34.5 | 0.35.5 |
+| adm-zip (transitive) | 0.5.17 | 0.6.1 |
+| sprintf-js (transitive) | 1.1.3 | removed |
+| source-map-js (transitive) | 1.2.1 | 1.2.2 |
+
+Vite stays on 8.0.16, the newest 8.0 patch.
+
+`npm audit --omit=dev` went from 7 findings to 0. The full audit reports one
+advisory (braces, through gh-pages) as 5 entries; see the backlog.
+
+### Validation
+
+- Node 24.14.1 locally; the Pages workflow builds on Node 24.
+- `npx vitest run`: 34 files, 210 tests passed. `npm run build:gh` passed.
+- Semantic search reranked in the dev server and in a `vite preview` of the
+  Pages build ("download my cv" ranks the CV first), with no console errors.
+
 ## 2026-09-09
 
 Completed:
@@ -49,14 +84,15 @@ This is a dependency report, not a claim that every advisory is reachable.
 
 ### Backlog
 
-[ ] Review PDF.js 6 migration. Risk: major upgrade drops Node 20 support; current
-5.6.205 is covered by [GHSA-hq66-cqwq-w95j](https://github.com/advisories/GHSA-hq66-cqwq-w95j).
-This application uses getDocument/canvas, not PDFScriptingManager; do not assume
-the generic viewer scripting advisory proves an exploitable path here.
+[x] Review PDF.js 6 migration. Done 2026-10-07 (6.4.299); CI already runs Node 24.
 
-[ ] Track Transformers' Node-side sharp/onnxruntime-node/adm-zip advisories.
-Risk: npm reports no compatible automatic fix; forcing transitive major versions
-could break model loading. The recruiter route does not load these modules.
+[x] Track Transformers' Node-side sharp/onnxruntime-node/adm-zip advisories.
+Done 2026-10-07: Transformers 4.3.1 depends on patched versions directly.
+
+[ ] Track braces [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+via gh-pages > globby > fast-glob > micromatch. No patched braces exists yet, and
+npm's suggested fix is a gh-pages downgrade. Only the manual `deploy:gh` script
+uses it (CI deploys with peaceiris/actions-gh-pages), and it is never shipped.
 
 [ ] Review removal of historical campaign assets with the owner.
 Risk: deleting current files does not remove old Git commits, cached deployments,
