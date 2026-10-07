@@ -142,6 +142,15 @@ export const photographyAssets = [
 
 export const themePresets: ThemePreset[] = [
   {
+    id: "windows-bloom",
+    name: "Bloom",
+    wallpaper: `url('${resolvePublicAssetUrl("assets/wallpapers/bloom.svg")}') center / cover no-repeat, #b9cfe4`,
+    desktopTint: "transparent",
+    glow: "transparent",
+    shell: "rgba(32, 32, 32, 0.92)",
+    accent: "#0078d4",
+  },
+  {
     id: "cloud-archive",
     name: "Cloud Archive",
     wallpaper:
@@ -217,6 +226,13 @@ export const desktopEntries: DesktopEntry[] = [
     defaultGridPosition: { gridX: 1, gridY: 1 },
   },
   {
+    id: "browser-app",
+    label: "Browser",
+    type: "app",
+    appId: "browser",
+    defaultGridPosition: { gridX: 2, gridY: 1 },
+  },
+  {
     id: "simple-portfolio",
     label: "Portfolio",
     type: "link",
@@ -225,7 +241,7 @@ export const desktopEntries: DesktopEntry[] = [
   },
   {
     id: "trash",
-    label: "Trash",
+    label: "Recycle Bin",
     type: "folder",
     directoryPath: "/Trash",
     defaultGridPosition: { gridX: 2, gridY: 2 },

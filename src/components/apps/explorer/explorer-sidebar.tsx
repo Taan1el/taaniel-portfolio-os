@@ -1,12 +1,12 @@
 import { AppSidebar, Button, ScrollArea } from "@/components/apps/app-layout";
 import { Clock, FileText, X } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AppIcon } from "@/types/system";
 
 export interface ExplorerSidebarLocation {
   label: string;
   path: string;
-  icon: LucideIcon;
+  icon: AppIcon;
 }
 
 interface ExplorerSidebarProps {

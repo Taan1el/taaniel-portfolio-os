@@ -1,5 +1,4 @@
-import { Suspense, forwardRef, useEffect, useRef, useState, type CSSProperties } from "react";
-import { Maximize2, Minimize2, Minus, X } from "lucide-react";
+import { Suspense, forwardRef, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { createPortal } from "react-dom";
@@ -7,6 +6,28 @@ import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
 import type { AppWindow } from "@/types/system";
 import wfStyles from "@/components/shell/window-frame.module.css";
+
+/**
+ * Windows 11 caption glyphs: 10x10, 1px hairlines, the shapes Segoe Fluent
+ * Icons uses for the minimize / maximize / restore / close buttons.
+ */
+function CaptionGlyph({ kind }: { kind: "minimize" | "maximize" | "restore" | "close" }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+      {kind === "minimize" ? <path d="M0 5.5h10" stroke="currentColor" strokeWidth="1" /> : null}
+      {kind === "maximize" ? (
+        <rect x="0.5" y="0.5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1" />
+      ) : null}
+      {kind === "restore" ? (
+        <>
+          <rect x="0.5" y="2.5" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1" />
+          <path d="M2.5 2.5V2a1.5 1.5 0 0 1 1.5-1.5h4A1.5 1.5 0 0 1 9.5 2v4A1.5 1.5 0 0 1 8 7.5h-.5" fill="none" stroke="currentColor" strokeWidth="1" />
+        </>
+      ) : null}
+      {kind === "close" ? <path d="M0.5 0.5l9 9M9.5 0.5l-9 9" stroke="currentColor" strokeWidth="1" /> : null}
+    </svg>
+  );
+}
 
 type SnapZone = "top" | "left" | "right";
 
@@ -151,7 +172,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           role="dialog"
           aria-labelledby={`window-title-${window.id}`}
           aria-modal="false"
-          className={cn("window-frame", wfStyles.surface, active && "is-active", interacting && "is-dragging")}
+          className={cn("window-frame", wfStyles.surface, active && "is-active", interacting && "is-dragging", window.maximized && "is-maximized")}
           onMouseDown={onFocus}
           onTouchStart={onFocus}
           onAnimationComplete={() => setInteracting(false)}
@@ -161,28 +182,36 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           exit={{ opacity: 0, scale: 0.82, y: 48, filter: "blur(6px)" }}
           transition={{ duration: 0.22, ease: [0.4, 0, 1, 1] }}
         >
-          <header className="window-frame__header window-header" onDoubleClick={onMaximize}>
-            {/* Left spacer matches button area width so title stays truly centered */}
-            <div className="window-frame__actions-spacer" aria-hidden="true" />
-
-            {/* Title — absolutely centred so it doesn't push the buttons */}
-            <div className="window-frame__title window-frame__title--centered">
-              <span className="window-frame__title-icon" style={{ "--app-accent": definition.accent } as CSSProperties}>
-                <Icon size={13} />
-              </span>
+          <header
+            className={cn("window-frame__header window-header w11-titlebar", window.maximized && "is-maximized")}
+            onDoubleClick={onMaximize}
+          >
+            <div className="w11-titlebar__title">
+              <Icon size={16} />
               <strong id={`window-title-${window.id}`}>{window.title}</strong>
             </div>
 
-            {/* Traffic lights — right side */}
-            <div className="window-frame__actions window-action-buttons">
-              <button type="button" aria-label="Minimize" className="is-minimize" onClick={onMinimize}>
-                <Minus size={9} />
+            <div className="w11-caption window-action-buttons">
+              <button type="button" aria-label="Minimize" title="Minimize" className="w11-caption__button" onClick={onMinimize}>
+                <CaptionGlyph kind="minimize" />
               </button>
-              <button type="button" aria-label={window.maximized ? "Restore" : "Maximize"} className="is-maximize" onClick={onMaximize}>
-                {window.maximized ? <Minimize2 size={9} /> : <Maximize2 size={9} />}
+              <button
+                type="button"
+                aria-label={window.maximized ? "Restore down" : "Maximize"}
+                title={window.maximized ? "Restore down" : "Maximize"}
+                className="w11-caption__button"
+                onClick={onMaximize}
+              >
+                <CaptionGlyph kind={window.maximized ? "restore" : "maximize"} />
               </button>
-              <button type="button" aria-label="Close" className="is-close" onClick={onClose}>
-                <X size={9} />
+              <button
+                type="button"
+                aria-label="Close"
+                title="Close"
+                className="w11-caption__button w11-caption__button--close"
+                onClick={onClose}
+              >
+                <CaptionGlyph kind="close" />
               </button>
             </div>
           </header>

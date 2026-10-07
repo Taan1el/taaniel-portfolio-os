@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, ty
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
-import { Grid2x2, MonitorDown } from "lucide-react";
+import { BatteryFull, Volume2, Wifi } from "lucide-react";
 import { SearchInput } from "@/components/apps/app-layout";
+import { LogoMark } from "@/components/ui/logo-mark";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
-import { cn, formatClock, formatDateLabel } from "@/lib/utils";
+import { cn, formatClock } from "@/lib/utils";
 import taskbarMod from "@/components/shell/taskbar.module.css";
 import { useShellStore } from "@/stores/shell-store";
 import type { AppId, TaskbarWindowEntry, WindowPayload } from "@/types/system";
@@ -27,6 +28,11 @@ function getPreviewPlacement(button: HTMLButtonElement) {
     )
   );
   return { left, bottom: window.innerHeight - buttonRect.top + TASKBAR_PREVIEW_OFFSET };
+}
+
+/** Tray date the way Windows prints it: numeric, in the visitor's locale (6.10.2026, 10/6/2026, ...). */
+function formatTrayDate(date: Date) {
+  return new Intl.DateTimeFormat([], { day: "numeric", month: "numeric", year: "numeric" }).format(date);
 }
 
 // ── Slot model ────────────────────────────────────────────────────
@@ -150,9 +156,17 @@ export function Taskbar({
     }
   };
 
+  // Tick on the minute boundary, so the tray clock never lags a real one.
   useEffect(() => {
-    const intervalId = window.setInterval(() => setNow(new Date()), 1000 * 30);
-    return () => window.clearInterval(intervalId);
+    let intervalId: number | undefined;
+    const timeoutId = window.setTimeout(() => {
+      setNow(new Date());
+      intervalId = window.setInterval(() => setNow(new Date()), 60_000);
+    }, 60_000 - (Date.now() % 60_000));
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -166,7 +180,7 @@ export function Taskbar({
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      if (target.closest(".taskbar__item") || target.closest(".taskbar__preview")) return;
+      if (target.closest(".w11-taskbar__app") || target.closest(".taskbar__preview")) return;
       setPreviewEntry(null);
     };
     document.addEventListener("pointerdown", handlePointerDown);
@@ -256,32 +270,25 @@ export function Taskbar({
                 return (
                   <motion.div
                     key={previewEntry.id}
-                    className="taskbar__preview"
+                    className="taskbar__preview w11-flyout w11-thumb"
                     style={{ left: previewEntry.left, bottom: previewEntry.bottom, width: TASKBAR_PREVIEW_WIDTH, "--app-accent": definition.accent } as CSSProperties}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 6 }}
                     transition={{ duration: 0.14 }}
                   >
-                    <div className="taskbar__preview-frame">
+                    <div className="w11-thumb__header">
+                      <Icon size={16} />
+                      <span>{previewEntry.title}</span>
+                    </div>
+                    <div className="w11-thumb__frame">
                       {previewImage ? (
-                        <img className="taskbar__preview-image" src={previewImage} alt={`${previewEntry.title} preview`} />
+                        <img src={previewImage} alt={`${previewEntry.title} preview`} />
                       ) : (
-                        <div className="taskbar__preview-fallback">
-                          <span className="taskbar__preview-fallback-icon"><Icon size={24} /></span>
-                          <small>
-                            {previewEntry.minimized
-                              ? "Preview unavailable while minimized"
-                              : "Using an app card because this window doesn't capture cleanly"}
-                          </small>
-                        </div>
+                        // Windows shows the app's icon when it has no live thumbnail.
+                        <Icon size={48} />
                       )}
                     </div>
-                    <strong>{previewEntry.preview.title}</strong>
-                    <small>{previewEntry.preview.subtitle}</small>
-                    <span className={`taskbar__preview-status is-${previewEntry.preview.status}`}>
-                      {previewEntry.preview.status}
-                    </span>
                   </motion.div>
                 );
               })()
@@ -302,7 +309,7 @@ export function Taskbar({
                 return (
                   <motion.div
                     key={jumpListMenu.appId}
-                    className="taskbar__jump-list"
+                    className="taskbar__jump-list w11-flyout w11-jump"
                     style={{ left: jumpListMenu.left, bottom: jumpListMenu.bottom, "--app-accent": def.accent } as CSSProperties}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -369,30 +376,31 @@ export function Taskbar({
 
   return (
     <>
-      <footer className={cn("taskbar", taskbarMod.root)}>
-        <button
-          className={`taskbar__start ${startMenuOpen ? "is-active" : ""}`}
-          type="button"
-          onClick={onToggleStartMenu}
-        >
-          <Grid2x2 size={16} />
-          Start
-        </button>
+      <footer className={cn("taskbar", "w11-taskbar", taskbarMod.root)}>
+        <div className="w11-taskbar__center">
+          <button
+            className={cn("w11-taskbar__start", startMenuOpen && "is-active")}
+            type="button"
+            aria-label="Start"
+            aria-pressed={startMenuOpen}
+            onClick={onToggleStartMenu}
+          >
+            <LogoMark size={18} />
+          </button>
 
-        <SearchInput
-          ref={taskbarSearchInputRef}
-          aria-label="Search apps, files, links, and portfolio content"
-          className="taskbar__search-input"
-          containerClassName={cn("taskbar__search-field", startMenuOpen && "is-active")}
-          placeholder="Search"
-          value={searchQuery}
-          onChange={(event) => onSearchQueryChange(event.target.value)}
-          onFocus={onSearchFieldFocus}
-          onKeyDown={handleTaskbarSearchKeyDown}
-        />
+          <SearchInput
+            ref={taskbarSearchInputRef}
+            aria-label="Search apps, files, links, and portfolio content"
+            className="w11-taskbar__search-input"
+            containerClassName={cn("w11-taskbar__search", startMenuOpen && "is-active")}
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            onFocus={onSearchFieldFocus}
+            onKeyDown={handleTaskbarSearchKeyDown}
+          />
 
-        <div className="taskbar__windows" ref={windowsRef}>
-          <div className="taskbar__window-strip" onScroll={() => setPreviewEntry(null)}>
+          <div className="w11-taskbar__apps" ref={windowsRef} onScroll={() => setPreviewEntry(null)}>
             {slots.map((slot) => {
               if (slot.type === "pinned-closed") {
                 const definition = getAppDefinition(slot.appId);
@@ -400,7 +408,7 @@ export function Taskbar({
                 return (
                   <button
                     key={`pinned-${slot.appId}`}
-                    className="taskbar__item taskbar__item--pinned-closed"
+                    className="w11-taskbar__app"
                     type="button"
                     data-tooltip={definition.title}
                     aria-label={`Launch ${definition.title}`}
@@ -412,8 +420,7 @@ export function Taskbar({
                       setJumpListMenu({ appId: slot.appId, pinned: true, ...placement });
                     }}
                   >
-                    <Icon size={14} />
-                    <span className="taskbar__item-indicator" aria-hidden="true" />
+                    <Icon size={24} />
                   </button>
                 );
               }
@@ -421,18 +428,15 @@ export function Taskbar({
               const { entry, pinned } = slot;
               const definition = getAppDefinition(entry.appId);
               const Icon = definition.icon;
+              const focused = entry.active && !entry.minimized;
               return (
                 <button
                   key={entry.id}
                   data-window-id={entry.windowId}
-                  className={cn(
-                    "taskbar__item",
-                    pinned && "taskbar__item--pinned",
-                    entry.active && "is-active",
-                    entry.minimized && "is-minimized"
-                  )}
+                  className={cn("w11-taskbar__app", "is-open", focused && "is-active")}
                   type="button"
-                  aria-pressed={entry.active && !entry.minimized}
+                  aria-label={entry.title}
+                  aria-pressed={focused}
                   onClick={() => onToggleWindow(entry.windowId)}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -453,27 +457,41 @@ export function Taskbar({
                   onMouseLeave={() => setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current))}
                   onBlur={() => setPreviewEntry((current) => (current?.windowId === entry.windowId ? null : current))}
                 >
-                  <Icon size={14} />
-                  <span className="taskbar__item-copy">{entry.title}</span>
-                  <span className="taskbar__item-indicator" aria-hidden="true" />
+                  <Icon size={24} />
+                  <span className="w11-taskbar__indicator" aria-hidden="true" />
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="taskbar__tray">
+        <div className="w11-taskbar__tray">
           <button
-            className={`taskbar__clock ${calendarOpen ? "is-active" : ""}`}
+            className="w11-taskbar__tray-button w11-taskbar__quick"
             type="button"
+            aria-label="Quick settings - open Settings"
+            onClick={() => onLaunchApp("settings")}
+          >
+            <Wifi size={16} aria-hidden="true" />
+            <Volume2 size={16} aria-hidden="true" />
+            <BatteryFull size={16} aria-hidden="true" />
+          </button>
+          <button
+            className={cn("w11-taskbar__tray-button w11-taskbar__clock", calendarOpen && "is-active")}
+            type="button"
+            aria-label={`${formatClock(now)}, ${formatTrayDate(now)} - open calendar`}
             onClick={onToggleCalendar}
           >
-            <strong>{formatClock(now)}</strong>
-            <small>{formatDateLabel(now)}</small>
+            <span>{formatClock(now)}</span>
+            <span>{formatTrayDate(now)}</span>
           </button>
-          <button className="taskbar__desktop" type="button" aria-label="Show desktop" data-tooltip="Show desktop" onClick={onShowDesktop}>
-            <MonitorDown size={14} aria-hidden="true" />
-          </button>
+          <button
+            className="w11-taskbar__show-desktop"
+            type="button"
+            aria-label="Show desktop"
+            title="Show desktop"
+            onClick={onShowDesktop}
+          />
         </div>
       </footer>
 

@@ -46,7 +46,8 @@ export function usePdfViewer(sourceList: string[]) {
     loadingTask.promise
       .then((documentProxy) => {
         if (cancelled) {
-          void documentProxy.destroy();
+          // pdf.js 6 tears a document down through its loading task.
+          void loadingTask.destroy();
           return;
         }
 
