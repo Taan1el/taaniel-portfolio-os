@@ -21,7 +21,8 @@ export const WINDOW_STORAGE_KEY = "taaniel-os-windows-v1";
 export const PROCESS_STORAGE_KEY = "taaniel-os-processes-v1";
 export const SHELL_STORAGE_KEY = "taaniel-os-shell-v1";
 
-const TASKBAR_HEIGHT = 72;
+/** Windows 11 taskbar: a flush 48px bar along the bottom edge. */
+const TASKBAR_HEIGHT = 48;
 
 export const initialIconPositions = desktopEntries.reduce<Record<string, DesktopGridPosition>>(
   (positions, entry) => {
@@ -79,11 +80,21 @@ function readLegacySystemState() {
 
 export function getDesktopHeight() {
   if (typeof window === "undefined") {
-    return 720 - TASKBAR_HEIGHT - 18;
+    return 720 - TASKBAR_HEIGHT;
   }
 
-  const reservedSpace = isCompactViewport() ? 132 : TASKBAR_HEIGHT + 18;
+  // Phones get the same single-row taskbar as desktops, so windows can use everything above it.
+  const reservedSpace = TASKBAR_HEIGHT;
   return Math.max(1, window.innerHeight - reservedSpace);
+}
+
+/**
+ * A hidden tab, a collapsed embed or a mid-rotation frame can report a 0x0
+ * viewport. Laying windows out for that would shrink them to nothing and save
+ * it, so layout waits until the viewport is real.
+ */
+export function hasUsableViewport() {
+  return typeof window !== "undefined" && window.innerWidth >= 200 && window.innerHeight >= 200;
 }
 
 export function isCompactViewport() {
@@ -96,13 +107,14 @@ export function getViewportMode(): ViewportMode {
 
 export function getMaximizedBounds() {
   if (typeof window === "undefined") {
-    return { x: 12, y: 12, width: 1200, height: getDesktopHeight() };
+    return { x: 0, y: 0, width: 1200, height: getDesktopHeight() };
   }
 
+  // Maximized windows fill the work area edge to edge, like Windows.
   return {
-    x: 12,
-    y: 12,
-    width: window.innerWidth - 24,
+    x: 0,
+    y: 0,
+    width: window.innerWidth,
     height: getDesktopHeight(),
   };
 }
@@ -119,14 +131,16 @@ export function clampWindowBoundsToViewport(windowState: Pick<WindowBounds, "x" 
 
   const desktopHeight = getDesktopHeight();
   const maxWidth = Math.max(1, window.innerWidth - 24);
+  // 8px clear above and below, so a fitted window never tucks under the taskbar.
+  const maxHeight = Math.max(1, desktopHeight - 16);
   const width = clamp(windowState.width, Math.min(360, maxWidth), maxWidth);
-  const height = clamp(windowState.height, Math.min(280, desktopHeight), desktopHeight);
+  const height = clamp(windowState.height, Math.min(280, maxHeight), maxHeight);
 
   return {
     width,
     height,
     x: clamp(windowState.x, 8, Math.max(8, window.innerWidth - width - 8)),
-    y: clamp(windowState.y, 8, Math.max(8, desktopHeight - height + 8)),
+    y: clamp(windowState.y, 8, Math.max(8, desktopHeight - height - 8)),
   };
 }
 
@@ -334,7 +348,8 @@ export function getLegacyProcessSeed() {
 
 export function getLegacyShellSeed() {
   const legacyState = readLegacySystemState();
-  const defaultThemeId = themePresets.find((preset) => preset.id === "ember-grid")?.id ?? themePresets[0].id;
+  // First visit: the Windows Bloom theme (themePresets[0]) and its own wallpaper.
+  const defaultThemeId = themePresets[0].id;
   const themeId =
     themePresets.find((preset) => preset.id === legacyState?.themeId)?.id ?? defaultThemeId;
 
@@ -347,9 +362,9 @@ export function getLegacyShellSeed() {
           presetId: null,
         }
       : {
-          mode: "animated" as const,
+          mode: "theme" as const,
           imageSource: null,
-          presetId: "solar-drift",
+          presetId: null,
         },
     desktopIconPositions: legacyState?.desktopIconPositions ?? initialIconPositions,
   };

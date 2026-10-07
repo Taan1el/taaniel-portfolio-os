@@ -34,7 +34,6 @@ import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
-import { DesktopWidget } from "@/components/shell/desktop-widget";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
@@ -245,7 +244,11 @@ export function DesktopShell() {
       return;
     }
 
-    await pasteNode(clipboard.path, directoryPath, clipboard.operation);
+    for (const path of clipboard.paths) {
+      // Sequential on purpose: each paste reads the store the previous one wrote.
+      // eslint-disable-next-line no-await-in-loop
+      await pasteNode(path, directoryPath, clipboard.operation);
+    }
 
     if (clipboard.operation === "cut") {
       clearClipboard();
@@ -468,8 +471,8 @@ export function DesktopShell() {
               id: "copy",
               label: "Copy",
               icon: Copy,
-              shortcut: "⌘C",
-              onSelect: () => setClipboard({ path: targetPath, operation: "copy" }),
+              shortcut: "Ctrl+C",
+              onSelect: () => setClipboard({ paths: [targetPath], operation: "copy" }),
             }
           : null,
         targetPath
@@ -477,9 +480,9 @@ export function DesktopShell() {
               id: "cut",
               label: "Cut",
               icon: Scissors,
-              shortcut: "⌘X",
+              shortcut: "Ctrl+X",
               disabled: !canCutNode(targetPath),
-              onSelect: () => setClipboard({ path: targetPath, operation: "cut" }),
+              onSelect: () => setClipboard({ paths: [targetPath], operation: "cut" }),
             }
           : null,
         targetNode?.kind === "file"
@@ -597,7 +600,6 @@ export function DesktopShell() {
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
 
-      <DesktopWidget />
 
       <DesktopManager
         nodes={nodes}
@@ -626,6 +628,7 @@ export function DesktopShell() {
             }
             onOpenFile={openPath}
             searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             searchBrowseRef={shellSearchBrowseRef}
             searchSections={smartSearchSections}
             aiStatus={aiStatus}

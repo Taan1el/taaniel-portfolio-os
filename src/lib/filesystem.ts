@@ -60,6 +60,8 @@ export function toFileNode(node: VirtualNode): FileNode {
       type: "folder",
       createdAt: node.createdAt,
       updatedAt: node.updatedAt,
+      originalPath: node.originalPath,
+      deletedAt: node.deletedAt,
     };
   }
 
@@ -75,6 +77,8 @@ export function toFileNode(node: VirtualNode): FileNode {
     source: node.source,
     size: node.size,
     readonly: node.readonly,
+    originalPath: node.originalPath,
+    deletedAt: node.deletedAt,
   };
 }
 
@@ -169,26 +173,50 @@ export function searchNodes(nodes: FileSystemRecord, query: string, limit = 10) 
     .slice(0, limit);
 }
 
-function ensureUniqueName(nodes: FileSystemRecord, directoryPath: string, desiredName: string) {
-  const siblingNames = new Set(listChildren(nodes, directoryPath).map((node) => node.name));
+function splitName(name: string, isDirectory: boolean) {
+  const dot = name.lastIndexOf(".");
+  return !isDirectory && dot > 0
+    ? { stem: name.slice(0, dot), extension: name.slice(dot) }
+    : { stem: name, extension: "" };
+}
 
-  if (!siblingNames.has(desiredName)) {
+/**
+ * Windows-style collision naming: "New folder (2)", "notes (3).txt".
+ * Matching is case-insensitive, like NTFS. `ignorePath` lets a rename that
+ * only changes case keep its own name.
+ */
+export function ensureUniqueName(
+  nodes: FileSystemRecord,
+  directoryPath: string,
+  desiredName: string,
+  isDirectory = false,
+  ignorePath?: string
+) {
+  const taken = new Set(
+    listChildren(nodes, directoryPath)
+      .filter((node) => node.path !== ignorePath)
+      .map((node) => node.name.toLowerCase())
+  );
+
+  if (!taken.has(desiredName.toLowerCase())) {
     return desiredName;
   }
 
-  const parts = desiredName.split(".");
-  const extension = parts.length > 1 ? `.${parts.pop()}` : "";
-  const stem = parts.join(".") || desiredName.replace(extension, "");
+  const { stem, extension } = splitName(desiredName, isDirectory);
+  const base = stem.replace(/ \(\d+\)$/, "");
+  let index = 2;
 
-  let index = 1;
-  let candidate = `${stem} ${index}${extension}`;
-
-  while (siblingNames.has(candidate)) {
+  while (taken.has(`${base} (${index})${extension}`.toLowerCase())) {
     index += 1;
-    candidate = `${stem} ${index}${extension}`;
   }
 
-  return candidate;
+  return `${base} (${index})${extension}`;
+}
+
+/** Name for a copy made in its own folder: "notes - Copy.txt", then "notes - Copy (2).txt". */
+export function ensureCopyName(nodes: FileSystemRecord, directoryPath: string, sourceName: string, isDirectory: boolean) {
+  const { stem, extension } = splitName(sourceName, isDirectory);
+  return ensureUniqueName(nodes, directoryPath, `${stem} - Copy${extension}`, isDirectory);
 }
 
 interface CreateNodeOptions {
@@ -220,7 +248,7 @@ export function mkdirRecord(
   }
 
   const requestedName = getPathName(normalizedPath);
-  const nextName = options.uniqueName ? ensureUniqueName(nodes, parentPath, requestedName) : requestedName;
+  const nextName = options.uniqueName ? ensureUniqueName(nodes, parentPath, requestedName, true) : requestedName;
   const nextPath = joinPath(parentPath, nextName);
   const timestamp = Date.now();
 
@@ -244,10 +272,10 @@ export function mkdirRecord(
 export function createDirectoryRecord(
   nodes: FileSystemRecord,
   directoryPath: string,
-  name = "New Folder"
+  name = "New folder"
 ): FileSystemRecord {
   const parent = normalizePath(directoryPath);
-  const uniqueName = ensureUniqueName(nodes, parent, name);
+  const uniqueName = ensureUniqueName(nodes, parent, name, true);
   const path = joinPath(parent, uniqueName);
   const now = Date.now();
 
@@ -268,7 +296,7 @@ export function createDirectoryRecord(
 export function createTextFileRecord(
   nodes: FileSystemRecord,
   directoryPath: string,
-  name = "New Note.txt",
+  name = "New Text Document.txt",
   content = ""
 ): FileSystemRecord {
   const parent = normalizePath(directoryPath);
@@ -475,7 +503,7 @@ export function renameNodeRecord(nodes: FileSystemRecord, path: string, nextName
   }
 
   const parentPath = getParentPath(normalized);
-  const uniqueName = ensureUniqueName(nodes, parentPath, nextName);
+  const uniqueName = ensureUniqueName(nodes, parentPath, nextName, target.kind === "directory", normalized);
   const nextPath = joinPath(parentPath, uniqueName);
 
   if (nextPath === normalized) {
@@ -521,13 +549,57 @@ export function renameRecord(nodes: FileSystemRecord, path: string, nextName: st
   }
 
   const parentPath = getParentPath(normalizedPath);
-  const uniqueName = ensureUniqueName(nodes, parentPath, nextName);
+  const uniqueName = ensureUniqueName(nodes, parentPath, nextName, target.kind === "directory", normalizedPath);
   const nextPath = joinPath(parentPath, uniqueName);
 
   return {
     nodes: renameNodeRecord(nodes, normalizedPath, uniqueName),
     path: nextPath,
   };
+}
+
+/**
+ * Move a top-level Recycle Bin item back to where it was deleted from,
+ * recreating missing parent folders the way Windows does. Returns the
+ * restored path, or null when the item cannot be restored.
+ */
+export function restoreFromTrashRecord(nodes: FileSystemRecord, trashedPath: string, trashRoot: string) {
+  const source = normalizePath(trashedPath);
+  const node = nodes[source];
+
+  if (!node || getParentPath(source) !== normalizePath(trashRoot)) {
+    return { nodes, path: null };
+  }
+
+  const original = normalizePath(node.originalPath ?? `/Desktop/${node.name}`);
+  const targetDirectory = getParentPath(original);
+  let next = nodes;
+  let current = "";
+
+  for (const segment of targetDirectory.split("/").filter(Boolean)) {
+    current = `${current}/${segment}`;
+    const existing = next[current];
+    if (!existing) next = mkdirRecord(next, current).nodes;
+    else if (existing.kind !== "directory") return { nodes, path: null };
+  }
+
+  const finalName = ensureUniqueName(next, targetDirectory, getPathName(original), node.kind === "directory");
+  const finalPath = joinPath(targetDirectory, finalName);
+  const now = Date.now();
+  const moved: FileSystemRecord = {};
+
+  listDescendants(next, source).forEach((entry) => {
+    const nextPath = entry.path === source ? finalPath : entry.path.replace(`${source}/`, `${finalPath}/`);
+    const { originalPath: _originalPath, deletedAt: _deletedAt, ...rest } = entry;
+    moved[nextPath] = {
+      ...rest,
+      path: nextPath,
+      name: nextPath === finalPath ? finalName : rest.name,
+      updatedAt: now,
+    } as VirtualNode;
+  });
+
+  return { nodes: { ...deleteNodeRecord(next, source), ...moved }, path: finalPath };
 }
 
 export function deleteNodeRecord(nodes: FileSystemRecord, path: string) {
@@ -579,7 +651,11 @@ export function pasteNodeRecord(
     }
   }
 
-  const nextName = ensureUniqueName(nodes, normalizedDestinationDirectoryPath, sourceNode.name);
+  const isDirectory = sourceNode.kind === "directory";
+  const nextName =
+    operation === "copy" && getParentPath(normalizedSourcePath) === normalizedDestinationDirectoryPath
+      ? ensureCopyName(nodes, normalizedDestinationDirectoryPath, sourceNode.name, isDirectory)
+      : ensureUniqueName(nodes, normalizedDestinationDirectoryPath, sourceNode.name, isDirectory);
   const nextRootPath = joinPath(normalizedDestinationDirectoryPath, nextName);
   const subtree = listDescendants(nodes, normalizedSourcePath);
   const now = Date.now();

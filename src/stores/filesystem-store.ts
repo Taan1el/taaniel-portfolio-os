@@ -8,6 +8,7 @@ import {
   createDirectoryRecord,
   createTextFileRecord,
   deleteNodeRecord,
+  getParentPath,
   hasReadonlyContent,
   importFilesRecord,
   listDirectory as listDirectoryNodes,
@@ -17,6 +18,7 @@ import {
   readFile as readFileNode,
   renameRecord,
   renameNodeRecord,
+  restoreFromTrashRecord,
   saveFileSystem,
   updateBinaryFileRecord,
   updateTextFileRecord,
@@ -43,7 +45,11 @@ interface FileSystemState {
   ) => Promise<string>;
   mkdir: (path: string, options?: { uniqueName?: boolean }) => Promise<string>;
   rename: (path: string, nextName: string) => Promise<string>;
-  deleteNode: (path: string) => Promise<void>;
+  deleteNode: (path: string, options?: { quiet?: boolean }) => Promise<void>;
+  /** Put a Recycle Bin item back where it came from. Resolves to the restored path. */
+  restoreNode: (path: string) => Promise<string | null>;
+  /** Delete without going through the Recycle Bin (Shift+Delete). */
+  deleteNodePermanently: (path: string) => Promise<void>;
   createDirectory: (directoryPath: string, name?: string) => Promise<void>;
   createTextFile: (directoryPath: string, name?: string, content?: string) => Promise<void>;
   createBinaryFile: (
@@ -66,7 +72,8 @@ interface FileSystemState {
   pasteNode: (
     sourcePath: string,
     destinationDirectoryPath: string,
-    operation: "copy" | "cut"
+    operation: "copy" | "cut",
+    options?: { quiet?: boolean }
   ) => Promise<void>;
   importFiles: (directoryPath: string, files: File[]) => Promise<string[]>;
   canCutNode: (path: string) => boolean;
@@ -154,7 +161,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ nodes });
     await persistNodes(nodes);
   },
-  deleteNode: async (path) => {
+  deleteNode: async (path, options) => {
     // Permanently delete items that are already in the Trash, or are the Trash itself.
     const normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "");
     const inTrash =
@@ -164,15 +171,44 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       const nodes = deleteNodeRecord(get().nodes, path);
       set({ nodes });
       await persistNodes(nodes);
-      toast("Permanently deleted", "success");
+      if (!options?.quiet) toast("Permanently deleted", "success");
       return;
     }
 
-    // Soft-delete: move to /Trash
-    const nodes = pasteNodeRecord(get().nodes, path, TRASH_PATH, "cut");
+    // Soft-delete: move into the Recycle Bin and remember where it came from.
+    const before = get().nodes;
+    const pasted = pasteNodeRecord(before, path, TRASH_PATH, "cut");
+
+    if (pasted === before) {
+      toast("This item is read-only and can't be deleted", "error");
+      return;
+    }
+
+    const landed = Object.keys(pasted).find((key) => !(key in before) && getParentPath(key) === TRASH_PATH);
+    const nodes = landed
+      ? { ...pasted, [landed]: { ...pasted[landed], originalPath: normalized, deletedAt: Date.now() } }
+      : pasted;
     set({ nodes });
     await persistNodes(nodes);
-    toast("Moved to Trash", "success");
+    if (!options?.quiet) toast("Moved to Recycle Bin", "success");
+  },
+  deleteNodePermanently: async (path) => {
+    const before = get().nodes;
+    if (hasReadonlyContent(before, path)) {
+      toast("This item is read-only and can't be deleted", "error");
+      return;
+    }
+    const nodes = deleteNodeRecord(before, path);
+    set({ nodes });
+    await persistNodes(nodes);
+    toast("Permanently deleted", "success");
+  },
+  restoreNode: async (path) => {
+    const result = restoreFromTrashRecord(get().nodes, path, TRASH_PATH);
+    if (!result.path) return null;
+    set({ nodes: result.nodes });
+    await persistNodes(result.nodes);
+    return result.path;
   },
   emptyTrash: async () => {
     const nodes = get().nodes;
@@ -180,7 +216,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       (p) => p !== TRASH_PATH && p.startsWith(`${TRASH_PATH}/`) && !p.slice(TRASH_PATH.length + 1).includes("/")
     );
     if (trashChildren.length === 0) {
-      toast("Trash is already empty", "info");
+      toast("The Recycle Bin is already empty", "info");
       return;
     }
     let nextNodes = { ...nodes };
@@ -193,7 +229,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     });
     set({ nodes: nextNodes });
     await persistNodes(nextNodes);
-    toast("Trash emptied", "success");
+    toast("Recycle Bin emptied", "success");
   },
   updateTextFile: async (path, content) => {
     const nodes = updateTextFileRecord(get().nodes, path, content);
@@ -205,11 +241,11 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ nodes });
     await persistNodes(nodes);
   },
-  pasteNode: async (sourcePath, destinationDirectoryPath, operation) => {
+  pasteNode: async (sourcePath, destinationDirectoryPath, operation, options) => {
     const nodes = pasteNodeRecord(get().nodes, sourcePath, destinationDirectoryPath, operation);
     set({ nodes });
     await persistNodes(nodes);
-    toast(operation === "cut" ? "Moved" : "Copied", "success");
+    if (!options?.quiet) toast(operation === "cut" ? "Moved" : "Copied", "success");
   },
   importFiles: async (directoryPath, files) => {
     const { nodes, importedPaths } = await importFilesRecord(get().nodes, directoryPath, files);

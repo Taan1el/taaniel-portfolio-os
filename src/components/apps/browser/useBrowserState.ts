@@ -11,6 +11,7 @@ import {
   DEFAULT_BROWSER_HOME,
   getBrowserTitleFromUrl,
   getUrlOrSearch,
+  isInternalPage,
   normalizeBrowserAddress,
 } from "@/lib/browser/urlUtils";
 import type {
@@ -75,7 +76,13 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
     setAddress(currentUrl);
   }, [currentUrl]);
 
+  const isInternal = isInternalPage(currentUrl);
+
   const resolution = useMemo<BrowserResolution>(() => {
+    if (isInternalPage(currentUrl)) {
+      return { document: null, error: null };
+    }
+
     const localResolution = resolveLocalBrowserDocument(currentUrl, nodes);
 
     if (localResolution.document || localResolution.error) {
@@ -157,6 +164,13 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
 
   useEffect(() => {
     clearLoadTimeout();
+
+    if (isInternalPage(currentUrl)) {
+      setViewMode("web");
+      setLoadState("ready");
+      setFallback(null);
+      return;
+    }
 
     if (!resolution.document) {
       setViewMode("fallback");
@@ -311,6 +325,7 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
     loadState,
     fallback,
     resolvedDocument: activeDocument,
+    isInternal,
     refreshToken,
     failureHistory,
     canGoBack: historyIndex > 0,

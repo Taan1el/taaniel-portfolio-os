@@ -6,6 +6,7 @@ import {
   clampWindowBoundsToViewport,
   getDefaultWindowBounds,
   getMaximizedBounds,
+  hasUsableViewport,
   getViewportMode,
   isCompactViewport,
   launchPayloadsMatch,
@@ -317,7 +318,7 @@ const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewSta
   reconcileDesktopIconPositions: (entries, metrics) =>
     useShellStore.getState().reconcileDesktopIconPositions(entries, metrics),
   hydrateForViewport: () => {
-    if (typeof window === "undefined") {
+    if (!hasUsableViewport()) {
       return;
     }
 

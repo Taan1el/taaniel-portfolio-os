@@ -1,5 +1,17 @@
 import { useRef, useState } from "react";
-import { FileCode2, FileText, Folder, FolderOpen, Globe, Image, Trash2, UserSquare2 } from "lucide-react";
+import {
+  BrowserIcon,
+  EditorIcon,
+  FileIcon,
+  FolderIcon,
+  PdfIcon,
+  PhotosIcon,
+  PortfolioIcon,
+  RecycleBinEmptyIcon,
+  RecycleBinFullIcon,
+} from "@/components/icons/apps";
+import { TRASH_PATH } from "@/lib/system-workspace";
+import { useFileSystemStore } from "@/stores/filesystem-store";
 import { getAppDefinition } from "@/lib/app-registry";
 import { cn } from "@/lib/utils";
 import { useSystemStore } from "@/stores/system-store";
@@ -21,36 +33,37 @@ function resolveFileAccent(entry: DesktopEntry, node?: VirtualNode): string | un
   return "#94a3b8";
 }
 
-function resolveIcon(entry: DesktopEntry, node?: VirtualNode) {
+function resolveIcon(entry: DesktopEntry, node: VirtualNode | undefined, trashHasItems: boolean) {
   if (entry.type === "app" && entry.appId) {
     return getAppDefinition(entry.appId).icon;
   }
 
   if (entry.id === "trash") {
-    return Trash2;
+    return trashHasItems ? RecycleBinFullIcon : RecycleBinEmptyIcon;
   }
 
   if (entry.type === "folder") {
-    return entry.id === "portfolio" ? FolderOpen : Folder;
+    return FolderIcon;
   }
 
   if (entry.type === "link") {
-    return Globe;
+    // Links inside this site (the quick portfolio page) carry the portfolio mark, not a browser icon.
+    return entry.externalUrl?.startsWith("/") ? PortfolioIcon : BrowserIcon;
   }
 
   if (node?.kind === "file" && node.mimeType.startsWith("image/")) {
-    return Image;
+    return PhotosIcon;
   }
 
   if (node?.kind === "file" && ["ts", "tsx", "js", "jsx", "css", "html"].includes(node.extension)) {
-    return FileCode2;
+    return EditorIcon;
   }
 
   if (node?.kind === "file" && node.extension === "pdf") {
-    return UserSquare2;
+    return PdfIcon;
   }
 
-  return FileText;
+  return FileIcon;
 }
 
 interface DesktopIconShellProps {
@@ -76,12 +89,15 @@ function renderIconLabel(label: string) {
 }
 
 function DesktopIconContent({ entry, node }: DesktopIconShellProps) {
-  const Icon = resolveIcon(entry, node);
+  const trashHasItems = useFileSystemStore((state) =>
+    Object.keys(state.nodes).some((path) => path.startsWith(`${TRASH_PATH}/`)),
+  );
+  const Icon = resolveIcon(entry, node, trashHasItems);
 
   return (
     <>
       <span className="desktop-icon__glyph">
-        <Icon size={28} strokeWidth={1.6} />
+        <Icon size={48} />
       </span>
       <span className="desktop-icon__label">{renderIconLabel(entry.label)}</span>
     </>
