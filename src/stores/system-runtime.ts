@@ -130,14 +130,16 @@ export function clampWindowBoundsToViewport(windowState: Pick<WindowBounds, "x" 
 
   const desktopHeight = getDesktopHeight();
   const maxWidth = Math.max(1, window.innerWidth - 24);
+  // 8px clear above and below, so a fitted window never tucks under the taskbar.
+  const maxHeight = Math.max(1, desktopHeight - 16);
   const width = clamp(windowState.width, Math.min(360, maxWidth), maxWidth);
-  const height = clamp(windowState.height, Math.min(280, desktopHeight), desktopHeight);
+  const height = clamp(windowState.height, Math.min(280, maxHeight), maxHeight);
 
   return {
     width,
     height,
     x: clamp(windowState.x, 8, Math.max(8, window.innerWidth - width - 8)),
-    y: clamp(windowState.y, 8, Math.max(8, desktopHeight - height + 8)),
+    y: clamp(windowState.y, 8, Math.max(8, desktopHeight - height - 8)),
   };
 }
 
