@@ -31,9 +31,18 @@ export const proxyStrategies: Record<ProxyMode, BrowserProxyStrategy> = {
       "Loads the latest web.archive.org snapshot in a frame-friendly view. Archived pages may differ from the current live site.",
     // "2" redirects to the newest snapshot; the "if_" flag strips the archive
     // toolbar and frame restrictions so the page renders inside the iframe.
-    transform: (url) => `https://web.archive.org/web/2if_/${encodeURI(url)}`,
+    transform: (url) => `https://web.archive.org/web/2if_/${toArchiveTarget(url)}`,
   },
 };
+
+/** Addresses arrive already normalized, so encoding again would turn "%2B" into "%252B". */
+function toArchiveTarget(url: string) {
+  try {
+    return new URL(url).href;
+  } catch {
+    return encodeURI(url);
+  }
+}
 
 export const proxyModes = Object.keys(proxyStrategies) as ProxyMode[];
 

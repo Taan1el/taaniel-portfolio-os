@@ -25,6 +25,12 @@ describe("applyProxy", () => {
     );
   });
 
+  it("keeps already encoded characters intact for wayback", () => {
+    expect(applyProxy("https://en.wikipedia.org/wiki/C%2B%2B", "wayback")).toBe(
+      "https://web.archive.org/web/2if_/https://en.wikipedia.org/wiki/C%2B%2B"
+    );
+  });
+
   it("exposes structured proxy strategy metadata", () => {
     expect(getProxyStrategy("direct").kind).toBe("direct");
     expect(getProxyStrategy("allorigins").kind).toBe("proxy");
