@@ -2068,3 +2068,24 @@
     animation: none;
   }
 }
+
+/* ----------------------------------------------------------------- phones */
+
+/* The "use the quick view" tip, as a Windows notification instead of a dark pill. */
+.os-mobile-banner {
+  border: 1px solid var(--w11-surface-stroke);
+  border-radius: var(--w11-radius-overlay);
+  background: var(--w11-flyout);
+  box-shadow: var(--w11-shadow-flyout);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+}
+
+.os-mobile-banner__button {
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-accent);
+  color: var(--w11-on-accent);
+  font-weight: 600;
+}
