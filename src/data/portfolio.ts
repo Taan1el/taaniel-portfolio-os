@@ -142,8 +142,17 @@ export const photographyAssets = [
 
 export const themePresets: ThemePreset[] = [
   {
+    id: "windows-bloom-dark",
+    name: "Bloom (dark)",
+    wallpaper: `url('${resolvePublicAssetUrl("assets/wallpapers/bloom-dark.svg")}') center / cover no-repeat, #050a18`,
+    desktopTint: "transparent",
+    glow: "transparent",
+    shell: "rgba(32, 32, 32, 0.92)",
+    accent: "#0078d4",
+  },
+  {
     id: "windows-bloom",
-    name: "Bloom",
+    name: "Bloom (light)",
     wallpaper: `url('${resolvePublicAssetUrl("assets/wallpapers/bloom.svg")}') center / cover no-repeat, #b9cfe4`,
     desktopTint: "transparent",
     glow: "transparent",

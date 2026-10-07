@@ -348,7 +348,7 @@ export function getLegacyProcessSeed() {
 
 export function getLegacyShellSeed() {
   const legacyState = readLegacySystemState();
-  // First visit: the Windows Bloom theme (themePresets[0]) and its own wallpaper.
+  // First visit: the dark Bloom theme (themePresets[0]) and its own wallpaper.
   const defaultThemeId = themePresets[0].id;
   const themeId =
     themePresets.find((preset) => preset.id === legacyState?.themeId)?.id ?? defaultThemeId;
