@@ -43,6 +43,12 @@ export function sanitizeThemeId(value: unknown) {
     : themePresets[0].id;
 }
 
+/** The light Bloom was the default before version 5; visitors still on it move to the dark default. */
+export function migrateThemeId(value: unknown, version: number) {
+  const themeId = sanitizeThemeId(value);
+  return version < 5 && themeId === "windows-bloom" ? themePresets[0].id : themeId;
+}
+
 interface ShellStoreState {
   selectedIconId: string | null;
   startMenuOpen: boolean;
@@ -235,9 +241,9 @@ export const useShellStore = create<ShellStoreState>()(
     }),
     {
       name: SHELL_STORAGE_KEY,
-      version: 4,
+      version: 5,
       storage: createJSONStorage(getSafeLocalStorage),
-      migrate: (persistedState) => {
+      migrate: (persistedState, version) => {
         const state = persistedState as
           | {
               themeId?: string;
@@ -249,7 +255,7 @@ export const useShellStore = create<ShellStoreState>()(
           | undefined;
 
         return {
-          themeId: sanitizeThemeId(state?.themeId),
+          themeId: migrateThemeId(state?.themeId, version),
           wallpaper:
             state?.wallpaper ??
             (state?.customWallpaperSource
