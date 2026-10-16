@@ -5,6 +5,19 @@
  * Windows modes both work.
  */
 
+/* ------------------------------------------------------------ window layer */
+
+/*
+ * Every focus raises a window's z-index by one and nothing ever lowers it, so
+ * after enough clicks a window outranked the taskbar (60) and the flyouts (70).
+ * Giving the window layer a stacking context of its own keeps all of those
+ * numbers inside it: however high they climb, the whole layer stays under the
+ * snap ghost (59), the taskbar and every shell flyout.
+ */
+.window-manager {
+  z-index: 40;
+}
+
 /* ------------------------------------------------------------- tray glyphs */
 
 .w11-tray-glyph {
