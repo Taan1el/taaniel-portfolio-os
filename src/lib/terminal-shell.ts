@@ -93,6 +93,8 @@ export interface ShellHost {
   readClipboard?: () => Promise<string>;
   writeClipboard?: (text: string) => Promise<void>;
   fetch?: typeof fetch;
+  /** True while the OS is offline: network commands then fail without touching fetch. */
+  isOffline?: () => boolean;
 }
 
 export interface ShellResult {
@@ -556,13 +558,57 @@ function isUrl(value: string) {
   return /^(https?:\/\/|www\.)/i.test(value);
 }
 
+export type SettingsSection = "display" | "sound" | "network" | "power" | "accessibility" | "personalization" | "system";
+
+const SETTINGS_PAGES: Record<string, SettingsSection> = {
+  display: "display",
+  sound: "sound",
+  network: "network",
+  "network-status": "network",
+  "network-wifi": "network",
+  batterysaver: "power",
+  powersleep: "power",
+  easeofaccess: "accessibility",
+  personalization: "personalization",
+};
+
+/**
+ * The Settings section an ms-settings: URI opens, as Windows maps its pages.
+ * A bare "ms-settings:" opens Settings on its home page (null); unknown pages land on System.
+ */
+export function settingsSectionFromUri(uri: string): SettingsSection | null {
+  const page = uri.trim().replace(/^ms-settings:/i, "").toLowerCase();
+  if (!page) return null;
+  if (SETTINGS_PAGES[page]) return SETTINGS_PAGES[page];
+  if (page.startsWith("easeofaccess-")) return "accessibility";
+  if (page.startsWith("personalization-")) return "personalization";
+  return "system";
+}
+
+function openSettingsUri(uri: string, ctx: Ctx): Output {
+  const section = settingsSectionFromUri(uri);
+  if (!section) {
+    ctx.actions.push({ type: "launch-app", appId: "settings" });
+    return ok();
+  }
+  // WindowPayload gains `section` alongside this change; the intersection keeps this type-safe until then.
+  const payload: WindowPayload & { section: SettingsSection } = { section };
+  ctx.actions.push({ type: "launch-app", appId: "settings", payload });
+  return ok();
+}
+
+export const LINUX_LAUNCH_MESSAGE = [
+  "Opening Virtual x86: v86, an x86 emulator that runs in your browser.",
+  "No Linux image ships with Taaniel OS - open a .img or .iso disk image from File Explorer to boot one.",
+];
+
 async function launchExecutable(name: string, args: string[], ctx: Ctx): Promise<Output> {
   const appId = EXECUTABLES[name];
   const target = args.find((arg) => !arg.startsWith("-"));
 
   if (appId === "v86") {
     ctx.actions.push({ type: "launch-app", appId });
-    return ok(["Starting the Linux virtual machine (v86 - a real x86 emulator running in your browser)…"]);
+    return ok([...LINUX_LAUNCH_MESSAGE]);
   }
 
   if (appId === "browser" && target) {
@@ -1082,6 +1128,7 @@ const startProcess: CommandFn = async (args, _stdin, ctx, name) => {
 
   if (!target) return fail(ctx, name, "Cannot bind argument to parameter 'FilePath' because it is null.");
 
+  if (/^ms-settings:/i.test(target)) return openSettingsUri(target, ctx);
   if (isUrl(target)) return launchExecutable("msedge", [target], ctx);
 
   const executable = target.toLowerCase().replace(/\.exe$/, "");
@@ -1707,7 +1754,7 @@ const stopProcess: CommandFn = (args, _stdin, ctx, name) => {
   return ok();
 };
 
-const getComputerInfo: CommandFn = () => {
+const getComputerInfo: CommandFn = (_args, _stdin, ctx) => {
   const nav = typeof navigator === "undefined" ? undefined : navigator;
   const screenInfo = typeof screen === "undefined" ? undefined : screen;
   const memory = (nav as (Navigator & { deviceMemory?: number }) | undefined)?.deviceMemory;
@@ -1723,7 +1770,7 @@ const getComputerInfo: CommandFn = () => {
     ["DisplayResolution", screenInfo ? `${screenInfo.width} x ${screenInfo.height} @ ${globalThis.devicePixelRatio ?? 1}x` : "Unknown"],
     ["OsLocale", nav?.language ?? "Unknown"],
     ["TimeZone", Intl.DateTimeFormat().resolvedOptions().timeZone],
-    ["NetworkStatus", nav?.onLine === false ? "Offline" : "Online"],
+    ["NetworkStatus", ctx.host.isOffline?.() || nav?.onLine === false ? "Offline" : "Online"],
   ];
   return ok(["", ...rows.map(([key, value]) => `${key.padEnd(28)}: ${value}`), ""]);
 };
@@ -1801,6 +1848,11 @@ async function webRequest(args: string[], ctx: Ctx, name: string, rest: boolean)
 
   const method = (parsed.params.Method ?? "GET").toUpperCase();
   if (!["GET", "HEAD"].includes(method)) return fail(ctx, name, `Only GET and HEAD requests are allowed from this terminal (got ${method}).`);
+  // Offline, the name can't be resolved: PowerShell's own wording, and no request is made.
+  if (ctx.host.isOffline?.()) {
+    const { hostname, port, protocol } = new URL(url);
+    return fail(ctx, name, `No such host is known. (${hostname}:${port || (protocol === "http:" ? "80" : "443")})`);
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -1886,6 +1938,7 @@ const ping: CommandFn = async (args, _stdin, ctx, name) => {
   const target = args.find((arg, index) => !/^[-/]/.test(arg) && (countIndex < 0 || index !== countIndex + 1));
   const host = target ? hostFromTarget(target) : null;
   if (!host) return fail(ctx, name, "Ping request could not find the host. Please check the name and try again.");
+  if (ctx.host.isOffline?.()) return { out: [`Ping request could not find host ${host}. Please check the name and try again.`], ok: false };
 
   const times: number[] = [];
   const lines = [``, `Pinging ${host} over HTTPS (browsers can't send ICMP):`];
@@ -1912,6 +1965,10 @@ const testConnection: CommandFn = async (args, _stdin, ctx, name) => {
   const parsed = parseArgs(args, { switches: ["Quiet"], params: ["TargetName", "Count"] });
   const host = hostFromTarget(parsed.params.TargetName ?? parsed.positional[0] ?? "");
   if (!host) return fail(ctx, name, "Cannot bind argument to parameter 'TargetName' because it is null.");
+  if (ctx.host.isOffline?.()) {
+    if (parsed.switches.has("Quiet")) return { out: ["False"], ok: false };
+    return fail(ctx, name, `Testing connection to computer '${host}' failed: No such host is known.`);
+  }
   const count = Math.min(10, Math.max(1, Number(parsed.params.Count) || 4));
   const rows: string[] = [];
   let received = 0;
@@ -2231,7 +2288,8 @@ const HELP_OVERVIEW = [
   "  ping             Reachability over HTTPS          ping github.com",
   "  Get-FileHash     Real SHA-256 of a file           Get-FileHash Welcome.md",
   "  clip, gcb        Clipboard                        ls | clip",
-  "  wsl              Boot the Linux virtual machine   wsl",
+  "  wsl              Open the x86 emulator (v86)      wsl",
+  "  ms-settings:     Open a Settings page             start ms-settings:display",
   "",
   `${TABLE}Scripting${RESET}`,
   "  $x = 5           Variables, maths, comparisons    $x * 2, 'ab' * 3, 5 -gt 3",
@@ -2321,6 +2379,8 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
 
   const canonical = COMMAND_LOOKUP.get(key);
   if (canonical) return COMMANDS[canonical].run(args, stdin, ctx, canonical);
+
+  if (/^ms-settings:./.test(key)) return openSettingsUri(rawName, ctx);
 
   const executable = key.replace(/\.exe$/, "");
   if (EXECUTABLES[executable]) return launchExecutable(executable, args, ctx);
