@@ -318,7 +318,18 @@ export interface VirtualNodeBase {
 
 export interface VirtualDirectory extends VirtualNodeBase {
   kind: "directory";
+  /** Set on /Desktop: the version of the default shortcuts already placed there. */
+  desktopSeedVersion?: number;
 }
+
+/** Where a .lnk shortcut points. */
+export type ShortcutTarget =
+  | { type: "app"; appId: AppId }
+  | { type: "path"; path: string }
+  /** A page of this site, such as the quick /portfolio view. */
+  | { type: "route"; route: string }
+  /** An http(s) address, opened in the Browser app. */
+  | { type: "url"; url: string };
 
 export interface VirtualFile extends VirtualNodeBase {
   kind: "file";
@@ -328,6 +339,8 @@ export interface VirtualFile extends VirtualNodeBase {
   source?: string;
   size?: number;
   readonly?: boolean;
+  /** Present on .lnk shortcuts. */
+  shortcut?: ShortcutTarget;
 }
 
 export type FileSystemRecord = Record<string, VirtualNode>;
@@ -346,6 +359,7 @@ export interface FileNode {
   readonly?: boolean;
   originalPath?: string;
   deletedAt?: number;
+  shortcut?: ShortcutTarget;
 }
 
 export type FileAssociationFamily =
