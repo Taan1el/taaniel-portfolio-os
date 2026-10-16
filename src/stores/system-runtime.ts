@@ -410,7 +410,9 @@ export function launchPayloadsMatch(
     currentPayload.directoryPath === nextPayload.directoryPath &&
     currentPayload.projectId === nextPayload.projectId &&
     currentPayload.externalUrl === nextPayload.externalUrl &&
-    currentPayload.title === nextPayload.title
+    currentPayload.title === nextPayload.title &&
+    currentPayload.profile === nextPayload.profile &&
+    currentPayload.launchNonce === nextPayload.launchNonce
   );
 }
 

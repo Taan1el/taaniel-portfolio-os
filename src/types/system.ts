@@ -52,6 +52,10 @@ export interface WindowPayload {
   title?: string;
   projectId?: string;
   externalUrl?: string;
+  /** Terminal: which profile a new tab runs (pwsh, cmd, linux). */
+  profile?: string;
+  /** Makes a repeated launch with the same payload distinct, so it opens a new tab. */
+  launchNonce?: string;
 }
 
 export type ProcessState = "focused" | "running" | "minimized";
