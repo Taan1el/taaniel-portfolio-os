@@ -6,6 +6,9 @@ import {
   type ShellSearchAiRanking,
   type ShellSearchSection,
 } from "@/lib/shell-search";
+import { isAiSearchAllowed } from "@/lib/device-status";
+import { selectIsNetworkBlocked, useDeviceStore } from "@/stores/device-store";
+import { useSystemSettingsStore } from "@/stores/system-settings-store";
 
 export type ShellAiSearchStatus = "local" | "warming" | "ranking" | "ready" | "fallback";
 
@@ -29,6 +32,9 @@ export function useShellAiSearch({ query, sections }: UseShellAiSearchOptions) {
   const [rankings, setRankings] = useState<ShellSearchAiRanking[]>([]);
   const [status, setStatus] = useState<ShellAiSearchStatus>("local");
   const trimmedQuery = query.trim();
+  const networkBlocked = useDeviceStore(selectIsNetworkBlocked);
+  const batterySaver = useSystemSettingsStore((state) => state.batterySaver);
+  const aiAllowed = isAiSearchAllowed({ networkBlocked, batterySaver });
   const candidates = useMemo(
     () => buildShellSearchAiCandidates(sections, MAX_AI_CANDIDATES),
     [sections]
@@ -50,6 +56,16 @@ export function useShellAiSearch({ query, sections }: UseShellAiSearchOptions) {
     if (trimmedQuery.length < MIN_AI_QUERY_LENGTH || candidates.length < 2) {
       setRankings([]);
       setStatus("local");
+      return;
+    }
+
+    // Offline or on battery saver: no model download and no worker, just the local index.
+    if (!aiAllowed) {
+      requestIdRef.current += 1;
+      workerRef.current?.terminate();
+      workerRef.current = null;
+      setRankings([]);
+      setStatus("fallback");
       return;
     }
 
@@ -114,7 +130,7 @@ export function useShellAiSearch({ query, sections }: UseShellAiSearchOptions) {
     return () => {
       worker.removeEventListener("message", handleMessage);
     };
-  }, [candidates, trimmedQuery]);
+  }, [aiAllowed, candidates, trimmedQuery]);
 
   return {
     sections: rankings.length > 0 ? aiSections : sections,

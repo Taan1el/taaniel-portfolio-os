@@ -5,6 +5,7 @@ import {
   describeOfflineBanner,
   describeVolume,
   describeWifiTile,
+  isAiSearchAllowed,
   isLikelyBatteryPresent,
   isNetworkBlocked,
   resolveBatteryGlyph,
@@ -34,6 +35,12 @@ describe("network status", () => {
 
   it("lets Wi-Fi back on during airplane mode, as Windows does", () => {
     expect(resolveNetworkStatus({ ...online, airplaneMode: true })).toBe("connected");
+  });
+
+  it("allows AI search only with a network and battery saver off", () => {
+    expect(isAiSearchAllowed({ networkBlocked: false, batterySaver: false })).toBe(true);
+    expect(isAiSearchAllowed({ networkBlocked: true, batterySaver: false })).toBe(false);
+    expect(isAiSearchAllowed({ networkBlocked: false, batterySaver: true })).toBe(false);
   });
 
   it("words the Wi-Fi tile and the offline banner per state", () => {

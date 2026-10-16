@@ -44,6 +44,20 @@ export function isNetworkBlocked(readings: NetworkReadings): boolean {
   return resolveNetworkStatus(readings) !== "connected";
 }
 
+/**
+ * The search reranker downloads a model and then keeps it in memory, so it
+ * only runs with a network to fetch it and while battery saver is off.
+ */
+export function isAiSearchAllowed({
+  networkBlocked,
+  batterySaver,
+}: {
+  networkBlocked: boolean;
+  batterySaver: boolean;
+}): boolean {
+  return !networkBlocked && !batterySaver;
+}
+
 /** Maps navigator.connection.effectiveType onto Wi-Fi bars; unknown reads as full. */
 export function resolveSignalStrength(effectiveType: string | null | undefined): SignalStrength {
   switch (effectiveType) {
