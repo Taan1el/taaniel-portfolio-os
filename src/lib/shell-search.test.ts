@@ -25,6 +25,16 @@ describe("shell search", () => {
     expect(sections.every((section) => section.results.length > 0)).toBe(true);
   });
 
+  it.each(["volume", "wifi", "airplane mode", "battery saver", "brightness", "night light", "reduce motion"])(
+    "finds Settings for the device setting '%s'",
+    (query) => {
+      const index = buildShellSearchIndex(buildSeedFileSystem());
+      const apps = queryShellSearch(index, query).find((section) => section.id === "apps");
+
+      expect(apps?.results.some((result) => result.title === "Settings")).toBe(true);
+    }
+  );
+
   it("surfaces the default note file in file search", () => {
     const index = buildShellSearchIndex(buildSeedFileSystem());
     const sections = queryShellSearch(index, "Notes To-do");
