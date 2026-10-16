@@ -19,6 +19,7 @@ import {
   type ShellValue,
 } from "@/lib/terminal-expression";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import { resolveLaunchProfile, type ShellProfileId } from "@/lib/terminal-profiles";
 import {
   compareValues as compareProperties,
   createObject,
@@ -79,7 +80,16 @@ export function stripAnsi(text: string) {
 }
 
 export function formatPrompt(cwd: string) {
-  return `PS ${toWindowsPath(cwd)}> `;
+  // A folder name is data, never terminal commands: the prompt is printed on every line.
+  return `PS ${sanitizeForTerminal(toWindowsPath(cwd))}> `;
+}
+
+/** The two lines PowerShell greets a new session with, then a pointer to the keys that matter here. */
+export function getPowerShellBanner(): string[] {
+  return [
+    `PowerShell ${POWERSHELL_VERSION} on Taaniel OS`,
+    "\x1b[90mType 'help' to see what this shell can do. Try: tree, ls, about, projects, notepad notes.txt\x1b[0m",
+  ];
 }
 
 // --------------------------------------------------------------------- types
@@ -87,6 +97,10 @@ export function formatPrompt(cwd: string) {
 export type TerminalAction =
   | { type: "launch-app"; appId: AppId; payload?: WindowPayload; title?: string }
   | { type: "open-path"; path: string }
+  /** Open a tab in this terminal window: `wt`, `pwsh` and `cmd` do it. No profile means the default one. */
+  | { type: "open-tab"; profile?: ShellProfileId; directoryPath?: string }
+  /** Rename this tab (cmd's `title`). */
+  | { type: "set-title"; title: string }
   | { type: "exit" };
 
 /** The write surface the shell needs. The terminal app backs it with the filesystem store. */
@@ -131,6 +145,8 @@ export interface ShellHost {
   fetch?: typeof fetch;
   /** True while the OS is offline: network commands then fail without touching fetch. */
   isOffline?: () => boolean;
+  /** Aborted when the person presses Ctrl+C: waiting commands stop and nothing more is printed. */
+  signal?: AbortSignal;
 }
 
 export interface ShellResult {
@@ -138,10 +154,18 @@ export interface ShellResult {
   clear: boolean;
   actions: TerminalAction[];
   success: boolean;
+  /** The command was cancelled with Ctrl+C before it finished. */
+  interrupted?: boolean;
 }
 
+/** Thrown inside a command when the host's signal is aborted. */
+class InterruptedError extends Error {}
+
+/** The most lines one command may print: a runaway can't flood the terminal. */
+export const MAX_OUTPUT_LINES = 20_000;
+
 export function createShellSession(cwd = TERMINAL_HOME_PATH): ShellSession {
-  return { cwd: normalizePath(cwd), previousCwd: null, history: [], variables: {}, locationStack: [] };
+  return { cwd: normalizePath(cwd), previousCwd: null, history: [], variables: Object.create(null) as Record<string, ShellValue>, locationStack: [] };
 }
 
 interface Ctx {
@@ -177,6 +201,11 @@ interface CommandSpec {
 
 const ok = (out: string[] = []): Output => ({ out, ok: true });
 
+/** Own-key lookup: typing `constructor` or `__proto__` must never find something on Object.prototype. */
+function own<T>(record: Record<string, T>, key: string): T | undefined {
+  return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined;
+}
+
 /**
  * Strip control characters from text the user didn't type - file contents,
  * file names, web responses - so it can't drive the terminal with escape
@@ -192,9 +221,24 @@ function fail(ctx: Ctx, command: string, message: string): Output {
   sanitizeForTerminal(message)
     .split("\n")
     .forEach((line, index) => {
-      ctx.lines.push(`${RED}${index === 0 ? `${command}: ` : ""}${line}${RESET}`);
+      ctx.lines.push(`${RED}${index === 0 ? `${sanitizeForTerminal(command)}: ` : ""}${line}${RESET}`);
     });
   return { out: [], ok: false };
+}
+
+/** Stop the running command if Ctrl+C was pressed. Called between stages, statements and script lines. */
+function checkInterrupt(ctx: Ctx) {
+  if (ctx.host.signal?.aborted) throw new InterruptedError("The command was interrupted.");
+}
+
+/** Abort `controller` when the host's signal does; returns the cleanup. */
+function linkSignal(ctx: Ctx, controller: AbortController) {
+  const signal = ctx.host.signal;
+  if (!signal) return () => undefined;
+  const onAbort = () => controller.abort();
+  if (signal.aborted) controller.abort();
+  signal.addEventListener("abort", onAbort, { once: true });
+  return () => signal.removeEventListener("abort", onAbort);
 }
 
 // --------------------------------------------------------------------- paths
@@ -400,7 +444,7 @@ function environment(ctx: Ctx): Record<string, string> {
 /** Look up $name: environment, automatic variables, then the session's own. */
 function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
   const name = rawName.toLowerCase();
-  if (name.startsWith("env:")) return environment(ctx)[name.slice(4)];
+  if (name.startsWith("env:")) return own(environment(ctx), name.slice(4));
   switch (name) {
     case "home":
       return PROFILE_ROOT;
@@ -415,7 +459,7 @@ function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
     case "host":
       return `Taaniel OS terminal (PowerShell ${POWERSHELL_VERSION})`;
     default:
-      return ctx.session.variables[name];
+      return own(ctx.session.variables, name);
   }
 }
 
@@ -765,7 +809,8 @@ const SETTINGS_PAGES: Record<string, SettingsSection> = {
 export function settingsSectionFromUri(uri: string): SettingsSection | null {
   const page = uri.trim().replace(/^ms-settings:/i, "").toLowerCase();
   if (!page) return null;
-  if (SETTINGS_PAGES[page]) return SETTINGS_PAGES[page];
+  const known = own(SETTINGS_PAGES, page);
+  if (known) return known;
   if (page.startsWith("easeofaccess-")) return "accessibility";
   if (page.startsWith("personalization-")) return "personalization";
   return "system";
@@ -788,9 +833,54 @@ export const LINUX_LAUNCH_MESSAGE = [
   "No Linux image ships with Taaniel OS - open a .img or .iso disk image from File Explorer to boot one.",
 ];
 
+/** The shells and Windows Terminal itself: each opens a tab here rather than another window. */
+const TERMINAL_EXECUTABLES: Record<string, ShellProfileId | undefined> = {
+  wt: undefined,
+  pwsh: "pwsh",
+  powershell: "pwsh",
+  cmd: "cmd",
+};
+
+/** wt [-p <profile>] [-d <folder>]: the options of Windows Terminal that mean something here. */
+function openTerminalTab(name: string, args: string[], ctx: Ctx): Output {
+  let profile = own(TERMINAL_EXECUTABLES, name);
+  let directory: string | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index].toLowerCase();
+    const value = args[index + 1];
+    if (name === "wt" && (flag === "-p" || flag === "--profile") && value !== undefined) {
+      const requested = resolveLaunchProfile(value);
+      if (requested === "linux") {
+        ctx.actions.push({ type: "launch-app", appId: "v86" });
+        return ok([...LINUX_LAUNCH_MESSAGE]);
+      }
+      profile = requested ?? profile;
+      index += 1;
+    } else if ((flag === "-d" || flag === "--startingdirectory") && value !== undefined) {
+      directory = value;
+      index += 1;
+    }
+  }
+
+  let directoryPath: string | undefined;
+  if (directory !== undefined) {
+    const nodes = ctx.fs.getNodes();
+    const path = resolveShellPath(directory, ctx.session.cwd, nodes);
+    if (nodes[path]?.kind !== "directory") return fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+    directoryPath = path;
+  }
+
+  ctx.actions.push({ type: "open-tab", profile, directoryPath });
+  return ok();
+}
+
 async function launchExecutable(name: string, args: string[], ctx: Ctx): Promise<Output> {
-  const appId = EXECUTABLES[name];
+  const appId = own(EXECUTABLES, name);
   const target = args.find((arg) => !arg.startsWith("-"));
+
+  if (own(TERMINAL_EXECUTABLES, name) !== undefined || name === "wt") return openTerminalTab(name, args, ctx);
+  if (!appId) return fail(ctx, name, "This command cannot be run due to the error: The system cannot find the file specified.");
 
   if (appId === "v86") {
     ctx.actions.push({ type: "launch-app", appId });
@@ -1310,7 +1400,7 @@ const getHistory: CommandFn = (_args, _stdin, ctx) => {
     "",
     `${TABLE}${"Id".padStart(width)} CommandLine${RESET}`,
     `${TABLE}${"--".padStart(width)} -----------${RESET}`,
-    ...ctx.session.history.map((entry, index) => `${String(index + 1).padStart(width)} ${entry}`),
+    ...ctx.session.history.map((entry, index) => `${String(index + 1).padStart(width)} ${sanitizeForTerminal(entry)}`),
     "",
   ]);
 };
@@ -1326,7 +1416,7 @@ const startProcess: CommandFn = async (args, _stdin, ctx, name) => {
   if (isUrl(target)) return launchExecutable("msedge", [target], ctx);
 
   const executable = target.toLowerCase().replace(/\.exe$/, "");
-  if (EXECUTABLES[executable]) return launchExecutable(executable, rest, ctx);
+  if (own(EXECUTABLES, executable)) return launchExecutable(executable, rest, ctx);
 
   const nodes = ctx.fs.getNodes();
   const path = resolveShellPath(target, ctx.session.cwd, nodes);
@@ -1335,7 +1425,7 @@ const startProcess: CommandFn = async (args, _stdin, ctx, name) => {
     return ok();
   }
 
-  const shortcut = PATH_SHORTCUTS[target.toLowerCase()];
+  const shortcut = own(PATH_SHORTCUTS, target.toLowerCase());
   if (shortcut && nodes[shortcut]) {
     ctx.actions.push({ type: "open-path", path: shortcut });
     return ok();
@@ -1898,8 +1988,8 @@ const CONSOLE_COLORS: Record<string, string> = {
 const writeHost: CommandFn = (args, stdin, ctx, name) => {
   const parsed = parseArgs(args, { switches: ["NoNewline"], params: ["ForegroundColor", "BackgroundColor", "Object", "Separator"] });
   if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
-  const fg = parsed.params.ForegroundColor ? CONSOLE_COLORS[parsed.params.ForegroundColor.toLowerCase()] : undefined;
-  const bgCode = parsed.params.BackgroundColor ? CONSOLE_COLORS[parsed.params.BackgroundColor.toLowerCase()] : undefined;
+  const fg = parsed.params.ForegroundColor ? own(CONSOLE_COLORS, parsed.params.ForegroundColor.toLowerCase()) : undefined;
+  const bgCode = parsed.params.BackgroundColor ? own(CONSOLE_COLORS, parsed.params.BackgroundColor.toLowerCase()) : undefined;
   if (parsed.params.ForegroundColor && !fg) {
     return fail(ctx, name, `Cannot bind parameter 'ForegroundColor'. Cannot convert value "${parsed.params.ForegroundColor}" to type "System.ConsoleColor".`);
   }
@@ -2081,8 +2171,13 @@ async function webRequest(args: string[], ctx: Ctx, name: string, rest: boolean)
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const unlink = linkSignal(ctx, controller);
   const doFetch = ctx.host.fetch ?? globalThis.fetch?.bind(globalThis);
-  if (!doFetch) return fail(ctx, name, "This browser can't make web requests.");
+  if (!doFetch) {
+    clearTimeout(timer);
+    unlink();
+    return fail(ctx, name, "This browser can't make web requests.");
+  }
 
   try {
     // Never send cookies or a referrer: the request is anonymous.
@@ -2122,6 +2217,7 @@ async function webRequest(args: string[], ctx: Ctx, name: string, rest: boolean)
       "",
     ]);
   } catch (error) {
+    checkInterrupt(ctx);
     if ((error as Error)?.name === "AbortError") return fail(ctx, name, "The operation has timed out.");
     return fail(
       ctx,
@@ -2130,6 +2226,7 @@ async function webRequest(args: string[], ctx: Ctx, name: string, rest: boolean)
     );
   } finally {
     clearTimeout(timer);
+    unlink();
   }
 }
 
@@ -2138,17 +2235,21 @@ const invokeRestMethod: CommandFn = (args, _stdin, ctx, name) => webRequest(args
 
 /** ICMP is impossible from a web page, so reachability is timed over HTTPS - and the output says so. */
 async function timeHttps(host: string, ctx: Ctx) {
+  checkInterrupt(ctx);
   const doFetch = ctx.host.fetch ?? globalThis.fetch?.bind(globalThis);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4000);
+  const unlink = linkSignal(ctx, controller);
   const started = performance.now();
   try {
     await doFetch?.(`https://${host}/`, { mode: "no-cors", credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer", signal: controller.signal });
     return Math.max(1, Math.round(performance.now() - started));
   } catch {
+    checkInterrupt(ctx);
     return null;
   } finally {
     clearTimeout(timer);
+    unlink();
   }
 }
 
@@ -2239,7 +2340,7 @@ const getFileHash: CommandFn = async (args, _stdin, ctx, name) => {
   const parsed = parseArgs(args, { params: ["Path", "Algorithm"] });
   if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
   const algorithm = (parsed.params.Algorithm ?? "SHA256").toUpperCase();
-  const subtleName = HASH_ALGORITHMS[algorithm.toLowerCase()];
+  const subtleName = own(HASH_ALGORITHMS, algorithm.toLowerCase());
   if (!subtleName) {
     return fail(ctx, name, algorithm === "MD5" ? "MD5 isn't available in browser cryptography; use SHA256." : `Cannot validate argument on parameter 'Algorithm'. The argument "${algorithm}" does not belong to the set "SHA1,SHA256,SHA384,SHA512".`);
   }
@@ -2326,7 +2427,19 @@ const startSleep: CommandFn = async (args, _stdin, ctx, name) => {
   const parsed = parseArgs(args, { params: ["Seconds", "Milliseconds"] });
   const milliseconds = parsed.params.Milliseconds !== undefined ? Number(parsed.params.Milliseconds) : Number(parsed.params.Seconds ?? parsed.positional[0] ?? 0) * 1000;
   if (!Number.isFinite(milliseconds) || milliseconds < 0) return fail(ctx, name, "Cannot validate argument on parameter 'Seconds'.");
-  await new Promise((resolve) => setTimeout(resolve, Math.min(milliseconds, 60_000)));
+  await new Promise<void>((resolve) => {
+    const signal = ctx.host.signal;
+    const finish = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, Math.min(milliseconds, 60_000));
+    // Ctrl+C ends the wait at once.
+    signal?.addEventListener("abort", finish, { once: true });
+    if (signal?.aborted) finish();
+  });
+  checkInterrupt(ctx);
   return ok();
 };
 
@@ -2522,6 +2635,13 @@ const HELP_OVERVIEW = [
   "  wsl              Open the x86 emulator (v86)      wsl",
   "  ms-settings:     Open a Settings page             start ms-settings:display",
   "",
+  `${TABLE}Objects and pipelines${RESET}`,
+  "  where, ?         Keep items that match            ls | where Length -gt 1kb",
+  "  select, sort     Pick properties, put in order    ls | sort Length -Descending | select Name, Length",
+  "  foreach, %       Run an expression per item       ls | % { $_.Length * 2 }",
+  "  ft, fl, measure  Tables, lists, totals            ps | ft ProcessName, Status",
+  "                                                    ls | measure Length -Sum",
+  "",
   `${TABLE}Scripting${RESET}`,
   "  $x = 5           Variables, maths, comparisons    $x * 2, 'ab' * 3, 5 -gt 3",
   "  .\\script.ps1     Run a script from this drive     echo 'Write-Host hi -ForegroundColor Cyan' > a.ps1",
@@ -2530,7 +2650,9 @@ const HELP_OVERVIEW = [
   "",
   `${TABLE}Shell${RESET}`,
   "  cls, history, Get-Date, whoami, Get-Command, Get-Alias, help <command>, exit",
+  "  wt, pwsh, cmd    Open another tab here            wt -p cmd, cmd",
   "  Tab completes commands and paths. Up/Down recalls history. Ctrl+C cancels, Ctrl+L clears.",
+  "  F6 moves focus out of the terminal (Tab and Esc belong to the shell). Ctrl+, opens settings.",
   "",
 ];
 
@@ -2583,6 +2705,7 @@ async function runScript(path: string, ctx: Ctx): Promise<Output> {
   let okay = true;
   const lines = text.split(/\r?\n/).slice(0, MAX_SCRIPT_LINES);
   for (const line of lines) {
+    checkInterrupt(ctx);
     if (!line.trim() || line.trim().startsWith("#")) continue;
     // eslint-disable-next-line no-await-in-loop
     const result = await runShellCommand(line, ctx.session, ctx.fs, ctx.host, ctx.depth + 1);
@@ -2593,6 +2716,7 @@ async function runScript(path: string, ctx: Ctx): Promise<Output> {
     ctx.lines.push(...result.lines);
     ctx.actions.push(...result.actions);
     okay &&= result.success;
+    if (result.interrupted) throw new InterruptedError("The command was interrupted.");
   }
   return { out: [], ok: okay };
 }
@@ -2614,7 +2738,7 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
   if (/^ms-settings:./.test(key)) return openSettingsUri(rawName, ctx);
 
   const executable = key.replace(/\.exe$/, "");
-  if (EXECUTABLES[executable]) return launchExecutable(executable, args, ctx);
+  if (own(EXECUTABLES, executable)) return launchExecutable(executable, args, ctx);
 
   if (/[\\/.]/.test(rawName)) {
     const nodes = ctx.fs.getNodes();
@@ -2649,6 +2773,7 @@ async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok
     let output: Output = ok();
 
     for (let index = 0; index < statement.stages.length; index += 1) {
+      checkInterrupt(ctx);
       // Object-aware stages read what the previous one produced as live objects; the rest read its text.
       ctx.input = index > 0 ? (output.objects ?? null) : null;
       // eslint-disable-next-line no-await-in-loop
@@ -2671,6 +2796,7 @@ async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok
 
 const ASSIGNMENT = /^\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|=)\s*(.*)$/;
 
+/** Run one line the person entered. Resolves with what to print, the actions to carry out, and whether it worked. */
 export async function runShellCommand(
   input: string,
   session: ShellSession,
@@ -2679,6 +2805,20 @@ export async function runShellCommand(
   depth = 0
 ): Promise<ShellResult> {
   const ctx: Ctx = { session, fs, host, depth, lines: [], actions: [], clear: false, budget: { steps: 0 }, input: null };
+
+  try {
+    const result = await runLine(input, ctx);
+    if (result.lines.length <= MAX_OUTPUT_LINES) return result;
+    return { ...result, lines: [...result.lines.slice(0, MAX_OUTPUT_LINES), `${RED}Output stopped after ${MAX_OUTPUT_LINES} lines.${RESET}`] };
+  } catch (error) {
+    // Ctrl+C: whatever the command had printed is dropped, and the app writes ^C.
+    if (error instanceof InterruptedError) return { lines: [], clear: false, actions: [], success: false, interrupted: true };
+    throw error;
+  }
+}
+
+async function runLine(input: string, ctx: Ctx): Promise<ShellResult> {
+  const { session } = ctx;
   const trimmed = input.trim();
 
   // $name = value, $name += value: the value is an expression, or the output of a command.
@@ -2704,7 +2844,7 @@ export async function runShellCommand(
       value = lines.length === 1 ? lines[0] : lines;
     }
 
-    const current = session.variables[name];
+    const current = own(session.variables, name);
     try {
       session.variables[name] =
         operator === "=" || current === undefined ? value : applyArithmetic(operator === "+=" ? "+" : "-", current, value);
@@ -2761,8 +2901,22 @@ function commonPrefix(values: string[]) {
   return prefix;
 }
 
+export interface CompletionOptions {
+  /** Command names to complete; PowerShell's own by default. */
+  commands?: string[];
+  /** Characters that start a new command on the line. */
+  separators?: string;
+}
+
 /** Tab completion for the word at the cursor: command names first, then paths. */
-export function completeShellInput(line: string, cursor: number, session: ShellSession, nodes: FileSystemRecord): CompletionResult {
+export function completeShellInput(
+  line: string,
+  cursor: number,
+  session: ShellSession,
+  nodes: FileSystemRecord,
+  options: CompletionOptions = {}
+): CompletionResult {
+  const separators = options.separators ?? "|;";
   const before = line.slice(0, cursor);
   let start = 0;
   let quote: string | null = null;
@@ -2777,14 +2931,14 @@ export function completeShellInput(line: string, cursor: number, session: ShellS
       quote = char;
       continue;
     }
-    if (/\s/.test(char) || char === "|" || char === ";") start = index + 1;
+    if (/\s/.test(char) || separators.includes(char)) start = index + 1;
   }
 
   const rawToken = before.slice(start);
   const quoted = rawToken.startsWith("'") || rawToken.startsWith('"');
   const token = quoted ? rawToken.slice(1) : rawToken;
   const head = before.slice(0, start).trimEnd();
-  const commandPosition = head === "" || head.endsWith("|") || head.endsWith(";");
+  const commandPosition = head === "" || [...separators].some((separator) => head.endsWith(separator));
 
   let matches: Array<{ text: string; display: string }>;
   let isCommand = false;
@@ -2792,7 +2946,7 @@ export function completeShellInput(line: string, cursor: number, session: ShellS
   if (commandPosition && token !== "" && !/[\\/]/.test(token) && !token.startsWith(".") && !quoted) {
     isCommand = true;
     const lower = token.toLowerCase();
-    matches = COMPLETABLE_COMMANDS()
+    matches = (options.commands ?? COMPLETABLE_COMMANDS())
       .filter((name) => name.toLowerCase().startsWith(lower))
       .sort((a, b) => a.localeCompare(b))
       .map((name) => ({ text: name, display: name }));
