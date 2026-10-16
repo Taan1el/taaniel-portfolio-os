@@ -292,3 +292,175 @@
   font-size: 12px;
   line-height: 16px;
 }
+
+/* ------------------------------------------------------------ clock flyout */
+
+.w11-flyout.w11-clock {
+  position: fixed;
+  z-index: 70;
+  right: 12px;
+  bottom: var(--w11-start-offset);
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100dvh - var(--w11-start-offset) - 12px);
+  padding: 0;
+  overflow-y: auto;
+  font-size: 14px;
+  box-shadow: var(--w11-shadow-overlay);
+}
+
+.w11-clock__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--w11-divider);
+}
+
+.w11-clock__time {
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 300;
+  line-height: 1.15;
+}
+
+.w11-clock__date {
+  color: var(--w11-text-2);
+}
+
+.w11-clock__calendar {
+  padding: 12px 16px 8px;
+}
+
+.w11-clock__nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 0 8px 8px;
+}
+
+.w11-clock__month {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.w11-clock__step,
+.w11-clock__today {
+  display: grid;
+  flex: none;
+  place-items: center;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.w11-clock__step {
+  width: 32px;
+}
+
+.w11-clock__today {
+  padding: 0 10px;
+}
+
+.w11-clock__step:hover,
+.w11-clock__today:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-clock__step:active,
+.w11-clock__today:active {
+  background: var(--w11-subtle-press);
+}
+
+.w11-clock__grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.w11-clock__grid th {
+  padding: 6px 0;
+  color: var(--w11-text-2);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.w11-clock__grid td {
+  padding: 1px;
+}
+
+.w11-clock__day {
+  display: grid;
+  place-items: center;
+  width: min(40px, 100%);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.w11-clock__day:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-clock__day.is-outside {
+  color: var(--w11-text-2);
+  opacity: 0.65;
+}
+
+.w11-clock__day.is-selected {
+  border-color: var(--w11-accent);
+}
+
+.w11-clock__day.is-today {
+  background: var(--w11-accent);
+  color: var(--w11-on-accent);
+  font-weight: 600;
+  opacity: 1;
+}
+
+.w11-clock__day.is-today:hover {
+  opacity: 0.92;
+}
+
+.w11-clock__footer {
+  padding: 4px 8px 8px;
+  border-top: 1px solid var(--w11-divider);
+}
+
+.w11-clock__settings {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.w11-clock__settings:hover {
+  background: var(--w11-subtle-hover);
+}
