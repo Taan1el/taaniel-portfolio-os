@@ -7,6 +7,7 @@ import {
   type ProxyMode,
 } from "@/lib/browser/proxy";
 import { resolveLocalBrowserDocument } from "@/lib/browser/local-file";
+import { buildOfflineFallback } from "@/lib/browser/offline";
 import {
   DEFAULT_BROWSER_HOME,
   getBrowserTitleFromUrl,
@@ -21,6 +22,7 @@ import type {
   BrowserResolvedDocument,
   ViewMode,
 } from "@/lib/browser/types";
+import { selectNetworkStatus, useDeviceStore } from "@/stores/device-store";
 import type { FileSystemRecord } from "@/types/system";
 
 const REMOTE_EMBED_TIMEOUT_MS = 9000;
@@ -51,6 +53,7 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
   const [refreshToken, setRefreshToken] = useState(0);
   const [failureHistory, setFailureHistory] = useState<BrowserFailureRecord[]>([]);
   const loadTimeoutRef = useRef<number | null>(null);
+  const networkStatus = useDeviceStore(selectNetworkStatus);
 
   const clearLoadTimeout = useCallback(() => {
     if (loadTimeoutRef.current != null) {
@@ -207,6 +210,15 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
       return;
     }
 
+    // Airplane mode, Wi-Fi off or a real outage: remote pages cannot load. Local files
+    // and the browser's own pages carry on. Coming back online re-runs this effect.
+    if (resolution.document.kind === "remote" && networkStatus !== "connected") {
+      setViewMode("fallback");
+      setLoadState("blocked");
+      setFallback(buildOfflineFallback(resolution.document.displayUrl, networkStatus));
+      return;
+    }
+
     if (resolution.document.kind === "remote" && proxyMode === "direct") {
       const hostRule = getBrowserHostRule(resolution.document.displayUrl);
 
@@ -234,7 +246,7 @@ export function useBrowserState({ initialAddress, nodes }: UseBrowserStateOption
     }, proxyMode === "direct" ? REMOTE_EMBED_TIMEOUT_MS : PROXIED_EMBED_TIMEOUT_MS);
 
     return () => clearLoadTimeout();
-  }, [activateFallback, clearLoadTimeout, currentUrl, proxyMode, refreshToken, resolution]);
+  }, [activateFallback, clearLoadTimeout, currentUrl, networkStatus, proxyMode, refreshToken, resolution]);
 
   const resetViewForRetry = useCallback(() => {
     clearLoadTimeout();
