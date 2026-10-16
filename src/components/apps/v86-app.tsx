@@ -4,6 +4,7 @@ import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { getBaseName } from "@/lib/utils";
 import { getNodeByPath } from "@/lib/filesystem";
+import { attachV86Volume } from "@/lib/master-volume";
 import {
   V86_BIOS_PATH,
   V86_VGA_BIOS_PATH,
@@ -71,6 +72,7 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
 
     const diskSource = diskFile.source;
     let cancelled = false;
+    let detachVolume: (() => void) | undefined;
     setBooting(true);
     setStatus("Loading experimental runtime...");
     setRuntimeStatus("Loading the emulator only for this window.");
@@ -102,6 +104,8 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
         });
 
         emulatorRef.current = emulator;
+        // The guest's sound goes through the master volume from Quick Settings.
+        detachVolume = attachV86Volume(emulator);
 
         emulator.add_listener("emulator-ready", () => {
           void (async () => {
@@ -143,6 +147,7 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
 
     return () => {
       cancelled = true;
+      detachVolume?.();
       const emulator = emulatorRef.current;
       emulatorRef.current = null;
 
