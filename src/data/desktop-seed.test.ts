@@ -14,6 +14,7 @@ import {
   initialDesktopIconPositions,
   legacyDesktopIconIds,
   RECYCLE_BIN_DESKTOP_ID,
+  remapLegacyDesktopIconIds,
 } from "@/data/desktop-seed";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace, TRASH_PATH } from "@/lib/system-workspace";
@@ -83,6 +84,31 @@ describe("desktop seeding", () => {
     Object.values(legacyDesktopIconIds).forEach((id) => {
       expect(initialDesktopIconPositions[id]).toBeTruthy();
     });
+  });
+
+  it("re-keys saved icon positions from the old ids", () => {
+    const remapped = remapLegacyDesktopIconIds({
+      "about-app": { gridX: 5, gridY: 1 },
+      trash: { gridX: 9, gridY: 2 },
+      "desktop-node:/Desktop/notes.txt": { gridX: 3, gridY: 3 },
+    });
+
+    expect(remapped).toEqual({
+      [getDesktopNodeId("/Desktop/About.lnk")]: { gridX: 5, gridY: 1 },
+      [RECYCLE_BIN_DESKTOP_ID]: { gridX: 9, gridY: 2 },
+      "desktop-node:/Desktop/notes.txt": { gridX: 3, gridY: 3 },
+    });
+  });
+
+  it("prefers a current-format position over a legacy one for the same icon", () => {
+    const newId = getDesktopNodeId("/Desktop/About.lnk");
+    const remapped = remapLegacyDesktopIconIds({
+      "about-app": { gridX: 1, gridY: 1 },
+      [newId]: { gridX: 4, gridY: 4 },
+    });
+
+    expect(remapped[newId]).toEqual({ gridX: 4, gridY: 4 });
+    expect(remapped["about-app"]).toBeUndefined();
   });
 });
 
