@@ -79,6 +79,7 @@ export function toFileNode(node: VirtualNode): FileNode {
     readonly: node.readonly,
     originalPath: node.originalPath,
     deletedAt: node.deletedAt,
+    shortcut: node.shortcut,
   };
 }
 

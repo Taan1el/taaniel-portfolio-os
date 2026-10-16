@@ -50,6 +50,7 @@ export function describeFileType(target: IconTarget) {
   if (target.type === "folder" || target.kind === "directory") return "File folder";
   const extension = (target.extension ?? target.path.split(".").pop() ?? "").toLowerCase();
   const known: Record<string, string> = {
+    lnk: "Shortcut",
     txt: "Text Document",
     md: "Markdown File",
     pdf: "PDF Document",
