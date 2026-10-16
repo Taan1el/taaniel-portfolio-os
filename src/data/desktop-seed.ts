@@ -66,6 +66,30 @@ export const legacyDesktopIconIds: Record<string, string> = {
   trash: RECYCLE_BIN_DESKTOP_ID,
 };
 
+/**
+ * Re-key icon positions saved before the desktop was built from /Desktop. An
+ * icon that already has a current-format position keeps it over a legacy one.
+ */
+export function remapLegacyDesktopIconIds(positions: Record<string, DesktopGridPosition>) {
+  const remapped: Record<string, DesktopGridPosition> = {};
+
+  Object.entries(positions).forEach(([id, position]) => {
+    if (!(id in legacyDesktopIconIds)) {
+      remapped[id] = position;
+    }
+  });
+
+  Object.entries(positions).forEach(([id, position]) => {
+    const nextId = legacyDesktopIconIds[id];
+
+    if (nextId && !remapped[nextId]) {
+      remapped[nextId] = position;
+    }
+  });
+
+  return remapped;
+}
+
 export const initialDesktopIconPositions: Record<string, DesktopGridPosition> = {
   ...Object.fromEntries(
     desktopShortcutSeeds.map((seed) => [getDesktopNodeId(`${DESKTOP_PATH}/${seed.name}`), seed.defaultGridPosition])
