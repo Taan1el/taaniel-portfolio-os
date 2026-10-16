@@ -828,6 +828,11 @@ function openSettingsUri(uri: string, ctx: Ctx): Output {
   return ok();
 }
 
+/** True for names that launch an app by themselves: notepad, calc, explorer, ms-settings:display... */
+export function isExecutableName(name: string) {
+  return own(EXECUTABLES, name.toLowerCase().replace(/\.exe$/, "")) !== undefined || /^ms-settings:./i.test(name);
+}
+
 export const LINUX_LAUNCH_MESSAGE = [
   "Opening Virtual x86: v86, an x86 emulator that runs in your browser.",
   "No Linux image ships with Taaniel OS - open a .img or .iso disk image from File Explorer to boot one.",
@@ -2000,7 +2005,7 @@ const writeHost: CommandFn = (args, stdin, ctx, name) => {
 };
 
 /** A stable, PowerShell-looking numeric id for an OS process. */
-function processNumber(id: string) {
+export function processNumber(id: string) {
   let hash = 0;
   for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
   return 1000 + (hash % 9000);
