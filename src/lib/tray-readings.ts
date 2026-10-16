@@ -42,6 +42,8 @@ export interface VolumeTray {
 export interface BatteryTray {
   percent: number;
   glyph: BatteryGlyph;
+  /** "80% available (plugged in)", without the battery saver note. */
+  text: string;
   tooltip: string;
   spoken: string;
 }
@@ -82,6 +84,7 @@ export function buildTrayReadings(input: TrayInput): TrayReadings {
     battery = {
       percent: toBatteryPercent(input.battery.level),
       glyph: resolveBatteryGlyph(input.battery),
+      text: batteryText,
       tooltip: input.batterySaver ? `${batteryText}\nBattery saver` : batteryText,
       spoken: input.batterySaver ? `${batteryText}, Battery saver on` : batteryText,
     };
