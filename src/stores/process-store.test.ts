@@ -49,6 +49,22 @@ describe("process store persistence sanitizers", () => {
     ).toEqual([]);
   });
 
+  it("keeps a terminal profile and launch nonce only when they are short ids", () => {
+    const [kept, dropped] = sanitizePersistedProcesses([
+      { id: "process-1", appId: "terminal", status: "running", launchPayload: { profile: "cmd", launchNonce: "launch-1a2b" }, createdAt: 1 },
+      {
+        id: "process-2",
+        appId: "terminal",
+        status: "running",
+        launchPayload: { profile: "<script>", launchNonce: "x".repeat(200), directoryPath: "/Documents" },
+        createdAt: 1,
+      },
+    ]);
+
+    expect(kept.launchPayload).toEqual({ profile: "cmd", launchNonce: "launch-1a2b" });
+    expect(dropped.launchPayload).toEqual({ directoryPath: "/Documents" });
+  });
+
   it("falls back to an empty process list for non-array values", () => {
     expect(sanitizePersistedProcesses({ processes: [] })).toEqual([]);
   });
