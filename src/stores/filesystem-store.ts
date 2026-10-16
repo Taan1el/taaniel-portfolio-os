@@ -14,15 +14,19 @@ import {
   listDirectory as listDirectoryNodes,
   loadFileSystem,
   mkdirRecord,
+  normalizePath,
   pasteNodeRecord,
   readFile as readFileNode,
   renameRecord,
   renameNodeRecord,
   restoreFromTrashRecord,
   saveFileSystem,
+  transferNodesRecord,
   updateBinaryFileRecord,
   updateTextFileRecord,
   writeFileRecord,
+  type TransferOperation,
+  type TransferResult,
 } from "@/lib/filesystem";
 import { TRASH_PATH, ensureSystemWorkspace } from "@/lib/system-workspace";
 import type { FileNode, FileSystemRecord } from "@/types/system";
@@ -75,10 +79,41 @@ interface FileSystemState {
     operation: "copy" | "cut",
     options?: { quiet?: boolean }
   ) => Promise<void>;
+  /**
+   * Move, copy or link several items in one write - a drag, a paste or a
+   * multi-item delete. Moving into the Recycle Bin records where items came from.
+   */
+  transferNodes: (
+    sourcePaths: string[],
+    destinationDirectoryPath: string,
+    operation: TransferOperation,
+    options?: { quiet?: boolean }
+  ) => Promise<TransferResult>;
   importFiles: (directoryPath: string, files: File[]) => Promise<string[]>;
   canCutNode: (path: string) => boolean;
   emptyTrash: () => Promise<void>;
   reset: () => Promise<void>;
+}
+
+/** One toast per drag or paste, worded like Windows' progress dialog. */
+function describeTransfer(
+  result: TransferResult,
+  operation: TransferOperation,
+  intoTrash: boolean
+): { text: string; tone: "success" | "error" } | null {
+  const count = result.transferred.length;
+  const items = (n: number) => (n === 1 ? "1 item" : `${n} items`);
+
+  if (count > 0) {
+    if (intoTrash) return { text: count === 1 ? "Moved to Recycle Bin" : `Moved ${items(count)} to the Recycle Bin`, tone: "success" };
+    if (operation === "link") return { text: count === 1 ? "Shortcut created" : `Created ${count} shortcuts`, tone: "success" };
+    return { text: `${operation === "move" ? "Moved" : "Copied"} ${items(count)}`, tone: "success" };
+  }
+
+  const reasons = new Set(result.skipped.map((entry) => entry.reason));
+  if (reasons.has("into-itself")) return { text: "The destination folder is a subfolder of the source folder", tone: "error" };
+  if (reasons.has("locked")) return { text: "This item is read-only and can't be moved", tone: "error" };
+  return null;
 }
 
 async function persistNodes(nodes: FileSystemRecord) {
@@ -246,6 +281,23 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ nodes });
     await persistNodes(nodes);
     if (!options?.quiet) toast(operation === "cut" ? "Moved" : "Copied", "success");
+  },
+  transferNodes: async (sourcePaths, destinationDirectoryPath, operation, options) => {
+    const result = transferNodesRecord(get().nodes, sourcePaths, destinationDirectoryPath, operation, {
+      trashPath: TRASH_PATH,
+    });
+
+    if (result.transferred.length > 0) {
+      set({ nodes: result.nodes });
+      await persistNodes(result.nodes);
+    }
+
+    if (!options?.quiet) {
+      const message = describeTransfer(result, operation, normalizePath(destinationDirectoryPath) === TRASH_PATH);
+      if (message) toast(message.text, message.tone);
+    }
+
+    return result;
   },
   importFiles: async (directoryPath, files) => {
     const { nodes, importedPaths } = await importFilesRecord(get().nodes, directoryPath, files);
