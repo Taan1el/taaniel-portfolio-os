@@ -179,6 +179,8 @@ export function TerminalApp({ window }: AppComponentProps) {
         openFileSystemPath(action.path, fileSystem.getNodes(), launchApp);
         return;
       }
+      // Tabs arrive with the tabbed terminal; until then these have nowhere to go.
+      if (action.type === "open-tab" || action.type === "set-title") return;
       launchApp({ appId: action.appId, payload: action.payload, title: action.title });
     };
 
