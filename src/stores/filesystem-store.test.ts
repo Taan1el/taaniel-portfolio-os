@@ -122,12 +122,21 @@ describe("filesystem-store", () => {
     });
 
     it("moves a directory and its descendants to /Trash (soft-delete)", async () => {
-      await useFileSystemStore.getState().deleteNode("/Documents");
-      // /Documents is no longer a child of /
+      // /Documents is a protected system folder, so use a folder of the visitor's own.
+      useFileSystemStore.setState({
+        nodes: {
+          ...useFileSystemStore.getState().nodes,
+          "/Work": dir("/Work", "Work"),
+          "/Work/plan.txt": txt("/Work/plan.txt", "plan.txt", "ship it"),
+        },
+      });
+      await useFileSystemStore.getState().deleteNode("/Work");
+      // /Work is no longer a child of /
       const rootChildren = useFileSystemStore.getState().listDirectory("/");
-      expect(rootChildren.every((c) => c.name !== "Documents")).toBe(true);
-      // The directory now exists under /Trash
+      expect(rootChildren.every((c) => c.name !== "Work")).toBe(true);
+      // The directory and its contents now exist under /Trash
       expect(useFileSystemStore.getState().listDirectory("/Trash")).toHaveLength(1);
+      expect(useFileSystemStore.getState().readFile("/Trash/Work/plan.txt")?.content).toBe("ship it");
     });
 
     it("permanently deletes a file already inside /Trash", async () => {

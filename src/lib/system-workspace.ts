@@ -2,6 +2,7 @@ import {
   bundledWorkspaceAssets,
   bundledWorkspaceDirectories,
 } from "@/data/bundled-assets";
+import { DESKTOP_PATH, ensureDesktopShortcuts } from "@/data/desktop-seed";
 import { photographyAssets } from "@/data/portfolio";
 import {
   GAMES_DIRECTORY_PATH,
@@ -13,6 +14,12 @@ import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/sy
 export const LEGACY_WELCOME_PATH = "/Desktop/Welcome.md";
 const LEGACY_MUSIC_PATHS = ["/Media/Music/Studio Loop.mp3", "/Media/Music/T-Rex Roar.mp3"];
 export const TRASH_PATH = "/Trash";
+
+/**
+ * Folders the shell itself depends on. Like Windows' known folders they can
+ * be opened and copied, but not deleted, renamed or moved.
+ */
+export const PROTECTED_PATHS: ReadonlySet<string> = new Set(["/", DESKTOP_PATH, "/Documents", TRASH_PATH]);
 
 const REQUIRED_DIRECTORIES = [
   "/Media",
@@ -176,6 +183,12 @@ export function ensureSystemWorkspace(nodes: FileSystemRecord) {
         delete nextNodes[path];
       }
     });
+    changed = true;
+  }
+
+  const seededDesktop = ensureDesktopShortcuts(nextNodes, timestamp);
+  if (seededDesktop !== nextNodes) {
+    nextNodes = seededDesktop;
     changed = true;
   }
 
