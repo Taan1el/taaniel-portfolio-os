@@ -522,3 +522,362 @@
   --w11-flyout: rgb(44, 44, 44);
   --w11-taskbar: rgb(28, 28, 28);
 }
+
+/* ---------------------------------------------------------------- Settings */
+
+/*
+ * App mode is dark-only (see the .window-frame note in win11.css), so Settings
+ * pins the dark control tokens instead of following the shell theme.
+ */
+.w11-settings {
+  --w11-accent: #60cdff;
+  --w11-on-accent: #000000;
+  --w11-control-stroke-strong: rgba(255, 255, 255, 0.544);
+  --w11-slider-rest: rgba(255, 255, 255, 0.544);
+  --w11-slider-ring: #454545;
+  --w11-settings-card: rgba(255, 255, 255, 0.0512);
+  --w11-settings-card-hover: rgba(255, 255, 255, 0.0838);
+  --w11-settings-card-stroke: rgba(255, 255, 255, 0.058);
+
+  background: #202020;
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+  font-size: 14px;
+}
+
+.w11-settings :is(button, input):focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: -2px;
+}
+
+.w11-settings__layout {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.w11-settings__nav {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  width: 224px;
+  padding: 8px 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.w11-settings__profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 14px;
+}
+
+.w11-settings__profile-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.w11-settings__profile-text strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w11-settings__profile-text small {
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
+
+.w11-settings__nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.w11-settings__nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.w11-settings__nav-item:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-settings__nav-item.is-active {
+  background: rgba(255, 255, 255, 0.0605);
+}
+
+/* The accent pill on the current page, as in Windows. */
+.w11-settings__nav-item.is-active::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--w11-accent);
+}
+
+.w11-settings__page.app-content {
+  flex: 1;
+  gap: 24px;
+  min-width: 0;
+  padding: 8px 32px 32px 24px;
+}
+
+.w11-settings__title {
+  margin: 8px 0 0;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.w11-settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.w11-settings__group-title {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.w11-settings__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.w11-settings__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 1px solid var(--w11-settings-card-stroke);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-settings-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.w11-settings__row.is-nested {
+  padding-left: 50px;
+}
+
+.w11-settings__row--link {
+  cursor: pointer;
+}
+
+.w11-settings__row--link:hover {
+  background: var(--w11-settings-card-hover);
+}
+
+.w11-settings__row-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+}
+
+.w11-settings__row-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.w11-settings__row-description {
+  color: var(--w11-text-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.w11-settings__row-control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.w11-settings__row-chevron {
+  flex: none;
+  color: var(--w11-text-2);
+}
+
+.w11-settings__slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 240px;
+}
+
+.w11-settings__slider-value {
+  min-width: 28px;
+  color: var(--w11-text-2);
+  font-size: 12px;
+  text-align: right;
+}
+
+.w11-settings__note {
+  max-width: 560px;
+  margin: 0;
+  color: var(--w11-text-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* On / off switch. */
+.w11-switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.w11-switch__state {
+  min-width: 24px;
+  text-align: right;
+}
+
+.w11-switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--w11-control-stroke-strong);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 167ms linear, border-color 167ms linear;
+}
+
+.w11-switch__thumb {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--w11-text-2);
+  transition: left 167ms var(--w11-ease-decelerate), width 167ms var(--w11-ease-decelerate),
+    margin-top 167ms var(--w11-ease-decelerate);
+}
+
+.w11-switch:hover .w11-switch__thumb {
+  width: 14px;
+  margin-top: -7px;
+}
+
+.w11-switch[aria-checked="true"] {
+  border-color: transparent;
+  background: var(--w11-accent);
+}
+
+.w11-switch[aria-checked="true"] .w11-switch__thumb {
+  left: 22px;
+  background: var(--w11-on-accent);
+}
+
+.w11-switch:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.w11-switch:focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: 2px;
+}
+
+/* Phones: the pages become a strip along the top and rows stack their controls. */
+@media (max-width: 520px) {
+  .w11-settings__layout {
+    flex-direction: column;
+  }
+
+  .w11-settings__nav {
+    width: auto;
+    padding: 4px 8px;
+    overflow: auto hidden;
+  }
+
+  .w11-settings__profile {
+    display: none;
+  }
+
+  .w11-settings__nav-list {
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .w11-settings__nav-item {
+    width: auto;
+    height: 36px;
+    white-space: nowrap;
+  }
+
+  .w11-settings__nav-item.is-active::before {
+    top: auto;
+    right: 12px;
+    bottom: 2px;
+    left: 12px;
+    width: auto;
+    height: 3px;
+  }
+
+  .w11-settings__page.app-content {
+    gap: 16px;
+    padding: 4px 16px 24px;
+  }
+
+  .w11-settings__title {
+    font-size: 24px;
+  }
+
+  .w11-settings__row {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .w11-settings__row.is-nested {
+    padding-left: 16px;
+  }
+
+  .w11-settings__row-control {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .w11-settings__slider {
+    width: 100%;
+  }
+}
