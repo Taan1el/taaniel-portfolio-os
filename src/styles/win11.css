@@ -827,8 +827,7 @@
     grid-template-columns: 0 minmax(0, 1fr) auto;
   }
 
-  .w11-taskbar__search.search-input,
-  .w11-taskbar__quick {
+  .w11-taskbar__search.search-input {
     display: none;
   }
 }
