@@ -105,9 +105,14 @@ function describeTransfer(
   const items = (n: number) => (n === 1 ? "1 item" : `${n} items`);
 
   if (count > 0) {
-    if (intoTrash) return { text: count === 1 ? "Moved to Recycle Bin" : `Moved ${items(count)} to the Recycle Bin`, tone: "success" };
+    const locked = result.skipped.filter((entry) => entry.reason === "locked").length;
+    // A mixed drop still succeeds; say what stayed behind.
+    const withNote = (text: string) =>
+      locked > 0 ? `${text}. ${locked === 1 ? "1 read-only item was" : `${locked} read-only items were`} left in place` : text;
+
+    if (intoTrash) return { text: withNote(count === 1 ? "Moved to Recycle Bin" : `Moved ${items(count)} to the Recycle Bin`), tone: "success" };
     if (operation === "link") return { text: count === 1 ? "Shortcut created" : `Created ${count} shortcuts`, tone: "success" };
-    return { text: `${operation === "move" ? "Moved" : "Copied"} ${items(count)}`, tone: "success" };
+    return { text: withNote(`${operation === "move" ? "Moved" : "Copied"} ${items(count)}`), tone: "success" };
   }
 
   const reasons = new Set(result.skipped.map((entry) => entry.reason));
