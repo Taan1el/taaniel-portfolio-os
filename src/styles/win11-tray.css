@@ -464,3 +464,61 @@
 .w11-clock__settings:hover {
   background: var(--w11-subtle-hover);
 }
+
+/* --------------------------------------------------------- display filters */
+
+/* The layers are positioned inline; this only eases a slider drag into the change. */
+.w11-display-filter {
+  transition: background-color 120ms linear;
+}
+
+/* ------------------------------------------------------ reduce motion */
+
+/*
+ * Settings > Accessibility > Animation effects, or the Quick Settings tile.
+ * Mirrors the prefers-reduced-motion rule in global.css for the CSS side;
+ * framer-motion is switched by MotionPreferences at the app root.
+ */
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+}
+
+/* ------------------------------------------------------------ battery saver */
+
+/*
+ * Battery saver trades looks for power, as Windows does: the screen is dimmed
+ * (see display-filter), the wallpaper stops moving (desktop-shell), and the
+ * blur behind every translucent surface is dropped. Surfaces turn opaque so
+ * text stays readable without it.
+ */
+:root[data-battery-saver] * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-battery-saver] {
+  --w11-acrylic: rgb(238, 238, 238);
+  --w11-flyout: rgb(252, 252, 252);
+  --w11-taskbar: rgb(238, 238, 238);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-battery-saver]:not([data-theme="light"]) {
+    --w11-acrylic: rgb(36, 36, 36);
+    --w11-flyout: rgb(44, 44, 44);
+    --w11-taskbar: rgb(28, 28, 28);
+  }
+}
+
+:root[data-battery-saver][data-theme="dark"] {
+  --w11-acrylic: rgb(36, 36, 36);
+  --w11-flyout: rgb(44, 44, 44);
+  --w11-taskbar: rgb(28, 28, 28);
+}
