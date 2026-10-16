@@ -54,6 +54,7 @@ describe("buildTrayReadings", () => {
     const readings = buildTrayReadings({ ...base, battery: draining, batterySaver: true });
     expect(readings.battery?.tooltip).toBe("1 hr 5 min (64%) remaining\nBattery saver");
     expect(readings.battery?.spoken).toContain("Battery saver on");
+    expect(readings.battery?.text).toBe("1 hr 5 min (64%) remaining");
   });
 
   it("summarises everything for the button's name", () => {

@@ -37,6 +37,7 @@ import { DesktopManager } from "@/components/shell/desktop-manager";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
+import { TrayFlyouts } from "@/components/shell/tray-flyouts";
 import { WindowHost } from "@/components/shell/window-host";
 import { useShellAiSearch } from "@/hooks/use-shell-ai-search";
 import { useShellServices } from "@/hooks/use-shell-services";
@@ -637,6 +638,7 @@ export function DesktopShell() {
       </AnimatePresence>
 
       <AnimatePresence>{calendarOpen ? <CalendarPopover /> : null}</AnimatePresence>
+      <TrayFlyouts />
 
       <AnimatePresence>
         {contextMenu ? <ContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} /> : null}
