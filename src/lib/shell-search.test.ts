@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
+import { ensureSystemWorkspace } from "@/lib/system-workspace";
 import {
   applyShellSearchAiRankings,
   buildShellSearchAiCandidates,
@@ -15,6 +16,13 @@ describe("shell search", () => {
 
     expect(sections.find((section) => section.id === "apps")?.results.some((result) => result.title.includes("Music"))).toBe(true);
     expect(sections.find((section) => section.id === "files")?.results.length).toBeGreaterThan(0);
+  });
+
+  it("leaves desktop shortcuts out of file results", () => {
+    const index = buildShellSearchIndex(ensureSystemWorkspace(buildSeedFileSystem()));
+    const files = queryShellSearch(index, "about").find((section) => section.id === "files")?.results ?? [];
+
+    expect(files.some((result) => result.action.type === "open-path" && result.action.path.endsWith(".lnk"))).toBe(false);
   });
 
   it("returns curated defaults when query is empty", () => {

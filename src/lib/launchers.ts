@@ -1,22 +1,52 @@
 import { resolveEditApp, resolveOpenApp } from "@/lib/file-registry";
 import { downloadFileNode } from "@/lib/filesystem";
 import { normalizePath } from "@/lib/filesystem";
+import { navigateShell } from "@/lib/shell-navigation";
+import { getDisplayName, resolveShortcut } from "@/lib/shortcuts";
 import { trackRecentFile } from "@/stores/recent-files-store";
-import type { AppId, FileSystemRecord, VirtualNode } from "@/types/system";
+import { toast } from "@/stores/toast-store";
+import type { AppId, FileSystemRecord, VirtualNode, WindowPayload } from "@/types/system";
 
 interface LaunchApp {
   (options: {
     appId: AppId;
-    payload?: {
-      filePath?: string;
-      directoryPath?: string;
-    };
+    payload?: WindowPayload;
   }): string;
 }
 
 type LaunchMode = "open" | "edit" | "preview";
 
-function launchNode(node: VirtualNode, launchApp: LaunchApp, mode: LaunchMode) {
+/** Windows' "Problem with Shortcut" message. */
+export function describeBrokenShortcut(node: VirtualNode, targetPath?: string) {
+  const target = targetPath ? targetPath.split("/").filter(Boolean).at(-1) ?? targetPath : getDisplayName(node);
+  return `The item '${target}' that this shortcut refers to has been changed or moved, so this shortcut will no longer work properly.`;
+}
+
+/** Open what a .lnk points at: an app, a page of the site, a web address or another item. */
+function launchShortcut(node: VirtualNode, nodes: FileSystemRecord, launchApp: LaunchApp, mode: LaunchMode) {
+  const resolved = resolveShortcut(nodes, node);
+
+  switch (resolved.kind) {
+    case "app":
+      launchApp({ appId: resolved.appId });
+      return;
+    case "route":
+      if (!navigateShell(resolved.route)) {
+        toast("This page can't be opened from here", "error");
+      }
+      return;
+    case "url":
+      launchApp({ appId: "browser", payload: { externalUrl: resolved.url } });
+      return;
+    case "node":
+      launchNode(resolved.node, nodes, launchApp, mode);
+      return;
+    case "broken":
+      toast(describeBrokenShortcut(node, resolved.path), "error");
+  }
+}
+
+function launchNode(node: VirtualNode, nodes: FileSystemRecord, launchApp: LaunchApp, mode: LaunchMode) {
   if (node.kind === "directory") {
     launchApp({
       appId: "files",
@@ -27,15 +57,19 @@ function launchNode(node: VirtualNode, launchApp: LaunchApp, mode: LaunchMode) {
     return;
   }
 
+  if (node.shortcut) {
+    launchShortcut(node, nodes, launchApp, mode);
+    return;
+  }
+
   if (mode === "open" && node.extension === "zip") {
     void downloadFileNode(node);
     return;
   }
 
-  // Track file opens (not directory navigations) in Recent Files
-  if (node.kind === "file") {
-    trackRecentFile(node.path);
-  }
+  // Track file opens (not directory navigations) in Recent Files. A shortcut
+  // lands here with its target, so Recent shows the real file.
+  trackRecentFile(node.path);
 
   const appId = mode === "edit" ? resolveEditApp(node) ?? resolveOpenApp(node) : resolveOpenApp(node);
 
@@ -59,7 +93,7 @@ export function launchFileSystemPath(
     return;
   }
 
-  launchNode(node, launchApp, mode);
+  launchNode(node, nodes, launchApp, mode);
 }
 
 export function openFileSystemPath(path: string, nodes: FileSystemRecord, launchApp: LaunchApp) {
