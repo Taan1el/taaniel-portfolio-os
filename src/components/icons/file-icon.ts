@@ -1,4 +1,5 @@
 import {
+  BrowserIcon,
   EditorIcon,
   FileIcon,
   FolderIcon,
@@ -6,12 +7,15 @@ import {
   MusicIcon,
   PdfIcon,
   PhotosIcon,
+  PortfolioIcon,
   RecycleBinEmptyIcon,
   RecycleBinFullIcon,
   VideoIcon,
 } from "@/components/icons/apps";
+import { getAppDefinition } from "@/lib/app-registry";
+import { sanitizeShortcutTarget } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
-import type { AppIcon } from "@/types/system";
+import type { AppIcon, FileSystemRecord, ShortcutTarget } from "@/types/system";
 
 const CODE_EXTENSIONS = new Set(["ts", "tsx", "js", "jsx", "mjs", "cjs", "css", "scss", "html", "json", "py", "sh", "ps1", "yml", "yaml"]);
 
@@ -43,6 +47,39 @@ export function getFileIcon(target: IconTarget, options: { recycleBinFull?: bool
   if (mime.startsWith("video/")) return VideoIcon;
   if (CODE_EXTENSIONS.has(extension)) return EditorIcon;
   return FileIcon;
+}
+
+/** Shortcuts pointing at shortcuts are followed this far, then drawn as a plain file. */
+const MAX_ICON_HOPS = 4;
+
+/**
+ * The icon a shortcut wears: the app it runs, or the icon of the file or folder
+ * it points at - as Windows draws a .lnk, minus the arrow overlay (see NodeIcon).
+ */
+export function getShortcutIcon(shortcut: ShortcutTarget, nodes: FileSystemRecord, hops = 0): AppIcon {
+  const target = sanitizeShortcutTarget(shortcut);
+
+  if (!target || hops >= MAX_ICON_HOPS) {
+    return FileIcon;
+  }
+
+  switch (target.type) {
+    case "app":
+      return getAppDefinition(target.appId).icon;
+    case "route":
+      // A page of this site carries the portfolio mark, never the Browser icon.
+      return target.route === "/portfolio" ? PortfolioIcon : BrowserIcon;
+    case "url":
+      return BrowserIcon;
+    case "path": {
+      const next = nodes[target.path];
+
+      if (!next) return FileIcon;
+      if (next.kind === "directory") return getFileIcon(next);
+      if (next.shortcut) return getShortcutIcon(next.shortcut, nodes, hops + 1);
+      return getFileIcon(next);
+    }
+  }
 }
 
 /** Windows-style "Type" column text: "File folder", "Text Document", "PNG File". */

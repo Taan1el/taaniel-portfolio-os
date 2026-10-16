@@ -1,0 +1,24 @@
+/*
+ * Windows 11 desktop and File Explorer file handling: shortcut icons, desktop
+ * icons, selection, drag ghost, drop targets. Loaded after win11.css, so it
+ * wins over the older desktop rules in global.css and visual-redesign.css.
+ * Colours come from the --w11-* tokens, so light and dark both work.
+ */
+
+/* ------------------------------------------------------------ shortcut icon */
+
+.node-icon {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.node-icon__badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 36%;
+  height: 36%;
+  pointer-events: none;
+}
