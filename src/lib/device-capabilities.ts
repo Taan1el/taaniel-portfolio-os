@@ -2,13 +2,23 @@
  * Heuristics for devices that should skip decorative GPU work.
  * The wallpaper pan/breathe loop runs forever, so constrained hardware
  * (low memory, few cores) or users on data-saver get the static gradient.
+ * Battery saver, which the visitor can switch on from Quick Settings, does too.
  */
 interface CapabilityNavigator extends Navigator {
   deviceMemory?: number;
   connection?: { saveData?: boolean };
 }
 
-export function prefersStaticWallpaper(): boolean {
+interface StaticWallpaperOptions {
+  /** The visitor's own Battery saver switch. */
+  batterySaver?: boolean;
+}
+
+export function prefersStaticWallpaper({ batterySaver = false }: StaticWallpaperOptions = {}): boolean {
+  if (batterySaver) {
+    return true;
+  }
+
   if (typeof navigator === "undefined") {
     return false;
   }

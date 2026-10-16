@@ -39,7 +39,10 @@ import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
 import { WindowHost } from "@/components/shell/window-host";
 import { useShellAiSearch } from "@/hooks/use-shell-ai-search";
+import { useShellServices } from "@/hooks/use-shell-services";
 import { useShellShortcuts } from "@/hooks/use-shell-shortcuts";
+import { describeOfflineBanner } from "@/lib/device-status";
+import { selectNetworkStatus, useDeviceStore } from "@/stores/device-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
@@ -47,7 +50,8 @@ import { useSystemStore } from "@/stores/system-store";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  const { batterySaver } = useShellServices();
+  const offlineBanner = describeOfflineBanner(useDeviceStore(selectNetworkStatus));
   const { processes } = useProcessStore(
     useShallow((state) => ({
       processes: state.processes,
@@ -274,16 +278,6 @@ export function DesktopShell() {
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
   });
-
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
 
   useEffect(() => {
     const handleCycle = (event: KeyboardEvent) => {
@@ -566,7 +560,7 @@ export function DesktopShell() {
     <main
       className={cn(
         "os-root",
-        wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
+        wallpaperPresentation.animated && !prefersStaticWallpaper({ batterySaver }) && "is-animated-wallpaper"
       )}
       style={
         {
@@ -580,9 +574,9 @@ export function DesktopShell() {
       onClick={() => setContextMenu(null)}
     >
       <OsOnboarding />
-      {!online ? (
+      {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
-          Offline — some previews and embeds may fail to load.
+          {offlineBanner}
         </div>
       ) : null}
       {viewportMode === "mobile" && !windows.some((entry) => !entry.minimized) ? (

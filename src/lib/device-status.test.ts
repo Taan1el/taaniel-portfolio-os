@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   describeBattery,
   describeNetwork,
+  describeOfflineBanner,
   describeVolume,
+  describeWifiTile,
   isLikelyBatteryPresent,
   isNetworkBlocked,
   resolveBatteryGlyph,
@@ -32,6 +34,18 @@ describe("network status", () => {
 
   it("lets Wi-Fi back on during airplane mode, as Windows does", () => {
     expect(resolveNetworkStatus({ ...online, airplaneMode: true })).toBe("connected");
+  });
+
+  it("words the Wi-Fi tile and the offline banner per state", () => {
+    expect(describeWifiTile("connected")).toBe("Connected");
+    expect(describeWifiTile("no-internet")).toBe("No internet");
+    expect(describeWifiTile("wifi-off")).toBe("Off");
+    expect(describeWifiTile("airplane")).toBe("Off");
+
+    expect(describeOfflineBanner("connected")).toBeNull();
+    expect(describeOfflineBanner("no-internet")).toContain("Offline");
+    expect(describeOfflineBanner("wifi-off")).toContain("Wi-Fi is off");
+    expect(describeOfflineBanner("airplane")).toContain("Airplane mode");
   });
 
   it("maps effective connection types to signal bars", () => {
