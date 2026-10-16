@@ -1,6 +1,42 @@
 import { featuredProjects, profile, socialLinks } from "@/data/portfolio";
 import { getParentPath, getPathName, normalizePath } from "@/lib/filesystem";
+import {
+  applyArithmetic,
+  compareOperands,
+  evaluateNode,
+  ExpressionError,
+  interpolateString,
+  isBareItemNode,
+  parseExpression,
+  parseSizeLiteral,
+  propertyToShellValue,
+  toBool,
+  toText,
+  unescapeBacktick,
+  wildcardRegex,
+  type ExprNode,
+  type ExpressionEnv,
+  type ShellValue,
+} from "@/lib/terminal-expression";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import {
+  compareValues as compareProperties,
+  createObject,
+  formatGenericView,
+  formatListView,
+  formatPropertyValue,
+  formatTableView,
+  getProperty,
+  isShellDate,
+  isShellObject,
+  itemText,
+  MAX_PIPELINE_ITEMS,
+  selectProperties,
+  splitPropertyList,
+  type PipelineItem,
+  type PropertyValue,
+  type ShellObject,
+} from "@/lib/terminal-objects";
 import {
   childrenOf,
   findChild,
@@ -63,7 +99,7 @@ export interface ShellFileSystem {
   pasteNode: (sourcePath: string, destinationDirectoryPath: string, operation: "copy" | "cut") => Promise<void>;
 }
 
-export type ShellValue = string | number | boolean | string[];
+export type { ShellValue };
 
 export interface ShellSession {
   cwd: string;
@@ -117,11 +153,17 @@ interface Ctx {
   lines: string[];
   actions: TerminalAction[];
   clear: boolean;
+  /** Expression work done so far by this command: shared by every script block it runs. */
+  budget: { steps: number };
+  /** The objects the previous pipeline stage produced, when it produced any. */
+  input: PipelineItem[] | null;
 }
 
 interface Output {
   out: string[];
   ok: boolean;
+  /** The same output as live objects, for the next stage of the pipeline to work with. */
+  objects?: PipelineItem[];
 }
 
 type CommandFn = (args: string[], stdin: string[] | null, ctx: Ctx, name: string) => Promise<Output> | Output;
@@ -213,11 +255,29 @@ function expandPaths(args: string[], ctx: Ctx) {
 
 type Token = { kind: "word"; value: string; literal: boolean } | { kind: "op"; value: "|" | ";" | ">" | ">>" };
 
-function unescapeBacktick(char: string) {
-  if (char === "n") return "\n";
-  if (char === "t") return "\t";
-  if (char === "0") return "";
-  return char;
+/** Index of the } that closes the { at `open`, skipping quoted text; -1 when it never closes. */
+function findBlockEnd(input: string, open: number) {
+  let depth = 0;
+  for (let index = open; index < input.length; index += 1) {
+    const char = input[index];
+    if (char === "'") {
+      index += 1;
+      while (index < input.length && !(input[index] === "'" && input[index + 1] !== "'")) index += input[index] === "'" ? 2 : 1;
+    } else if (char === '"') {
+      index += 1;
+      while (index < input.length && input[index] !== '"') index += input[index] === "`" ? 2 : 1;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+export function isScriptBlock(argument: string) {
+  return argument.length >= 2 && argument.startsWith("{") && argument.endsWith("}");
 }
 
 function tokenize(input: string): Token[] {
@@ -236,6 +296,16 @@ function tokenize(input: string): Token[] {
 
   while (i < input.length) {
     const char = input[i];
+
+    // A { script block } is one word, kept exactly as typed: $_ inside it is not expanded here.
+    if (char === "{" && !inWord) {
+      const end = findBlockEnd(input, i);
+      if (end !== -1) {
+        tokens.push({ kind: "word", value: input.slice(i, end + 1), literal: true });
+        i = end + 1;
+        continue;
+      }
+    }
 
     if (char === "'") {
       inWord = true;
@@ -349,12 +419,14 @@ function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
   }
 }
 
+/** Expand $name, $env:NAME and $( expression ) in a command word. A $(...) that fails is left as typed. */
 function expandVariables(word: string, ctx: Ctx) {
-  return word.replace(/\$(env:)?([A-Za-z_][A-Za-z0-9_]*)/gi, (_match, env: string | undefined, name: string) => {
-    const value = readVariable(`${env ?? ""}${name}`, ctx);
-    if (value === undefined) return "";
-    return Array.isArray(value) ? value.join(" ") : typeof value === "boolean" ? (value ? "True" : "False") : String(value);
-  });
+  try {
+    return interpolateString(word, expressionEnv(ctx));
+  } catch (error) {
+    if (error instanceof ExpressionError) return word;
+    throw error;
+  }
 }
 
 interface Statement {
@@ -482,19 +554,133 @@ function modeOf(node: VirtualNode, hidden = false) {
   return node.readonly ? "-ar--" : "-a---";
 }
 
+const FILE_TABLE_HEADER = `${"Mode".padEnd(15)}${"LastWriteTime".padStart(19)}${"Length".padStart(15)} Name`;
+const FILE_TABLE_RULE = `${"----".padEnd(15)}${"-------------".padStart(19)}${"------".padStart(15)} ----`;
+
+/** One row of a directory listing: mode, last write time, length ("" for folders), name. */
+function fileTableRow(mode: string, updatedAt: number, length: string, name: string, isDirectory: boolean) {
+  const safeName = sanitizeForTerminal(name);
+  const shown = isDirectory ? `${DIRECTORY}${safeName}${RESET}` : safeName;
+  return `${mode.padEnd(15)}${formatWriteTime(updatedAt)} ${length.padStart(14)} ${shown}`;
+}
+
+function fileTableBlock(directoryPath: string, rows: string[]) {
+  return ["", `    Directory: ${toWindowsPath(directoryPath)}`, "", `${TABLE}${FILE_TABLE_HEADER}${RESET}`, `${TABLE}${FILE_TABLE_RULE}${RESET}`, ...rows, ""];
+}
+
 function formatTable(directoryPath: string, entries: VirtualNode[], nameOnly = false) {
   if (nameOnly) return entries.map((node) => sanitizeForTerminal(node.name));
 
-  const header = `${"Mode".padEnd(15)}${"LastWriteTime".padStart(19)}${"Length".padStart(15)} Name`;
-  const rule = `${"----".padEnd(15)}${"-------------".padStart(19)}${"------".padStart(15)} ----`;
-  const rows = entries.map((node) => {
-    const hidden = node.path === TRASH_PATH;
-    const safeName = sanitizeForTerminal(node.name);
-    const name = node.kind === "directory" ? `${DIRECTORY}${safeName}${RESET}` : safeName;
-    return `${modeOf(node, hidden).padEnd(15)}${formatWriteTime(node.updatedAt)} ${fileLength(node).padStart(14)} ${name}`;
-  });
+  const rows = entries.map((node) =>
+    fileTableRow(modeOf(node, node.path === TRASH_PATH), node.updatedAt, fileLength(node), node.name, node.kind === "directory")
+  );
 
-  return ["", `    Directory: ${toWindowsPath(directoryPath)}`, "", `${TABLE}${header}${RESET}`, `${TABLE}${rule}${RESET}`, ...rows, ""];
+  return fileTableBlock(directoryPath, rows);
+}
+
+// ------------------------------------------------------- pipeline objects
+
+/** A file or folder as the objects Get-ChildItem hands down a pipeline. */
+function fileObject(node: VirtualNode): ShellObject {
+  const isDirectory = node.kind === "directory";
+  const length = fileLength(node);
+  const baseName = isDirectory ? node.name : node.name.replace(/\.[^.]*$/, "");
+  return createObject(
+    isDirectory ? "System.IO.DirectoryInfo" : "System.IO.FileInfo",
+    {
+      Name: sanitizeForTerminal(node.name),
+      Length: isDirectory || length === "" ? null : Number(length),
+      DirectoryName: toWindowsPath(getParentPath(node.path)),
+      IsReadOnly: node.kind === "file" && node.readonly === true,
+      FullName: toWindowsPath(node.path),
+      Extension: node.kind === "file" && node.extension ? `.${node.extension}` : "",
+      BaseName: sanitizeForTerminal(baseName),
+      CreationTime: { kind: "date", time: node.createdAt },
+      LastWriteTime: { kind: "date", time: node.updatedAt },
+      Mode: modeOf(node, node.path === TRASH_PATH),
+      PSIsContainer: isDirectory,
+    },
+    sanitizeForTerminal(node.name),
+    { view: "filesystem", path: node.path }
+  );
+}
+
+/** The listing view for file objects, one Directory: block per folder they sit in. */
+function formatFileObjects(objects: ShellObject[]): string[] {
+  const out: string[] = [];
+  let block: { directory: string; rows: string[] } | null = null;
+  const flush = () => {
+    if (block) out.push(...fileTableBlock(block.directory, block.rows));
+    block = null;
+  };
+
+  for (const object of objects) {
+    const directory = getParentPath(object.path ?? "/");
+    if (!block || block.directory !== directory) {
+      flush();
+      block = { directory, rows: [] };
+    }
+    const time = getProperty(object, "LastWriteTime");
+    const length = getProperty(object, "Length");
+    block.rows.push(
+      fileTableRow(
+        String(getProperty(object, "Mode") ?? ""),
+        isShellDate(time) ? time.time : 0,
+        typeof length === "number" ? String(length) : "",
+        String(getProperty(object, "Name") ?? ""),
+        getProperty(object, "PSIsContainer") === true
+      )
+    );
+  }
+  flush();
+  return out;
+}
+
+const PROCESS_TABLE_HEADER = `${"Id".padStart(6)} ${"ProcessName".padEnd(14)} ${"Status".padEnd(10)} MainWindowTitle`;
+const PROCESS_TABLE_RULE = `${"--".padStart(6)} ${"-----------".padEnd(14)} ${"------".padEnd(10)} ---------------`;
+
+function formatProcessObjects(objects: ShellObject[]): string[] {
+  return [
+    "",
+    `${TABLE}${PROCESS_TABLE_HEADER}${RESET}`,
+    `${TABLE}${PROCESS_TABLE_RULE}${RESET}`,
+    ...objects.map(
+      (object) =>
+        `${String(getProperty(object, "Id") ?? "").padStart(6)} ${String(getProperty(object, "ProcessName") ?? "").padEnd(14)} ${String(getProperty(object, "Status") ?? "").padEnd(10)} ${String(getProperty(object, "MainWindowTitle") ?? "")}`
+    ),
+    "",
+  ];
+}
+
+/**
+ * What PowerShell prints for objects nothing has formatted: files as a
+ * directory listing, apps as the process table, everything else as a table
+ * (up to four properties) or a list. Text items print as they are.
+ */
+function renderItems(items: PipelineItem[], layout: "default" | "table" | "list" = "default"): string[] {
+  const kindOf = (item: PipelineItem) => (isShellObject(item) ? `object:${item.view ?? item.typeName}` : "text");
+  const lines: string[] = [];
+  let start = 0;
+
+  while (start < items.length) {
+    const kind = kindOf(items[start]);
+    let end = start + 1;
+    while (end < items.length && kindOf(items[end]) === kind) end += 1;
+    const run = items.slice(start, end);
+
+    if (kind === "text") {
+      run.forEach((item) => lines.push(...itemText(item).split("\n")));
+    } else {
+      const objects = run.filter(isShellObject);
+      if (layout === "list") lines.push(...formatListView(objects));
+      else if (objects[0].view === "filesystem") lines.push(...formatFileObjects(objects));
+      else if (objects[0].view === "process") lines.push(...formatProcessObjects(objects));
+      else lines.push(...(layout === "table" ? formatTableView(objects) : formatGenericView(objects)));
+    }
+    start = end;
+  }
+
+  return lines;
 }
 
 function textContent(node: VirtualNode) {
@@ -661,6 +847,8 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
   const nodes = ctx.fs.getNodes();
   const resolved = targets.length ? expandPaths(targets, ctx) : [{ arg: ".", path: ctx.session.cwd }];
   const out: string[] = [];
+  const objects: ShellObject[] = [];
+  const nameOnly = parsed.switches.has("Name");
   let okay = true;
 
   const filterEntries = (entries: VirtualNode[]) =>
@@ -677,7 +865,8 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
 
   const listDirectory = (directoryPath: string) => {
     const entries = filterEntries(childrenOf(nodes, directoryPath));
-    if (entries.length) out.push(...formatTable(directoryPath, entries, parsed.switches.has("Name")));
+    if (entries.length) out.push(...formatTable(directoryPath, entries, nameOnly));
+    entries.forEach((entry) => objects.push(fileObject(entry)));
     if (parsed.switches.has("Recurse")) {
       childrenOf(nodes, directoryPath)
         .filter((node) => node.kind === "directory" && node.path !== TRASH_PATH)
@@ -694,11 +883,16 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
       okay = false;
       continue;
     }
-    if (node.kind === "directory") listDirectory(path);
-    else out.push(...formatTable(getParentPath(path), [node], parsed.switches.has("Name")));
+    if (node.kind === "directory") {
+      listDirectory(path);
+    } else {
+      out.push(...formatTable(getParentPath(path), [node], nameOnly));
+      objects.push(fileObject(node));
+    }
   }
 
-  return { out, ok: okay };
+  // -Name lists plain strings, as PowerShell does: the next stage gets text, not file objects.
+  return { out, ok: okay, objects: nameOnly ? undefined : objects };
 };
 
 const setLocation: CommandFn = (args, _stdin, ctx, name) => {
@@ -1251,43 +1445,313 @@ const selectString: CommandFn = (args, stdin, ctx, name) => {
   return ok(out);
 };
 
-const sortObject: CommandFn = (args, stdin) => {
-  const parsed = parseArgs(args, { switches: ["Descending", "Unique", "CaseSensitive"] });
-  let lines = [...(stdin ?? [])].filter((line) => line.trim().length > 0);
-  lines.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: parsed.switches.has("CaseSensitive") ? "case" : "base" }));
-  if (parsed.switches.has("Descending")) lines.reverse();
-  if (parsed.switches.has("Unique")) lines = lines.filter((line, index) => lines.findIndex((other) => other.toLowerCase() === line.toLowerCase()) === index);
-  return ok(lines);
+// ------------------------------------------------ object pipeline cmdlets
+
+/** What the previous stage handed over: its objects, or its text lines as strings. Capped. */
+function pipelineItems(stdin: string[] | null, ctx: Ctx): PipelineItem[] {
+  const items: PipelineItem[] = ctx.input ?? stdin ?? [];
+  return items.length > MAX_PIPELINE_ITEMS ? items.slice(0, MAX_PIPELINE_ITEMS) : items;
+}
+
+const hasObjects = (ctx: Ctx) => ctx.input !== null;
+
+/** Hand items to the next stage as objects, printing them the way PowerShell would by default. */
+function emitItems(items: PipelineItem[]): Output {
+  return { out: renderItems(items), ok: true, objects: items };
+}
+
+/** Parse a { script block } once; it then runs per item with $_ bound to that item. */
+function compileBlock(block: string, ctx: Ctx, name: string): ExprNode | null {
+  const parsed = parseExpression(block.slice(1, -1).trim());
+  if (!parsed) {
+    fail(
+      ctx,
+      name,
+      "Script blocks here run a single expression, for example { $_.Length -gt 1kb -and $_.Name -like '*.md' }. Commands and several statements are not supported."
+    );
+    return null;
+  }
+  if ("error" in parsed) {
+    fail(ctx, name, parsed.error);
+    return null;
+  }
+  return parsed.node;
+}
+
+/** Run a cmdlet body, reporting an expression error the way PowerShell reports a runtime one. */
+function guardExpressions(ctx: Ctx, name: string, body: () => Output): Output {
+  try {
+    return body();
+  } catch (error) {
+    if (error instanceof ExpressionError) return fail(ctx, name, error.message);
+    throw error;
+  }
+}
+
+/** Property names from -Property and positional arguments, keeping any { script block } whole. */
+function propertySpecs(parsed: ParsedArgs) {
+  const raw = [...(parsed.params.Property !== undefined ? [parsed.params.Property] : []), ...parsed.positional];
+  return raw.flatMap((entry) => (isScriptBlock(entry) ? [entry] : splitPropertyList([entry])));
+}
+
+const WHERE_OPERATORS: Record<string, string> = {
+  EQ: "-eq",
+  NE: "-ne",
+  GT: "-gt",
+  GE: "-ge",
+  LT: "-lt",
+  LE: "-le",
+  Like: "-like",
+  NotLike: "-notlike",
+  Match: "-match",
+  NotMatch: "-notmatch",
+  Contains: "-contains",
+  NotContains: "-notcontains",
+  In: "-in",
+  NotIn: "-notin",
 };
 
-const selectObject: CommandFn = (args, stdin) => {
-  const parsed = parseArgs(args, { params: ["First", "Last", "Skip"] });
-  let lines = [...(stdin ?? [])];
+/** The value typed after -gt and friends, read as a number (1kb) or a date when the property is one. */
+function coerceOperand(left: ShellValue, raw: PropertyValue | undefined, value: string): ShellValue {
+  if (typeof left === "number") return parseSizeLiteral(value) ?? value;
+  if (isShellDate(raw)) {
+    const time = Date.parse(value);
+    return Number.isFinite(time) ? time : value;
+  }
+  return value;
+}
+
+const whereObject: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: Object.keys(WHERE_OPERATORS), params: ["Property", "Value", "FilterScript"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const items = pipelineItems(stdin, ctx);
+  const block = parsed.params.FilterScript ?? parsed.positional.find(isScriptBlock);
+  const env = expressionEnv(ctx);
+
+  return guardExpressions(ctx, name, () => {
+    if (block) {
+      const node = compileBlock(block, ctx, name);
+      if (!node) return { out: [], ok: false };
+      return emitItems(items.filter((item) => toBool(evaluateNode(node, env, { item }))));
+    }
+
+    const property = parsed.params.Property ?? parsed.positional[0];
+    if (!property) return fail(ctx, name, "Cannot bind argument to parameter 'FilterScript' because it is null.");
+    const operator = Object.entries(WHERE_OPERATORS).find(([key]) => parsed.switches.has(key))?.[1];
+    const value = parsed.params.Value ?? (parsed.params.Property !== undefined ? parsed.positional[0] : parsed.positional[1]);
+    if (operator && value === undefined) {
+      return fail(ctx, name, "Missing an argument for parameter 'Value'. Specify a parameter of type 'System.Object' and try again.");
+    }
+
+    return emitItems(
+      items.filter((item) => {
+        const raw = getProperty(item, property);
+        const left = propertyToShellValue(raw);
+        if (!operator) return toBool(left);
+        return toBool(compareOperands(operator, left, coerceOperand(left, raw, value as string)));
+      })
+    );
+  });
+};
+
+const forEachObject: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Process", "MemberName"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const items = pipelineItems(stdin, ctx);
+  const block = parsed.params.Process ?? parsed.positional.find(isScriptBlock);
+  const member = parsed.params.MemberName ?? (block ? undefined : parsed.positional[0]);
+  if (!block && !member) return fail(ctx, name, "Cannot bind argument to parameter 'Process' because it is null.");
+  const env = expressionEnv(ctx);
+
+  return guardExpressions(ctx, name, () => {
+    const results: PipelineItem[] = [];
+    const node = block ? compileBlock(block, ctx, name) : null;
+    if (block && !node) return { out: [], ok: false };
+
+    for (const item of items) {
+      if (results.length >= MAX_PIPELINE_ITEMS) break;
+      if (node) {
+        if (isBareItemNode(node)) {
+          results.push(item);
+          continue;
+        }
+        const value = evaluateNode(node, env, { item });
+        if (Array.isArray(value)) results.push(...value.slice(0, MAX_PIPELINE_ITEMS - results.length));
+        else results.push(value);
+      } else {
+        results.push(formatPropertyValue(getProperty(item, member as string)));
+      }
+    }
+    return emitItems(results);
+  });
+};
+
+const sortObject: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Descending", "Unique", "CaseSensitive"], params: ["Property"] });
+  const specs = propertySpecs(parsed);
+
+  // Text in, text out: the original line sort, which drops blank lines.
+  if (!hasObjects(ctx) && !specs.length) {
+    let lines = [...(stdin ?? [])].filter((line) => line.trim().length > 0);
+    lines.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: parsed.switches.has("CaseSensitive") ? "case" : "base" }));
+    if (parsed.switches.has("Descending")) lines.reverse();
+    if (parsed.switches.has("Unique")) lines = lines.filter((line, index) => lines.findIndex((other) => other.toLowerCase() === line.toLowerCase()) === index);
+    return ok(lines);
+  }
+
+  const items = pipelineItems(stdin, ctx);
+  const env = expressionEnv(ctx);
+
+  return guardExpressions(ctx, name, () => {
+    const compiled: Array<{ property?: string; node?: ExprNode }> = [];
+    for (const spec of specs) {
+      if (!isScriptBlock(spec)) {
+        compiled.push({ property: spec });
+        continue;
+      }
+      const node = compileBlock(spec, ctx, name);
+      if (!node) return { out: [], ok: false };
+      compiled.push({ node });
+    }
+    if (!compiled.length) compiled.push({});
+
+    const keyOf = (item: PipelineItem, key: { property?: string; node?: ExprNode }): PropertyValue => {
+      if (key.node) {
+        const value = evaluateNode(key.node, env, { item });
+        return Array.isArray(value) ? value.join(" ") : value;
+      }
+      if (key.property) return getProperty(item, key.property) ?? null;
+      return isShellObject(item) ? item.text : item;
+    };
+
+    const keys = items.map((item) => compiled.map((key) => keyOf(item, key)));
+    const direction = parsed.switches.has("Descending") ? -1 : 1;
+    const order = items
+      .map((_, index) => index)
+      .sort((a, b) => {
+        for (let column = 0; column < compiled.length; column += 1) {
+          const difference = compareProperties(keys[a][column], keys[b][column]);
+          if (difference !== 0) return difference * direction;
+        }
+        return a - b;
+      });
+
+    let sorted = order.map((index) => ({ item: items[index], key: keys[index] }));
+    if (parsed.switches.has("Unique")) {
+      const seen = new Set<string>();
+      sorted = sorted.filter(({ key }) => {
+        const signature = key.map((value) => formatPropertyValue(value).toLowerCase()).join("\u0000");
+        if (seen.has(signature)) return false;
+        seen.add(signature);
+        return true;
+      });
+    }
+    return emitItems(sorted.map((entry) => entry.item));
+  });
+};
+
+const selectObject: CommandFn = (args, stdin, ctx) => {
+  const parsed = parseArgs(args, { switches: ["Unique"], params: ["First", "Last", "Skip", "Property", "ExpandProperty"] });
+  const properties = splitPropertyList([...(parsed.params.Property !== undefined ? [parsed.params.Property] : []), ...parsed.positional]);
+  const expand = parsed.params.ExpandProperty;
   const skip = Number(parsed.params.Skip);
   const first = Number(parsed.params.First);
   const last = Number(parsed.params.Last);
-  if (Number.isFinite(skip)) lines = lines.slice(skip);
-  if (Number.isFinite(first)) lines = lines.slice(0, first);
-  if (Number.isFinite(last)) lines = last === 0 ? [] : lines.slice(-last);
-  return ok(lines);
+
+  const slice = <T,>(list: T[]) => {
+    let result = list;
+    if (Number.isFinite(skip)) result = result.slice(skip);
+    if (Number.isFinite(first)) result = result.slice(0, first);
+    if (Number.isFinite(last)) result = last === 0 ? [] : result.slice(-last);
+    return result;
+  };
+
+  // Text in, text out: first, last and skip over lines.
+  if (!hasObjects(ctx) && !properties.length && expand === undefined) return ok(slice([...(stdin ?? [])]));
+
+  let items = slice(pipelineItems(stdin, ctx));
+  if (parsed.switches.has("Unique")) {
+    const seen = new Set<string>();
+    items = items.filter((item) => {
+      const signature = itemText(item).toLowerCase();
+      if (seen.has(signature)) return false;
+      seen.add(signature);
+      return true;
+    });
+  }
+
+  if (expand !== undefined) {
+    const values: PipelineItem[] = [];
+    for (const item of items) {
+      const value = getProperty(item, expand);
+      if (value !== null && value !== undefined) values.push(typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : formatPropertyValue(value));
+    }
+    return emitItems(values);
+  }
+
+  return emitItems(properties.length ? selectProperties(items, properties) : items);
 };
 
-const measureObject: CommandFn = (args, stdin) => {
-  const parsed = parseArgs(args, { switches: ["Line", "Word", "Character"] });
-  const lines = (stdin ?? []).filter((line) => line.length > 0);
-  if (parsed.switches.has("Line") || parsed.switches.has("Word") || parsed.switches.has("Character")) {
-    const words = lines.reduce((sum, line) => sum + line.split(/\s+/).filter(Boolean).length, 0);
-    const characters = lines.reduce((sum, line) => sum + line.length, 0);
-    return ok([
-      "",
-      `${TABLE}Lines Words Characters${RESET}`,
-      `${TABLE}----- ----- ----------${RESET}`,
-      `${String(lines.length).padStart(5)} ${String(words).padStart(5)} ${String(characters).padStart(10)}`,
-      "",
-    ]);
+const measureObject: CommandFn = (args, stdin, ctx) => {
+  const parsed = parseArgs(args, { switches: ["Line", "Word", "Character", "Sum", "Average", "Maximum", "Minimum"], params: ["Property"] });
+  const property = parsed.params.Property ?? parsed.positional[0];
+  const textMode = parsed.switches.has("Line") || parsed.switches.has("Word") || parsed.switches.has("Character");
+  const stats = ["Sum", "Average", "Maximum", "Minimum"].some((entry) => parsed.switches.has(entry));
+
+  if (textMode || (!hasObjects(ctx) && !property && !stats)) {
+    const lines = (stdin ?? []).filter((line) => line.length > 0);
+    if (textMode) {
+      const words = lines.reduce((sum, line) => sum + line.split(/\s+/).filter(Boolean).length, 0);
+      const characters = lines.reduce((sum, line) => sum + line.length, 0);
+      return ok([
+        "",
+        `${TABLE}Lines Words Characters${RESET}`,
+        `${TABLE}----- ----- ----------${RESET}`,
+        `${String(lines.length).padStart(5)} ${String(words).padStart(5)} ${String(characters).padStart(10)}`,
+        "",
+      ]);
+    }
+    return ok(["", `Count    : ${lines.length}`, ""]);
   }
-  return ok(["", `Count    : ${lines.length}`, ""]);
+
+  const items = pipelineItems(stdin, ctx);
+  const values = property ? items.map((item) => getProperty(item, property)).filter((value) => value !== null && value !== undefined) : items;
+  const numbers = values.filter((value): value is number => typeof value === "number");
+  const total = numbers.reduce((sum, value) => sum + value, 0);
+  const row = (label: string, value: string | number) => `${label.padEnd(17)} : ${value}`;
+  const stat = (switchName: string, compute: () => number) => (parsed.switches.has(switchName) && numbers.length ? formatPropertyValue(compute()) : "");
+
+  return ok([
+    "",
+    row("Count", values.length),
+    row("Average", stat("Average", () => total / numbers.length)),
+    row("Sum", stat("Sum", () => total)),
+    row("Maximum", stat("Maximum", () => Math.max(...numbers))),
+    row("Minimum", stat("Minimum", () => Math.min(...numbers))),
+    row("StandardDeviation", ""),
+    row("Property", property ?? ""),
+    "",
+  ]);
 };
+
+/** Format-Table and Format-List: with -Property they pick columns; without, they show each kind of object its usual way. */
+function formatCmdlet(layout: "table" | "list"): CommandFn {
+  return (args, stdin, ctx, name) => {
+    const parsed = parseArgs(args, { switches: ["AutoSize", "Wrap", "HideTableHeaders", "Force"], params: ["Property", "GroupBy"] });
+    if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+    const items = pipelineItems(stdin, ctx);
+    const properties = splitPropertyList([...(parsed.params.Property !== undefined ? [parsed.params.Property] : []), ...parsed.positional]);
+
+    if (!items.some(isShellObject)) return ok(items.map(itemText));
+    if (properties.length) {
+      return ok(layout === "table" ? formatTableView(items, properties) : formatListView(items, properties));
+    }
+    return ok(renderItems(items, layout));
+  };
+}
+
+const formatTableCmdlet = formatCmdlet("table");
+const formatListCmdlet = formatCmdlet("list");
 
 const getDate: CommandFn = () =>
   ok(["", new Intl.DateTimeFormat([], { dateStyle: "full", timeStyle: "medium" }).format(new Date()), ""]);
@@ -1363,269 +1827,21 @@ const resume: CommandFn = (_args, _stdin, ctx) => {
 // ------------------------------------------------------------- expressions
 
 /*
- * A small, hand-written PowerShell expression evaluator: numbers, strings,
- * variables, + - * / %, parentheses and -eq/-ne/-gt/-ge/-lt/-le/-like/-match/
- * -and/-or. Nothing typed here is ever handed to eval() or new Function().
+ * The evaluator lives in terminal-expression.ts (no eval, no Function). Here it
+ * is wired to the session: variables, $env:, and the work budget of one command.
  */
 
-type ExprToken =
-  | { t: "num"; v: number }
-  | { t: "str"; v: string; interpolate: boolean }
-  | { t: "var"; v: string }
-  | { t: "op"; v: string }
-  | { t: "lp" }
-  | { t: "rp" };
-
-const COMPARISON_OPERATORS = ["-eq", "-ne", "-gt", "-ge", "-lt", "-le", "-like", "-notlike", "-match", "-notmatch", "-and", "-or"];
-const SIZE_SUFFIX: Record<string, number> = { kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 };
-
-function lexExpression(text: string): ExprToken[] | null {
-  const tokens: ExprToken[] = [];
-  let i = 0;
-
-  while (i < text.length) {
-    const char = text[i];
-    const rest = text.slice(i);
-
-    if (/\s/.test(char)) {
-      i += 1;
-      continue;
-    }
-
-    const comparison = rest.match(/^-[a-z]+/i)?.[0]?.toLowerCase();
-    if (comparison && COMPARISON_OPERATORS.includes(comparison)) {
-      tokens.push({ t: "op", v: comparison });
-      i += comparison.length;
-      continue;
-    }
-
-    const number = rest.match(/^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?(kb|mb|gb|tb)?/i);
-    if (number && /[\d.]/.test(char)) {
-      const suffix = number[3]?.toLowerCase();
-      tokens.push({ t: "num", v: parseFloat(number[1] + (number[2] ?? "")) * (suffix ? SIZE_SUFFIX[suffix] : 1) });
-      i += number[0].length;
-      continue;
-    }
-
-    if (char === "'") {
-      let value = "";
-      i += 1;
-      while (i < text.length) {
-        if (text[i] === "'" && text[i + 1] === "'") {
-          value += "'";
-          i += 2;
-        } else if (text[i] === "'") {
-          break;
-        } else {
-          value += text[i];
-          i += 1;
-        }
-      }
-      if (text[i] !== "'") return null;
-      i += 1;
-      tokens.push({ t: "str", v: value, interpolate: false });
-      continue;
-    }
-
-    if (char === '"') {
-      let value = "";
-      i += 1;
-      while (i < text.length && text[i] !== '"') {
-        if (text[i] === "`" && i + 1 < text.length) {
-          value += unescapeBacktick(text[i + 1]);
-          i += 2;
-        } else {
-          value += text[i];
-          i += 1;
-        }
-      }
-      if (text[i] !== '"') return null;
-      i += 1;
-      tokens.push({ t: "str", v: value, interpolate: true });
-      continue;
-    }
-
-    const variable = rest.match(/^\$(env:)?[A-Za-z_][A-Za-z0-9_]*/i);
-    if (variable) {
-      tokens.push({ t: "var", v: variable[0].slice(1) });
-      i += variable[0].length;
-      continue;
-    }
-
-    if ("+-*/%".includes(char)) {
-      tokens.push({ t: "op", v: char });
-      i += 1;
-      continue;
-    }
-
-    if (char === "(") {
-      tokens.push({ t: "lp" });
-      i += 1;
-      continue;
-    }
-
-    if (char === ")") {
-      tokens.push({ t: "rp" });
-      i += 1;
-      continue;
-    }
-
-    return null;
-  }
-
-  return tokens;
-}
-
-class ExpressionError extends Error {}
-
-function toNumber(value: ShellValue): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "boolean") return value ? 1 : 0;
-  const text = Array.isArray(value) ? value.join("") : value;
-  if (text.trim() !== "" && Number.isFinite(Number(text))) return Number(text);
-  throw new ExpressionError(`Cannot convert value "${text}" to type "System.Int32". Error: "Input string was not in a correct format."`);
-}
-
-function toText(value: ShellValue): string {
-  if (typeof value === "boolean") return value ? "True" : "False";
-  if (typeof value === "number") return formatNumber(value);
-  if (Array.isArray(value)) return value.join(" ");
-  return value;
-}
-
-function formatNumber(value: number) {
-  if (Number.isInteger(value)) return String(value);
-  return String(Number(value.toPrecision(15)));
-}
-
-function wildcardRegex(pattern: string) {
-  return new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`, "i");
-}
-
-function compareValues(operator: string, left: ShellValue, right: ShellValue): boolean {
-  if (operator === "-and") return Boolean(left) && Boolean(right);
-  if (operator === "-or") return Boolean(left) || Boolean(right);
-
-  const numeric = typeof left === "number";
-  const a = numeric ? left : toText(left).toLowerCase();
-  const b = numeric ? toNumber(right) : toText(right).toLowerCase();
-
-  switch (operator) {
-    case "-eq":
-      return a === b;
-    case "-ne":
-      return a !== b;
-    case "-gt":
-      return a > b;
-    case "-ge":
-      return a >= b;
-    case "-lt":
-      return a < b;
-    case "-le":
-      return a <= b;
-    case "-like":
-      return wildcardRegex(toText(right)).test(toText(left));
-    case "-notlike":
-      return !wildcardRegex(toText(right)).test(toText(left));
-    case "-match":
-    case "-notmatch": {
-      let matched: boolean;
-      try {
-        matched = new RegExp(toText(right), "i").test(toText(left));
-      } catch {
-        throw new ExpressionError(`The regular expression pattern ${toText(right)} is not valid.`);
-      }
-      return operator === "-match" ? matched : !matched;
-    }
-    default:
-      throw new ExpressionError(`Unexpected token '${operator}' in expression or statement.`);
-  }
-}
-
-function applyArithmetic(operator: string, left: ShellValue, right: ShellValue): ShellValue {
-  if (operator === "+") {
-    if (Array.isArray(left)) return [...left, ...(Array.isArray(right) ? right : [toText(right)])];
-    if (typeof left === "string") return left + toText(right);
-    return toNumber(left) + toNumber(right);
-  }
-  if (operator === "*") {
-    if (typeof left === "string") return left.repeat(Math.max(0, Math.floor(toNumber(right))));
-    return toNumber(left) * toNumber(right);
-  }
-  const a = toNumber(left);
-  const b = toNumber(right);
-  if ((operator === "/" || operator === "%") && b === 0) throw new ExpressionError("Attempted to divide by zero.");
-  if (operator === "-") return a - b;
-  if (operator === "/") return a / b;
-  return a % b;
+function expressionEnv(ctx: Ctx): ExpressionEnv {
+  return { readVariable: (name) => readVariable(name, ctx), budget: ctx.budget };
 }
 
 /** Evaluate a whole line as an expression. Returns undefined when it is not one (so it runs as a command). */
 function evaluateExpression(text: string, ctx: Ctx): { value: ShellValue } | { error: string } | undefined {
-  const tokens = lexExpression(text);
-  if (!tokens || tokens.length === 0) return undefined;
-  let position = 0;
-
-  const peek = () => tokens[position];
-  const take = () => tokens[position++];
-
-  const primary = (): ShellValue => {
-    const token = take();
-    if (!token) throw new ExpressionError("You must provide a value expression following the operator.");
-    if (token.t === "num") return token.v;
-    if (token.t === "str") return token.interpolate ? expandVariables(token.v, ctx) : token.v;
-    if (token.t === "var") {
-      const value = readVariable(token.v, ctx);
-      return value ?? "";
-    }
-    if (token.t === "lp") {
-      const value = comparison();
-      if (take()?.t !== "rp") throw new ExpressionError("Missing closing ')' in expression.");
-      return value;
-    }
-    throw new ExpressionError("You must provide a value expression following the operator.");
-  };
-
-  const unary = (): ShellValue => {
-    const token = peek();
-    if (token?.t === "op" && token.v === "-") {
-      take();
-      return -toNumber(unary());
-    }
-    return primary();
-  };
-
-  const term = (): ShellValue => {
-    let value = unary();
-    while (peek()?.t === "op" && ["*", "/", "%"].includes((peek() as { v: string }).v)) {
-      const operator = (take() as { v: string }).v;
-      value = applyArithmetic(operator, value, unary());
-    }
-    return value;
-  };
-
-  const additive = (): ShellValue => {
-    let value = term();
-    while (peek()?.t === "op" && ["+", "-"].includes((peek() as { v: string }).v)) {
-      const operator = (take() as { v: string }).v;
-      value = applyArithmetic(operator, value, term());
-    }
-    return value;
-  };
-
-  function comparison(): ShellValue {
-    let value = additive();
-    while (peek()?.t === "op" && COMPARISON_OPERATORS.includes((peek() as { v: string }).v)) {
-      const operator = (take() as { v: string }).v;
-      value = compareValues(operator, value, additive());
-    }
-    return value;
-  }
-
+  const parsed = parseExpression(text);
+  if (!parsed) return undefined;
+  if ("error" in parsed) return parsed;
   try {
-    const value = comparison();
-    if (position !== tokens.length) return undefined;
-    return { value };
+    return { value: evaluateNode(parsed.node, expressionEnv(ctx)) };
   } catch (error) {
     if (error instanceof ExpressionError) return { error: error.message };
     return undefined;
@@ -1700,6 +1916,23 @@ function processNumber(id: string) {
   return 1000 + (hash % 9000);
 }
 
+/** An app as the objects Get-Process hands down a pipeline. */
+function processObject(process: ShellProcessInfo): ShellObject {
+  return createObject(
+    "System.Diagnostics.Process",
+    {
+      Id: processNumber(process.id),
+      ProcessName: sanitizeForTerminal(process.name),
+      Name: sanitizeForTerminal(process.name),
+      Status: process.minimized ? "Minimized" : "Running",
+      Responding: true,
+      MainWindowTitle: sanitizeForTerminal(process.title),
+    },
+    `System.Diagnostics.Process (${sanitizeForTerminal(process.name)})`,
+    { view: "process" }
+  );
+}
+
 const getProcess: CommandFn = (args, _stdin, ctx, name) => {
   const parsed = parseArgs(args, { params: ["Name", "Id"] });
   if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
@@ -1718,16 +1951,8 @@ const getProcess: CommandFn = (args, _stdin, ctx, name) => {
     return ok();
   }
 
-  return ok([
-    "",
-    `${TABLE}${"Id".padStart(6)} ${"ProcessName".padEnd(14)} ${"Status".padEnd(10)} MainWindowTitle${RESET}`,
-    `${TABLE}${"--".padStart(6)} ${"-----------".padEnd(14)} ${"------".padEnd(10)} ---------------${RESET}`,
-    ...matches.map(
-      (process) =>
-        `${String(processNumber(process.id)).padStart(6)} ${process.name.padEnd(14)} ${(process.minimized ? "Minimized" : "Running").padEnd(10)} ${sanitizeForTerminal(process.title)}`
-    ),
-    "",
-  ]);
+  const objects = matches.map(processObject);
+  return { out: formatProcessObjects(objects), ok: true, objects };
 };
 
 const stopProcess: CommandFn = (args, _stdin, ctx, name) => {
@@ -2122,6 +2347,7 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
   if (!targets.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
   const nodes = ctx.fs.getNodes();
   const out: string[] = [];
+  const objects: ShellObject[] = [];
   let okay = true;
   for (const { path } of expandPaths(targets, ctx)) {
     const node = nodes[path];
@@ -2130,6 +2356,7 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
       okay = false;
       continue;
     }
+    objects.push(fileObject(node));
     out.push(
       "",
       `Name          : ${sanitizeForTerminal(node.name)}`,
@@ -2142,7 +2369,7 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
     );
   }
   if (out.length) out.push("");
-  return { out, ok: okay };
+  return { out, ok: okay, objects };
 };
 
 const pushLocation: CommandFn = (args, stdin, ctx) => {
@@ -2223,9 +2450,13 @@ const COMMANDS: Record<string, CommandSpec> = {
   "Start-Process": { aliases: ["start", "saps", "ii", "Invoke-Item", "open"], synopsis: "Open a file, folder, app or URL.", syntax: "Start-Process [-FilePath] <string>", run: startProcess },
   tree: { aliases: [], synopsis: "Draw the folder tree. /F lists files, /A uses ASCII.", syntax: "tree [<path>] [/F] [/A]", run: tree },
   "Select-String": { aliases: ["sls", "findstr", "grep"], synopsis: "Search text in files or piped output.", syntax: "Select-String [-Pattern] <string> [[-Path] <string[]>] [-SimpleMatch] [-CaseSensitive] [-NotMatch]", run: selectString },
-  "Sort-Object": { aliases: ["sort"], synopsis: "Sort piped lines.", syntax: "<command> | Sort-Object [-Descending] [-Unique]", run: sortObject },
-  "Select-Object": { aliases: ["select"], synopsis: "Take the first or last piped lines.", syntax: "<command> | Select-Object [-First <int>] [-Last <int>] [-Skip <int>]", run: selectObject },
-  "Measure-Object": { aliases: ["measure"], synopsis: "Count piped lines, words or characters.", syntax: "<command> | Measure-Object [-Line] [-Word] [-Character]", run: measureObject },
+  "Sort-Object": { aliases: ["sort"], synopsis: "Sort piped lines or objects: ls | sort Length -Descending.", syntax: "<command> | Sort-Object [[-Property] <string[]|{ expression }>] [-Descending] [-Unique]", run: sortObject },
+  "Select-Object": { aliases: ["select"], synopsis: "Pick properties, or the first or last piped items: ls | select Name, Length -First 3.", syntax: "<command> | Select-Object [[-Property] <string[]>] [-ExpandProperty <string>] [-First <int>] [-Last <int>] [-Skip <int>] [-Unique]", run: selectObject },
+  "Measure-Object": { aliases: ["measure"], synopsis: "Count piped items, or add up a property: ls | measure Length -Sum.", syntax: "<command> | Measure-Object [[-Property] <string>] [-Sum] [-Average] [-Maximum] [-Minimum] [-Line] [-Word] [-Character]", run: measureObject },
+  "Where-Object": { aliases: ["where", "?"], synopsis: "Keep piped items that match: ls | where Length -gt 1kb.", syntax: "<command> | Where-Object [-Property] <string> -GT|-EQ|-Like|-Match... <value>  |  Where-Object { $_.Length -gt 1kb }", run: whereObject },
+  "ForEach-Object": { aliases: ["foreach", "%"], synopsis: "Run an expression on each piped item: ls | % { $_.Name }.", syntax: "<command> | ForEach-Object { $_.Name }  |  ForEach-Object -MemberName <string>", run: forEachObject },
+  "Format-Table": { aliases: ["ft"], synopsis: "Show piped objects as a table: ls | ft Name, Length.", syntax: "<command> | Format-Table [[-Property] <string[]>]", run: formatTableCmdlet },
+  "Format-List": { aliases: ["fl"], synopsis: "Show piped objects as a list of properties: ps | fl *.", syntax: "<command> | Format-List [[-Property] <string[]>]", run: formatListCmdlet },
   "Get-Date": { aliases: ["date"], synopsis: "Show the current date and time.", syntax: "Get-Date", run: getDate },
   whoami: { aliases: [], synopsis: "Show the signed-in user.", syntax: "whoami", run: whoami },
   hostname: { aliases: [], synopsis: "Show the computer name.", syntax: "hostname", run: hostname },
@@ -2418,10 +2649,13 @@ async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok
     let output: Output = ok();
 
     for (let index = 0; index < statement.stages.length; index += 1) {
+      // Object-aware stages read what the previous one produced as live objects; the rest read its text.
+      ctx.input = index > 0 ? (output.objects ?? null) : null;
       // eslint-disable-next-line no-await-in-loop
       output = await runStage(statement.stages[index], stdin, ctx);
       if (index < statement.stages.length - 1) stdin = output.out.map(stripAnsi);
     }
+    ctx.input = null;
 
     if (statement.redirect) {
       // eslint-disable-next-line no-await-in-loop
@@ -2444,7 +2678,7 @@ export async function runShellCommand(
   host: ShellHost = {},
   depth = 0
 ): Promise<ShellResult> {
-  const ctx: Ctx = { session, fs, host, depth, lines: [], actions: [], clear: false };
+  const ctx: Ctx = { session, fs, host, depth, lines: [], actions: [], clear: false, budget: { steps: 0 }, input: null };
   const trimmed = input.trim();
 
   // $name = value, $name += value: the value is an expression, or the output of a command.
