@@ -35,6 +35,12 @@ describe("prefersStaticWallpaper", () => {
     expect(prefersStaticWallpaper()).toBe(true);
   });
 
+  it("prefers static while battery saver is on, whatever the hardware", () => {
+    mockNavigator({});
+    expect(prefersStaticWallpaper({ batterySaver: true })).toBe(true);
+    expect(prefersStaticWallpaper({ batterySaver: false })).toBe(false);
+  });
+
   it("keeps animation when capability APIs are missing", () => {
     mockNavigator({ deviceMemory: undefined, connection: undefined, hardwareConcurrency: undefined });
     expect(prefersStaticWallpaper()).toBe(false);

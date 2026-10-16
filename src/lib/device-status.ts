@@ -135,6 +135,32 @@ export function describeNetwork(status: NetworkStatus): { title: string; detail:
   }
 }
 
+/** The short status under "Wi-Fi" on its Quick Settings tile. */
+export function describeWifiTile(status: NetworkStatus): string {
+  switch (status) {
+    case "connected":
+      return "Connected";
+    case "no-internet":
+      return "No internet";
+    default:
+      return "Off";
+  }
+}
+
+/** The desktop's offline banner; null while connected. */
+export function describeOfflineBanner(status: NetworkStatus): string | null {
+  switch (status) {
+    case "connected":
+      return null;
+    case "no-internet":
+      return "Offline — some previews and embeds may fail to load.";
+    case "wifi-off":
+      return "Wi-Fi is off — web pages, previews and embeds are unavailable.";
+    case "airplane":
+      return "Airplane mode is on — web pages, previews and embeds are unavailable.";
+  }
+}
+
 export function describeVolume(volume: number, muted: boolean): string {
   return muted ? "Speakers: Muted" : `Speakers: ${Math.round(volume)}%`;
 }
