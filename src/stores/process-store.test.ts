@@ -49,6 +49,15 @@ describe("process store persistence sanitizers", () => {
     ).toEqual([]);
   });
 
+  it("keeps a known Settings page and drops unknown ones", () => {
+    expect(
+      sanitizePersistedProcesses([
+        { id: "process-1", appId: "settings", launchPayload: { section: "sound" }, createdAt: 1 },
+        { id: "process-2", appId: "settings", launchPayload: { section: "registry-editor" }, createdAt: 2 },
+      ]).map((process) => process.launchPayload),
+    ).toEqual([{ section: "sound" }, undefined]);
+  });
+
   it("falls back to an empty process list for non-array values", () => {
     expect(sanitizePersistedProcesses({ processes: [] })).toEqual([]);
   });
