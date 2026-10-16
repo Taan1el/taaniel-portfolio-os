@@ -9,8 +9,8 @@ import {
   createTextFileRecord,
   deleteNodeRecord,
   getParentPath,
-  hasReadonlyContent,
   importFilesRecord,
+  isLockedNode,
   listDirectory as listDirectoryNodes,
   loadFileSystem,
   mkdirRecord,
@@ -194,7 +194,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
   },
   deleteNodePermanently: async (path) => {
     const before = get().nodes;
-    if (hasReadonlyContent(before, path)) {
+    if (isLockedNode(before, path)) {
       toast("This item is read-only and can't be deleted", "error");
       return;
     }
@@ -257,7 +257,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     );
     return importedPaths;
   },
-  canCutNode: (path) => !hasReadonlyContent(get().nodes, path),
+  canCutNode: (path) => !isLockedNode(get().nodes, path),
   reset: async () => {
     const nodes = ensureSystemWorkspace(buildSeedFileSystem());
     set({ nodes, initialized: true });

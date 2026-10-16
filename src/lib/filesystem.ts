@@ -1,6 +1,7 @@
 import { del, get, set } from "idb-keyval";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { inferMimeTypeFromExtension, isTextLikeExtension } from "@/lib/file-registry";
+import { PROTECTED_PATHS } from "@/lib/system-workspace";
 import type { FileNode, FileSystemRecord, VirtualDirectory, VirtualFile, VirtualNode } from "@/types/system";
 
 export const FILESYSTEM_STORAGE_KEY = "taaniel-os-filesystem-v1";
@@ -145,6 +146,16 @@ export function hasReadonlyContent(nodes: FileSystemRecord, path: string) {
   return listDescendants(nodes, path).some(
     (node) => node.kind === "file" && Boolean(node.readonly)
   );
+}
+
+/** System folders (Desktop, Documents, Recycle Bin, the profile root). */
+export function isProtectedPath(path: string) {
+  return PROTECTED_PATHS.has(normalizePath(path));
+}
+
+/** True when an item can't be moved, renamed or recycled - only copied. */
+export function isLockedNode(nodes: FileSystemRecord, path: string) {
+  return isProtectedPath(path) || hasReadonlyContent(nodes, path);
 }
 
 export function searchNodes(nodes: FileSystemRecord, query: string, limit = 10) {
@@ -499,7 +510,7 @@ export function renameNodeRecord(nodes: FileSystemRecord, path: string, nextName
   const normalized = normalizePath(path);
   const target = nodes[normalized];
 
-  if (!target) {
+  if (!target || isProtectedPath(normalized)) {
     return nodes;
   }
 
@@ -542,7 +553,7 @@ export function renameRecord(nodes: FileSystemRecord, path: string, nextName: st
   const normalizedPath = normalizePath(path);
   const target = nodes[normalizedPath];
 
-  if (!target) {
+  if (!target || isProtectedPath(normalizedPath)) {
     return {
       nodes,
       path: normalizedPath,
@@ -643,7 +654,7 @@ export function pasteNodeRecord(
   }
 
   if (operation === "cut") {
-    if (hasReadonlyContent(nodes, normalizedSourcePath)) {
+    if (isLockedNode(nodes, normalizedSourcePath)) {
       return nodes;
     }
 
