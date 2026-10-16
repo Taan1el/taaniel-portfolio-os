@@ -1,0 +1,49 @@
+/*
+ * Tray layer: the taskbar's right end, Quick Settings, the clock flyout, the
+ * display filters and the Settings sections. Loaded straight after win11.css
+ * (see main.tsx) and built on the same --w11-* tokens, so the light and dark
+ * Windows modes both work.
+ */
+
+/* ------------------------------------------------------------- tray glyphs */
+
+.w11-tray-glyph {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+
+/* "No internet access": the Wi-Fi glyph with a small warning badge, as in Windows. */
+.w11-tray-glyph[data-warning="true"]::after {
+  content: "!";
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--w11-text);
+  color: var(--w11-flyout);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Phones keep the quick button; the narrowest ones keep only the network glyph. */
+@media (max-width: 700px) {
+  .w11-taskbar__quick {
+    gap: 8px;
+    padding: 0 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  .w11-taskbar__quick .w11-tray-glyph:not([data-tray-glyph="network"]) {
+    display: none;
+  }
+}
