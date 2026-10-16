@@ -28,7 +28,6 @@ import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
 import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
-import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
@@ -637,7 +636,6 @@ export function DesktopShell() {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>{calendarOpen ? <CalendarPopover /> : null}</AnimatePresence>
       <TrayFlyouts />
 
       <AnimatePresence>
