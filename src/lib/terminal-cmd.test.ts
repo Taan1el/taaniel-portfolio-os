@@ -440,9 +440,11 @@ describe("launching", () => {
     expect((await run("ms-settings:display")).actions[0]).toMatchObject({ appId: "settings", payload: { section: "display" } });
   });
 
-  it("opens a new tab for powershell and for a bare start", async () => {
-    expect((await run("powershell")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
+  it("starts PowerShell inside this prompt, and opens a tab for a bare start", async () => {
+    expect((await run("powershell")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+    expect((await run("cmd")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
     expect((await run("start")).actions[0]).toMatchObject({ type: "open-tab", profile: "cmd" });
+    expect((await run("start powershell")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
   });
 
   it("opens a document when its path is typed", async () => {

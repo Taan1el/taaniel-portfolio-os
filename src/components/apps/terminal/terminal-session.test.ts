@@ -7,7 +7,7 @@ vi.mock("idb-keyval", () => ({
   del: vi.fn(async () => {}),
 }));
 
-import { TerminalSession, type TerminalSessionCallbacks } from "@/components/apps/terminal/terminal-session";
+import { MAX_NESTED_SHELLS, TerminalSession, type TerminalSessionCallbacks } from "@/components/apps/terminal/terminal-session";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { buildAppearance } from "@/lib/terminal-appearance";
 import { getShellEngine } from "@/lib/terminal-engines";
@@ -408,6 +408,136 @@ describe("links", () => {
     const session = create();
     session.terminal.options.linkHandler?.activate(new MouseEvent("click"), "https://example.com/", range);
     expect(callbacks.onOpenLink).not.toHaveBeenCalled();
+  });
+});
+
+describe("shells inside shells", () => {
+  const lastLine = (text: string) => text.split("\n").at(-1);
+
+  it("starts a Command Prompt inside PowerShell in the same tab and folder, and exit returns to PowerShell", async () => {
+    const session = create();
+    let text = await type(session, "cmd\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+    expect(text).toContain("Taaniel OS [Version");
+    // A shell inside the tab, not another tab or a closed window.
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+    expect(session.shellDepth).toBe(2);
+
+    text = await type(session, "echo from cmd\r");
+    expect(text).toMatch(/^from cmd$/m);
+    text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(session.shellDepth).toBe(1);
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+  });
+
+  it("gives the inner shell the folder the outer one is in, and keeps the two apart", async () => {
+    const session = create();
+    await type(session, "cd ..\r");
+    let text = await type(session, "cmd\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel>");
+
+    text = await type(session, "cd Desktop\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Desktop>");
+    expect(session.getCwd()).toBe("/Desktop");
+    text = await type(session, "exit\r");
+    // Leaving a shell leaves its folder behind, as it does in a real terminal.
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel>");
+    expect(session.getCwd()).toBe("/");
+  });
+
+  it("starts PowerShell inside the Command Prompt", async () => {
+    const session = create({ engine: "cmd" });
+    let text = await type(session, "powershell\r");
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(text).toContain("PowerShell 7.4.5 on Taaniel OS");
+    text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+  });
+
+  it("nests more than once, and exit goes back one shell at a time", async () => {
+    const session = create();
+    await type(session, "cmd\r");
+    await type(session, "powershell\r");
+    expect(session.shellDepth).toBe(3);
+    let text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+    text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+  });
+
+  it("closes the tab for exit in the first shell", async () => {
+    const session = create();
+    await type(session, "exit\r");
+    expect(callbacks.onAction).toHaveBeenCalledWith({ type: "exit" });
+  });
+
+  it("closes the tab for exit once every shell inside it has ended", async () => {
+    const session = create();
+    await type(session, "cmd\r");
+    await type(session, "exit\r");
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+    await type(session, "exit\r");
+    expect(callbacks.onAction).toHaveBeenCalledWith({ type: "exit" });
+  });
+
+  it("gives each shell its own history, its own commands, and its own prompt", async () => {
+    const session = create();
+    await type(session, "echo ps-line\r");
+    await type(session, "cmd\r");
+    await type(session, "echo cmd-line\r");
+    // The up arrow in cmd recalls cmd's commands, not PowerShell's.
+    const recalled = await type(session, "\x1b[A");
+    expect(lastLine(recalled)).toMatch(/>echo cmd-line$/);
+    expect(JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history-cmd") ?? "[]")).toContain("echo cmd-line");
+    expect(JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history") ?? "[]")).not.toContain("echo cmd-line");
+  });
+
+  it("runs cmd /c once and stays in PowerShell, and an exit in it does not close the tab", async () => {
+    const session = create();
+    let text = await type(session, "cmd /c echo one-shot\r");
+    expect(text).toMatch(/^one-shot$/m);
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(session.shellDepth).toBe(1);
+
+    await type(session, "cmd /c exit\r");
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+    text = await type(session, "pwsh -Command echo second\r");
+    expect(text).toMatch(/^second$/m);
+    expect(session.shellDepth).toBe(1);
+  });
+
+  it("runs cmd /k and stays inside it", async () => {
+    const session = create();
+    const text = await type(session, "cmd /k echo kept\r");
+    expect(text).toMatch(/^kept$/m);
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+    expect(session.shellDepth).toBe(2);
+  });
+
+  it("still opens a tab for wt, which is Windows Terminal itself", async () => {
+    const session = create();
+    await type(session, "wt -p cmd\r");
+    expect(callbacks.onAction).toHaveBeenCalledWith({ type: "open-tab", profile: "cmd", directoryPath: undefined });
+    expect(session.shellDepth).toBe(1);
+  });
+
+  it("stops at a fixed depth, and says so", async () => {
+    const session = create();
+    for (let index = 1; index < MAX_NESTED_SHELLS; index += 1) await type(session, "cmd\r");
+    expect(session.shellDepth).toBe(MAX_NESTED_SHELLS);
+    const text = await type(session, "cmd\r");
+    expect(text).toContain(`already has ${MAX_NESTED_SHELLS} shells inside each other`);
+    expect(session.shellDepth).toBe(MAX_NESTED_SHELLS);
+  });
+
+  it("keeps the inner shell's screen-reader and colour behaviour: colours still reach the screen", async () => {
+    const session = create();
+    await type(session, "cmd\r");
+    await type(session, "color 0a\r");
+    expect(session.terminal.options.theme?.black).toBeTruthy();
+    expect(session.terminal.options.theme?.foreground).toBe(session.terminal.options.theme?.brightGreen);
   });
 });
 

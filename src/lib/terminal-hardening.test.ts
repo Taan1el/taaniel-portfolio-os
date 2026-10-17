@@ -204,11 +204,33 @@ describe("every printed path is sanitized", () => {
 });
 
 describe("tabs", () => {
-  it("opens a PowerShell or Command Prompt tab for pwsh, powershell and cmd", async () => {
-    expect((await run("pwsh")).actions).toEqual([{ type: "open-tab", profile: "pwsh", directoryPath: undefined }]);
-    expect((await run("powershell.exe")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
-    expect((await run("cmd")).actions[0]).toMatchObject({ type: "open-tab", profile: "cmd" });
+  it("starts a shell inside this one for pwsh, powershell and cmd, and a tab for Start-Process", async () => {
+    expect((await run("pwsh")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+    expect((await run("powershell.exe")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+    expect((await run("cmd")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+    expect((await run("& cmd")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+    // A new window, as Start-Process always makes, is a new tab here.
     expect((await run("Start-Process cmd")).actions[0]).toMatchObject({ type: "open-tab", profile: "cmd" });
+    expect((await run("start pwsh")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
+  });
+
+  it("runs the command of cmd /c and pwsh -Command, and stays for /k and -NoExit", async () => {
+    expect((await run("cmd /c dir")).actions).toEqual([{ type: "enter-shell", profile: "cmd", command: "dir", keep: false }]);
+    expect((await run("cmd /C echo hi there")).actions[0]).toMatchObject({ command: "echo hi there", keep: false });
+    expect((await run("cmd /k echo hi")).actions).toEqual([{ type: "enter-shell", profile: "cmd", command: "echo hi", keep: true }]);
+    expect((await run("cmd /q /d")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+    expect((await run("cmd /c")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+
+    expect((await run("pwsh -Command Get-Date")).actions).toEqual([{ type: "enter-shell", profile: "pwsh", command: "Get-Date", keep: false }]);
+    expect((await run("pwsh -NoLogo -NoProfile -c 'echo hi'")).actions[0]).toMatchObject({ command: "echo hi", keep: false });
+    expect((await run("powershell -ExecutionPolicy Bypass -Command ls")).actions[0]).toMatchObject({ command: "ls" });
+    expect((await run("pwsh -NoExit -Command echo hi")).actions[0]).toMatchObject({ command: "echo hi", keep: true });
+    expect((await run("pwsh -NoLogo")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+  });
+
+  it("runs a script file for pwsh -File, quoting what it is given", async () => {
+    expect((await run("pwsh -File build.ps1 'a b'")).actions[0]).toMatchObject({ command: "& 'build.ps1' 'a b'", keep: false });
+    expect((await run(`pwsh -File "it's.ps1"`)).actions[0]).toMatchObject({ command: "& 'it''s.ps1'" });
   });
 
   it("reads Windows Terminal's -p and -d options", async () => {

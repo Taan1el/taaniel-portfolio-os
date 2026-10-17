@@ -116,8 +116,13 @@ export function getPowerShellBanner(): string[] {
 export type TerminalAction =
   | { type: "launch-app"; appId: AppId; payload?: WindowPayload; title?: string }
   | { type: "open-path"; path: string }
-  /** Open a tab in this terminal window: `wt`, `pwsh` and `cmd` do it. No profile means the default one. */
+  /** Open a tab in this terminal window: `wt` does it, and so does Start-Process pwsh. No profile means the default one. */
   | { type: "open-tab"; profile?: ShellProfileId; directoryPath?: string }
+  /**
+   * Start a shell inside this one, in the same tab and folder: typing `cmd` or `pwsh`. `exit` returns to the shell it was
+   * started from. With a command (`cmd /c dir`) the command runs and the shell ends; with `keep` (`/k`, -NoExit) it stays.
+   */
+  | { type: "enter-shell"; profile: ShellProfileId; command?: string; keep?: boolean }
   /** Rename this tab (cmd's `title`). */
   | { type: "set-title"; title: string }
   /** Recolour this tab's screen (cmd's `color`). Both are ANSI palette indices 0-15, read from the colour scheme in use. */
@@ -995,8 +1000,52 @@ const TERMINAL_EXECUTABLES: Record<string, ShellProfileId | undefined> = {
   cmd: "cmd",
 };
 
+/** Options of pwsh that take a value after them, so the value is not mistaken for the next option. */
+const POWERSHELL_VALUE_OPTIONS = new Set(["-executionpolicy", "-ep", "-windowstyle", "-workingdirectory", "-wd", "-configurationname", "-inputformat", "-outputformat", "-version"]);
+
+const quoteArgument = (value: string) => `'${value.replace(/'/g, "''")}'`;
+
+/**
+ * What typing `cmd` or `pwsh` asks for: a shell inside this one. `cmd /c <command>` and `pwsh -Command <command>` run the
+ * command and return; `/k` and -NoExit run it and stay. Other options (-NoLogo, -NoProfile, /q...) change nothing here.
+ */
+function enterShell(name: string, args: string[], ctx: Ctx): Output {
+  const profile = own(TERMINAL_EXECUTABLES, name) ?? "pwsh";
+  let command: string | undefined;
+  let keep = false;
+
+  if (profile === "cmd") {
+    const index = args.findIndex((arg) => /^\/[ck]$/i.test(arg));
+    if (index >= 0) {
+      command = args.slice(index + 1).join(" ");
+      keep = args[index].toLowerCase() === "/k";
+    }
+  } else {
+    for (let index = 0; index < args.length; index += 1) {
+      const option = args[index].toLowerCase();
+      if (option === "-c" || option === "-command") {
+        command = args.slice(index + 1).join(" ");
+        break;
+      }
+      if (option === "-f" || option === "-file") {
+        command = [`& ${quoteArgument(args[index + 1] ?? "")}`, ...args.slice(index + 2).map(quoteArgument)].join(" ");
+        break;
+      }
+      if (option === "-noexit") keep = true;
+      else if (POWERSHELL_VALUE_OPTIONS.has(option)) index += 1;
+    }
+  }
+
+  // A command that is empty (cmd /c with nothing after it) is just a shell.
+  if (command !== undefined && !command.trim()) command = undefined;
+  ctx.actions.push({ type: "enter-shell", profile, ...(command !== undefined ? { command, keep } : {}) });
+  return ok();
+}
+
 /** wt [-p <profile>] [-d <folder>]: the options of Windows Terminal that mean something here. */
-function openTerminalTab(name: string, args: string[], ctx: Ctx): Output {
+function openTerminalTab(name: string, args: string[], ctx: Ctx, nested: boolean): Output {
+  // Typing a shell's name starts it inside this one; `wt`, and Start-Process (a new window), open a tab.
+  if (nested && name !== "wt") return enterShell(name, args, ctx);
   let profile = own(TERMINAL_EXECUTABLES, name);
   let directory: string | undefined;
 
@@ -1029,11 +1078,12 @@ function openTerminalTab(name: string, args: string[], ctx: Ctx): Output {
   return ok();
 }
 
-async function launchExecutable(name: string, args: string[], ctx: Ctx): Promise<Output> {
+/** `nested` is a program typed at the prompt, as against one started with Start-Process, which opens a window of its own. */
+async function launchExecutable(name: string, args: string[], ctx: Ctx, nested = false): Promise<Output> {
   const appId = own(EXECUTABLES, name);
   const target = args.find((arg) => !arg.startsWith("-"));
 
-  if (own(TERMINAL_EXECUTABLES, name) !== undefined || name === "wt") return openTerminalTab(name, args, ctx);
+  if (own(TERMINAL_EXECUTABLES, name) !== undefined || name === "wt") return openTerminalTab(name, args, ctx, nested);
   if (!appId) return fail(ctx, name, "This command cannot be run due to the error: The system cannot find the file specified.");
 
   if (appId === "v86") {
@@ -3134,7 +3184,8 @@ const HELP_OVERVIEW = [
   `${TABLE}Shell${RESET}`,
   "  cls, history, Get-Date, whoami, Get-Command, Get-Alias, help <command>, exit",
   "  help <command> -Examples, <command> -?, help about_*   More help, and help topics",
-  "  wt, pwsh, cmd    Open another tab here            wt -p cmd, cmd",
+  "  wt               Open another tab here            wt -p cmd, wt -d ..\\Documents",
+  "  cmd, pwsh        Start a shell inside this one    cmd, then exit comes back here",
   "  Tab completes commands and paths. Up/Down recalls history. Ctrl+C cancels, Ctrl+L clears.",
   "  F6 moves focus out of the terminal (Tab and Esc belong to the shell). Ctrl+, opens settings.",
   "",
@@ -3319,7 +3370,7 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx, quoted
   if (/^ms-settings:./.test(key)) return openSettingsUri(rawName, ctx);
 
   const executable = key.replace(/\.exe$/, "");
-  if (own(EXECUTABLES, executable)) return launchExecutable(executable, args, ctx);
+  if (own(EXECUTABLES, executable)) return launchExecutable(executable, args, ctx, true);
 
   if (/[\\/.]/.test(rawName)) {
     const nodes = ctx.fs.getNodes();

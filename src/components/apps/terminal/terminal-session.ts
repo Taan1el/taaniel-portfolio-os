@@ -3,7 +3,7 @@ import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import { withColors, type ColorOverride, type TerminalAppearance } from "@/lib/terminal-appearance";
-import type { ShellEngine } from "@/lib/terminal-engines";
+import { getShellEngine, type ShellEngine } from "@/lib/terminal-engines";
 import { appendHistory, loadHistory } from "@/lib/terminal-history";
 import { classifyTerminalKey, FOCUS_ESCAPE_HINT, type ScrollTarget, type TerminalCommand } from "@/lib/terminal-keys";
 import {
@@ -38,6 +38,7 @@ import {
   stripAnsi,
   type ShellFileSystem,
   type ShellHost,
+  type ShellResult,
   type ShellSession,
   type TerminalAction,
 } from "@/lib/terminal-shell";
@@ -94,11 +95,21 @@ export interface FindOptions {
   regex: boolean;
 }
 
+/** A tab can hold shells inside shells (typing `cmd` in PowerShell): this many, and no more. */
+export const MAX_NESTED_SHELLS = 8;
+
+/** The shells running in the tab, the one typed into last. */
+interface RunningShell {
+  engine: ShellEngine;
+  shell: ShellSession;
+}
+
 export class TerminalSession {
   readonly terminal: Terminal;
-  readonly shell: ShellSession;
 
   private readonly options: TerminalSessionOptions;
+  /** The shell the tab started with at the bottom; `cmd` and `pwsh` push another on top, and `exit` takes it off. */
+  private readonly stack: RunningShell[];
   private readonly fitAddon = new FitAddon();
   private readonly searchAddon: SearchAddon;
   private container: HTMLElement | null = null;
@@ -127,9 +138,10 @@ export class TerminalSession {
     this.options = options;
     this.appearance = options.appearance;
 
-    this.shell = createShellSession(options.startPath);
-    this.shell.history = loadHistory(options.engine.historyKey);
-    this.walk = startHistoryWalk(this.shell.history);
+    const base = createShellSession(options.startPath);
+    base.history = loadHistory(options.engine.historyKey);
+    this.stack = [{ engine: options.engine, shell: base }];
+    this.walk = startHistoryWalk(base.history);
 
     this.terminal = new Terminal({
       // Search highlights are decorations, which xterm still keeps behind this flag.
@@ -222,6 +234,20 @@ export class TerminalSession {
 
   // -------------------------------------------------------------------- public
 
+  /** The shell being typed into: the innermost one. */
+  get shell(): ShellSession {
+    return this.stack[this.stack.length - 1].shell;
+  }
+
+  private get engine(): ShellEngine {
+    return this.stack[this.stack.length - 1].engine;
+  }
+
+  /** Shells running in this tab, counting the first. */
+  get shellDepth() {
+    return this.stack.length;
+  }
+
   focus() {
     if (!this.disposed) this.terminal.focus();
   }
@@ -278,7 +304,7 @@ export class TerminalSession {
     if (this.disposed) return;
     this.refit();
     if (!this.busy && this.started && !this.state.line) {
-      this.shell.history.splice(0, this.shell.history.length, ...loadHistory(this.options.engine.historyKey));
+      this.shell.history.splice(0, this.shell.history.length, ...loadHistory(this.engine.historyKey));
       this.walk = startHistoryWalk(this.shell.history);
     }
   }
@@ -392,7 +418,7 @@ export class TerminalSession {
     if (this.started || this.disposed || this.terminal.cols < MIN_COLUMNS) return;
     this.started = true;
     this.lastCols = this.terminal.cols;
-    this.options.engine.banner().forEach((line) => this.terminal.writeln(line));
+    this.engine.banner().forEach((line) => this.terminal.writeln(line));
     this.terminal.writeln(`\x1b[90m${FOCUS_ESCAPE_HINT}\x1b[0m`);
     this.terminal.writeln("");
     this.newPrompt();
@@ -401,7 +427,7 @@ export class TerminalSession {
   // ----------------------------------------------------------------- rendering
 
   private prompt() {
-    return this.options.engine.prompt(this.shell);
+    return this.engine.prompt(this.shell);
   }
 
   /**
@@ -428,7 +454,7 @@ export class TerminalSession {
       this.renderChanges();
       return;
     }
-    const { engine } = this.options;
+    const { engine } = this;
     const { line, cursor } = this.state;
     const cols = this.terminal.cols;
     const { last: prompt, width: promptWidth } = this.promptLayout();
@@ -459,7 +485,7 @@ export class TerminalSession {
       cols: this.terminal.cols,
       previous: { line: this.drawnLine, cursor: this.drawnCursor },
       next: { line, cursor },
-      highlight: this.options.engine.highlight,
+      highlight: this.engine.highlight,
     });
     if (sequence) this.terminal.write(sequence);
     this.drawnCursor = cursor;
@@ -501,7 +527,7 @@ export class TerminalSession {
   private acceptPrediction() {
     const { line, cursor } = this.state;
     // Screen reader mode shows no grey suggestion, so there is nothing to accept.
-    const prediction = !this.appearance.screenReaderMode && cursor === line.length ? this.options.engine.predict(line, this.shell.history) : "";
+    const prediction = !this.appearance.screenReaderMode && cursor === line.length ? this.engine.predict(line, this.shell.history) : "";
     if (!prediction) return false;
     this.edit({ line: `${line}${prediction}`, cursor: line.length + prediction.length });
     return true;
@@ -521,24 +547,16 @@ export class TerminalSession {
     const controller = new AbortController();
     this.abort = controller;
     let interrupted = false;
-    const hadHistory = this.shell.history.length > 0;
+    // The shell this line was typed into: running it may start or end a shell, but the line belongs to this one.
+    const { engine, shell } = this.stack[this.stack.length - 1];
+    const hadHistory = shell.history.length > 0;
 
     try {
       const host: ShellHost = { ...this.options.host, signal: controller.signal };
-      const result = await this.options.engine.run(input, this.shell, this.options.fileSystem, host);
+      const result = await engine.run(input, shell, this.options.fileSystem, host);
       if (this.disposed) return;
-      if (result.interrupted) {
-        interrupted = true;
-      } else {
-        if (result.clear) this.terminal.write(CLEAR_SCREEN);
-        this.writeLines(result.lines);
-        result.actions.forEach((action) => {
-          // Colours are this screen's own business; everything else is for the app to carry out.
-          if (action.type === "set-colors") this.setColors({ foreground: action.foreground, background: action.background });
-          else if (action.type === "reset-colors") this.setColors(null);
-          else this.options.callbacks.onAction(action);
-        });
-      }
+      if (result.interrupted) interrupted = true;
+      else await this.carryOut(result, controller.signal);
     } catch (error) {
       if (this.disposed) return;
       this.writeLines([`\x1b[91m${sanitizeForTerminal(error instanceof Error ? error.message : String(error))}\x1b[0m`]);
@@ -548,9 +566,9 @@ export class TerminalSession {
     // Recorded after running, so Get-History excludes the command that is executing. It is added to what
     // is stored now (other tabs may have saved commands meanwhile), and this tab then takes up the result.
     // A command that emptied the list (Clear-History) starts the saved one over.
-    const cleared = hadHistory && this.shell.history.length === 0;
-    const saved = appendHistory(this.options.engine.historyKey, input, this.shell.history, cleared);
-    this.shell.history.splice(0, this.shell.history.length, ...saved);
+    const cleared = hadHistory && shell.history.length === 0;
+    const saved = appendHistory(engine.historyKey, input, shell.history, cleared);
+    shell.history.splice(0, shell.history.length, ...saved);
     this.walk = startHistoryWalk(this.shell.history);
     this.busy = false;
     if (this.disposed) return;
@@ -567,9 +585,49 @@ export class TerminalSession {
     }
   }
 
+  /** Print what a command produced and do what it asked for: recolour, start or leave a shell, or hand it to the app. */
+  private async carryOut(result: ShellResult, signal: AbortSignal) {
+    if (result.clear) this.terminal.write(CLEAR_SCREEN);
+    this.writeLines(result.lines);
+    for (const action of result.actions) {
+      if (this.disposed) return;
+      // Colours are this screen's own business; everything else is for the app to carry out.
+      if (action.type === "set-colors") this.setColors({ foreground: action.foreground, background: action.background });
+      else if (action.type === "reset-colors") this.setColors(null);
+      // `exit` in a shell inside another one returns to it; in the first shell it closes the tab.
+      else if (action.type === "exit" && this.stack.length > 1) this.stack.pop();
+      else if (action.type === "enter-shell") await this.enterShell(action, signal);
+      else this.options.callbacks.onAction(action);
+    }
+  }
+
+  /** `cmd` or `pwsh` typed in a shell: a new shell in the same tab, starting in the folder the old one is in. */
+  private async enterShell(request: Extract<TerminalAction, { type: "enter-shell" }>, signal: AbortSignal) {
+    if (this.stack.length >= MAX_NESTED_SHELLS) {
+      this.writeLines([`\x1b[91mThis tab already has ${MAX_NESTED_SHELLS} shells inside each other. Type exit to leave one.\x1b[0m`]);
+      return;
+    }
+
+    const engine = getShellEngine(request.profile);
+    const child = createShellSession(this.shell.cwd);
+    child.history = loadHistory(engine.historyKey);
+    const stays = request.command === undefined || request.keep === true;
+    if (stays) {
+      this.stack.push({ engine, shell: child });
+      engine.banner().forEach((line) => this.writeLines([line]));
+    }
+    if (request.command === undefined) return;
+
+    const result = await engine.run(request.command, child, this.options.fileSystem, { ...this.options.host, signal });
+    if (result.interrupted || this.disposed) return;
+    // A command run with /c or -Command ends with its shell: an `exit` in it must not close the tab.
+    const actions = stays ? result.actions : result.actions.filter((action) => action.type !== "exit");
+    await this.carryOut({ ...result, actions }, signal);
+  }
+
   private complete() {
     const { line, cursor } = this.state;
-    const result = this.options.engine.complete(line, cursor, this.shell, this.options.fileSystem.getNodes());
+    const result = this.engine.complete(line, cursor, this.shell, this.options.fileSystem.getNodes());
     if (!result.candidates.length) {
       this.edit({ line: result.line, cursor: result.cursor });
       return;
