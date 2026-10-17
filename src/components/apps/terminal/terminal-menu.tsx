@@ -98,7 +98,8 @@ export function TerminalMenu({ label, items, anchor, boundary, onClose, classNam
       role="menu"
       aria-label={label}
       className={cn("w11-terminal__menu", className)}
-      style={position ? { left: position.left, top: position.top } : { left: 0, top: 0, visibility: "hidden" }}
+      // Until it has been measured and placed it is transparent, not hidden: hidden items cannot take focus.
+      style={position ? { left: position.left, top: position.top } : { left: 0, top: 0, opacity: 0 }}
       onKeyDown={handleKeyDown}
       onContextMenu={(event) => event.preventDefault()}
     >

@@ -82,6 +82,8 @@ describe("the terminal app with real screens", () => {
     expect(screen.getAllByLabelText("Command Prompt terminal input")).toHaveLength(1);
     // The PowerShell screen keeps running behind it, hidden.
     expect(document.querySelectorAll(".terminal-pane[hidden]")).toHaveLength(1);
+    // And the new tab is ready to type in.
+    expect(document.activeElement).toBe(screen.getByLabelText("Command Prompt terminal input"));
   });
 
   it("closes the window when the last shell exits", async () => {
