@@ -114,7 +114,9 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   const idPrefix = useId();
   const launchApp = useSystemStore((state) => state.launchApp);
   const closeWindow = useSystemStore((state) => state.closeWindow);
+  const focusWindow = useSystemStore((state) => state.focusWindow);
   const windowId = appWindow.id;
+  const processId = appWindow.processId;
   const payload = appWindow.payload;
 
   const [{ tabs, activeId }, setTabsState] = useState<TabsState>(() => initialTabs(payload));
@@ -188,11 +190,19 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
   // ----------------------------------------------------------------------- tabs
 
+  /** One Virtual x86 window is enough: asking again brings the open one to the front. */
+  const openLinux = useCallback(() => {
+    const processes = useProcessStore.getState().processes;
+    const open = useWindowStore.getState().windows.find((entry) => processes.some((process) => process.id === entry.processId && process.appId === "v86"));
+    if (open) focusWindow(open.id);
+    else launchApp({ appId: "v86" });
+    announce(LINUX_LAUNCH_MESSAGE.join(" "));
+  }, [announce, focusWindow, launchApp]);
+
   const openTab = useCallback(
     (profileId: TerminalProfileId, startPath?: string) => {
       if (profileId === "linux") {
-        launchApp({ appId: "v86" });
-        announce(LINUX_LAUNCH_MESSAGE.join(" "));
+        openLinux();
         return;
       }
       if (!canAddTab(stateRef.current)) {
@@ -202,7 +212,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       focusTarget.current = "terminal";
       setTabsState((state) => addTab(state, createTab(createTabId(), profileId, startPath ?? TERMINAL_HOME_PATH)));
     },
-    [announce, launchApp]
+    [announce, openLinux]
   );
 
   const openDefaultTab = useCallback(() => openTab(useTerminalSettingsStore.getState().defaultProfile), [openTab]);
@@ -250,29 +260,25 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     [focusTerminal, showTab]
   );
 
-  // A launch while the terminal is open (a jump list item, "Open in Terminal") arrives as a changed payload.
+  // A launch request arrives as the window's payload: the one it was opened with, and later a changed one
+  // (a jump list item, "Open in Terminal"). Each request is acted on once and then spent: the payload is
+  // cleared, so a reload - which restores the payload - cannot act on it again (it would open another
+  // Virtual x86 window each time), and asking for the same thing twice is a change both times.
   const launchSignature = `${payload?.profile ?? ""}|${payload?.directoryPath ?? ""}|${payload?.launchNonce ?? ""}`;
-  const handledLaunch = useRef(launchSignature);
-  const startedLinux = useRef(false);
+  const handledLaunch = useRef<string | null>(null);
   useEffect(() => {
-    // The first payload built the first tab; a request for Linux on top of that still opens the emulator, once.
-    if (!startedLinux.current && resolveLaunchProfile(payload?.profile) === "linux") {
-      startedLinux.current = true;
-      openTab("linux");
-    }
     if (handledLaunch.current === launchSignature) return;
+    const isFirst = handledLaunch.current === null;
     handledLaunch.current = launchSignature;
     if (launchSignature === "||") return;
 
     const requested = resolveLaunchProfile(payload?.profile);
-    if (requested === "linux") {
-      openTab("linux");
-      return;
-    }
-    openTab(requested ?? useTerminalSettingsStore.getState().defaultProfile, validDirectory(payload?.directoryPath));
+    if (requested === "linux") openTab("linux");
+    // The first request already made the first tab, in its profile and folder.
+    else if (!isFirst) openTab(requested ?? useTerminalSettingsStore.getState().defaultProfile, validDirectory(payload?.directoryPath));
+    useProcessStore.getState().updateProcess(processId, { launchPayload: {} });
     // The payload is read through the signature: only a real change in it opens a tab.
   }, [launchSignature]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // After a render that changed the active tab, put focus where the person's action meant it to go.
   useEffect(() => {
     const target = focusTarget.current;

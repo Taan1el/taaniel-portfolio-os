@@ -61,12 +61,15 @@ import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace } from "@/lib/system-workspace";
 import { MAX_TABS } from "@/lib/terminal-tabs";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
 import { useTerminalSettingsStore } from "@/stores/terminal-settings-store";
+import { useWindowStore } from "@/stores/window-store";
 import type { AppWindow, WindowPayload } from "@/types/system";
 
 const launchApp = vi.fn();
 const closeWindow = vi.fn();
+const focusWindow = vi.fn();
 
 function terminalWindow(payload?: WindowPayload): AppWindow {
   return {
@@ -102,7 +105,9 @@ beforeEach(() => {
   window.localStorage.clear();
   useTerminalSettingsStore.getState().reset();
   useFileSystemStore.setState({ nodes: ensureSystemWorkspace(buildSeedFileSystem()), initialized: true });
-  useSystemStore.setState({ launchApp, closeWindow } as never);
+  useProcessStore.setState({ processes: [] });
+  useWindowStore.setState({ windows: [] } as never);
+  useSystemStore.setState({ launchApp, closeWindow, focusWindow } as never);
 });
 
 afterEach(() => {
@@ -392,6 +397,54 @@ describe("launches while the terminal is open", () => {
     rerender(<TerminalApp window={terminalWindow({ profile: "linux" })} />);
     expect(launchApp).toHaveBeenCalledTimes(1);
     expect(tabNames()).toEqual(["PowerShell"]);
+  });
+
+  it("opens one emulator, not two, when a Linux launch reaches a terminal that is already open", () => {
+    const { rerender } = render(<TerminalApp window={terminalWindow()} />);
+    expect(launchApp).not.toHaveBeenCalled();
+    rerender(<TerminalApp window={terminalWindow({ profile: "linux" })} />);
+    expect(launchApp.mock.calls).toEqual([[{ appId: "v86" }]]);
+    expect(screen.getByRole("status").textContent).toContain(".img or .iso");
+    expect(tabNames()).toEqual(["PowerShell"]);
+  });
+
+  it("brings an emulator that is already open to the front instead of opening a second", () => {
+    useProcessStore.setState({ processes: [{ id: "process-v86", appId: "v86", status: "running", createdAt: 1 }] });
+    useWindowStore.setState({ windows: [{ id: "window-v86", processId: "process-v86", title: "Virtual x86", minimized: true }] } as never);
+    render(<TerminalApp window={terminalWindow()} />);
+    fireEvent.click(screen.getByRole("button", { name: "New tab menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Linux/ }));
+    expect(launchApp).not.toHaveBeenCalled();
+    expect(focusWindow).toHaveBeenCalledWith("window-v86");
+  });
+
+  it("spends a launch request once it has acted on it, so a reload cannot repeat it", () => {
+    const requested: WindowPayload = { profile: "linux" };
+    useProcessStore.setState({ processes: [{ id: "process-terminal", appId: "terminal", status: "focused", launchPayload: requested, createdAt: 1 }] });
+    const first = render(<TerminalApp window={terminalWindow(requested)} />);
+    expect(launchApp).toHaveBeenCalledTimes(1);
+    // What the process now holds is what a reload restores.
+    const restored = useProcessStore.getState().processes[0].launchPayload;
+    expect(restored).toEqual({});
+    first.unmount();
+
+    render(<TerminalApp window={terminalWindow(restored)} />);
+    expect(launchApp).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a tab each time the same profile is asked for, because the request is spent in between", () => {
+    const { rerender } = render(<TerminalApp window={terminalWindow()} />);
+    rerender(<TerminalApp window={terminalWindow({ profile: "cmd" })} />);
+    rerender(<TerminalApp window={terminalWindow({})} />);
+    rerender(<TerminalApp window={terminalWindow({ profile: "cmd" })} />);
+    expect(tabNames()).toEqual(["PowerShell", "Command Prompt", "Command Prompt"]);
+  });
+
+  it("spends the request the window was opened with too, but keeps the tab it made", () => {
+    useProcessStore.setState({ processes: [{ id: "process-terminal", appId: "terminal", status: "focused", launchPayload: { profile: "cmd", directoryPath: "/Documents" }, createdAt: 1 }] });
+    render(<TerminalApp window={terminalWindow({ profile: "cmd", directoryPath: "/Documents" })} />);
+    expect(tabNames()).toEqual(["Command Prompt"]);
+    expect(useProcessStore.getState().processes[0].launchPayload).toEqual({});
   });
 });
 
