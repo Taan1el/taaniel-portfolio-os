@@ -114,10 +114,10 @@ function planFolderDrop(input: ResolveDropInput, destinationPath: string, surfac
   const label = describeOperation(operation, describeDestination(nodes, destination));
 
   if (input.button === 2) {
-    return { kind: "choose", destination, paths: placeable, label };
+    return { kind: "choose", destination, paths: placeable, label, surface };
   }
 
-  return { kind: "transfer", operation, destination, paths: placeable, label };
+  return { kind: "transfer", operation, destination, paths: placeable, label, surface };
 }
 
 /** Decide what releasing the drag here would do. Pure: the controller and the ghost both read it. */

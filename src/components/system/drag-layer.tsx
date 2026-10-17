@@ -24,14 +24,16 @@ async function transferAndPlace(
   paths: string[],
   destination: string,
   operation: DragOperation,
-  point: { x: number; y: number }
+  point: { x: number; y: number },
+  surface?: "desktop"
 ) {
   const result = await useFileSystemStore.getState().transferNodes(paths, destination, operation);
 
-  if (normalizePath(destination) === DESKTOP_PATH && result.transferred.length > 0) {
+  // Only a drop on the desktop itself puts the icons where the pointer let go, selected. Dropped on
+  // Explorer's Desktop folder, sidebar or breadcrumb they take the first free cell, as Windows arranges them.
+  if (surface === "desktop" && normalizePath(destination) === DESKTOP_PATH && result.transferred.length > 0) {
     const landed = result.transferred.map((entry) => entry.to);
 
-    // Dropped icons appear where the pointer let go, selected, like Explorer's drop on the desktop.
     placeArrivalsOnDesktop(landed, point);
     useShellStore.getState().setSelectedIconIds(landed.map(getDesktopNodeId));
   }
@@ -58,8 +60,13 @@ function openDroppedFile(request: { appId: AppId; windowId?: string; paths: stri
   launchApp({ appId: request.appId, payload: { filePath: target.path } });
 }
 
-function buildDropMenu(destination: string, paths: string[], point: { x: number; y: number }): ContextMenuAction[] {
-  const run = (operation: DragOperation) => () => void transferAndPlace(paths, destination, operation, point);
+function buildDropMenu(
+  destination: string,
+  paths: string[],
+  point: { x: number; y: number },
+  surface?: "desktop"
+): ContextMenuAction[] {
+  const run = (operation: DragOperation) => () => void transferAndPlace(paths, destination, operation, point, surface);
 
   return [
     { id: "move-here", label: "Move here", icon: ArrowRight, onSelect: run("move") },
@@ -186,8 +193,8 @@ export function DragLayer() {
         openWith: openDroppedFile,
         springOpen: (windowId, path) => useExplorerStore.getState().navigate(windowId, path),
         activateWindow: (windowId) => useSystemStore.getState().focusWindow(windowId),
-        chooseOperation: ({ x, y, destination, paths }) =>
-          useShellStore.getState().setContextMenu({ x, y, title: "Drop", actions: buildDropMenu(destination, paths, { x, y }) }),
+        chooseOperation: ({ x, y, destination, paths, surface }) =>
+          useShellStore.getState().setContextMenu({ x, y, title: "Drop", actions: buildDropMenu(destination, paths, { x, y }, surface) }),
       }),
     []
   );

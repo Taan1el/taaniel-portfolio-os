@@ -37,10 +37,14 @@ export type DropZone =
   | { kind: "app"; appId: AppId };
 
 export type DropPlan =
-  /** Move, copy or link the dragged items into a folder. */
-  | { kind: "transfer"; operation: DragOperation; destination: string; paths: string[]; label: string }
+  /**
+   * Move, copy or link the dragged items into a folder. `surface` is set when
+   * the drop landed on the desktop itself, where arrivals take the cell under
+   * the pointer; dropped anywhere else they take the first free cell.
+   */
+  | { kind: "transfer"; operation: DragOperation; destination: string; paths: string[]; label: string; surface?: "desktop" }
   /** Right-button drag: ask what to do when the button is released. */
-  | { kind: "choose"; destination: string; paths: string[]; label: string }
+  | { kind: "choose"; destination: string; paths: string[]; label: string; surface?: "desktop" }
   /** Open a dragged file with an app (in an existing window when one was targeted). */
   | { kind: "open-with"; appId: AppId; windowId?: string; paths: string[]; label: string }
   /** Move desktop icons to another grid cell. */

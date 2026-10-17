@@ -120,11 +120,31 @@ describe("mouse drags", () => {
     expect(useDragStore.getState().session?.plan).toMatchObject({ kind: "transfer", label: "Move to Documents" });
 
     pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0 });
-    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", { x: 40, y: 40 });
+    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", { x: 40, y: 40 }, undefined);
     expect(target.hasAttribute("data-drop-active")).toBe(false);
     expect(isFileDragActive()).toBe(false);
     expect(useDragStore.getState().session).toBeNull();
     expect(document.body.classList.contains("is-file-dragging")).toBe(false);
+  });
+
+  it("tells the environment whether the drop landed on the desktop itself", () => {
+    nodes["/Documents/a.txt"] = file("/Documents/a.txt");
+    const drop = (props: Record<string, string | undefined>) => {
+      env.transfer.mockClear();
+      underPointer = [zone(props)];
+      press({ items: ["/Documents/a.txt"] });
+      pointer("pointermove", { clientX: 40, clientY: 40 });
+      pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0 });
+    };
+
+    drop(folderDropProps("/Desktop", { surface: "desktop" }));
+    expect(env.transfer).toHaveBeenCalledWith(["/Documents/a.txt"], "/Desktop", "move", { x: 40, y: 40 }, "desktop");
+
+    // Explorer's sidebar, a breadcrumb or a window showing the Desktop folder are not the desktop surface.
+    drop(folderDropProps("/Desktop", { windowId: "files-1" }));
+    expect(env.transfer).toHaveBeenCalledWith(["/Documents/a.txt"], "/Desktop", "move", { x: 40, y: 40 }, undefined);
+
+    delete nodes["/Documents/a.txt"];
   });
 
   it("copies when Ctrl is held on release", () => {
@@ -134,7 +154,7 @@ describe("mouse drags", () => {
     pointer("pointermove", { clientX: 40, clientY: 40 });
     pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0, ctrlKey: true });
 
-    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "copy", expect.anything());
+    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "copy", expect.anything(), undefined);
   });
 
   it("switches to creating links when Alt goes down mid-drag", () => {
@@ -236,7 +256,7 @@ describe("touch drags", () => {
 
     pointer("pointermove", { pointerType: "touch", clientX: 60, clientY: 60 });
     pointer("pointerup", { pointerType: "touch", clientX: 60, clientY: 60, buttons: 0 });
-    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", expect.anything());
+    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", expect.anything(), undefined);
   });
 
   it("open the context menu when held and lifted without moving", () => {

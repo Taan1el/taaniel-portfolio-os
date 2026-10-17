@@ -29,14 +29,21 @@ export interface DragEnvironment {
   getNodes: () => FileSystemRecord;
   /** The folder an Explorer window currently shows. */
   explorerPathOf: (windowId: string) => string | undefined;
-  transfer: (paths: string[], destination: string, operation: DragOperation, point: { x: number; y: number }) => unknown;
+  /** `surface` is "desktop" for a drop on the desktop itself, where the arrivals take the cell under `point`. */
+  transfer: (
+    paths: string[],
+    destination: string,
+    operation: DragOperation,
+    point: { x: number; y: number },
+    surface?: "desktop"
+  ) => unknown;
   openWith: (request: { appId: AppId; windowId?: string; paths: string[] }) => void;
   springOpen: (windowId: string, path: string) => void;
   activateWindow: (windowId: string) => void;
   /** Desktop only: move icons to the grid cell under the pointer. */
   reposition: (drop: { items: DragItem[]; x: number; y: number; grab: { x: number; y: number } }) => void;
   /** Right-button drag: show "Move here / Copy here / Create shortcuts here / Cancel". */
-  chooseOperation: (choice: { x: number; y: number; destination: string; paths: string[] }) => void;
+  chooseOperation: (choice: { x: number; y: number; destination: string; paths: string[]; surface?: "desktop" }) => void;
 }
 
 const defaultEnvironment: DragEnvironment = {
@@ -636,10 +643,10 @@ function finishDrag(drop: boolean) {
 
   switch (plan.kind) {
     case "transfer":
-      getEnvironment().transfer(plan.paths, plan.destination, plan.operation, { x, y });
+      getEnvironment().transfer(plan.paths, plan.destination, plan.operation, { x, y }, plan.surface);
       return;
     case "choose":
-      getEnvironment().chooseOperation({ x, y, destination: plan.destination, paths: plan.paths });
+      getEnvironment().chooseOperation({ x, y, destination: plan.destination, paths: plan.paths, surface: plan.surface });
       return;
     case "open-with":
       getEnvironment().openWith({ appId: plan.appId, windowId: plan.windowId, paths: plan.paths });

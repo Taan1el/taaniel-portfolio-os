@@ -2,7 +2,6 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { FilesIcon, FolderIcon } from "@/components/icons/apps";
-import { placeArrivalsOnDesktop } from "@/lib/dnd/desktop-placement";
 import { DESKTOP_PATH } from "@/data/desktop-seed";
 import { transferItems } from "@/lib/file-actions";
 import { listFolderChoices } from "@/lib/folder-tree";
@@ -53,14 +52,8 @@ function TransferDialogInner({ request, onClose }: { request: TransferRequest; o
     }
 
     onClose();
-    const result = await transferItems(request.paths, selected, request.operation);
-
-    if (selected === DESKTOP_PATH && result.transferred.length > 0) {
-      placeArrivalsOnDesktop(
-        result.transferred.map((entry) => entry.to),
-        { x: window.innerWidth / 2, y: window.innerHeight / 2 }
-      );
-    }
+    // Nobody pointed at a spot, so anything arriving on the desktop takes the first free cell.
+    await transferItems(request.paths, selected, request.operation);
   };
 
   const moveSelection = (offset: number | "first" | "last") => {
