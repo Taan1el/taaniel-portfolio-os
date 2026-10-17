@@ -3,6 +3,7 @@ import { getParentPath, isLockedNode, normalizePath } from "@/lib/filesystem";
 import { describeOperation, operationFromModifiers } from "@/lib/dnd/operation";
 import type { DragItem, DragModifiers, DragOperation, DragOrigin, DropPlan, DropZone } from "@/lib/dnd/types";
 import { getAppDefinition } from "@/lib/app-registry";
+import { isNotesNode } from "@/lib/notes";
 import { resolveShortcutNode } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
 import { SHELL_USER } from "@/lib/windows-path";
@@ -38,6 +39,11 @@ export function canAppOpenPath(nodes: FileSystemRecord, path: string, appId: App
 
   if (!target || target.kind !== "file") {
     return false;
+  }
+
+  // Notes only ever shows the notes in its own folder, whatever else could read a text file.
+  if (appId === "notes") {
+    return isNotesNode(target);
   }
 
   return getOpenWithOptions(target).includes(appId);

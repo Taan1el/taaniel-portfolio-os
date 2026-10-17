@@ -186,6 +186,21 @@ describe("resolveDropPlan onto windows and apps", () => {
     expect(canAppOpenPath(nodes, "/Desktop/About.lnk", "pdf")).toBe(false);
   });
 
+  it("opens a text file in the editor, but in Notes only the notes that live in its folder", () => {
+    const notes: FileSystemRecord = {
+      ...nodes,
+      "/Documents/Notes": dir("/Documents/Notes"),
+      "/Documents/Notes/idea.txt": file("/Documents/Notes/idea.txt", "txt", "text/plain"),
+    };
+    const onWindow = (path: string, appId: "editor" | "notes") =>
+      resolve({ nodes: notes, items: toItems(path), zone: { kind: "window", windowId: "w1", appId } });
+
+    expect(onWindow("/Desktop/todo.txt", "editor")).toMatchObject({ kind: "open-with", appId: "editor" });
+    expect(onWindow("/Desktop/todo.txt", "notes")).toEqual({ kind: "none" });
+    expect(onWindow("/Documents/Notes/idea.txt", "notes")).toMatchObject({ kind: "open-with", appId: "notes" });
+    expect(onWindow("/Desktop/pic.png", "editor")).toEqual({ kind: "none" });
+  });
+
   it("moves into the folder an Explorer window shows", () => {
     expect(
       resolve({
