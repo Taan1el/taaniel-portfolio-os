@@ -1,4 +1,5 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { useIsPresent } from "framer-motion";
 
 const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
@@ -38,10 +39,14 @@ interface UseFlyoutOptions {
  * Behaviour shared by the taskbar flyouts (Quick Settings, the clock):
  * focus moves in on open, Tab stays inside, Escape closes and hands focus
  * back to the taskbar button, and a press anywhere else closes without
- * stealing focus from what was pressed.
+ * stealing focus from what was pressed. Any other close (a button inside that
+ * launched an app, say) also hands focus to the taskbar button, provided the
+ * flyout is rendered through AnimatePresence so it is still mounted to do so.
  */
 export function useFlyout({ open, triggerId, panelRef, onClose, initialFocusRef }: UseFlyoutOptions) {
+  const isPresent = useIsPresent();
   const onCloseRef = useRef(onClose);
+  const pressedOutsideRef = useRef(false);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -104,6 +109,8 @@ export function useFlyout({ open, triggerId, panelRef, onClose, initialFocusRef 
         return;
       }
 
+      // Whatever was pressed takes focus itself; do not pull it back to the taskbar.
+      pressedOutsideRef.current = true;
       onCloseRef.current();
     };
 
@@ -117,11 +124,24 @@ export function useFlyout({ open, triggerId, panelRef, onClose, initialFocusRef 
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown, true);
-
-      // Focus left inside the panel would drop to <body> as it unmounts.
-      if (panelRef.current?.contains(document.activeElement)) {
-        getFlyoutTrigger(triggerId)?.focus({ preventScroll: true });
-      }
     };
   }, [initialFocusRef, open, panelRef, triggerId]);
+
+  // A flyout shown through AnimatePresence stays mounted for its exit, however it was closed
+  // (an action that launched an app, a shortcut, another overlay opening). Focus left inside
+  // it would fall to <body> when it unmounts, so hand it to the taskbar button first.
+  useLayoutEffect(() => {
+    if (isPresent) {
+      pressedOutsideRef.current = false;
+      return;
+    }
+
+    if (pressedOutsideRef.current) {
+      return;
+    }
+
+    if (panelRef.current?.contains(document.activeElement)) {
+      getFlyoutTrigger(triggerId)?.focus({ preventScroll: true });
+    }
+  }, [isPresent, panelRef, triggerId]);
 }
