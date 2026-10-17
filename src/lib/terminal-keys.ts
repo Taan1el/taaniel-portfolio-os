@@ -62,6 +62,9 @@ export type KeyDecision =
  */
 export const FOCUS_ESCAPE_KEY = "F6";
 
+/** Printed under the banner of every new tab, so the way out is found without reading the settings. */
+export const FOCUS_ESCAPE_HINT = "Keyboard: F6 moves focus out of the terminal (Shift+F6 goes back). Ctrl+Shift+Space opens the new tab menu.";
+
 function isAltGraph(event: KeyLike) {
   return Boolean(event.getModifierState?.("AltGraph"));
 }
