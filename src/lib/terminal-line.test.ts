@@ -12,6 +12,7 @@ import {
   insertText,
   LARGE_PASTE_LENGTH,
   MAX_LINE_LENGTH,
+  MAX_PASTE_LENGTH,
   moveTo,
   reviewPaste,
   sanitizePaste,
@@ -116,6 +117,10 @@ describe("paste", () => {
   it("drops control characters and expands tabs", () => {
     expect(sanitizePaste("a\tb\x03c\x1b[31md\x07")).toBe("a    bc[31md");
     expect(sanitizePaste("one\r\ntwo\nthree")).toBe("one\r\ntwo\nthree");
+  });
+
+  it("cuts a paste that is far too large to be typed", () => {
+    expect(sanitizePaste("x".repeat(MAX_PASTE_LENGTH * 3))).toHaveLength(MAX_PASTE_LENGTH);
   });
 
   it("asks first about several lines, or a very large paste", () => {
