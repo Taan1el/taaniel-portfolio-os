@@ -72,7 +72,6 @@ const explorerLocations: ExplorerSidebarLocation[] = [
   { label: "Portfolio", path: "/Portfolio", icon: FolderIcon },
   { label: "Pictures", path: "/Media/Photography", icon: PhotosIcon },
   { label: "Music", path: "/Media/Music", icon: MusicIcon },
-  { label: "Games", path: "/Games", icon: FolderIcon },
   { label: "Recycle Bin", path: TRASH_PATH, icon: RecycleBinEmptyIcon },
 ];
 
@@ -166,12 +165,13 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     [dragItems]
   );
 
-  const children = useMemo(
-    () => listDirectory(currentDirectoryPath),
+  const children = useMemo(() => {
+    const listed = listDirectory(currentDirectoryPath);
+    // The Recycle Bin is not a folder inside the profile folder in Windows; the navigation pane has it.
+    return currentDirectoryPath === "/" ? listed.filter((node) => node.path !== TRASH_PATH) : listed;
     // refreshTick re-reads the folder on F5 / Refresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentDirectoryPath, listDirectory, nodes, refreshTick]
-  );
+  }, [currentDirectoryPath, listDirectory, nodes, refreshTick]);
 
   const sortedChildren = useMemo(
     () => sortExplorerNodes(children, sortKey, sortDirection),
