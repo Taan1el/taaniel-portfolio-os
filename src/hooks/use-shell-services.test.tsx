@@ -2,12 +2,14 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useShellServices } from "@/hooks/use-shell-services";
+import { prefersStaticWallpaper } from "@/lib/device-capabilities";
 import { useDeviceStore } from "@/stores/device-store";
 import { useSystemSettingsStore } from "@/stores/system-settings-store";
 
+/** Stands in for the desktop: calls the hook and reads the wallpaper rule during render. */
 function Harness() {
-  const { batterySaver } = useShellServices();
-  return <span data-testid="saver">{String(batterySaver)}</span>;
+  useShellServices();
+  return <span data-testid="static-wallpaper">{String(prefersStaticWallpaper())}</span>;
 }
 
 const root = document.documentElement;
@@ -54,12 +56,16 @@ describe("useShellServices", () => {
     expect(root.hasAttribute("data-reduce-motion")).toBe(false);
   });
 
-  it("returns battery saver for the desktop's wallpaper", () => {
+  it("renders the desktop again when battery saver changes, so its wallpaper rule follows", () => {
+    vi.spyOn(window.navigator, "hardwareConcurrency", "get").mockReturnValue(8);
     const view = render(<Harness />);
-    expect(view.getByTestId("saver").textContent).toBe("false");
+    expect(view.getByTestId("static-wallpaper").textContent).toBe("false");
 
     act(() => useSystemSettingsStore.getState().setBatterySaver(true));
-    expect(view.getByTestId("saver").textContent).toBe("true");
+    expect(view.getByTestId("static-wallpaper").textContent).toBe("true");
+
+    act(() => useSystemSettingsStore.getState().setBatterySaver(false));
+    expect(view.getByTestId("static-wallpaper").textContent).toBe("false");
   });
 
   it("starts the device watchers and stops them on unmount", () => {

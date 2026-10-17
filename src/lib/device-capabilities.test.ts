@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prefersStaticWallpaper } from "@/lib/device-capabilities";
+import { useSystemSettingsStore } from "@/stores/system-settings-store";
 
 function mockNavigator(overrides: Record<string, unknown>) {
   const base = {
@@ -10,8 +11,13 @@ function mockNavigator(overrides: Record<string, unknown>) {
   vi.stubGlobal("navigator", { ...base, ...overrides });
 }
 
+beforeEach(() => {
+  useSystemSettingsStore.getState().resetSettings();
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  useSystemSettingsStore.getState().resetSettings();
 });
 
 describe("prefersStaticWallpaper", () => {
@@ -37,8 +43,11 @@ describe("prefersStaticWallpaper", () => {
 
   it("prefers static while battery saver is on, whatever the hardware", () => {
     mockNavigator({});
-    expect(prefersStaticWallpaper({ batterySaver: true })).toBe(true);
-    expect(prefersStaticWallpaper({ batterySaver: false })).toBe(false);
+    useSystemSettingsStore.getState().setBatterySaver(true);
+    expect(prefersStaticWallpaper()).toBe(true);
+
+    useSystemSettingsStore.getState().setBatterySaver(false);
+    expect(prefersStaticWallpaper()).toBe(false);
   });
 
   it("keeps animation when capability APIs are missing", () => {
