@@ -11,7 +11,7 @@ import {
   Settings,
   Trash2,
 } from "lucide-react";
-import { getDesktopNodeId, getDesktopNodePath } from "@/data/desktop-seed";
+import { DESKTOP_PATH, getDesktopNodeId, getDesktopNodePath } from "@/data/desktop-seed";
 import { themePresets } from "@/data/portfolio";
 import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { getContextMenuPoint } from "@/lib/context-menu-point";
@@ -227,12 +227,13 @@ export function DesktopShell() {
     openFileSystemPath(path, nodes, launchApp);
   };
 
-  // Files dragged in from the visitor's computer appear on the desktop where they were dropped.
+  // Files dragged in from the visitor's computer appear on the desktop where they were dropped, or go
+  // into the desktop folder they were dropped on.
   const importFilesIntoDesktop = useCallback(
-    async (files: File[], point: { x: number; y: number }) => {
-      const importedPaths = await importFiles("/Desktop", files);
+    async (files: File[], point: { x: number; y: number }, folder?: string) => {
+      const importedPaths = await importFiles(folder ?? DESKTOP_PATH, files);
 
-      if (importedPaths.length > 0) {
+      if (!folder && importedPaths.length > 0) {
         placeArrivalsOnDesktop(importedPaths, point);
         setSelectedIconIds(importedPaths.map(getDesktopNodeId));
       }
