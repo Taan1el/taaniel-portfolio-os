@@ -155,6 +155,13 @@ describe("protected system folders", () => {
     expect(await store().rename("/Desktop", "Elsewhere")).toBe("/Desktop");
     expect(store().nodes["/Elsewhere"]).toBeUndefined();
 
+    // The folders the apps depend on are locked too.
+    for (const path of ["/Documents/Notes", "/Media", "/Media/Music", "/Media/Photography", "/Portfolio", "/Trash"]) {
+      expect(store().canCutNode(path)).toBe(false);
+      // eslint-disable-next-line no-await-in-loop
+      expect(await store().rename(path, "Elsewhere")).toBe(path);
+    }
+
     expect(store().canCutNode("/Desktop")).toBe(false);
     expect(store().canCutNode("/Desktop/About.lnk")).toBe(true);
 
