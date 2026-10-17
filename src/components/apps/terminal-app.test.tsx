@@ -165,6 +165,38 @@ describe("the tab strip", () => {
     expect(mocks.focus).not.toHaveBeenCalled();
   });
 
+  it("clicking a tab brings it to the front and puts the cursor in its screen, not the one it replaced", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const first = newest().props.tabId as string;
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    const second = newest().props.tabId as string;
+    mocks.focus.mockClear();
+
+    fireEvent.click(screen.getAllByRole("tab")[0]);
+    expect(selectedTab()).toBe(screen.getAllByRole("tab")[0]);
+    expect(mocks.focus.mock.calls).toEqual([[first]]);
+
+    // A click on the tab that is already in front still returns the cursor to its screen.
+    mocks.focus.mockClear();
+    fireEvent.click(screen.getAllByRole("tab")[0]);
+    expect(mocks.focus.mock.calls).toEqual([[first]]);
+    expect(second).not.toBe(first);
+  });
+
+  it("does not pull focus away when a shell in a background tab exits", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const first = newest().props.tabId as string;
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    mocks.focus.mockClear();
+    const find = screen.getByRole("button", { name: "Terminal settings" });
+    find.focus();
+
+    act(() => events().onAction(first, { type: "exit" }));
+    expect(tabNames()).toHaveLength(1);
+    expect(mocks.focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(find);
+  });
+
   it("gives only the selected tab a tab stop", () => {
     render(<TerminalApp window={terminalWindow()} />);
     fireEvent.click(screen.getByRole("button", { name: "New tab" }));
