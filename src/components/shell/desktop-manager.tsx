@@ -106,8 +106,10 @@ export function DesktopManager({
 
   const focusIcon = useCallback(
     (id: string) => {
-      const element = gridSystem.containerRef.current?.querySelector<HTMLElement>(`[data-desktop-icon-id="${CSS.escape(id)}"]`);
-      element?.focus({ preventScroll: true });
+      const icons = gridSystem.containerRef.current?.querySelectorAll<HTMLElement>("[data-desktop-icon-id]");
+      Array.from(icons ?? [])
+        .find((element) => element.dataset.desktopIconId === id)
+        ?.focus({ preventScroll: true });
     },
     [gridSystem.containerRef]
   );
