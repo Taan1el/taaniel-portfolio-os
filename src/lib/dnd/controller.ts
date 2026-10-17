@@ -90,6 +90,12 @@ export interface ArmDragOptions {
   originWindowId?: string;
   /** Pointer offset inside the grabbed icon, in pixels (desktop repositioning). */
   grab?: { x: number; y: number };
+  /**
+   * The element that was pressed. A finger that holds on it and lifts without
+   * moving gets its context menu, as press-and-hold does in Windows, so a touch
+   * screen can reach Rename, Delete and "Move to..." without a right button.
+   */
+  contextTarget?: Element | null;
   /** Called once when the press turns into a real drag. */
   onStart?: () => void;
 }
@@ -605,9 +611,19 @@ function finishDrag(drop: boolean) {
   const items = drag.options.items;
   const grab = drag.options.grab ?? { x: 0, y: 0 };
   const rightButton = drag.button === 2;
+  const contextTarget = drag.options.contextTarget;
+  // Held and lifted without moving: that was a press-and-hold, not a drag.
+  const heldStill = drag.pointerType === "touch" && Math.hypot(x - drag.startX, y - drag.startY) < TOUCH_HOLD_SLOP;
 
   teardown();
   suppressClickAfterDrag();
+
+  if (drop && heldStill && contextTarget?.isConnected) {
+    contextTarget.dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 2 })
+    );
+    return;
+  }
 
   if (rightButton) {
     // Windows opens the context menu on release; our own menu replaces it.
