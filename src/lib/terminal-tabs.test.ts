@@ -33,12 +33,12 @@ describe("terminal tabs", () => {
     expect(createTab("a", "cmd", "/").title).toBe("Command Prompt");
   });
 
-  it("adds a tab after the active one and switches to it", () => {
+  it("adds a tab at the end of the strip and switches to it, whichever tab was active", () => {
     let state = createTabsState(createTab("a", "pwsh", "/"));
     state = addTab(state, createTab("b", "cmd", "/"));
     state = activateTab(state, "a");
     state = addTab(state, createTab("c", "pwsh", "/"));
-    expect(ids(state)).toBe("acb");
+    expect(ids(state)).toBe("abc");
     expect(state.activeId).toBe("c");
   });
 
@@ -50,11 +50,11 @@ describe("terminal tabs", () => {
     expect(duplicateTab(state, "t0", "extra")).toBe(state);
   });
 
-  it("duplicates a tab next to its source, in the folder it is in now", () => {
+  it("duplicates a tab into a new one at the end, in the folder it is in now", () => {
     const state = duplicateTab(three(), "b", "d", "/Desktop");
-    expect(ids(state)).toBe("abdc");
+    expect(ids(state)).toBe("abcd");
     expect(state.activeId).toBe("d");
-    expect(state.tabs[2]).toMatchObject({ profileId: "cmd", startPath: "/Desktop", title: "Command Prompt" });
+    expect(state.tabs[3]).toMatchObject({ profileId: "cmd", startPath: "/Desktop", title: "Command Prompt" });
     expect(duplicateTab(three(), "missing", "d")).toEqual(three());
   });
 
