@@ -69,11 +69,21 @@ export interface VolumeControlledEmulator {
       set_volume: (value: number, channel?: number) => void;
     };
   } | null;
+  add_listener?: (event: string, listener: () => void) => void;
+  remove_listener?: (event: string, listener: () => void) => void;
 }
 
 /** v86's mixer takes a linear gain; channel 2 sets left and right together. */
 const V86_MIXER_BOTH_CHANNELS = 2;
 
+/**
+ * v86 creates `speaker_adapter` only after its wasm has loaded, well after the
+ * constructor returns, so the first apply usually finds no mixer. These events
+ * all fire once it exists; applying again on each is cheap and idempotent.
+ */
+const V86_SPEAKER_READY_EVENTS = ["emulator-loaded", "emulator-ready", "emulator-started"];
+
+/** Keeps a v86 guest at the master volume, including a mute set before it booted. Returns a detach function. */
 export function attachV86Volume(emulator: VolumeControlledEmulator): () => void {
   const apply = () => {
     const { volume, muted } = getSystemSettings();
@@ -81,5 +91,11 @@ export function attachV86Volume(emulator: VolumeControlledEmulator): () => void 
   };
 
   apply();
-  return useSystemSettingsStore.subscribe(apply);
+  const unsubscribe = useSystemSettingsStore.subscribe(apply);
+  V86_SPEAKER_READY_EVENTS.forEach((event) => emulator.add_listener?.(event, apply));
+
+  return () => {
+    unsubscribe();
+    V86_SPEAKER_READY_EVENTS.forEach((event) => emulator.remove_listener?.(event, apply));
+  };
 }
