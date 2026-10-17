@@ -78,6 +78,38 @@ describe("desktop seeding", () => {
     expect(ensureDesktopShortcuts(seeded)).toBe(seeded);
   });
 
+  it("adds only the shortcuts a newer seed version introduces", async () => {
+    await store().deleteNode("/Desktop/About.lnk");
+    await store().deleteNodePermanently(`${TRASH_PATH}/About.lnk`);
+
+    const notes = {
+      name: "Notes.lnk",
+      since: 2,
+      legacyId: "notes-app",
+      target: { type: "app" as const, appId: "notes" as const },
+      defaultGridPosition: { gridX: 3, gridY: 0 },
+    };
+    const next = ensureDesktopShortcuts(store().nodes, 5, [...desktopShortcutSeeds, notes], 2);
+
+    expect(next["/Desktop/Notes.lnk"]).toMatchObject({ shortcut: { type: "app", appId: "notes" } });
+    // The shortcut the visitor deleted stays deleted, and the folder remembers it is up to date.
+    expect(next["/Desktop/About.lnk"]).toBeUndefined();
+    expect((next["/Desktop"] as VirtualDirectory).desktopSeedVersion).toBe(2);
+    expect(ensureDesktopShortcuts(next, 6, [...desktopShortcutSeeds, notes], 2)).toBe(next);
+  });
+
+  it("recreates a missing Desktop folder with its shortcuts", () => {
+    const nodes = { ...store().nodes };
+    Object.keys(nodes).forEach((path) => {
+      if (path === "/Desktop" || path.startsWith("/Desktop/")) delete nodes[path];
+    });
+
+    const repaired = ensureSystemWorkspace(nodes);
+
+    expect(repaired["/Desktop"]).toMatchObject({ kind: "directory" });
+    expect(repaired["/Desktop/About.lnk"]).toBeTruthy();
+  });
+
   it("maps every legacy icon id onto a seeded item", () => {
     expect(legacyDesktopIconIds["about-app"]).toBe(getDesktopNodeId("/Desktop/About.lnk"));
     expect(legacyDesktopIconIds.trash).toBe(RECYCLE_BIN_DESKTOP_ID);
