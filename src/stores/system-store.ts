@@ -1,6 +1,9 @@
 import { create } from "zustand";
-import { desktopEntries } from "@/data/portfolio";
 import { canLaunchMultiple, getAppDefinition } from "@/lib/app-registry";
+import { buildDesktopEntries } from "@/lib/desktop-entries";
+import { resolveOpenApp } from "@/lib/file-registry";
+import { normalizePath } from "@/lib/filesystem";
+import { resolveShortcutNode } from "@/lib/shortcuts";
 import {
   buildAppWindows,
   clampWindowBoundsToViewport,
@@ -14,7 +17,9 @@ import {
   LEGACY_SYSTEM_STORAGE_KEY,
 } from "@/stores/system-runtime";
 import { useExplorerStore } from "@/stores/explorer-store";
+import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
+import { trackRecentFile } from "@/stores/recent-files-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useWindowStore } from "@/stores/window-store";
 import type {
@@ -56,6 +61,11 @@ interface SystemState {
   focusedWindowId: string | null;
   focusedProcessId: string | null;
   launchApp: (options: LaunchAppOptions) => string;
+  /**
+   * Open a file in a window that is already open (a file dropped on it).
+   * Viewers switch to the file; editors open a new window, so unsaved text is never lost.
+   */
+  openFileInWindow: (windowId: string, filePath: string) => void;
   bringToFront: (windowId: string) => void;
   focusWindow: (windowId: string) => void;
   closeWindow: (windowId: string) => void;
@@ -197,7 +207,39 @@ function findReusableWindow(windows: AppWindow[], appId: AppId, payload?: Window
   });
 }
 
+/** Apps where the open file holds edits, so a dropped file gets a window of its own. */
+const EDITOR_APP_IDS: ReadonlySet<AppId> = new Set<AppId>(["editor", "paint", "notes"]);
+
 const systemActions: Omit<SystemState, keyof ReturnType<typeof getRuntimeViewState>> = {
+  openFileInWindow: (windowId, filePath) => {
+    const nodes = useFileSystemStore.getState().nodes;
+    const saved = nodes[normalizePath(filePath)];
+    // A shortcut opens what it points at.
+    const node = saved?.kind === "file" && saved.shortcut ? resolveShortcutNode(nodes, saved) : saved;
+    const target = buildAppWindows(useWindowStore.getState().windows, useProcessStore.getState().processes).find(
+      (windowState) => windowState.id === windowId
+    );
+
+    if (!node || node.kind !== "file") {
+      return;
+    }
+
+    trackRecentFile(node.path);
+
+    if (!target || EDITOR_APP_IDS.has(target.appId)) {
+      systemActions.launchApp({
+        appId: target?.appId ?? resolveOpenApp(node),
+        payload: { filePath: node.path },
+      });
+      return;
+    }
+
+    const nextPayload = { ...target.payload, filePath: node.path };
+
+    useProcessStore.getState().updateProcess(target.processId, { launchPayload: nextPayload });
+    useWindowStore.getState().setWindowTitle(windowId, resolveWindowTitle(target.appId, nextPayload));
+    useWindowStore.getState().focusWindow(windowId);
+  },
   launchApp: ({ appId, payload, title }) => {
     const definition = getAppDefinition(appId);
     const currentWindows = buildAppWindows(
@@ -396,6 +438,7 @@ syncProcessRuntime();
 syncShellRuntime();
 syncSystemFacadeState();
 
+/** The icons on the desktop right now: the files in /Desktop and the Recycle Bin. */
 export function getDesktopEntries() {
-  return desktopEntries;
+  return buildDesktopEntries(useFileSystemStore.getState().nodes);
 }

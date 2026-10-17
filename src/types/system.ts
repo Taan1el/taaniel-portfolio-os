@@ -119,16 +119,20 @@ export interface DesktopPlacementResult {
   displacedEntryId?: string;
 }
 
-export type DesktopEntryType = "app" | "file" | "folder" | "link";
+/**
+ * "node": a file, folder or shortcut in /Desktop. "recycle-bin": the one
+ * system icon, which (as in Windows) is not a file in the Desktop folder.
+ */
+export type DesktopEntryKind = "node" | "recycle-bin";
 
 export interface DesktopEntry {
+  /** "desktop-node:<path>" for items in /Desktop, "system:recycle-bin" for the Recycle Bin. */
   id: string;
+  kind: DesktopEntryKind;
+  /** The item's filesystem path (the Recycle Bin folder for the Recycle Bin). */
+  path: string;
+  /** What the icon shows: the name, with .lnk hidden. */
   label: string;
-  type: DesktopEntryType;
-  appId?: AppId;
-  filePath?: string;
-  directoryPath?: string;
-  externalUrl?: string;
   defaultGridPosition: DesktopGridPosition;
 }
 

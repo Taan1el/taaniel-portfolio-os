@@ -1,75 +1,11 @@
-import { useRef, useState } from "react";
-import {
-  BrowserIcon,
-  EditorIcon,
-  FileIcon,
-  FolderIcon,
-  PdfIcon,
-  PhotosIcon,
-  PortfolioIcon,
-  RecycleBinEmptyIcon,
-  RecycleBinFullIcon,
-} from "@/components/icons/apps";
-import { TRASH_PATH } from "@/lib/system-workspace";
-import { useFileSystemStore } from "@/stores/filesystem-store";
-import { getAppDefinition } from "@/lib/app-registry";
+import { memo, useCallback, useRef, useState } from "react";
+import { RecycleBinEmptyIcon, RecycleBinFullIcon } from "@/components/icons/apps";
+import { NodeIcon } from "@/components/icons/node-icon";
+import { InlineRenameInput } from "@/components/system/inline-rename-input";
+import { appDropProps } from "@/lib/dnd/dom";
 import { cn } from "@/lib/utils";
 import { useSystemStore } from "@/stores/system-store";
-import type { DesktopEntry, DesktopGridMetrics, VirtualNode } from "@/types/system";
-
-const TOUCH_DRAG_DELAY_MS = 280;
-
-/** Accent colour for non-app desktop entries (files / folders). */
-function resolveFileAccent(entry: DesktopEntry, node?: VirtualNode): string | undefined {
-  if (entry.id === "trash") return "#ff6b6b";
-  if (entry.type === "folder") return "#ffb84d";
-  if (node?.kind === "file") {
-    if (node.mimeType.startsWith("image/")) return "#a78bfa";
-    if (node.extension === "pdf") return "#fb923c";
-    if (["ts", "tsx", "js", "jsx"].includes(node.extension)) return "#34d399";
-    if (["css", "html"].includes(node.extension)) return "#60a5fa";
-    if (["md", "txt"].includes(node.extension)) return "#94a3b8";
-  }
-  return "#94a3b8";
-}
-
-function resolveIcon(entry: DesktopEntry, node: VirtualNode | undefined, trashHasItems: boolean) {
-  if (entry.type === "app" && entry.appId) {
-    return getAppDefinition(entry.appId).icon;
-  }
-
-  if (entry.id === "trash") {
-    return trashHasItems ? RecycleBinFullIcon : RecycleBinEmptyIcon;
-  }
-
-  if (entry.type === "folder") {
-    return FolderIcon;
-  }
-
-  if (entry.type === "link") {
-    // Links inside this site (the quick portfolio page) carry the portfolio mark, not a browser icon.
-    return entry.externalUrl?.startsWith("/") ? PortfolioIcon : BrowserIcon;
-  }
-
-  if (node?.kind === "file" && node.mimeType.startsWith("image/")) {
-    return PhotosIcon;
-  }
-
-  if (node?.kind === "file" && ["ts", "tsx", "js", "jsx", "css", "html"].includes(node.extension)) {
-    return EditorIcon;
-  }
-
-  if (node?.kind === "file" && node.extension === "pdf") {
-    return PdfIcon;
-  }
-
-  return FileIcon;
-}
-
-interface DesktopIconShellProps {
-  entry: DesktopEntry;
-  node?: VirtualNode;
-}
+import type { AppId, DesktopEntry, DesktopGridMetrics, VirtualNode } from "@/types/system";
 
 /** Let filenames wrap before the extension ("Resume" / ".pdf") instead of mid-word. */
 function renderIconLabel(label: string) {
@@ -88,20 +24,21 @@ function renderIconLabel(label: string) {
   );
 }
 
-function DesktopIconContent({ entry, node }: DesktopIconShellProps) {
-  const trashHasItems = useFileSystemStore((state) =>
-    Object.keys(state.nodes).some((path) => path.startsWith(`${TRASH_PATH}/`)),
-  );
-  const Icon = resolveIcon(entry, node, trashHasItems);
+interface DesktopIconGlyphProps {
+  entry: DesktopEntry;
+  node?: VirtualNode;
+  recycleBinFull: boolean;
+  size?: number;
+}
 
-  return (
-    <>
-      <span className="desktop-icon__glyph">
-        <Icon size={48} />
-      </span>
-      <span className="desktop-icon__label">{renderIconLabel(entry.label)}</span>
-    </>
-  );
+/** The picture on a desktop icon: the Recycle Bin, or the file, folder or shortcut it stands for. */
+export function DesktopIconGlyph({ entry, node, recycleBinFull, size = 48 }: DesktopIconGlyphProps) {
+  if (entry.kind === "recycle-bin") {
+    const Icon = recycleBinFull ? RecycleBinFullIcon : RecycleBinEmptyIcon;
+    return <Icon size={size} />;
+  }
+
+  return node ? <NodeIcon node={node} size={size} /> : null;
 }
 
 interface DesktopIconProps {
@@ -110,72 +47,70 @@ interface DesktopIconProps {
   pixelPosition: { x: number; y: number };
   gridMetrics: DesktopGridMetrics;
   selected: boolean;
-  /** True while this icon is the active drag source (mousedown / drag session). */
-  dragging?: boolean;
-  /** After the pointer moves, detach hit-testing so clicks pass through the faded cell. */
-  dragPointerSink?: boolean;
-  onActivate: () => void;
-  onSelect: () => void;
-  onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  onPointerStart: (
-    pointer: { clientX: number; clientY: number; pointerId: number; pointerType: string },
-    snapshot: { left: number; top: number; width: number; height: number }
-  ) => void;
+  /** The icon that takes the keyboard focus when the desktop is tabbed to. */
+  tabbable: boolean;
+  renaming: boolean;
+  /** Cut to the clipboard: drawn faded until pasted. */
+  cut: boolean;
+  /** Part of the drag in progress. */
+  dragSource: boolean;
+  recycleBinFull: boolean;
+  onPointerDown: (entry: DesktopEntry, event: React.PointerEvent<HTMLElement>) => void;
+  onActivate: (entry: DesktopEntry) => void;
+  onContextMenu: (entry: DesktopEntry, event: React.MouseEvent<HTMLElement>) => void;
+  onCommitRename: (entry: DesktopEntry, name: string) => void;
+  onCancelRename: () => void;
 }
 
-export function DesktopIcon({
+export const DesktopIcon = memo(function DesktopIcon({
   entry,
   node,
   pixelPosition,
   gridMetrics,
   selected,
-  dragging,
-  dragPointerSink,
+  tabbable,
+  renaming,
+  cut,
+  dragSource,
+  recycleBinFull,
+  onPointerDown,
   onActivate,
-  onSelect,
   onContextMenu,
-  onPointerStart,
+  onCommitRename,
+  onCancelRename,
 }: DesktopIconProps) {
-  const longPressTimeoutRef = useRef<number | null>(null);
-  const longPressTriggeredRef = useRef(false);
+  const lastPointerType = useRef("mouse");
   const [launching, setLaunching] = useState(false);
 
-  const triggerLaunch = () => {
-    setLaunching(true);
-    window.setTimeout(() => setLaunching(false), 400);
-    onActivate();
-  };
-
-  const isWindowOpen = useSystemStore((state) =>
-    entry.type === "app" && entry.appId
-      ? state.windows.some((w) => w.appId === entry.appId)
-      : false
+  // The app a shortcut runs, so its icon can show a window of it is open.
+  const shortcutAppId: AppId | null = node?.kind === "file" && node.shortcut?.type === "app" ? node.shortcut.appId : null;
+  const isWindowOpen = useSystemStore(
+    useCallback((state) => (shortcutAppId ? state.windows.some((window) => window.appId === shortcutAppId) : false), [shortcutAppId])
   );
 
-  const appAccent =
-    entry.type === "app" && entry.appId
-      ? getAppDefinition(entry.appId).accent
-      : resolveFileAccent(entry, node);
-
-  const clearLongPressTimeout = () => {
-    if (longPressTimeoutRef.current === null) {
-      return;
-    }
-
-    window.clearTimeout(longPressTimeoutRef.current);
-    longPressTimeoutRef.current = null;
+  const activate = () => {
+    setLaunching(true);
+    window.setTimeout(() => setLaunching(false), 400);
+    onActivate(entry);
   };
 
   return (
-    <button
-      type="button"
-      aria-label={`Open ${entry.label}`}
+    <div
+      role="option"
+      aria-selected={selected}
+      aria-label={entry.label}
+      tabIndex={tabbable ? 0 : -1}
+      data-desktop-icon-id={entry.id}
+      data-path={entry.kind === "node" ? entry.path : undefined}
+      // A desktop icon that runs an app is also a drop target: drop a file on it to open the file there.
+      {...(shortcutAppId ? appDropProps(shortcutAppId) : {})}
       className={cn(
         "desktop-icon",
         "desktop-icon-button",
         selected && "is-selected",
-        dragging && "is-dragging",
-        dragPointerSink && "is-dragging-sink",
+        cut && "is-cut",
+        dragSource && "is-drag-source",
+        renaming && "is-renaming",
         launching && "is-launching"
       )}
       style={
@@ -184,116 +119,40 @@ export function DesktopIcon({
           top: pixelPosition.y,
           "--desktop-cell-width": `${gridMetrics.cellWidth}px`,
           "--desktop-cell-height": `${gridMetrics.cellHeight}px`,
-          ...(appAccent ? { "--app-accent": appAccent } : {}),
         } as React.CSSProperties
       }
       onPointerDown={(event) => {
-        event.stopPropagation();
-        onSelect();
-
-        if (event.button !== 0) {
-          return;
-        }
-
-        const element = event.currentTarget.getBoundingClientRect();
-        const snapshot = {
-          left: element.left,
-          top: element.top,
-          width: element.width,
-          height: element.height,
-        };
-
-        if (event.pointerType === "touch") {
-          longPressTriggeredRef.current = false;
-          longPressTimeoutRef.current = window.setTimeout(() => {
-            longPressTriggeredRef.current = true;
-            onPointerStart(
-              {
-                clientX: event.clientX,
-                clientY: event.clientY,
-                pointerId: event.pointerId,
-                pointerType: event.pointerType,
-              },
-              snapshot
-            );
-          }, TOUCH_DRAG_DELAY_MS);
-          return;
-        }
-
-        onPointerStart(
-          {
-            clientX: event.clientX,
-            clientY: event.clientY,
-            pointerId: event.pointerId,
-            pointerType: event.pointerType,
-          },
-          snapshot
-        );
+        lastPointerType.current = event.pointerType || "mouse";
+        onPointerDown(entry, event);
       }}
-      onPointerUp={(event) => {
-        if (event.pointerType !== "touch") {
-          return;
-        }
-
-        clearLongPressTimeout();
-
-        if (!longPressTriggeredRef.current) {
-          triggerLaunch();
-        }
-
-        longPressTriggeredRef.current = false;
-      }}
-      onPointerCancel={() => {
-        clearLongPressTimeout();
-        longPressTriggeredRef.current = false;
-      }}
-      onPointerLeave={() => {
-        if (dragging) {
-          return;
-        }
-
-        clearLongPressTimeout();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          triggerLaunch();
+      // A mouse or pen opens on double-click, as Windows does; a finger opens on a tap.
+      onClick={() => {
+        if (lastPointerType.current === "touch" && !renaming) {
+          activate();
         }
       }}
-      onContextMenu={onContextMenu}
+      onDoubleClick={() => {
+        if (lastPointerType.current !== "touch" && !renaming) {
+          activate();
+        }
+      }}
+      onContextMenu={(event) => onContextMenu(entry, event)}
     >
-      <DesktopIconContent
-        entry={entry}
-        node={node}
-      />
-      {isWindowOpen && (
-        <span className="desktop-icon__active-dot" aria-hidden="true" />
+      <span className="desktop-icon__glyph">
+        <DesktopIconGlyph entry={entry} node={node} recycleBinFull={recycleBinFull} />
+      </span>
+      {renaming ? (
+        <InlineRenameInput
+          initialName={entry.label}
+          multiline
+          className="desktop-icon__rename"
+          onCommit={(name) => onCommitRename(entry, name)}
+          onCancel={onCancelRename}
+        />
+      ) : (
+        <span className="desktop-icon__label">{renderIconLabel(entry.label)}</span>
       )}
-    </button>
+      {isWindowOpen ? <span className="desktop-icon__active-dot" aria-hidden="true" /> : null}
+    </div>
   );
-}
-
-interface DesktopIconGhostProps {
-  entry: DesktopEntry;
-  node?: VirtualNode;
-  pixelPosition: { x: number; y: number };
-  gridMetrics: DesktopGridMetrics;
-}
-
-export function DesktopIconGhost(props: DesktopIconGhostProps) {
-  return (
-    <span
-      className="desktop-icon desktop-drag-ghost"
-      style={
-        {
-          left: props.pixelPosition.x,
-          top: props.pixelPosition.y,
-          "--desktop-cell-width": `${props.gridMetrics.cellWidth}px`,
-          "--desktop-cell-height": `${props.gridMetrics.cellHeight}px`,
-        } as React.CSSProperties
-      }
-    >
-      <DesktopIconContent entry={props.entry} node={props.node} />
-    </span>
-  );
-}
+});

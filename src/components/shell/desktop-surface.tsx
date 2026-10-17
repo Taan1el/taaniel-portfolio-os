@@ -1,192 +1,159 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { DesktopIcon, DesktopIconGhost } from "@/components/shell/desktop-icon";
-import { getGridPositionFromRect } from "@/lib/desktop-grid";
-import type { DesktopEntry, DesktopGridMetrics, DesktopGridPosition, VirtualNode } from "@/types/system";
-
-function hasFilePayload(event: React.DragEvent<HTMLElement>) {
-  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
-}
+import { DesktopIcon } from "@/components/shell/desktop-icon";
+import { DESKTOP_PATH, getDesktopNodeId } from "@/data/desktop-seed";
+import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
+import { planIconArrivals, planIconMove, type DesktopGeometry } from "@/lib/desktop-drop";
+import { configureDragEnvironment } from "@/lib/dnd/controller";
+import { registerDesktopPlacement } from "@/lib/dnd/desktop-placement";
+import { folderDropProps } from "@/lib/dnd/dom";
+import { useDragStore } from "@/lib/dnd/drag-store";
+import { hasExternalFiles } from "@/lib/drag-payload";
+import type {
+  DesktopEntry,
+  DesktopGridMetrics,
+  DesktopGridPosition,
+  FileSystemRecord,
+} from "@/types/system";
 
 interface DesktopSurfaceProps {
   entries: DesktopEntry[];
-  nodes: Record<string, VirtualNode>;
-  selectedIconId: string | null;
+  nodes: FileSystemRecord;
+  selectedIds: string[];
+  activeId: string | null;
+  renamingId: string | null;
+  cutPaths: ReadonlySet<string>;
+  recycleBinFull: boolean;
   iconPositions: Record<string, DesktopGridPosition>;
   containerRef: RefObject<HTMLDivElement>;
   gridMetrics: DesktopGridMetrics;
   toPixels: (position: DesktopGridPosition) => { x: number; y: number };
-  onSelectIcon: (iconId: string | null) => void;
+  onSelectionChange: (ids: string[], activeId?: string | null) => void;
+  onIconPointerDown: (entry: DesktopEntry, event: React.PointerEvent<HTMLElement>) => void;
   onActivateEntry: (entry: DesktopEntry) => void;
-  onMoveIcon: (iconId: string, position: DesktopGridPosition) => void;
+  onPlaceIcons: (placements: Record<string, DesktopGridPosition>) => void;
   onDesktopContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
-  onEntryContextMenu: (event: React.MouseEvent<HTMLButtonElement>, entry: DesktopEntry) => void;
-  onImportFiles: (files: File[]) => Promise<void>;
-}
-
-interface DesktopDragState {
-  iconId: string;
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  offsetX: number;
-  offsetY: number;
-  startClientX: number;
-  startClientY: number;
-  moved: boolean;
-  targetPosition: DesktopGridPosition;
-  pointerType: string;
+  onEntryContextMenu: (entry: DesktopEntry, event: React.MouseEvent<HTMLElement>) => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+  onCommitRename: (entry: DesktopEntry, name: string) => void;
+  onCancelRename: () => void;
+  onImportFiles: (files: File[], point: { x: number; y: number }) => Promise<void>;
 }
 
 export function DesktopSurface({
   entries,
   nodes,
-  selectedIconId,
+  selectedIds,
+  activeId,
+  renamingId,
+  cutPaths,
+  recycleBinFull,
   iconPositions,
   containerRef,
   gridMetrics,
   toPixels,
-  onSelectIcon,
+  onSelectionChange,
+  onIconPointerDown,
   onActivateEntry,
-  onMoveIcon,
+  onPlaceIcons,
   onDesktopContextMenu,
   onEntryContextMenu,
+  onKeyDown,
+  onCommitRename,
+  onCancelRename,
   onImportFiles,
 }: DesktopSurfaceProps) {
   const [dragActive, setDragActive] = useState(false);
-  const [dragState, setDragState] = useState<DesktopDragState | null>(null);
-  const dragStateRef = useRef<DesktopDragState | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const dragSession = useDragStore((state) => state.session);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const tabStopId = entries.some((entry) => entry.id === activeId) ? activeId : (entries[0]?.id ?? null);
 
-  useEffect(() => {
-    if (!dragStateRef.current) {
-      return;
+  const marquee = useMarqueeSelection({
+    contentRef: gridRef,
+    itemSelector: "[data-desktop-icon-id]",
+    getItemId: (element) => element.dataset.desktopIconId ?? null,
+    getSelection: () => selectedIds,
+    onSelectionChange: (ids) => onSelectionChange(ids),
+  });
+
+  const getGeometry = useCallback((): DesktopGeometry | null => {
+    const container = containerRef.current;
+
+    if (!container) {
+      return null;
     }
 
-    const handlePointerMove = (event: PointerEvent) => {
-      const currentDragState = dragStateRef.current;
-      const container = containerRef.current;
+    const bounds = container.getBoundingClientRect();
+    return { container: { left: bounds.left, top: bounds.top }, metrics: gridMetrics };
+  }, [containerRef, gridMetrics]);
 
-      if (!currentDragState || !container) {
-        dragStateRef.current = null;
-        setDragState(null);
-        return;
-      }
+  // Dropping desktop icons on the desktop moves them to the cell under them.
+  useEffect(
+    () =>
+      configureDragEnvironment({
+        reposition: ({ items, x, y, grab }) => {
+          const geometry = getGeometry();
+          const iconIds = items.map((item) => item.id);
 
-      const containerRect = container.getBoundingClientRect();
-      const nextLeft = Math.max(
-        0,
-        Math.min(
-          event.clientX - containerRect.left - currentDragState.offsetX,
-          containerRect.width - currentDragState.width
-        )
-      );
-      const nextTop = Math.max(
-        0,
-        Math.min(
-          event.clientY - containerRect.top - currentDragState.offsetY,
-          containerRect.height - currentDragState.height
-        )
-      );
-      const moved =
-        currentDragState.moved ||
-        Math.abs(event.clientX - currentDragState.startClientX) > 4 ||
-        Math.abs(event.clientY - currentDragState.startClientY) > 4;
-      const targetPosition = getGridPositionFromRect(
-        {
-          left: containerRect.left + nextLeft,
-          top: containerRect.top + nextTop,
-          width: currentDragState.width,
-          height: currentDragState.height,
+          if (geometry && iconIds.length > 0) {
+            onPlaceIcons(planIconMove({ positions: iconPositions, iconIds, anchorId: iconIds[0], pointer: { x, y }, grab, geometry }));
+          }
         },
-        containerRect,
-        gridMetrics
-      );
+      }),
+    [getGeometry, iconPositions, onPlaceIcons]
+  );
 
-      const nextState = {
-        ...currentDragState,
-        left: nextLeft,
-        top: nextTop,
-        moved,
-        targetPosition,
-      };
+  // Files dragged in from other windows land where they were dropped.
+  useEffect(
+    () =>
+      registerDesktopPlacement((paths, point) => {
+        const geometry = getGeometry();
 
-      dragStateRef.current = nextState;
-      setDragState(nextState);
-    };
-
-    const finishDrag = (commit: boolean) => {
-      const currentDragState = dragStateRef.current;
-
-      if (commit && currentDragState?.moved) {
-        onMoveIcon(currentDragState.iconId, currentDragState.targetPosition);
-      } else if (
-        commit &&
-        currentDragState &&
-        !currentDragState.moved &&
-        currentDragState.pointerType !== "touch"
-      ) {
-        const entry = entries.find((item) => item.id === currentDragState.iconId);
-        if (entry) {
-          onActivateEntry(entry);
+        if (geometry) {
+          onPlaceIcons(
+            planIconArrivals({ positions: iconPositions, iconIds: paths.map((path) => getDesktopNodeId(path)), pointer: point, geometry })
+          );
         }
-      }
+      }),
+    [getGeometry, iconPositions, onPlaceIcons]
+  );
 
-      delete document.body.dataset.desktopDragLock;
-      document.body.style.removeProperty("overflow");
-      dragStateRef.current = null;
-      setDragState(null);
-    };
+  // Where the dragged icons would land if released now.
+  const previewCells = useMemo(() => {
+    if (dragSession?.origin !== "desktop" || dragSession.plan.kind !== "reposition") {
+      return [];
+    }
 
-    const handlePointerUp = () => finishDrag(true);
-    const handlePointerCancel = () => finishDrag(false);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        finishDrag(false);
-      }
-    };
+    const geometry = getGeometry();
+    const iconIds = dragSession.items.map((item) => item.id);
 
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerCancel);
-    window.addEventListener("keydown", handleKeyDown);
+    if (!geometry || iconIds.length === 0) {
+      return [];
+    }
 
-    return () => {
-      delete document.body.dataset.desktopDragLock;
-      document.body.style.removeProperty("overflow");
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerCancel);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [
-    containerRef,
-    dragState !== null,
-    entries,
-    gridMetrics.cellHeight,
-    gridMetrics.cellWidth,
-    gridMetrics.columns,
-    gridMetrics.paddingX,
-    gridMetrics.paddingY,
-    gridMetrics.rows,
-    onActivateEntry,
-    onMoveIcon,
-  ]);
+    return Object.values(
+      planIconMove({
+        positions: iconPositions,
+        iconIds,
+        anchorId: iconIds[0],
+        pointer: { x: dragSession.x, y: dragSession.y },
+        grab: dragSession.grab,
+        geometry,
+      })
+    );
+  }, [dragSession, getGeometry, iconPositions]);
 
-  const dragPreview = dragState?.moved
-    ? {
-        iconId: dragState.iconId,
-        targetPosition: dragState.targetPosition,
-      }
-    : null;
-  const draggedEntry = dragState ? entries.find((entry) => entry.id === dragState.iconId) : undefined;
-  const draggedPath = draggedEntry?.filePath ?? draggedEntry?.directoryPath;
-  const draggedNode = draggedPath ? nodes[draggedPath] : undefined;
+  const dragSourceIds = useMemo(() => new Set(dragSession?.items.map((item) => item.id) ?? []), [dragSession?.items]);
 
   return (
     <div
       ref={containerRef}
       className="desktop-surface"
+      role="listbox"
+      aria-label="Desktop"
+      aria-multiselectable="true"
+      tabIndex={-1}
       style={
         {
           "--desktop-columns": gridMetrics.columns,
@@ -197,10 +164,26 @@ export function DesktopSurface({
           "--desktop-grid-padding-y": `${gridMetrics.paddingY}px`,
         } as React.CSSProperties
       }
-      onPointerDown={() => onSelectIcon(null)}
+      // The desktop is the folder /Desktop: a drop target like any other folder.
+      {...folderDropProps(DESKTOP_PATH, { surface: "desktop" })}
+      onPointerDown={(event) => {
+        if ((event.target as HTMLElement).closest("[data-desktop-icon-id]")) {
+          return;
+        }
+
+        event.currentTarget.focus({ preventScroll: true });
+
+        // Pressing the bare desktop deselects, as in Windows; Ctrl and Shift keep the selection.
+        if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+          onSelectionChange([]);
+        }
+
+        marquee.onPointerDown(event);
+      }}
       onContextMenu={onDesktopContextMenu}
+      onKeyDown={onKeyDown}
       onDragEnter={(event) => {
-        if (!hasFilePayload(event)) {
+        if (!hasExternalFiles(event.dataTransfer)) {
           return;
         }
 
@@ -208,7 +191,7 @@ export function DesktopSurface({
         setDragActive(true);
       }}
       onDragLeave={(event) => {
-        if (!hasFilePayload(event)) {
+        if (!hasExternalFiles(event.dataTransfer)) {
           return;
         }
 
@@ -222,7 +205,7 @@ export function DesktopSurface({
         setDragActive(false);
       }}
       onDragOver={(event) => {
-        if (!hasFilePayload(event)) {
+        if (!hasExternalFiles(event.dataTransfer)) {
           return;
         }
 
@@ -230,36 +213,34 @@ export function DesktopSurface({
         event.dataTransfer.dropEffect = "copy";
       }}
       onDrop={(event) => {
-        if (!hasFilePayload(event)) {
+        if (!hasExternalFiles(event.dataTransfer)) {
           return;
         }
 
         event.preventDefault();
         setDragActive(false);
-        void onImportFiles(Array.from(event.dataTransfer.files));
+        void onImportFiles(Array.from(event.dataTransfer.files), { x: event.clientX, y: event.clientY });
       }}
     >
-      <div className="desktop-surface__grid">
-        {dragPreview ? (
+      <div ref={gridRef} className="desktop-surface__grid">
+        {previewCells.map((cell) => (
           <div
+            key={`${cell.gridX}:${cell.gridY}`}
             className="desktop-surface__cell-preview"
             style={
               {
-                left: toPixels(dragPreview.targetPosition).x,
-                top: toPixels(dragPreview.targetPosition).y,
+                left: toPixels(cell).x,
+                top: toPixels(cell).y,
                 width: `${gridMetrics.cellWidth}px`,
                 height: `${gridMetrics.cellHeight}px`,
               } as React.CSSProperties
             }
           />
-        ) : null}
+        ))}
 
         {entries.map((entry) => {
-          const targetPath = entry.filePath ?? entry.directoryPath;
-          const node = targetPath ? nodes[targetPath] : undefined;
+          const node = entry.kind === "node" ? nodes[entry.path] : undefined;
           const position = iconPositions[entry.id] ?? entry.defaultGridPosition;
-          const dragging = dragState?.iconId === entry.id;
-          const dragPointerSink = Boolean(dragging && dragState?.moved);
 
           return (
             <DesktopIcon
@@ -268,62 +249,26 @@ export function DesktopSurface({
               node={node}
               pixelPosition={toPixels(position)}
               gridMetrics={gridMetrics}
-              selected={selectedIconId === entry.id}
-              dragging={dragging}
-              dragPointerSink={dragPointerSink}
-              onSelect={() => onSelectIcon(entry.id)}
-              onActivate={() => onActivateEntry(entry)}
-              onContextMenu={(event) => onEntryContextMenu(event, entry)}
-              onPointerStart={(pointer, snapshot) => {
-                const container = containerRef.current;
-
-                if (!container) {
-                  return;
-                }
-
-                const containerRect = container.getBoundingClientRect();
-                document.body.dataset.desktopDragLock = "true";
-                document.body.style.overflow = "hidden";
-
-                setDragState({
-                  iconId: entry.id,
-                  left: snapshot.left - containerRect.left,
-                  top: snapshot.top - containerRect.top,
-                  width: snapshot.width,
-                  height: snapshot.height,
-                  offsetX: pointer.clientX - snapshot.left,
-                  offsetY: pointer.clientY - snapshot.top,
-                  startClientX: pointer.clientX,
-                  startClientY: pointer.clientY,
-                  moved: false,
-                  targetPosition: position,
-                  pointerType: pointer.pointerType,
-                });
-                dragStateRef.current = {
-                  iconId: entry.id,
-                  left: snapshot.left - containerRect.left,
-                  top: snapshot.top - containerRect.top,
-                  width: snapshot.width,
-                  height: snapshot.height,
-                  offsetX: pointer.clientX - snapshot.left,
-                  offsetY: pointer.clientY - snapshot.top,
-                  startClientX: pointer.clientX,
-                  startClientY: pointer.clientY,
-                  moved: false,
-                  targetPosition: position,
-                  pointerType: pointer.pointerType,
-                };
-              }}
+              selected={selectedSet.has(entry.id)}
+              tabbable={entry.id === tabStopId}
+              renaming={renamingId === entry.id}
+              cut={entry.kind === "node" && cutPaths.has(entry.path)}
+              dragSource={dragSourceIds.has(entry.id)}
+              recycleBinFull={recycleBinFull}
+              onPointerDown={onIconPointerDown}
+              onActivate={onActivateEntry}
+              onContextMenu={onEntryContextMenu}
+              onCommitRename={onCommitRename}
+              onCancelRename={onCancelRename}
             />
           );
         })}
 
-        {dragState?.moved && draggedEntry ? (
-          <DesktopIconGhost
-            entry={draggedEntry}
-            node={draggedNode}
-            pixelPosition={{ x: dragState.left, y: dragState.top }}
-            gridMetrics={gridMetrics}
+        {marquee.rect ? (
+          <div
+            className="desktop-surface__marquee"
+            aria-hidden="true"
+            style={{ left: marquee.rect.left, top: marquee.rect.top, width: marquee.rect.width, height: marquee.rect.height }}
           />
         ) : null}
       </div>
