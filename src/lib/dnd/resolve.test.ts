@@ -120,6 +120,22 @@ describe("resolveDropPlan into folders", () => {
     expect(resolve({ items: toItems("/Documents/notes.txt"), zone: folder("/Documents") })).toEqual({ kind: "none", quiet: true });
   });
 
+  it("does nothing when read-only or protected items are dropped back on their own folder", () => {
+    // A tiny click-drag of a bundled photo or a system folder must never duplicate it.
+    expect(resolve({ items: toItems("/Media/Photography/austria.jpg"), zone: folder("/Media/Photography") })).toEqual({
+      kind: "none",
+      quiet: true,
+    });
+    expect(resolve({ items: toItems("/Documents"), zone: folder("/") })).toEqual({ kind: "none", quiet: true });
+    expect(
+      resolve({
+        items: toItems("/Media/Photography/austria.jpg"),
+        zone: folder("/Media/Photography"),
+        modifiers: { ...none, ctrl: true },
+      })
+    ).toMatchObject({ kind: "transfer", operation: "copy" });
+  });
+
   it("duplicates when Ctrl-dropped on the same folder", () => {
     expect(
       resolve({ items: toItems("/Documents/notes.txt"), zone: folder("/Documents"), modifiers: { ...none, ctrl: true } })

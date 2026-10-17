@@ -92,17 +92,19 @@ function planFolderDrop(input: ResolveDropInput, destinationPath: string, surfac
       : { kind: "transfer", operation, destination, paths: deletable, label: describeOperation(operation, "Recycle Bin") };
   }
 
+  // Judged on what the visitor asked for, before locked items turn into copies: a click-drag of a bundled
+  // item inside its own folder must stay a no-op rather than duplicating it.
+  if (operation === "move" && placeable.every((path) => getParentPath(path) === destination)) {
+    // Dropping icons where they already are: on the desktop that repositions them, in Explorer it does nothing.
+    return origin === "desktop" && surface === "desktop" ? { kind: "reposition" } : NO_OP;
+  }
+
   // Read-only and system items are copied, as Windows does for read-only media.
   if (operation === "move" && placeable.every((path) => isLockedNode(nodes, path))) {
     operation = "copy";
   }
 
   const label = describeOperation(operation, describeDestination(nodes, destination));
-
-  if (operation === "move" && placeable.every((path) => getParentPath(path) === destination)) {
-    // Dropping icons where they already are: on the desktop that repositions them, in Explorer it does nothing.
-    return origin === "desktop" && surface === "desktop" ? { kind: "reposition" } : NO_OP;
-  }
 
   if (input.button === 2) {
     return { kind: "choose", destination, paths: placeable, label };
