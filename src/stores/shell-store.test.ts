@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 import { themePresets } from "@/data/portfolio";
+import { RECYCLE_BIN_DESKTOP_ID, initialDesktopIconPositions } from "@/data/desktop-seed";
+import { defaultDesktopWallpaper } from "@/data/wallpapers";
 import {
   DEFAULT_PINNED_APPS,
+  migrateShellState,
   migrateThemeId,
   sanitizePinnedAppIds,
   sanitizeThemeId,
+  sanitizeWallpaper,
   useShellStore,
 } from "@/stores/shell-store";
 
@@ -87,5 +91,83 @@ describe("shell store persistence sanitizers", () => {
     expect(migrateThemeId("windows-bloom", 5)).toBe("windows-bloom");
     expect(migrateThemeId("ember-grid", 4)).toBe("ember-grid");
     expect(migrateThemeId("not-a-theme", 4)).toBe("windows-bloom-dark");
+  });
+});
+
+describe("shell store migration to version 6", () => {
+  const about = "desktop-node:/Desktop/About.lnk";
+
+  it("re-keys the old fixed desktop ids to the files they became", () => {
+    const migrated = migrateShellState(
+      {
+        desktopIconPositions: {
+          "about-app": { gridX: 4, gridY: 3 },
+          "resume-file": { gridX: 5, gridY: 0 },
+          trash: { gridX: 6, gridY: 1 },
+        },
+      },
+      5
+    );
+
+    expect(migrated.desktopIconPositions).toEqual({
+      [about]: { gridX: 4, gridY: 3 },
+      "desktop-node:/Desktop/Resume.pdf.lnk": { gridX: 5, gridY: 0 },
+      [RECYCLE_BIN_DESKTOP_ID]: { gridX: 6, gridY: 1 },
+    });
+  });
+
+  it("keeps positions of files the visitor added, and a current position over a legacy one", () => {
+    const migrated = migrateShellState(
+      {
+        desktopIconPositions: {
+          "desktop-node:/Desktop/notes.txt": { gridX: 7, gridY: 7 },
+          "about-app": { gridX: 1, gridY: 1 },
+          [about]: { gridX: 2, gridY: 2 },
+        },
+      },
+      5
+    );
+
+    expect(migrated.desktopIconPositions["desktop-node:/Desktop/notes.txt"]).toEqual({ gridX: 7, gridY: 7 });
+    expect(migrated.desktopIconPositions[about]).toEqual({ gridX: 2, gridY: 2 });
+    expect(migrated.desktopIconPositions).not.toHaveProperty("about-app");
+  });
+
+  it("leaves version 6 positions as they are", () => {
+    const positions = { [about]: { gridX: 3, gridY: 3 } };
+
+    expect(migrateShellState({ desktopIconPositions: positions }, 6).desktopIconPositions).toEqual(positions);
+  });
+
+  it("falls back to the default layout when the saved positions are unusable", () => {
+    expect(migrateShellState({ desktopIconPositions: "nope" }, 5).desktopIconPositions).toEqual(initialDesktopIconPositions);
+    expect(migrateShellState(undefined, 5).desktopIconPositions).toEqual(initialDesktopIconPositions);
+  });
+
+  it("still moves visitors from the old light bloom to the dark one", () => {
+    expect(migrateShellState({ themeId: "windows-bloom" }, 4).themeId).toBe("windows-bloom-dark");
+    expect(migrateShellState({ themeId: "windows-bloom" }, 5).themeId).toBe("windows-bloom");
+  });
+
+  it("keeps a saved wallpaper, turns an old custom wallpaper into one, and otherwise uses the default", () => {
+    const saved = { mode: "gradient" as const, imageSource: null, presetId: "sunset" };
+
+    expect(migrateShellState({ wallpaper: saved }, 5).wallpaper).toEqual(saved);
+    expect(migrateShellState({ customWallpaperSource: "data:image/png;base64,AAAA" }, 5).wallpaper).toEqual({
+      mode: "image",
+      imageSource: "data:image/png;base64,AAAA",
+      presetId: null,
+    });
+    expect(migrateShellState({}, 5).wallpaper).toEqual(defaultDesktopWallpaper);
+  });
+
+  it("ignores a wallpaper that is not one", () => {
+    expect(sanitizeWallpaper({ mode: "video" })).toBeUndefined();
+    expect(sanitizeWallpaper("sunset")).toBeUndefined();
+    expect(sanitizeWallpaper({ mode: "theme", imageSource: 5, presetId: "x" })).toEqual({
+      mode: "theme",
+      imageSource: null,
+      presetId: "x",
+    });
   });
 });

@@ -126,16 +126,20 @@ export interface DesktopPlacementResult {
   displacedEntryId?: string;
 }
 
-export type DesktopEntryType = "app" | "file" | "folder" | "link";
+/**
+ * "node": a file, folder or shortcut in /Desktop. "recycle-bin": the one
+ * system icon, which (as in Windows) is not a file in the Desktop folder.
+ */
+export type DesktopEntryKind = "node" | "recycle-bin";
 
 export interface DesktopEntry {
+  /** "desktop-node:<path>" for items in /Desktop, "system:recycle-bin" for the Recycle Bin. */
   id: string;
+  kind: DesktopEntryKind;
+  /** The item's filesystem path (the Recycle Bin folder for the Recycle Bin). */
+  path: string;
+  /** What the icon shows: the name, with .lnk hidden. */
   label: string;
-  type: DesktopEntryType;
-  appId?: AppId;
-  filePath?: string;
-  directoryPath?: string;
-  externalUrl?: string;
   defaultGridPosition: DesktopGridPosition;
 }
 
@@ -325,7 +329,18 @@ export interface VirtualNodeBase {
 
 export interface VirtualDirectory extends VirtualNodeBase {
   kind: "directory";
+  /** Set on /Desktop: the version of the default shortcuts already placed there. */
+  desktopSeedVersion?: number;
 }
+
+/** Where a .lnk shortcut points. */
+export type ShortcutTarget =
+  | { type: "app"; appId: AppId }
+  | { type: "path"; path: string }
+  /** A page of this site, such as the quick /portfolio view. */
+  | { type: "route"; route: string }
+  /** An http(s) address, opened in the Browser app. */
+  | { type: "url"; url: string };
 
 export interface VirtualFile extends VirtualNodeBase {
   kind: "file";
@@ -335,6 +350,8 @@ export interface VirtualFile extends VirtualNodeBase {
   source?: string;
   size?: number;
   readonly?: boolean;
+  /** Present on .lnk shortcuts. */
+  shortcut?: ShortcutTarget;
 }
 
 export type FileSystemRecord = Record<string, VirtualNode>;
@@ -353,6 +370,7 @@ export interface FileNode {
   readonly?: boolean;
   originalPath?: string;
   deletedAt?: number;
+  shortcut?: ShortcutTarget;
 }
 
 export type FileAssociationFamily =

@@ -190,14 +190,51 @@ export function findNearestFreeGridCell(
   })[0];
 }
 
+type PlaceableEntry = Pick<DesktopEntry, "id" | "defaultGridPosition">;
+
+/** Keep only well-formed { gridX, gridY } cells; persisted state is never trusted as-is. */
+export function sanitizeDesktopGridPositions(value: unknown): Record<string, DesktopGridPosition> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const positions: Record<string, DesktopGridPosition> = {};
+
+  Object.entries(value as Record<string, unknown>).forEach(([id, position]) => {
+    if (!id || !position || typeof position !== "object") {
+      return;
+    }
+
+    const { gridX, gridY } = position as Partial<DesktopGridPosition>;
+
+    if (typeof gridX !== "number" || typeof gridY !== "number" || !Number.isFinite(gridX) || !Number.isFinite(gridY)) {
+      return;
+    }
+
+    positions[id] = { gridX: Math.max(0, Math.round(gridX)), gridY: Math.max(0, Math.round(gridY)) };
+  });
+
+  return positions;
+}
+
+/** True when two position maps place the same icons in the same cells. */
+export function areDesktopPositionsEqual(
+  a: Record<string, DesktopGridPosition>,
+  b: Record<string, DesktopGridPosition>
+) {
+  const aKeys = Object.keys(a);
+
+  return aKeys.length === Object.keys(b).length && aKeys.every((key) => areGridPositionsEqual(a[key], b[key]));
+}
+
 export function reconcileDesktopGridPositions(
-  entries: DesktopEntry[],
+  entries: PlaceableEntry[],
   currentPositions: Record<string, DesktopGridPosition>,
   metrics: Pick<DesktopGridMetrics, "columns" | "rows">
 ) {
   const nextPositions: Record<string, DesktopGridPosition> = {};
   const occupied = new Set<string>();
-  const unresolvedEntries: DesktopEntry[] = [];
+  const unresolvedEntries: PlaceableEntry[] = [];
 
   entries.forEach((entry) => {
     const currentPosition = currentPositions[entry.id];
@@ -233,6 +270,54 @@ export function reconcileDesktopGridPositions(
   });
 
   return nextPositions;
+}
+
+/**
+ * Move one or more icons by the offset between the anchor icon and the cell it
+ * was dropped on, as a single drag does. The group keeps its shape (the offset
+ * is clamped so no icon leaves the grid); an icon whose cell is taken by an
+ * icon that is not moving goes to the nearest free cell. Windows never swaps.
+ */
+export function resolveDesktopGroupPlacement(
+  currentPositions: Record<string, DesktopGridPosition>,
+  movingIds: string[],
+  anchorId: string,
+  targetPosition: DesktopGridPosition,
+  metrics: Pick<DesktopGridMetrics, "columns" | "rows">
+): Record<string, DesktopGridPosition> {
+  const moving = movingIds.filter((id) => currentPositions[id]);
+  const target = clampGridPosition(targetPosition, metrics.columns, metrics.rows);
+  const anchor = currentPositions[anchorId];
+
+  if (moving.length === 0) {
+    return { ...currentPositions, [anchorId]: target };
+  }
+
+  const origins = moving.map((id) => clampGridPosition(currentPositions[id], metrics.columns, metrics.rows));
+  const minX = Math.min(...origins.map((cell) => cell.gridX));
+  const maxX = Math.max(...origins.map((cell) => cell.gridX));
+  const minY = Math.min(...origins.map((cell) => cell.gridY));
+  const maxY = Math.max(...origins.map((cell) => cell.gridY));
+  const anchorCell = anchor ? clampGridPosition(anchor, metrics.columns, metrics.rows) : origins[0];
+  const deltaX = clamp(target.gridX - anchorCell.gridX, -minX, metrics.columns - 1 - maxX);
+  const deltaY = clamp(target.gridY - anchorCell.gridY, -minY, metrics.rows - 1 - maxY);
+
+  const staying = Object.fromEntries(Object.entries(currentPositions).filter(([id]) => !moving.includes(id)));
+  const occupancy = createDesktopOccupancyMap(staying, metrics);
+  const placed: Record<string, DesktopGridPosition> = {};
+
+  // Column-major, the order the desktop fills in, so a block lands the way it was laid out.
+  moving
+    .map((id, index) => ({ id, origin: origins[index] }))
+    .sort((a, b) => a.origin.gridX - b.origin.gridX || a.origin.gridY - b.origin.gridY)
+    .forEach(({ id, origin }) => {
+      const desired = { gridX: origin.gridX + deltaX, gridY: origin.gridY + deltaY };
+      const cell = findNearestFreeGridCell(occupancy, desired, metrics);
+      occupancy[createGridKey(cell)] = id;
+      placed[id] = { gridX: cell.gridX, gridY: cell.gridY };
+    });
+
+  return { ...staying, ...placed };
 }
 
 export function resolveDesktopGridPlacement(

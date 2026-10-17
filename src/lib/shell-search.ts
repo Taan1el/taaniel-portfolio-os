@@ -707,6 +707,8 @@ function buildSettingsEntries(apps: AppDefinition[]) {
 function buildFileEntries(nodes: FileSystemRecord) {
   return Object.values(nodes)
     .filter((node) => node.path !== "/")
+    // Desktop shortcuts would only repeat the apps and files they point at.
+    .filter((node) => !(node.kind === "file" && node.shortcut))
     .map<ShellSearchEntry>((node) => {
       const normalizedName = humanizeLabel(node.name);
       const previewText =

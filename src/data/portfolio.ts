@@ -1,5 +1,5 @@
 import { resolvePublicAssetUrl } from "@/lib/assets";
-import type { DesktopEntry, FeaturedProject, SocialLink, ThemePreset } from "@/types/system";
+import type { FeaturedProject, SocialLink, ThemePreset } from "@/types/system";
 
 export const profile = {
   name: "Taaniel Vananurm",
@@ -191,68 +191,3 @@ export const themePresets: ThemePreset[] = [
   },
 ];
 
-export const desktopEntries: DesktopEntry[] = [
-  {
-    id: "about-app",
-    label: "About",
-    type: "app",
-    appId: "about",
-    defaultGridPosition: { gridX: 0, gridY: 0 },
-  },
-  {
-    id: "projects-app",
-    label: "Projects",
-    type: "app",
-    appId: "projects",
-    defaultGridPosition: { gridX: 0, gridY: 1 },
-  },
-  {
-    id: "contact-app",
-    label: "Contact",
-    type: "app",
-    appId: "contact",
-    defaultGridPosition: { gridX: 0, gridY: 2 },
-  },
-  {
-    id: "resume-file",
-    label: "Resume.pdf",
-    type: "file",
-    filePath: "/Documents/Taaniel-Vananurm-CV.pdf",
-    defaultGridPosition: { gridX: 1, gridY: 0 },
-  },
-  {
-    id: "os-case-study",
-    label: "OS Case Study.md",
-    type: "file",
-    filePath: "/Portfolio/OS-Case-Study.md",
-    defaultGridPosition: { gridX: 2, gridY: 0 },
-  },
-  {
-    id: "photos-app",
-    label: "Photos",
-    type: "app",
-    appId: "photos",
-    defaultGridPosition: { gridX: 1, gridY: 1 },
-  },
-  {
-    id: "browser-app",
-    label: "Browser",
-    type: "app",
-    appId: "browser",
-    defaultGridPosition: { gridX: 2, gridY: 1 },
-  },
-  {
-    id: "simple-portfolio",
-    label: "Portfolio",
-    type: "link",
-    externalUrl: "/portfolio",
-    defaultGridPosition: { gridX: 1, gridY: 2 },
-  },
-  {
-    id: "trash",
-    label: "Recycle Bin",
-    type: "folder",
-    directoryPath: "/Trash",
-    defaultGridPosition: { gridX: 2, gridY: 2 },
-  },
-];

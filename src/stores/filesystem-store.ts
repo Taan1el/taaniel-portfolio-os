@@ -9,20 +9,24 @@ import {
   createTextFileRecord,
   deleteNodeRecord,
   getParentPath,
-  hasReadonlyContent,
   importFilesRecord,
+  isLockedNode,
   listDirectory as listDirectoryNodes,
   loadFileSystem,
   mkdirRecord,
+  normalizePath,
   pasteNodeRecord,
   readFile as readFileNode,
   renameRecord,
   renameNodeRecord,
   restoreFromTrashRecord,
   saveFileSystem,
+  transferNodesRecord,
   updateBinaryFileRecord,
   updateTextFileRecord,
   writeFileRecord,
+  type TransferOperation,
+  type TransferResult,
 } from "@/lib/filesystem";
 import { TRASH_PATH, ensureSystemWorkspace } from "@/lib/system-workspace";
 import type { FileNode, FileSystemRecord } from "@/types/system";
@@ -75,10 +79,72 @@ interface FileSystemState {
     operation: "copy" | "cut",
     options?: { quiet?: boolean }
   ) => Promise<void>;
+  /**
+   * Move, copy or link several items in one write - a drag, a paste or a
+   * multi-item delete. Moving into the Recycle Bin records where items came from.
+   */
+  transferNodes: (
+    sourcePaths: string[],
+    destinationDirectoryPath: string,
+    operation: TransferOperation,
+    options?: { quiet?: boolean }
+  ) => Promise<TransferResult>;
   importFiles: (directoryPath: string, files: File[]) => Promise<string[]>;
   canCutNode: (path: string) => boolean;
   emptyTrash: () => Promise<void>;
   reset: () => Promise<void>;
+}
+
+/** One toast per drag or paste, worded like Windows' progress dialog. */
+function describeTransfer(
+  result: TransferResult,
+  operation: TransferOperation,
+  intoTrash: boolean
+): { text: string; tone: "success" | "error" } | null {
+  const count = result.transferred.length;
+  const items = (n: number) => (n === 1 ? "1 item" : `${n} items`);
+
+  if (count > 0) {
+    const locked = result.skipped.filter((entry) => entry.reason === "locked").length;
+    // A mixed drop still succeeds; say what stayed behind.
+    const withNote = (text: string) =>
+      locked > 0 ? `${text}. ${locked === 1 ? "1 read-only item was" : `${locked} read-only items were`} left in place` : text;
+
+    if (intoTrash) return { text: withNote(count === 1 ? "Moved to Recycle Bin" : `Moved ${items(count)} to the Recycle Bin`), tone: "success" };
+    if (operation === "link") return { text: count === 1 ? "Shortcut created" : `Created ${count} shortcuts`, tone: "success" };
+    return { text: withNote(`${operation === "move" ? "Moved" : "Copied"} ${items(count)}`), tone: "success" };
+  }
+
+  const reasons = new Set(result.skipped.map((entry) => entry.reason));
+  if (reasons.has("into-itself")) return { text: "The destination folder is a subfolder of the source folder", tone: "error" };
+  if (reasons.has("locked")) return { text: "This item is read-only and can't be moved", tone: "error" };
+  return null;
+}
+
+/** An item that kept its identity but changed path: renamed or moved. */
+export interface FileSystemMove {
+  from: string;
+  to: string;
+}
+
+const moveListeners = new Set<(moves: FileSystemMove[]) => void>();
+
+/**
+ * Hear about renames and moves as they happen, before the new listing is
+ * published. The desktop uses it to keep an icon where it was when its file is
+ * renamed from Explorer, a move that icons keyed by path would otherwise lose.
+ */
+export function subscribeFileSystemMoves(listener: (moves: FileSystemMove[]) => void) {
+  moveListeners.add(listener);
+  return () => {
+    moveListeners.delete(listener);
+  };
+}
+
+function emitMoves(moves: FileSystemMove[]) {
+  if (moves.length > 0) {
+    moveListeners.forEach((listener) => listener(moves));
+  }
 }
 
 async function persistNodes(nodes: FileSystemRecord) {
@@ -134,6 +200,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
   },
   rename: async (path, nextName) => {
     const result = renameRecord(get().nodes, path, nextName);
+    if (result.path !== normalizePath(path)) emitMoves([{ from: normalizePath(path), to: result.path }]);
     set({ nodes: result.nodes });
     await persistNodes(result.nodes);
     return result.path;
@@ -194,7 +261,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
   },
   deleteNodePermanently: async (path) => {
     const before = get().nodes;
-    if (hasReadonlyContent(before, path)) {
+    if (isLockedNode(before, path)) {
       toast("This item is read-only and can't be deleted", "error");
       return;
     }
@@ -247,6 +314,24 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     await persistNodes(nodes);
     if (!options?.quiet) toast(operation === "cut" ? "Moved" : "Copied", "success");
   },
+  transferNodes: async (sourcePaths, destinationDirectoryPath, operation, options) => {
+    const result = transferNodesRecord(get().nodes, sourcePaths, destinationDirectoryPath, operation, {
+      trashPath: TRASH_PATH,
+    });
+
+    if (result.transferred.length > 0) {
+      if (operation === "move") emitMoves(result.transferred);
+      set({ nodes: result.nodes });
+      await persistNodes(result.nodes);
+    }
+
+    if (!options?.quiet) {
+      const message = describeTransfer(result, operation, normalizePath(destinationDirectoryPath) === TRASH_PATH);
+      if (message) toast(message.text, message.tone);
+    }
+
+    return result;
+  },
   importFiles: async (directoryPath, files) => {
     const { nodes, importedPaths } = await importFilesRecord(get().nodes, directoryPath, files);
     set({ nodes });
@@ -257,7 +342,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     );
     return importedPaths;
   },
-  canCutNode: (path) => !hasReadonlyContent(get().nodes, path),
+  canCutNode: (path) => !isLockedNode(get().nodes, path),
   reset: async () => {
     const nodes = ensureSystemWorkspace(buildSeedFileSystem());
     set({ nodes, initialized: true });
