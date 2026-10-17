@@ -172,7 +172,7 @@
   gap: 20px;
   width: min(360px, calc(100vw - 24px));
   max-height: calc(100dvh - var(--w11-start-offset) - 12px);
-  padding: 20px 20px 0;
+  padding: 16px 16px 0;
   overflow-y: auto;
   font-size: 14px;
   box-shadow: var(--w11-shadow-overlay);
@@ -187,9 +187,9 @@
 .w11-quick__tile {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-height: 48px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border: 1px solid var(--w11-control-stroke);
   border-radius: var(--w11-radius-control);
   background: var(--w11-control);
@@ -282,8 +282,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 -20px;
-  padding: 12px 20px;
+  margin: 0 -16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--w11-divider);
   background: var(--w11-subtle-hover);
 }
