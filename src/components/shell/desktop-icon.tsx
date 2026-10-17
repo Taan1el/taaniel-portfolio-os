@@ -2,7 +2,8 @@ import { memo, useCallback, useRef, useState } from "react";
 import { RecycleBinEmptyIcon, RecycleBinFullIcon } from "@/components/icons/apps";
 import { NodeIcon } from "@/components/icons/node-icon";
 import { InlineRenameInput } from "@/components/system/inline-rename-input";
-import { appDropProps } from "@/lib/dnd/dom";
+import { appDropProps, folderDropProps } from "@/lib/dnd/dom";
+import { TRASH_PATH } from "@/lib/system-workspace";
 import { cn } from "@/lib/utils";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppId, DesktopEntry, DesktopGridMetrics, VirtualNode } from "@/types/system";
@@ -39,6 +40,22 @@ export function DesktopIconGlyph({ entry, node, recycleBinFull, size = 48 }: Des
   }
 
   return node ? <NodeIcon node={node} size={size} /> : null;
+}
+
+/**
+ * What a file dropped on this icon does: the Recycle Bin deletes it, a folder
+ * takes it in, an app shortcut opens it in that app. Other icons take no drops.
+ */
+function getIconDropProps(entry: DesktopEntry, node: VirtualNode | undefined) {
+  if (entry.kind === "recycle-bin") {
+    return folderDropProps(TRASH_PATH);
+  }
+
+  if (node?.kind === "directory") {
+    return folderDropProps(node.path);
+  }
+
+  return node?.kind === "file" && node.shortcut?.type === "app" ? appDropProps(node.shortcut.appId) : {};
 }
 
 interface DesktopIconProps {
@@ -102,8 +119,8 @@ export const DesktopIcon = memo(function DesktopIcon({
       tabIndex={tabbable ? 0 : -1}
       data-desktop-icon-id={entry.id}
       data-path={entry.kind === "node" ? entry.path : undefined}
-      // A desktop icon that runs an app is also a drop target: drop a file on it to open the file there.
-      {...(shortcutAppId ? appDropProps(shortcutAppId) : {})}
+      // Folders, the Recycle Bin and app shortcuts take drops (see getIconDropProps).
+      {...getIconDropProps(entry, node)}
       className={cn(
         "desktop-icon",
         "desktop-icon-button",

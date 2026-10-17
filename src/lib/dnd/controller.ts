@@ -477,7 +477,9 @@ function evaluate() {
   });
 
   drag.plan = plan;
-  setHighlight(found && plan.kind !== "none" && plan.kind !== "reposition" ? found.element : null);
+  // A taskbar button lights up too: holding a drag there brings its window forward.
+  const highlightable = plan.kind !== "none" ? plan.kind !== "reposition" : zone?.kind === "taskbar";
+  setHighlight(found && highlightable ? found.element : null);
 
   const zoneKey = getZoneKey(zone);
 

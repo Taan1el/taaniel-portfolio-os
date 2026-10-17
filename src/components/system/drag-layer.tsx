@@ -97,6 +97,18 @@ function describeSession(session: DragSession) {
   }
 }
 
+/** The pointer shape for a drag: the arrow, plus-arrow for copy, link-arrow for a shortcut, a barred circle when refused. */
+function getDragEffect(session: DragSession | null) {
+  if (!session) return undefined;
+
+  const { plan } = session;
+
+  if (plan.kind === "none") return session.overZone ? "blocked" : undefined;
+  if (plan.kind === "transfer" && plan.operation === "copy") return "copy";
+  if (plan.kind === "transfer" && plan.operation === "link") return "link";
+  return undefined;
+}
+
 /** What follows the pointer while files are dragged: the icons, a count, and what releasing would do. */
 function DragGhost({ session }: { session: DragSession }) {
   const nodes = useFileSystemStore((state) => state.nodes);
@@ -116,7 +128,12 @@ function DragGhost({ session }: { session: DragSession }) {
           const node = item.path ? nodes[item.path] : undefined;
 
           return (
-            <span key={item.id} className="drag-ghost__icon" style={{ "--ghost-index": shown.length - 1 - index } as React.CSSProperties}>
+            <span
+              key={item.id}
+              className="drag-ghost__icon"
+              // The grabbed item sits on top; the rest peek out behind it.
+              style={{ "--ghost-index": index, zIndex: shown.length - index } as React.CSSProperties}
+            >
               {node ? <NodeIcon node={node} size={40} /> : <RecycleBinEmptyIcon size={40} />}
             </span>
           );
@@ -143,6 +160,17 @@ function DragGhost({ session }: { session: DragSession }) {
  */
 export function DragLayer() {
   const session = useDragStore((state) => state.session);
+  const effect = getDragEffect(session);
+
+  useEffect(() => {
+    if (effect) {
+      document.body.dataset.dragEffect = effect;
+    }
+
+    return () => {
+      delete document.body.dataset.dragEffect;
+    };
+  }, [effect]);
 
   useEffect(
     () =>
