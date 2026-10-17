@@ -347,6 +347,53 @@ describe("Invoke-Expression", () => {
   });
 });
 
+describe("parameter name completion", () => {
+  const complete = (line: string, options = {}) => completeShellInput(line, line.length, session, useFileSystemStore.getState().nodes, options);
+
+  it("completes a unique parameter in the syntax's spelling and adds a space", () => {
+    expect(complete("ls -Rec")).toMatchObject({ line: "ls -Recurse ", cursor: 12, candidates: [] });
+    expect(complete("Get-ChildItem -rec").line).toBe("Get-ChildItem -Recurse ");
+    expect(complete("ConvertTo-Json -Comp").line).toBe("ConvertTo-Json -Compress ");
+  });
+
+  it("lists the choices when several fit, and extends to what they share", () => {
+    expect(complete("ls -D")).toMatchObject({ line: "ls -D", candidates: ["-Depth", "-Directory"] });
+    expect(complete("Test-Path -Pat")).toMatchObject({ line: "Test-Path -Path", candidates: [] });
+    expect(complete("ls -").candidates).toEqual(expect.arrayContaining(["-Recurse", "-Force", "-Name", "-Path"]));
+  });
+
+  it("does not offer a parameter that is already on the line", () => {
+    expect(complete("ls -Recurse -Rec")).toMatchObject({ line: "ls -Recurse -Rec", candidates: [] });
+    expect(complete("ls -Recurse -D").candidates).toEqual(["-Depth", "-Directory"]);
+  });
+
+  it("finds the command after a pipe, a chain operator, an alias or the call operator", () => {
+    expect(complete("Get-Date | ls -Dir").line).toBe("Get-Date | ls -Directory ");
+    expect(complete("cd .. && ls -Rec").line).toBe("cd .. && ls -Recurse ");
+    expect(complete("& ls -Rec").line).toBe("& ls -Recurse ");
+    expect(complete("gci -Rec").line).toBe("gci -Recurse ");
+  });
+
+  it("completes in the middle of a line, keeping what follows", () => {
+    expect(completeShellInput("ls -Rec foo", 7, session, useFileSystemStore.getState().nodes)).toMatchObject({ line: "ls -Recurse  foo", cursor: 12 });
+  });
+
+  it("leaves quoted text, unknown commands and commands without parameters alone", () => {
+    expect(complete("echo '-Rec")).toMatchObject({ line: "echo '-Rec", candidates: [] });
+    expect(complete("nosuchcommand -Rec")).toMatchObject({ line: "nosuchcommand -Rec", candidates: [] });
+    expect(complete("Get-Location -Rec")).toMatchObject({ line: "Get-Location -Rec", candidates: [] });
+  });
+
+  it("can be switched off for a shell with other options", () => {
+    expect(complete("ls -Rec", { parameters: false }).line).toBe("ls -Rec");
+  });
+
+  it("still completes command names and paths", () => {
+    expect(complete("Get-Chil").line).toBe("Get-ChildItem ");
+    expect(complete("cd ..\\Doc").line).toBe("cd ..\\Documents\\");
+  });
+});
+
 describe("Get-Help", () => {
   const BRAND = /microsoft|\bwindows\b/i;
 

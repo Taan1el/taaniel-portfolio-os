@@ -3515,9 +3515,27 @@ export interface CompletionOptions {
   commands?: string[];
   /** Characters that start a new command on the line. */
   separators?: string;
+  /** The quote characters the shell knows, and the first is what a name with spaces is wrapped in. PowerShell: '" with '. */
+  quotes?: string;
+  /** Complete -Parameter names from the command's syntax. Off for a shell whose options look different. */
+  parameters?: boolean;
 }
 
-/** Tab completion for the word at the cursor: command names first, then paths. */
+/** The parameter names of the command the stage at `stageText` starts with, in the syntax's own spelling. */
+function stageParameters(stageText: string): { used: string[]; names: string[] } | null {
+  const words = stageText.trim().split(/\s+/).filter(Boolean);
+  // The call (&) and dot-source (.) operators come before the command's name.
+  while (words.length && (words[0] === "&" || words[0] === ".")) words.shift();
+  if (!words.length) return null;
+  const canonical = COMMAND_LOOKUP.get(words[0].toLowerCase());
+  if (!canonical) return null;
+  return {
+    used: words.slice(1).map((word) => word.toLowerCase().split(":")[0]),
+    names: syntaxParameters(COMMANDS[canonical].syntax).map((parameter) => parameter.name),
+  };
+}
+
+/** Tab completion for the word at the cursor: command names first, then parameters and paths. */
 export function completeShellInput(
   line: string,
   cursor: number,
@@ -3526,8 +3544,10 @@ export function completeShellInput(
   options: CompletionOptions = {}
 ): CompletionResult {
   const separators = options.separators ?? "|;&";
+  const quotes = options.quotes ?? "'\"";
   const before = line.slice(0, cursor);
   let start = 0;
+  let stageStart = 0;
   let quote: string | null = null;
 
   for (let index = 0; index < before.length; index += 1) {
@@ -3536,23 +3556,34 @@ export function completeShellInput(
       if (char === quote) quote = null;
       continue;
     }
-    if (char === "'" || char === '"') {
+    if (quotes.includes(char)) {
       quote = char;
       continue;
     }
     if (/\s/.test(char) || separators.includes(char)) start = index + 1;
+    if (separators.includes(char)) stageStart = index + 1;
   }
 
   const rawToken = before.slice(start);
-  const quoted = rawToken.startsWith("'") || rawToken.startsWith('"');
+  const quoted = quotes.includes(rawToken[0] ?? "\0");
   const token = quoted ? rawToken.slice(1) : rawToken;
   const head = before.slice(0, start).trimEnd();
   const commandPosition = head === "" || [...separators].some((separator) => head.endsWith(separator));
 
   let matches: Array<{ text: string; display: string }>;
   let isCommand = false;
+  let isParameter = false;
 
-  if (commandPosition && token !== "" && !/[\\/]/.test(token) && !token.startsWith(".") && !quoted) {
+  const parameters = options.parameters !== false && !quoted && !commandPosition && token.startsWith("-") ? stageParameters(before.slice(stageStart, start)) : null;
+
+  if (parameters) {
+    isParameter = true;
+    const lower = token.toLowerCase();
+    matches = parameters.names
+      .filter((entry) => `-${entry}`.toLowerCase().startsWith(lower) && !parameters.used.includes(`-${entry}`.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b))
+      .map((entry) => ({ text: `-${entry}`, display: `-${entry}` }));
+  } else if (commandPosition && token !== "" && !/[\\/]/.test(token) && !token.startsWith(".") && !quoted) {
     isCommand = true;
     const lower = token.toLowerCase();
     matches = (options.commands ?? COMPLETABLE_COMMANDS())
@@ -3576,10 +3607,12 @@ export function completeShellInput(
 
   if (!matches.length) return { line, cursor, candidates: [] };
 
+  // A name with a space is wrapped in the shell's own quote; one the person already opened keeps its quote.
+  const quoteChar = quoted ? rawToken[0] : quotes[0];
   const replace = (value: string, close: boolean) => {
     const needsQuotes = quoted || /\s/.test(value);
-    const replacement = needsQuotes ? `'${value}${close ? "'" : ""}` : value;
-    const trailing = isCommand && close ? " " : "";
+    const replacement = needsQuotes ? `${quoteChar}${value}${close ? quoteChar : ""}` : value;
+    const trailing = (isCommand || isParameter) && close ? " " : "";
     const nextLine = `${line.slice(0, start)}${replacement}${trailing}${line.slice(cursor)}`;
     return { line: nextLine, cursor: start + replacement.length + trailing.length, candidates: [] };
   };
