@@ -112,6 +112,30 @@ describe("File Explorer and the Desktop folder", () => {
   });
 });
 
+describe("the Recycle Bin in File Explorer", () => {
+  beforeEach(async () => {
+    await useFileSystemStore.getState().mkdir("/Desktop/Old");
+    await useFileSystemStore.getState().writeFile("/Desktop/Old/inner.txt", "hi", { mimeType: "text/plain", extension: "txt" });
+    await useFileSystemStore.getState().transferNodes(["/Desktop/Old"], TRASH_PATH, "move", { quiet: true });
+  });
+
+  it("gives a deleted folder no drop target and no spring-loading", () => {
+    render(<FileExplorerApp window={buildWindow(TRASH_PATH)} />);
+
+    const deleted = option("Old");
+    expect(deleted.hasAttribute("data-drop-folder")).toBe(false);
+    expect(deleted.hasAttribute("data-drop-spring")).toBe(false);
+  });
+
+  it("makes dropping anywhere in a deleted folder's window a drop on the bin", () => {
+    render(<FileExplorerApp window={buildWindow(`${TRASH_PATH}/Old`)} />);
+
+    const content = document.querySelector<HTMLElement>(".explorer-window__content") as HTMLElement;
+    expect(content.dataset.dropFolder).toBe(TRASH_PATH);
+    expect(option("inner.txt").hasAttribute("data-drop-folder")).toBe(false);
+  });
+});
+
 describe("dragging in File Explorer", () => {
   beforeEach(async () => {
     await useFileSystemStore.getState().mkdir("/Desktop/Folder");

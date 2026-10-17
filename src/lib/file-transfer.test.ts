@@ -116,6 +116,15 @@ describe("transferNodesRecord", () => {
     expect(transferNodesRecord(seed(), ["/Desktop/a.txt"], "/Trash", "link", options).skipped[0].reason).toBe("not-allowed");
   });
 
+  it("does not put things inside a folder that sits in the Recycle Bin", () => {
+    const recycled = transferNodesRecord(seed(), ["/Desktop/Work"], "/Trash", "move", options).nodes;
+    const result = transferNodesRecord(recycled, ["/Desktop/a.txt"], "/Trash/Work", "move", options);
+
+    expect(result.transferred).toEqual([]);
+    expect(result.skipped).toEqual([{ path: "/Desktop/a.txt", reason: "not-allowed" }]);
+    expect(result.nodes["/Desktop/a.txt"]).toBeTruthy();
+  });
+
   it("protects system folders", () => {
     const result = transferNodesRecord(seed(), ["/Desktop"], "/Documents", "move", options);
     expect(result.skipped).toEqual([{ path: "/Desktop", reason: "locked" }]);

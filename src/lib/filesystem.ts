@@ -772,9 +772,11 @@ export function transferNodesRecord(
   const skipped: TransferResult["skipped"] = [];
   const destinationNode = nodes[destination];
   const intoTrash = trashPath !== null && destination === trashPath;
+  // A deleted folder is not a place to put things: only the Recycle Bin itself takes items, and it records where they came from.
+  const insideTrashFolder = trashPath !== null && destination.startsWith(`${trashPath}/`);
   let next = nodes;
 
-  if (!destinationNode || destinationNode.kind !== "directory") {
+  if (!destinationNode || destinationNode.kind !== "directory" || insideTrashFolder) {
     return {
       nodes,
       transferred,

@@ -51,7 +51,7 @@ import { DND_SCROLL_ATTRIBUTE, folderDropProps } from "@/lib/dnd/dom";
 import { armFileDrag } from "@/lib/dnd/controller";
 import { useDragStore } from "@/lib/dnd/drag-store";
 import { hasExternalFiles } from "@/lib/drag-payload";
-import { copyItems, cutItems, deleteItems, pasteIntoFolder, restoreItems, transferItems } from "@/lib/file-actions";
+import { copyItems, cutItems, deleteItems, isInTrash, pasteIntoFolder, restoreItems, transferItems } from "@/lib/file-actions";
 import { buildFileMenu } from "@/lib/file-menu";
 import { openFileSystemPath } from "@/lib/launchers";
 import { resolveShortcutNode, toStoredName } from "@/lib/shortcuts";
@@ -343,7 +343,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   /* ------------------------------------------------------------------ */
 
   /** Everything here is a drop target for the pointer drag controller; the tags are all it needs. */
-  const dropProps = (path: string) => folderDropProps(path, { windowId: window.id });
+  const dropProps = (path: string) => folderDropProps(isInTrash(path) ? TRASH_PATH : path, { windowId: window.id });
 
   /** Files dragged in from the visitor's computer go through the browser's own drag events. */
   const clearExternalHighlight = () => {
@@ -977,6 +977,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
                         renaming={renamingPath === node.path}
                         cut={cutPaths.has(node.path)}
                         dragSource={dragSourcePaths.has(node.path)}
+                        inTrash={isTrashView}
                         {...itemHandlers}
                       />
                     ))}
@@ -1012,6 +1013,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
                         cut={cutPaths.has(node.path)}
                         dragSource={dragSourcePaths.has(node.path)}
                         recycleBin={isRecycleBinRoot}
+                        inTrash={isTrashView}
                         {...itemHandlers}
                       />
                     ))}

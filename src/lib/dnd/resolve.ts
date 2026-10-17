@@ -61,9 +61,17 @@ function planOpenWith(nodes: FileSystemRecord, paths: string[], appId: AppId, wi
   return { kind: "open-with", appId, windowId, paths: openable, label: `Open with ${getAppDefinition(appId).title}` };
 }
 
+/** The Recycle Bin or anything inside it. */
+function isTrashPath(path: string) {
+  return path === TRASH_PATH || path.startsWith(`${TRASH_PATH}/`);
+}
+
 function planFolderDrop(input: ResolveDropInput, destinationPath: string, surface?: "desktop"): DropPlan {
   const { items, origin, modifiers, nodes } = input;
-  const destination = normalizePath(destinationPath);
+  // Windows has no folders inside the Recycle Bin to drop on: anything dropped in it is deleted, so a
+  // deleted folder is the bin itself and the drop never lands in it without its originalPath.
+  const intoTrash = isTrashPath(normalizePath(destinationPath));
+  const destination = intoTrash ? TRASH_PATH : normalizePath(destinationPath);
   const destinationNode = nodes[destination];
   const paths = items.flatMap((item) => (item.path ? [normalizePath(item.path)] : []));
 
@@ -71,7 +79,6 @@ function planFolderDrop(input: ResolveDropInput, destinationPath: string, surfac
     return NONE;
   }
 
-  const intoTrash = destination === TRASH_PATH;
   let operation: DragOperation = operationFromModifiers(modifiers);
 
   // Items that can't go anywhere inside themselves are dropped from the plan; with nothing left there is no drop.
@@ -84,9 +91,9 @@ function planFolderDrop(input: ResolveDropInput, destinationPath: string, surfac
   if (intoTrash) {
     // The Recycle Bin only ever receives moves, and only of things that can be deleted.
     operation = "move";
-    const deletable = placeable.filter((path) => !isLockedNode(nodes, path) && getParentPath(path) !== TRASH_PATH);
+    const deletable = placeable.filter((path) => !isLockedNode(nodes, path) && !isTrashPath(path));
     return deletable.length === 0
-      ? placeable.every((path) => getParentPath(path) === TRASH_PATH)
+      ? placeable.every(isTrashPath)
         ? NO_OP
         : NONE
       : { kind: "transfer", operation, destination, paths: deletable, label: describeOperation(operation, "Recycle Bin") };

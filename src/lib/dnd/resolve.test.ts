@@ -43,6 +43,8 @@ const nodes: FileSystemRecord = Object.fromEntries(
     createShortcutNode("/Desktop/About.lnk", { type: "app", appId: "about" }),
     createShortcutNode("/Desktop/Resume.pdf.lnk", { type: "path", path: "/Documents/cv.pdf" }),
     file("/Trash/old.txt", "txt", "text/plain", { originalPath: "/Documents/old.txt", deletedAt: 5 }),
+    { ...dir("/Trash/Old"), originalPath: "/Desktop/Old", deletedAt: 5 },
+    file("/Trash/Old/inner.txt", "txt", "text/plain"),
   ].map((node) => [node.path, node])
 );
 
@@ -181,6 +183,21 @@ describe("resolveDropPlan into the Recycle Bin", () => {
 
   it("does nothing for items already in the Recycle Bin", () => {
     expect(resolve({ items: toItems("/Trash/old.txt"), zone: folder("/Trash") })).toEqual({ kind: "none", quiet: true });
+    expect(resolve({ items: toItems("/Trash/Old/inner.txt"), zone: folder("/Trash") })).toEqual({ kind: "none", quiet: true });
+  });
+
+  it("treats a deleted folder as the bin: a drop on it is a delete, never a move into it", () => {
+    expect(resolve({ items: toItems("/Desktop/todo.txt"), zone: folder("/Trash/Old", { spring: true }) })).toEqual({
+      kind: "transfer",
+      operation: "move",
+      destination: "/Trash",
+      paths: ["/Desktop/todo.txt"],
+      label: "Move to Recycle Bin",
+    });
+    expect(
+      resolve({ items: toItems("/Desktop/todo.txt"), zone: folder("/Trash/Old"), modifiers: { ...none, alt: true } })
+    ).toMatchObject({ kind: "transfer", operation: "move", destination: "/Trash" });
+    expect(resolve({ items: toItems("/Trash/Old"), zone: folder("/Trash/Old") })).toEqual({ kind: "none", quiet: true });
   });
 });
 
