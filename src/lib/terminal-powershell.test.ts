@@ -347,6 +347,36 @@ describe("Invoke-Expression", () => {
   });
 });
 
+describe("Get-PSReadLineKeyHandler", () => {
+  it("lists the line editor's keys in PSReadLine's groups", async () => {
+    const { text, success } = await run("Get-PSReadLineKeyHandler");
+    expect(success).toBe(true);
+    expect(text).toContain("Basic editing functions\n=======================");
+    expect(text).toMatch(/Enter\s+AcceptLine\s+Run the line/);
+    expect(text).toMatch(/Ctrl\+Backspace\s+BackwardKillWord/);
+    expect(text).toMatch(/UpArrow\s+PreviousHistory/);
+    expect(text).toMatch(/Tab\s+Complete\s/);
+  });
+
+  it("lists the terminal's own shortcuts, and names the focus escape key", async () => {
+    const { text } = await run("Get-PSReadLineKeyHandler -Bound");
+    expect(text).toContain("Terminal functions");
+    expect(text).toMatch(/F6\s+Terminal\s+Move focus out of the terminal/);
+    expect(text).not.toMatch(/Microsoft|Windows/);
+  });
+
+  it("filters through the pipeline like any output", async () => {
+    const { lines } = await run("Get-PSReadLineKeyHandler | sls History");
+    expect(lines.length).toBeGreaterThan(2);
+    expect(lines.every((line) => /history/i.test(line))).toBe(true);
+  });
+
+  it("has nothing unbound, and rejects unknown parameters", async () => {
+    expect((await run("Get-PSReadLineKeyHandler -Unbound")).lines).toEqual([]);
+    expect((await run("Get-PSReadLineKeyHandler -Bogus")).success).toBe(false);
+  });
+});
+
 describe("ConvertTo-Json and ConvertFrom-Json", () => {
   it("writes piped objects as JSON", async () => {
     const { text } = await run("ls ~ | select Name, PSIsContainer -First 1 | ConvertTo-Json");

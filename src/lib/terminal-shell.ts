@@ -19,6 +19,7 @@ import {
   type ShellValue,
 } from "@/lib/terminal-expression";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import { READLINE_KEY_HANDLERS } from "@/lib/terminal-help";
 import { DEFAULT_JSON_DEPTH, itemsToJson, jsonToItems, MAX_JSON_DEPTH } from "@/lib/terminal-json";
 import { isAbsolutePath, joinPath, splitPath, type SplitPart } from "@/lib/terminal-paths";
 import { resolveLaunchProfile, type ShellProfileId } from "@/lib/terminal-profiles";
@@ -2074,6 +2075,31 @@ const getUptime: CommandFn = (args, _stdin, ctx, name) => {
 
 const getHost: CommandFn = () => emitItems([hostObject()]);
 
+/** Get-PSReadLineKeyHandler: the keys the line editor answers to, in PSReadLine's grouped layout. */
+const getKeyHandler: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Bound", "Unbound"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  // Everything the editor can do is bound to a key.
+  if (parsed.switches.has("Unbound") && !parsed.switches.has("Bound")) return ok();
+
+  const out: string[] = [];
+  for (const group of READLINE_KEY_HANDLERS) {
+    const keyWidth = Math.max(3, ...group.handlers.map((handler) => handler.key.length)) + 1;
+    const functionWidth = Math.max(8, ...group.handlers.map((handler) => handler.function.length)) + 1;
+    out.push(
+      "",
+      `${TABLE}${group.title}${RESET}`,
+      `${TABLE}${"=".repeat(group.title.length)}${RESET}`,
+      "",
+      `${TABLE}${"Key".padEnd(keyWidth)}${"Function".padEnd(functionWidth)}Description${RESET}`,
+      `${TABLE}${"---".padEnd(keyWidth)}${"--------".padEnd(functionWidth)}-----------${RESET}`,
+      ...group.handlers.map((handler) => `${handler.key.padEnd(keyWidth)}${handler.function.padEnd(functionWidth)}${handler.description}`)
+    );
+  }
+  out.push("");
+  return ok(out);
+};
+
 /**
  * Invoke-Expression runs text as a command line through this same interpreter, one
  * level deeper, never through JavaScript. The script depth limit stops `iex` from
@@ -2903,6 +2929,7 @@ const EXTRA_COMMANDS: Record<string, CommandSpec> = {
   "Split-Path": { aliases: [], synopsis: "Take a path apart: -Parent (the default), -Leaf, -LeafBase, -Extension, -Qualifier.", syntax: "Split-Path [-Path] <string[]> [-Parent] [-Leaf] [-LeafBase] [-Extension] [-Qualifier] [-NoQualifier] [-IsAbsolute]", run: splitPathCmd },
   "Resolve-Path": { aliases: ["rvpa"], synopsis: "Turn a relative path or wildcard into full paths: Resolve-Path ..\\*.", syntax: "Resolve-Path [-Path] <string[]> [-Relative]", run: resolvePathCmd },
   "Invoke-Expression": { aliases: ["iex"], synopsis: "Run text as a command: iex 'Get-Date' (it goes through this shell, never through JavaScript).", syntax: "Invoke-Expression [-Command] <string>", run: invokeExpression },
+  "Get-PSReadLineKeyHandler": { aliases: [], synopsis: "List the keys the line editor answers to: editing, history, completion and the terminal's own.", syntax: "Get-PSReadLineKeyHandler [-Bound] [-Unbound]", run: getKeyHandler },
   "New-Guid": { aliases: [], synopsis: "Make a new random GUID: $id = New-Guid.", syntax: "New-Guid [-Empty]", run: newGuid },
   "Get-Uptime": { aliases: [], synopsis: "How long this desktop session has been running.", syntax: "Get-Uptime [-Since]", run: getUptime },
   "Get-Host": { aliases: [], synopsis: "Show the shell host: its name, version and culture.", syntax: "Get-Host", run: getHost },
