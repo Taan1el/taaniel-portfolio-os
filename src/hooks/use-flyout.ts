@@ -107,13 +107,16 @@ export function useFlyout({ open, triggerId, panelRef, onClose, initialFocusRef 
       onCloseRef.current();
     };
 
+    // Capture phase: React forwards a synthetic stopPropagation() to the native event, so a
+    // component that stops pointerdown (a desktop icon, a rename field) would never reach a
+    // bubbling listener and the flyout would stay open over what was just pressed.
     document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown, true);
 
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
 
       // Focus left inside the panel would drop to <body> as it unmounts.
       if (panelRef.current?.contains(document.activeElement)) {

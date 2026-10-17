@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useFlyout } from "@/hooks/use-flyout";
 import { msUntilNextMinute, useMinuteClock } from "@/hooks/use-minute-clock";
 
-function FlyoutHarness() {
+function FlyoutHarness({ stopsPointerDown = false }: { stopsPointerDown?: boolean }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   useFlyout({ open, triggerId: "test", panelRef, onClose: () => setOpen(false) });
@@ -15,7 +15,9 @@ function FlyoutHarness() {
       <button type="button" data-flyout-trigger="test" onClick={() => setOpen((value) => !value)}>
         Trigger
       </button>
-      <button type="button">Elsewhere</button>
+      <button type="button" onPointerDown={stopsPointerDown ? (event) => event.stopPropagation() : undefined}>
+        Elsewhere
+      </button>
       {open ? (
         <div ref={panelRef} role="dialog" aria-label="Panel">
           <button type="button">First</button>
@@ -60,6 +62,16 @@ describe("useFlyout", () => {
     fireEvent.pointerDown(screen.getByText("Trigger"));
     expect(screen.getByRole("dialog")).toBeTruthy();
 
+    fireEvent.pointerDown(screen.getByText("Elsewhere"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes on a press that the pressed element stops from bubbling", async () => {
+    render(<FlyoutHarness stopsPointerDown />);
+    fireEvent.click(screen.getByText("Trigger"));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    // React forwards a synthetic stopPropagation to the native event, as a desktop icon's handler does.
     fireEvent.pointerDown(screen.getByText("Elsewhere"));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
