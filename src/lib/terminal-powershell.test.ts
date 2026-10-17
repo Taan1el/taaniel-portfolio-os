@@ -347,6 +347,45 @@ describe("Invoke-Expression", () => {
   });
 });
 
+describe("Get-ChildItem -Depth", () => {
+  const blocks = (text: string) => text.split("\n").filter((line) => line.includes("Directory:"));
+
+  beforeEach(async () => {
+    await run("mkdir deep\\one\\two\\three");
+    await run("echo x > deep\\one\\two\\three\\f.txt");
+  });
+
+  it("goes the given number of levels below the folder", async () => {
+    expect(blocks((await run("ls deep -Depth 0")).text)).toHaveLength(1);
+    expect(blocks((await run("ls deep -Depth 1")).text)).toHaveLength(2);
+    expect(blocks((await run("ls deep -Depth 2")).text)).toHaveLength(3);
+    expect(blocks((await run("ls deep -Recurse")).text)).toHaveLength(4);
+  });
+
+  it("limits -Recurse too, and does not list what is deeper", async () => {
+    const shallow = await run("ls deep -Recurse -Depth 1");
+    expect(shallow.text).toContain("two");
+    expect(shallow.text).not.toContain("three");
+    expect(shallow.text).not.toContain("f.txt");
+    expect((await run("ls deep -Recurse -Depth 3")).text).toContain("f.txt");
+    expect((await run("ls deep -Depth 3 -File")).text).toContain("f.txt");
+  });
+
+  it("works with -Name and as the object pipeline sees it", async () => {
+    expect((await run("ls deep -Depth 1 -Name")).lines).toEqual(["one", "two"]);
+    expect((await run("ls deep -Depth 1 | % Name")).lines.filter(Boolean)).toEqual(["one", "two"]);
+  });
+
+  it("rejects a depth that is not a whole number", async () => {
+    for (const bad of ["x", "-1", "1.5"]) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await run(`ls deep -Depth ${bad}`);
+      expect(result.success).toBe(false);
+      expect(result.text).toContain("Cannot bind parameter 'Depth'");
+    }
+  });
+});
+
 describe("Get-PSReadLineKeyHandler", () => {
   it("lists the line editor's keys in PSReadLine's groups", async () => {
     const { text, success } = await run("Get-PSReadLineKeyHandler");

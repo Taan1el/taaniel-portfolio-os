@@ -1084,6 +1084,14 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
   const nameOnly = parsed.switches.has("Name");
   let okay = true;
 
+  // -Depth <levels below the folder> implies -Recurse, as in PowerShell 5 and later.
+  const depthText = parsed.params.Depth;
+  const maxDepth = depthText === undefined ? undefined : Number(depthText);
+  if (depthText !== undefined && (!Number.isInteger(maxDepth) || (maxDepth as number) < 0)) {
+    return fail(ctx, name, `Cannot bind parameter 'Depth'. Cannot convert value "${depthText}" to type "System.UInt32". Error: "Input string was not in a correct format."`);
+  }
+  const recurse = parsed.switches.has("Recurse") || maxDepth !== undefined;
+
   const filterEntries = (entries: VirtualNode[]) =>
     entries.filter((node) => {
       if (!parsed.switches.has("Force") && node.path === TRASH_PATH) return false;
@@ -1096,14 +1104,14 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
       return true;
     });
 
-  const listDirectory = (directoryPath: string) => {
+  const listDirectory = (directoryPath: string, level = 0) => {
     const entries = filterEntries(childrenOf(nodes, directoryPath));
     if (entries.length) out.push(...formatTable(directoryPath, entries, nameOnly));
     entries.forEach((entry) => objects.push(fileObject(entry)));
-    if (parsed.switches.has("Recurse")) {
+    if (recurse && (maxDepth === undefined || level < maxDepth)) {
       childrenOf(nodes, directoryPath)
         .filter((node) => node.kind === "directory" && node.path !== TRASH_PATH)
-        .forEach((node) => listDirectory(node.path));
+        .forEach((node) => listDirectory(node.path, level + 1));
     }
   };
 
@@ -2940,7 +2948,7 @@ const EXTRA_COMMANDS: Record<string, CommandSpec> = {
 // ------------------------------------------------------------------ registry
 
 const COMMANDS: Record<string, CommandSpec> = {
-  "Get-ChildItem": { aliases: ["ls", "dir", "gci"], synopsis: "List the items in a folder.", syntax: "Get-ChildItem [[-Path] <string>] [-Recurse] [-Force] [-Name] [-Directory] [-File] [-Filter <string>]", run: getChildItem },
+  "Get-ChildItem": { aliases: ["ls", "dir", "gci"], synopsis: "List the items in a folder.", syntax: "Get-ChildItem [[-Path] <string>] [-Recurse] [-Depth <uint>] [-Force] [-Name] [-Directory] [-File] [-Filter <string>]", run: getChildItem },
   "Set-Location": { aliases: ["cd", "chdir", "sl"], synopsis: "Change the current folder. 'cd -' goes back.", syntax: "Set-Location [[-Path] <string>]", run: setLocation },
   "Get-Location": { aliases: ["pwd", "gl"], synopsis: "Show the current folder.", syntax: "Get-Location", run: getLocation },
   "Get-Content": { aliases: ["cat", "type", "gc"], synopsis: "Print the contents of a text file.", syntax: "Get-Content [-Path] <string[]> [-TotalCount <int>] [-Tail <int>]", run: getContent },
