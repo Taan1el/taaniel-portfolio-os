@@ -4,6 +4,7 @@ import { App } from "@/app/App";
 import "@/styles/global.css";
 import "@/styles/visual-redesign.css";
 import "@/styles/win11.css";
+import "@/styles/win11-terminal.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
