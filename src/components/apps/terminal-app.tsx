@@ -212,13 +212,17 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   // ----------------------------------------------------------------------- tabs
 
   /** One Virtual x86 window is enough: asking again brings the open one to the front. */
-  const openLinux = useCallback(() => {
-    const processes = useProcessStore.getState().processes;
-    const open = useWindowStore.getState().windows.find((entry) => processes.some((process) => process.id === entry.processId && process.appId === "v86"));
-    if (open) focusWindow(open.id);
-    else launchApp({ appId: "v86" });
-    announce(LINUX_LAUNCH_MESSAGE.join(" "));
-  }, [announce, focusWindow, launchApp]);
+  const openLinux = useCallback(
+    (say = true) => {
+      const processes = useProcessStore.getState().processes;
+      const open = useWindowStore.getState().windows.find((entry) => processes.some((process) => process.id === entry.processId && process.appId === "v86"));
+      if (open) focusWindow(open.id);
+      else launchApp({ appId: "v86" });
+      // The shell prints this itself when `wsl` was typed; a menu or jump list has nowhere else to say it.
+      if (say) announce(LINUX_LAUNCH_MESSAGE.join(" "));
+    },
+    [announce, focusWindow, launchApp]
+  );
 
   const openTab = useCallback(
     (profileId: TerminalProfileId, startPath?: string) => {
@@ -348,11 +352,13 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       } else if (action.type === "set-title") {
         setTabsState((state) => renameTab(state, tabId, action.title));
       } else if (action.type === "launch-app") {
-        launchApp({ appId: action.appId, payload: action.payload, title: action.title });
+        // `wsl` and `bash` too: the emulator is opened once, and asking again brings it forward.
+        if (action.appId === "v86" && !action.payload) openLinux(false);
+        else launchApp({ appId: action.appId, payload: action.payload, title: action.title });
       }
       // set-colors and reset-colors are the screen's own business: the tab's session applies them.
     },
-    [closeTabById, launchApp, openTab]
+    [closeTabById, launchApp, openLinux, openTab]
   );
 
   const openMenu = useCallback(

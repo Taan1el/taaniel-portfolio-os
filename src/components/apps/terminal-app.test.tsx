@@ -629,6 +629,21 @@ describe("what the shell asks for", () => {
     expect(launchApp).toHaveBeenCalledWith({ appId: "browser", payload: { externalUrl: "https://example.com/" } });
   });
 
+  it("opens the emulator once for wsl, and brings it forward when it is asked for again", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const id = newest().props.tabId as string;
+    act(() => events().onAction(id, { type: "launch-app", appId: "v86" }));
+    expect(launchApp.mock.calls).toEqual([[{ appId: "v86" }]]);
+
+    useProcessStore.setState({ processes: [{ id: "process-v86", appId: "v86", status: "running", createdAt: 1 }] });
+    useWindowStore.setState({ windows: [{ id: "window-v86", processId: "process-v86", title: "Virtual x86", minimized: false }] } as never);
+    act(() => events().onAction(id, { type: "launch-app", appId: "v86" }));
+    expect(launchApp).toHaveBeenCalledTimes(1);
+    expect(focusWindow).toHaveBeenCalledWith("window-v86");
+    // The shell printed the explanation itself: no second one in the notice area.
+    expect(screen.getByRole("status").textContent).toBe("");
+  });
+
   it("tells the shell about the browser's offline state", () => {
     render(<TerminalApp window={terminalWindow()} />);
     const host = newest().props.host as { isOffline: () => boolean };
