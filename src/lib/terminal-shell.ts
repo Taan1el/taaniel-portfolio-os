@@ -20,6 +20,7 @@ import {
 } from "@/lib/terminal-expression";
 import { TRASH_PATH } from "@/lib/system-workspace";
 import { DEFAULT_JSON_DEPTH, itemsToJson, jsonToItems, MAX_JSON_DEPTH } from "@/lib/terminal-json";
+import { isAbsolutePath, joinPath, splitPath, type SplitPart } from "@/lib/terminal-paths";
 import { resolveLaunchProfile, type ShellProfileId } from "@/lib/terminal-profiles";
 import {
   compareValues as compareProperties,
@@ -2660,6 +2661,103 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
   return { out, ok: okay, objects };
 };
 
+/** Path arguments: -Path and the positional ones, or else the piped lines. */
+function pathArguments(parsed: ParsedArgs, stdin: string[] | null): string[] {
+  const given = [parsed.params.Path, parsed.params.LiteralPath, ...parsed.positional].filter((value): value is string => value !== undefined);
+  return given.length ? given : (stdin ?? []).filter((line) => line !== "");
+}
+
+const joinPathCmd: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Resolve"], params: ["Path", "ChildPath", "AdditionalChildPath"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+
+  const positional = [...parsed.positional];
+  const parent = parsed.params.Path ?? positional.shift();
+  const child = parsed.params.ChildPath ?? positional.shift();
+  const extra = parsed.params.AdditionalChildPath !== undefined ? [parsed.params.AdditionalChildPath, ...positional] : positional;
+  const parents = parent !== undefined ? [parent] : (stdin ?? []).filter((line) => line !== "");
+
+  if (!parents.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+  if (parents.includes("")) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is an empty string.");
+  if (child === undefined) return fail(ctx, name, "Cannot bind argument to parameter 'ChildPath' because it is null.");
+
+  const joined = parents.map((entry) => joinPath(entry, child, ...extra));
+  if (parsed.switches.has("Resolve")) {
+    const nodes = ctx.fs.getNodes();
+    const missing = joined.find((entry) => !nodes[resolveShellPath(entry, ctx.session.cwd, nodes)]);
+    if (missing !== undefined) return fail(ctx, name, `Cannot find path '${missing}' because it does not exist.`);
+  }
+  return ok(joined.map(sanitizeForTerminal));
+};
+
+const SPLIT_PARTS: Array<[string, SplitPart]> = [
+  ["Qualifier", "qualifier"],
+  ["NoQualifier", "noqualifier"],
+  ["LeafBase", "leafbase"],
+  ["Extension", "extension"],
+  ["Leaf", "leaf"],
+  ["Parent", "parent"],
+];
+
+const splitPathCmd: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, {
+    switches: [...SPLIT_PARTS.map(([flag]) => flag), "IsAbsolute", "Resolve"],
+    params: ["Path", "LiteralPath"],
+  });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+
+  const chosen = SPLIT_PARTS.filter(([flag]) => parsed.switches.has(flag));
+  const absolute = parsed.switches.has("IsAbsolute");
+  if (chosen.length + (absolute ? 1 : 0) > 1) return fail(ctx, name, "Parameter set cannot be resolved using the specified named parameters.");
+
+  const targets = pathArguments(parsed, stdin);
+  if (!targets.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+
+  const out: string[] = [];
+  let okay = true;
+  for (const target of targets) {
+    if (absolute) {
+      out.push(isAbsolutePath(target) ? "True" : "False");
+      continue;
+    }
+    const part = splitPath(target, chosen[0]?.[1] ?? "parent");
+    if (part === null) {
+      fail(ctx, name, `Cannot parse path because path '${target}' does not have a qualifier specified.`);
+      okay = false;
+    } else {
+      out.push(sanitizeForTerminal(part));
+    }
+  }
+  return { out, ok: okay };
+};
+
+const resolvePathCmd: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Relative"], params: ["Path", "LiteralPath"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const targets = pathArguments(parsed, stdin);
+  if (!targets.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+
+  const nodes = ctx.fs.getNodes();
+  const found: string[] = [];
+  let okay = true;
+  for (const target of targets) {
+    const hits = expandPaths([target], ctx).filter((hit) => nodes[hit.path]);
+    if (!hits.length) {
+      fail(ctx, name, `Cannot find path '${toDisplayPath(resolveShellPath(target, ctx.session.cwd, nodes))}' because it does not exist.`);
+      okay = false;
+    }
+    hits.forEach((hit) => found.push(hit.path));
+  }
+  if (!found.length) return { out: [], ok: okay };
+
+  if (parsed.switches.has("Relative")) {
+    const lines = found.map((path) => (path === ctx.session.cwd ? "." : path.startsWith(ctx.session.cwd === "/" ? "/" : `${ctx.session.cwd}/`) ? `.\\${displayRelative(path, ctx.session.cwd)}` : toDisplayPath(path)));
+    return { out: lines, ok: okay };
+  }
+  const result = emitItems(found.map(pathInfoObject));
+  return { ...result, ok: okay };
+};
+
 const pushLocation: CommandFn = (args, stdin, ctx) => {
   const previous = ctx.session.cwd;
   const result = setLocation(args, stdin, ctx, "Push-Location") as Output;
@@ -2713,6 +2811,9 @@ const EXTRA_COMMANDS: Record<string, CommandSpec> = {
   "Pop-Location": { aliases: ["popd"], synopsis: "Return to the folder saved by Push-Location.", syntax: "Pop-Location", run: popLocation },
   "Clear-History": { aliases: ["clhy"], synopsis: "Forget this terminal's command history.", syntax: "Clear-History", run: clearHistory },
   "Get-Variable": { aliases: ["gv"], synopsis: "List variables set in this session.", syntax: "Get-Variable [<name>]", run: getVariable },
+  "Join-Path": { aliases: [], synopsis: "Join folder and file names into one path: Join-Path $HOME Documents.", syntax: "Join-Path [-Path] <string> [-ChildPath] <string> [[-AdditionalChildPath] <string[]>] [-Resolve]", run: joinPathCmd },
+  "Split-Path": { aliases: [], synopsis: "Take a path apart: -Parent (the default), -Leaf, -LeafBase, -Extension, -Qualifier.", syntax: "Split-Path [-Path] <string[]> [-Parent] [-Leaf] [-LeafBase] [-Extension] [-Qualifier] [-NoQualifier] [-IsAbsolute]", run: splitPathCmd },
+  "Resolve-Path": { aliases: ["rvpa"], synopsis: "Turn a relative path or wildcard into full paths: Resolve-Path ..\\*.", syntax: "Resolve-Path [-Path] <string[]> [-Relative]", run: resolvePathCmd },
   "ConvertTo-Json": { aliases: [], synopsis: "Write piped objects as JSON text: ls | select Name, Length | ConvertTo-Json.", syntax: "<command> | ConvertTo-Json [-Depth <int>] [-Compress] [-AsArray]", run: convertToJson },
   "ConvertFrom-Json": { aliases: [], synopsis: "Turn JSON text into objects: '{\"a\": 1}' | ConvertFrom-Json.", syntax: "<command> | ConvertFrom-Json [-InputObject <string>] [-AsHashtable]", run: convertFromJson },
 };

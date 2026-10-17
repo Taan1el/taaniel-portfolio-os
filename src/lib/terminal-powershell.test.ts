@@ -191,6 +191,74 @@ describe("member access on automatic variables", () => {
   });
 });
 
+describe("Join-Path, Split-Path and Resolve-Path", () => {
+  it("joins paths with the Windows rules, without needing them to exist", async () => {
+    expect((await run("Join-Path C:\\Users\\Taaniel Documents")).text).toBe("C:\\Users\\Taaniel\\Documents");
+    expect((await run("Join-Path -Path C:\\a\\ -ChildPath \\b")).text).toBe("C:\\a\\b");
+    expect((await run("Join-Path a b c d")).text).toBe("a\\b\\c\\d");
+    expect((await run("Join-Path $HOME Documents")).text).toBe("C:\\Users\\Taaniel\\Documents");
+    expect((await run("Join-Path $PWD notes.txt")).text).toBe("C:\\Users\\Taaniel\\Desktop\\notes.txt");
+  });
+
+  it("joins every piped path, and reports what is missing", async () => {
+    expect((await run("echo a b | Join-Path -ChildPath x")).lines).toEqual(["a\\x", "b\\x"]);
+    expect((await run("Join-Path a")).success).toBe(false);
+    expect((await run("Join-Path")).text).toContain("'Path'");
+    expect((await run("Join-Path ~ Documents -Resolve")).success).toBe(true);
+    const missing = await run("Join-Path ~ Nope -Resolve");
+    expect(missing.success).toBe(false);
+    expect(missing.text).toContain("does not exist");
+  });
+
+  it("splits a path into its parts", async () => {
+    const file = "C:\\Users\\Taaniel\\Documents\\CV.pdf";
+    expect((await run(`Split-Path ${file}`)).text).toBe("C:\\Users\\Taaniel\\Documents");
+    expect((await run(`Split-Path ${file} -Parent`)).text).toBe("C:\\Users\\Taaniel\\Documents");
+    expect((await run(`Split-Path ${file} -Leaf`)).text).toBe("CV.pdf");
+    expect((await run(`Split-Path ${file} -LeafBase`)).text).toBe("CV");
+    expect((await run(`Split-Path ${file} -Extension`)).text).toBe(".pdf");
+    expect((await run(`Split-Path ${file} -Qualifier`)).text).toBe("C:");
+    expect((await run(`Split-Path ${file} -NoQualifier`)).text).toBe("\\Users\\Taaniel\\Documents\\CV.pdf");
+    expect((await run(`Split-Path ${file} -IsAbsolute`)).text).toBe("True");
+    expect((await run("Split-Path Documents -IsAbsolute")).text).toBe("False");
+  });
+
+  it("pipes into Split-Path and rejects a path with no drive for -Qualifier", async () => {
+    expect((await run("Get-Location | Split-Path -Leaf")).lines.filter(Boolean).at(-1)).toBe("Desktop");
+    expect((await run("pwd | Split-Path -Leaf")).lines.filter(Boolean).at(-1)).toBe("Desktop");
+    const none = await run("Split-Path Documents\\x -Qualifier");
+    expect(none.success).toBe(false);
+    expect(none.text).toContain("does not have a qualifier");
+    expect((await run("Split-Path a -Leaf -Parent")).success).toBe(false);
+  });
+
+  it("takes the parent of $PWD", async () => {
+    expect((await run("Split-Path $PWD")).text).toBe("C:\\Users\\Taaniel");
+  });
+
+  it("resolves relative paths and wildcards to full paths in a table", async () => {
+    const { lines } = await run("Resolve-Path ..\\Documents");
+    expect(lines.filter(Boolean)).toEqual(["Path", "----", "C:\\Users\\Taaniel\\Documents"]);
+    const wild = await run("Resolve-Path ..\\Doc*");
+    expect(wild.text).toContain("C:\\Users\\Taaniel\\Documents");
+  });
+
+  it("gives back just the path to a variable", async () => {
+    await run("$here = Resolve-Path .");
+    expect((await run("$here")).text).toBe("C:\\Users\\Taaniel\\Desktop");
+  });
+
+  it("prints relative paths with -Relative and reports a missing one", async () => {
+    session = createShellSession("/");
+    expect((await run("Resolve-Path Documents -Relative")).lines).toEqual([".\\Documents"]);
+    expect((await run("Resolve-Path . -Relative")).lines).toEqual(["."]);
+    const missing = await run("Resolve-Path nope");
+    expect(missing.success).toBe(false);
+    expect(missing.text).toContain("Cannot find path 'C:\\Users\\Taaniel\\nope' because it does not exist.");
+    expect((await run("Resolve-Path nope*")).success).toBe(false);
+  });
+});
+
 describe("ConvertTo-Json and ConvertFrom-Json", () => {
   it("writes piped objects as JSON", async () => {
     const { text } = await run("ls ~ | select Name, PSIsContainer -First 1 | ConvertTo-Json");
