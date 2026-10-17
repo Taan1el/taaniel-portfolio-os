@@ -50,22 +50,27 @@ const defaultEnvironment: DragEnvironment = {
   chooseOperation: () => undefined,
 };
 
-let environment: DragEnvironment = { ...defaultEnvironment };
+/** Each part of the shell that handles some drag effects adds a layer; later layers win. */
+const environmentLayers: Array<Partial<DragEnvironment>> = [];
 
 /**
- * Provide some of the controller's effects. Returns a function that takes them
- * back out again (only if nothing replaced them since), for effect cleanup.
+ * Provide some of the controller's effects. Returns a function that takes that
+ * layer back out, so it works as an effect cleanup in any order.
  */
 export function configureDragEnvironment(partial: Partial<DragEnvironment>) {
-  const previous = environment;
-  const next = { ...environment, ...partial };
-  environment = next;
+  environmentLayers.push(partial);
 
   return () => {
-    if (environment === next) {
-      environment = previous;
+    const index = environmentLayers.indexOf(partial);
+
+    if (index >= 0) {
+      environmentLayers.splice(index, 1);
     }
   };
+}
+
+function getEnvironment(): DragEnvironment {
+  return Object.assign({}, defaultEnvironment, ...environmentLayers) as DragEnvironment;
 }
 
 export interface ArmDragOptions {
@@ -457,6 +462,7 @@ function evaluate() {
     return;
   }
 
+  const env = getEnvironment();
   const elements = typeof document.elementsFromPoint === "function" ? document.elementsFromPoint(drag.x, drag.y) : [];
   const found = findDropZone(elements);
   const zone = found?.zone ?? null;
@@ -466,8 +472,8 @@ function evaluate() {
     zone,
     modifiers: drag.modifiers,
     button: drag.button,
-    nodes: environment.getNodes(),
-    explorerPathOf: environment.explorerPathOf,
+    nodes: env.getNodes(),
+    explorerPathOf: env.explorerPathOf,
   });
 
   drag.plan = plan;
@@ -480,9 +486,9 @@ function evaluate() {
     drag.zoneKey = zoneKey;
 
     if (zone?.kind === "taskbar") {
-      startHoverTimer(drag, "restore-window", TASKBAR_HOVER_MS, () => environment.activateWindow(zone.windowId));
+      startHoverTimer(drag, "restore-window", TASKBAR_HOVER_MS, () => getEnvironment().activateWindow(zone.windowId));
     } else if (zone?.kind === "folder" && zone.spring && zone.windowId && plan.kind !== "none") {
-      startHoverTimer(drag, "open-folder", SPRING_OPEN_MS, () => environment.springOpen(zone.windowId as string, zone.path));
+      startHoverTimer(drag, "open-folder", SPRING_OPEN_MS, () => getEnvironment().springOpen(zone.windowId as string, zone.path));
     }
   }
 
@@ -518,6 +524,7 @@ function evaluate() {
       y: drag.y,
       grab: drag.options.grab ?? { x: 0, y: 0 },
       plan,
+      overZone: found !== null,
       hover: drag.hover,
     },
   });
@@ -610,16 +617,16 @@ function finishDrag(drop: boolean) {
 
   switch (plan.kind) {
     case "transfer":
-      environment.transfer(plan.paths, plan.destination, plan.operation, { x, y });
+      getEnvironment().transfer(plan.paths, plan.destination, plan.operation, { x, y });
       return;
     case "choose":
-      environment.chooseOperation({ x, y, destination: plan.destination, paths: plan.paths });
+      getEnvironment().chooseOperation({ x, y, destination: plan.destination, paths: plan.paths });
       return;
     case "open-with":
-      environment.openWith({ appId: plan.appId, windowId: plan.windowId, paths: plan.paths });
+      getEnvironment().openWith({ appId: plan.appId, windowId: plan.windowId, paths: plan.paths });
       return;
     case "reposition":
-      environment.reposition({ items, x, y, grab });
+      getEnvironment().reposition({ items, x, y, grab });
       return;
     case "none":
       return;
