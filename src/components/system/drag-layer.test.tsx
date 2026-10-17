@@ -63,6 +63,66 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
+describe("the menu a right-button drag opens", () => {
+  const entries = () =>
+    (useShellStore.getState().contextMenu?.actions ?? [])
+      .filter((action) => !action.separator)
+      .map((action) => [action.label, Boolean(action.disabled)]);
+
+  it("lists Move here, Copy here, Create shortcuts here and Cancel, and does what is picked", async () => {
+    render(<DragLayer />);
+
+    dragOnto(zone(folderDropProps("/Desktop", { windowId: "files-1" })), ["/Documents/one.txt"], 2);
+
+    expect(entries()).toEqual([
+      ["Move here", false],
+      ["Copy here", false],
+      ["Create shortcuts here", false],
+      ["Cancel", false],
+    ]);
+    // Nothing happens until an entry is chosen.
+    expect(nodes()["/Desktop/one.txt"]).toBeUndefined();
+
+    act(() => useShellStore.getState().contextMenu?.actions.find((action) => action.id === "copy-here")?.onSelect());
+
+    await waitFor(() => expect(nodes()["/Desktop/one.txt"]).toBeTruthy());
+    expect(nodes()["/Documents/one.txt"]).toBeTruthy();
+  });
+
+  it("dims Move here on the folder the file is already in and offers the copy", async () => {
+    render(<DragLayer />);
+
+    dragOnto(zone(folderDropProps("/Documents", { windowId: "files-1" })), ["/Documents/two.txt"], 2);
+
+    expect(entries()).toEqual([
+      ["Move here", true],
+      ["Copy here", false],
+      ["Create shortcuts here", false],
+      ["Cancel", false],
+    ]);
+
+    act(() => useShellStore.getState().contextMenu?.actions.find((action) => action.id === "copy-here")?.onSelect());
+
+    await waitFor(() => expect(Object.keys(nodes()).filter((path) => path.startsWith("/Documents/two"))).toHaveLength(2));
+  });
+
+  it("offers just Move here and Cancel on the Recycle Bin", async () => {
+    render(<DragLayer />);
+
+    dragOnto(zone(folderDropProps("/Trash")), ["/Documents/one.txt"], 2);
+
+    expect(entries()).toEqual([
+      ["Move here", false],
+      ["Cancel", false],
+    ]);
+
+    act(() => useShellStore.getState().contextMenu?.actions.find((action) => action.id === "move-here")?.onSelect());
+
+    await waitFor(() => expect(nodes()["/Trash/one.txt"]).toBeTruthy());
+    expect(nodes()["/Trash/one.txt"]).toMatchObject({ originalPath: "/Documents/one.txt" });
+  });
+});
+
 describe("where files dropped on the Desktop folder land", () => {
   it("takes the cell under the pointer when dropped on the desktop itself, and selects them", async () => {
     const placed = vi.fn();

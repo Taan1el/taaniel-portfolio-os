@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { operationFromModifiers } from "@/lib/dnd/operation";
 import { canAppOpenPath, describeDestination, resolveDropPlan, type ResolveDropInput } from "@/lib/dnd/resolve";
 import { createShortcutNode } from "@/lib/shortcuts";
-import type { DragItem, DropZone } from "@/lib/dnd/types";
+import type { DragItem, DropPlan, DropZone } from "@/lib/dnd/types";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
 
 const dir = (path: string): VirtualDirectory => ({
@@ -150,16 +150,132 @@ describe("resolveDropPlan into folders", () => {
     ).toEqual({ kind: "reposition" });
   });
 
-  it("asks what to do on a right-button drag", () => {
-    expect(resolve({ items: toItems("/Desktop/todo.txt"), zone: folder("/Documents"), button: 2 })).toMatchObject({
-      kind: "choose",
-      destination: "/Documents",
-      label: "Move to Documents",
+  it("has no plan over empty space", () => {
+    expect(resolve({ items: toItems("/Desktop/todo.txt"), zone: null })).toEqual({ kind: "none" });
+  });
+});
+
+describe("resolveDropPlan with the right button", () => {
+  const right = { button: 2 };
+  /** The menu a right-button drag would open: label, and whether it can be chosen. */
+  const menu = (plan: DropPlan) =>
+    plan.kind === "choose" ? plan.choices.map((choice) => [choice.label, choice.plan !== null]) : plan;
+
+  it("asks what to do instead of acting", () => {
+    const plan = resolve({ items: toItems("/Desktop/todo.txt"), zone: folder("/Documents"), ...right });
+
+    expect(plan).toMatchObject({ kind: "choose", label: "Move to Documents" });
+    expect(menu(plan)).toEqual([
+      ["Move here", true],
+      ["Copy here", true],
+      ["Create shortcuts here", true],
+    ]);
+    expect(plan.kind === "choose" && plan.choices.map((choice) => choice.plan)).toMatchObject([
+      { kind: "transfer", operation: "move", destination: "/Documents", paths: ["/Desktop/todo.txt"] },
+      { kind: "transfer", operation: "copy", destination: "/Documents" },
+      { kind: "transfer", operation: "link", destination: "/Documents" },
+    ]);
+  });
+
+  it("ignores the modifier keys: the menu does the choosing", () => {
+    expect(
+      menu(resolve({ items: toItems("/Desktop/todo.txt"), zone: folder("/Documents"), modifiers: { ...none, ctrl: true }, ...right }))
+    ).toEqual([
+      ["Move here", true],
+      ["Copy here", true],
+      ["Create shortcuts here", true],
+    ]);
+  });
+
+  it("offers copies and shortcuts, but no move, on the folder the items already live in", () => {
+    expect(menu(resolve({ items: toItems("/Documents/notes.txt"), zone: folder("/Documents"), ...right }))).toEqual([
+      ["Move here", false],
+      ["Copy here", true],
+      ["Create shortcuts here", true],
+    ]);
+  });
+
+  it("repositions desktop icons through Move here", () => {
+    const plan = resolve({
+      origin: "desktop",
+      items: toItems("/Desktop/todo.txt"),
+      zone: folder("/Desktop", { surface: "desktop" }),
+      ...right,
+    });
+
+    expect(menu(plan)).toEqual([
+      ["Move here", true],
+      ["Copy here", true],
+      ["Create shortcuts here", true],
+    ]);
+    expect(plan.kind === "choose" && plan.choices[0].plan).toEqual({ kind: "reposition" });
+    expect(plan.kind === "choose" && plan.choices[1].plan).toMatchObject({ kind: "transfer", operation: "copy", surface: "desktop" });
+  });
+
+  it("dims Move here for read-only items instead of turning it into a copy", () => {
+    expect(menu(resolve({ items: toItems("/Media/Photography/austria.jpg"), zone: folder("/Desktop"), ...right }))).toEqual([
+      ["Move here", false],
+      ["Copy here", true],
+      ["Create shortcuts here", true],
+    ]);
+  });
+
+  it("only offers Move here on the Recycle Bin", () => {
+    const plan = resolve({ items: toItems("/Desktop/todo.txt"), zone: folder("/Trash"), ...right });
+
+    expect(menu(plan)).toEqual([["Move here", true]]);
+    expect(plan.kind === "choose" && plan.choices[0].plan).toMatchObject({
+      kind: "transfer",
+      operation: "move",
+      destination: "/Trash",
+      label: "Move to Recycle Bin",
     });
   });
 
-  it("has no plan over empty space", () => {
-    expect(resolve({ items: toItems("/Desktop/todo.txt"), zone: null })).toEqual({ kind: "none" });
+  it("still refuses what can't go anywhere", () => {
+    expect(resolve({ items: toItems("/Documents"), zone: folder("/Trash"), ...right })).toEqual({ kind: "none" });
+    expect(resolve({ items: toItems("/Trash/old.txt"), zone: folder("/Trash"), ...right })).toEqual({ kind: "none", quiet: true });
+  });
+
+  it("offers Open with on an app window or desktop app icon", () => {
+    const onWindow = resolve({
+      items: toItems("/Desktop/pic.png"),
+      zone: { kind: "window", windowId: "w1", appId: "photos" },
+      ...right,
+    });
+    const onIcon = resolve({ items: toItems("/Desktop/pic.png"), zone: { kind: "app", appId: "photos" }, ...right });
+
+    expect(menu(onWindow)).toEqual([["Open with Photos", true]]);
+    expect(onWindow.kind === "choose" && onWindow.choices[0].plan).toEqual({
+      kind: "open-with",
+      appId: "photos",
+      windowId: "w1",
+      paths: ["/Desktop/pic.png"],
+      label: "Open with Photos",
+    });
+    expect(menu(onIcon)).toEqual([["Open with Photos", true]]);
+    expect(
+      resolve({ items: toItems("/Documents/cv.pdf"), zone: { kind: "window", windowId: "w1", appId: "photos" }, ...right })
+    ).toEqual({ kind: "none" });
+  });
+
+  it("asks about the folder an Explorer window shows", () => {
+    const plan = resolve({
+      items: toItems("/Desktop/todo.txt"),
+      zone: { kind: "window", windowId: "files-1", appId: "files" },
+      explorerPathOf: () => "/Documents/Reports",
+      ...right,
+    });
+
+    expect(plan).toMatchObject({ kind: "choose", label: "Move to Reports" });
+  });
+
+  it("can reposition the Recycle Bin icon through Move here, and nowhere else", () => {
+    const recycleBin: DragItem[] = [{ id: "system:recycle-bin" }];
+    const plan = resolve({ origin: "desktop", items: recycleBin, zone: folder("/Desktop", { surface: "desktop" }), ...right });
+
+    expect(menu(plan)).toEqual([["Move here", true]]);
+    expect(resolve({ origin: "desktop", items: recycleBin, zone: folder("/Documents"), ...right })).toEqual({ kind: "none" });
   });
 });
 

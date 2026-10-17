@@ -5,7 +5,7 @@ import { RecycleBinEmptyIcon } from "@/components/icons/apps";
 import { NodeIcon } from "@/components/icons/node-icon";
 import { TransferDialog } from "@/components/system/transfer-dialog";
 import { DESKTOP_PATH, getDesktopNodeId } from "@/data/desktop-seed";
-import { configureDragEnvironment } from "@/lib/dnd/controller";
+import { configureDragEnvironment, type DropMenuChoice } from "@/lib/dnd/controller";
 import { placeArrivalsOnDesktop } from "@/lib/dnd/desktop-placement";
 import { useDragStore, type DragSession } from "@/lib/dnd/drag-store";
 import type { DragOperation } from "@/lib/dnd/types";
@@ -60,18 +60,23 @@ function openDroppedFile(request: { appId: AppId; windowId?: string; paths: stri
   launchApp({ appId: request.appId, payload: { filePath: target.path } });
 }
 
-function buildDropMenu(
-  destination: string,
-  paths: string[],
-  point: { x: number; y: number },
-  surface?: "desktop"
-): ContextMenuAction[] {
-  const run = (operation: DragOperation) => () => void transferAndPlace(paths, destination, operation, point, surface);
+const CHOICE_ICONS: Record<DropMenuChoice["id"], ContextMenuAction["icon"]> = {
+  move: ArrowRight,
+  copy: Plus,
+  link: Link2,
+  open: ExternalLink,
+};
 
+/** What a right-button drag offers when released: each choice runs the drop, then Cancel. */
+function buildDropMenu(choices: DropMenuChoice[]): ContextMenuAction[] {
   return [
-    { id: "move-here", label: "Move here", icon: ArrowRight, onSelect: run("move") },
-    { id: "copy-here", label: "Copy here", icon: Plus, onSelect: run("copy") },
-    { id: "link-here", label: "Create shortcuts here", icon: Link2, onSelect: run("link") },
+    ...choices.map<ContextMenuAction>((choice) => ({
+      id: `${choice.id}-here`,
+      label: choice.label,
+      icon: CHOICE_ICONS[choice.id],
+      disabled: choice.disabled,
+      onSelect: choice.run,
+    })),
     { id: "sep-cancel", label: "", separator: true, onSelect: () => {} },
     { id: "cancel-drop", label: "Cancel", onSelect: () => {} },
   ];
@@ -193,8 +198,8 @@ export function DragLayer() {
         openWith: openDroppedFile,
         springOpen: (windowId, path) => useExplorerStore.getState().navigate(windowId, path),
         activateWindow: (windowId) => useSystemStore.getState().focusWindow(windowId),
-        chooseOperation: ({ x, y, destination, paths, surface }) =>
-          useShellStore.getState().setContextMenu({ x, y, title: "Drop", actions: buildDropMenu(destination, paths, { x, y }, surface) }),
+        chooseOperation: ({ x, y, choices }) =>
+          useShellStore.getState().setContextMenu({ x, y, title: "Drop", actions: buildDropMenu(choices) }),
       }),
     []
   );

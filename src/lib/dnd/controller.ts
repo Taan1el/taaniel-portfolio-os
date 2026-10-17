@@ -2,7 +2,7 @@ import { DND_SCROLL_ATTRIBUTE, DROP_ACTIVE_ATTRIBUTE, findDropZone, getZoneKey }
 import { useDragStore, type DragHover } from "@/lib/dnd/drag-store";
 import { readModifiers } from "@/lib/dnd/operation";
 import { resolveDropPlan } from "@/lib/dnd/resolve";
-import type { DragItem, DragModifiers, DragOperation, DragOrigin, DropPlan } from "@/lib/dnd/types";
+import type { ConcreteDropPlan, DragItem, DragModifiers, DragOperation, DragOrigin, DropChoice, DropPlan } from "@/lib/dnd/types";
 import type { AppId, FileSystemRecord } from "@/types/system";
 
 /*
@@ -42,8 +42,17 @@ export interface DragEnvironment {
   activateWindow: (windowId: string) => void;
   /** Desktop only: move icons to the grid cell under the pointer. */
   reposition: (drop: { items: DragItem[]; x: number; y: number; grab: { x: number; y: number } }) => void;
-  /** Right-button drag: show "Move here / Copy here / Create shortcuts here / Cancel". */
-  chooseOperation: (choice: { x: number; y: number; destination: string; paths: string[]; surface?: "desktop" }) => void;
+  /** Right-button drag: show "Move here / Copy here / Create shortcuts here / Cancel" (or "Open with ..."). */
+  chooseOperation: (menu: { x: number; y: number; choices: DropMenuChoice[] }) => void;
+}
+
+/** One entry of the right-button drop menu. `run` carries out the drop as it was released. */
+export interface DropMenuChoice {
+  id: DropChoice["id"];
+  label: string;
+  /** Windows shows the entries it can't offer here dimmed. */
+  disabled: boolean;
+  run: () => void;
 }
 
 const defaultEnvironment: DragEnvironment = {
@@ -490,8 +499,12 @@ function evaluate() {
   });
 
   drag.plan = plan;
-  // A taskbar button lights up too: holding a drag there brings its window forward.
-  const highlightable = plan.kind !== "none" ? plan.kind !== "reposition" : zone?.kind === "taskbar";
+  // A taskbar button lights up too: holding a drag there brings its window forward. Moving icons about
+  // the desktop (even through the right-button menu) leaves the desktop itself unlit.
+  const repositionOnly =
+    plan.kind === "reposition" ||
+    (plan.kind === "choose" && plan.choices.every((choice) => choice.plan === null || choice.plan.kind === "reposition"));
+  const highlightable = plan.kind !== "none" ? !repositionOnly : zone?.kind === "taskbar";
   setHighlight(found && highlightable ? found.element : null);
 
   const zoneKey = getZoneKey(zone);
@@ -641,20 +654,41 @@ function finishDrag(drop: boolean) {
     return;
   }
 
+  const release = { items, x, y, grab };
+
+  if (plan.kind === "choose") {
+    getEnvironment().chooseOperation({
+      x,
+      y,
+      choices: plan.choices.map((choice) => ({
+        id: choice.id,
+        label: choice.label,
+        disabled: choice.plan === null,
+        run: () => (choice.plan ? runPlan(choice.plan, release) : undefined),
+      })),
+    });
+    return;
+  }
+
+  if (plan.kind !== "none") {
+    runPlan(plan, release);
+  }
+}
+
+/** Carry out a decided drop, as released at `x, y`. Also what each entry of the right-button menu runs. */
+function runPlan(
+  plan: ConcreteDropPlan,
+  { items, x, y, grab }: { items: DragItem[]; x: number; y: number; grab: { x: number; y: number } }
+) {
   switch (plan.kind) {
     case "transfer":
       getEnvironment().transfer(plan.paths, plan.destination, plan.operation, { x, y }, plan.surface);
-      return;
-    case "choose":
-      getEnvironment().chooseOperation({ x, y, destination: plan.destination, paths: plan.paths, surface: plan.surface });
       return;
     case "open-with":
       getEnvironment().openWith({ appId: plan.appId, windowId: plan.windowId, paths: plan.paths });
       return;
     case "reposition":
       getEnvironment().reposition({ items, x, y, grab });
-      return;
-    case "none":
       return;
   }
 }
