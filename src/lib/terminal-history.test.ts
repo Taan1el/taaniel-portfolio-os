@@ -14,6 +14,11 @@ describe("terminal history", () => {
     expect(parseHistory(null)).toEqual([]);
   });
 
+  it("drops entries that hold control characters, which a typed command never does", () => {
+    const stored = JSON.stringify(["ls", "echo \u001b]52;c;cHduZWQ=\u0007hi", "cd ..", "x\u009b2Jy", "a\tb", "ok"]);
+    expect(parseHistory(stored)).toEqual(["ls", "cd ..", "ok"]);
+  });
+
   it("drops absurdly long saved entries and keeps only the newest", () => {
     const many = Array.from({ length: HISTORY_LIMIT + 30 }, (_, index) => `cmd ${index}`);
     const read = parseHistory(JSON.stringify([...many, "x".repeat(20_000)]));
