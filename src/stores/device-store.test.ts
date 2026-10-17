@@ -40,6 +40,26 @@ describe("device store", () => {
     expect(useDeviceStore.getState()).toMatchObject({ batterySupported: true, battery: null });
   });
 
+  it("keeps a laptop's battery on show when it reaches full and plugged in", () => {
+    const { setBatteryReading } = useDeviceStore.getState();
+    setBatteryReading({ level: 0.97, charging: true, chargingTime: 300, dischargingTime: Infinity });
+    expect(useDeviceStore.getState().battery?.level).toBe(0.97);
+
+    // Chrome now answers exactly as it does on a desktop PC.
+    setBatteryReading({ level: 1, charging: true, chargingTime: 0, dischargingTime: Infinity });
+    expect(useDeviceStore.getState()).toMatchObject({ batteryLatched: true, battery: { level: 1, charging: true } });
+
+    setBatteryReading({ level: 1, charging: false, chargingTime: Infinity, dischargingTime: 20000 });
+    expect(useDeviceStore.getState().battery?.charging).toBe(false);
+  });
+
+  it("forgets the latch when the device state is reset", () => {
+    useDeviceStore.getState().setBatteryReading({ level: 0.5, charging: false, chargingTime: Infinity, dischargingTime: 5000 });
+    useDeviceStore.getState().resetDevice();
+    useDeviceStore.getState().setBatteryReading({ level: 1, charging: true, chargingTime: 0, dischargingTime: Infinity });
+    expect(useDeviceStore.getState().battery).toBeNull();
+  });
+
   it("follows the browser's online and offline events", () => {
     const stop = startDeviceWatchers();
     const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);

@@ -9,6 +9,7 @@ import {
   isLikelyBatteryPresent,
   isNetworkBlocked,
   resolveBatteryGlyph,
+  resolveBatteryState,
   resolveNetworkStatus,
   resolveSignalStrength,
   resolveVolumeGlyph,
@@ -79,6 +80,32 @@ describe("battery status", () => {
     expect(
       isLikelyBatteryPresent({ level: 1, charging: false, chargingTime: Infinity, dischargingTime: 9000 })
     ).toBe(true);
+  });
+
+  describe("latching a real battery", () => {
+    const desktopLike = { level: 1, charging: true, chargingTime: 0, dischargingTime: Infinity };
+    const partlyCharged = { level: 0.97, charging: true, chargingTime: 300, dischargingTime: Infinity };
+
+    it("hides the desktop reading until a laptop reading has been seen", () => {
+      expect(resolveBatteryState(desktopLike, false)).toEqual({ battery: null, latched: false });
+    });
+
+    it("keeps a laptop's battery once it reaches full and plugged in", () => {
+      const seen = resolveBatteryState(partlyCharged, false);
+      expect(seen).toEqual({ battery: partlyCharged, latched: true });
+
+      const full = resolveBatteryState(desktopLike, seen.latched);
+      expect(full).toEqual({ battery: desktopLike, latched: true });
+      expect(describeBattery(full.battery!)).toBe("100% available (plugged in)");
+    });
+
+    it("keeps the latch through an unreadable reading but shows no battery for it", () => {
+      expect(resolveBatteryState(null, true)).toEqual({ battery: null, latched: true });
+      expect(resolveBatteryState({ ...desktopLike, level: Number.NaN }, true)).toEqual({
+        battery: null,
+        latched: true,
+      });
+    });
   });
 
   it("uses Windows wording", () => {
