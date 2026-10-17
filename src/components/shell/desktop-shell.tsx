@@ -51,7 +51,7 @@ import { useSystemStore } from "@/stores/system-store";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
-  const { batterySaver } = useShellServices();
+  useShellServices();
   const offlineBanner = describeOfflineBanner(useDeviceStore(selectNetworkStatus));
   const { processes } = useProcessStore(
     useShallow((state) => ({
@@ -561,7 +561,7 @@ export function DesktopShell() {
     <main
       className={cn(
         "os-root",
-        wallpaperPresentation.animated && !prefersStaticWallpaper({ batterySaver }) && "is-animated-wallpaper"
+        wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
       )}
       style={
         {

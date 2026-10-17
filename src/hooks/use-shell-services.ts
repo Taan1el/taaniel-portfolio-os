@@ -25,7 +25,8 @@ function setFlag(root: HTMLElement, name: FlagName, enabled: boolean) {
  *  - the online, connection and battery watchers behind the tray,
  *  - the settings that plain CSS reacts to, mirrored onto <html> as
  *    data-reduce-motion, data-battery-saver and data-night-light.
- * Returns what the desktop itself needs to react to.
+ * Reading those settings here also renders the desktop again when one changes,
+ * which it relies on to re-evaluate prefersStaticWallpaper() for battery saver.
  */
 export function useShellServices() {
   const { reduceMotion, batterySaver, nightLight } = useSystemSettingsStore(
@@ -49,6 +50,4 @@ export function useShellServices() {
       (Object.keys(FLAG_ATTRIBUTES) as FlagName[]).forEach((name) => setFlag(root, name, false));
     };
   }, [batterySaver, nightLight, reduceMotion]);
-
-  return { batterySaver };
 }
