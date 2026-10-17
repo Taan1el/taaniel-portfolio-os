@@ -15,6 +15,9 @@ export const MAX_LINE_LENGTH = 32_768;
 /** Pastes longer than this ask first, as Windows Terminal does (it warns past 5 KiB). */
 export const LARGE_PASTE_LENGTH = 5120;
 
+/** The most a single paste (or the input typed ahead while a command runs) can carry. The rest is dropped. */
+export const MAX_PASTE_LENGTH = 65_536;
+
 const isWordChar = (char: string | undefined) => Boolean(char && /[\w.\-~$]/.test(char));
 
 const clampCursor = (state: LineState): LineState => ({
@@ -138,9 +141,11 @@ export function historySearch(history: string[], walk: HistoryWalk, current: str
 export function sanitizePaste(text: string): string {
   return (
     text
+      .slice(0, MAX_PASTE_LENGTH)
       .replace(/\t/g, "    ")
       // eslint-disable-next-line no-control-regex
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "")
+      .slice(0, MAX_PASTE_LENGTH)
   );
 }
 

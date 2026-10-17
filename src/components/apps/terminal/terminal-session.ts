@@ -17,6 +17,7 @@ import {
   historyPrevious,
   historySearch,
   insertText,
+  MAX_PASTE_LENGTH,
   moveTo,
   reviewPaste,
   sanitizePaste,
@@ -576,6 +577,11 @@ export class TerminalSession {
     }
   }
 
+  /** Keys typed or pasted while a command runs wait for the prompt, up to a limit. */
+  private enqueue(text: string) {
+    if (this.queued.length < MAX_PASTE_LENGTH) this.queued = `${this.queued}${text}`.slice(0, MAX_PASTE_LENGTH);
+  }
+
   private readonly handleData = (data: string) => {
     if (!this.started || this.disposed) return;
 
@@ -586,7 +592,7 @@ export class TerminalSession {
         this.abort?.abort();
         return;
       }
-      if (this.queued.length < 4096) this.queued += data;
+      this.enqueue(data);
       return;
     }
 
@@ -597,7 +603,7 @@ export class TerminalSession {
 
     for (let index = 0; index < data.length; index += 1) {
       if (this.busy) {
-        this.queued += data.slice(index);
+        this.enqueue(data.slice(index));
         return;
       }
 

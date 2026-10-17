@@ -153,6 +153,24 @@ describe("a PowerShell tab", () => {
     expect(text.split("\n").at(-1)).toMatch(/>$/);
   });
 
+  it("keeps what is typed while a command runs, and runs it afterwards", async () => {
+    const session = create();
+    session.terminal.input("Start-Sleep -Milliseconds 150\r", true);
+    await vi.waitFor(() => expect(session.isBusy()).toBe(true));
+    session.terminal.input("echo later\r", true);
+    await vi.waitFor(async () => expect(await screen(session)).toMatch(/^later$/m), { timeout: 3000 });
+  });
+
+  it("drops typed-ahead input when Ctrl+C stops the command", async () => {
+    const session = create();
+    session.terminal.input("Start-Sleep 30\r", true);
+    await vi.waitFor(() => expect(session.isBusy()).toBe(true));
+    session.terminal.input("echo never\r", true);
+    session.terminal.input("\x03", true);
+    await vi.waitFor(() => expect(session.isBusy()).toBe(false));
+    expect(await screen(session)).not.toMatch(/^never$/m);
+  });
+
   it("hands actions the shell returns to the app", async () => {
     const session = create();
     await type(session, "wt -p cmd\r");
