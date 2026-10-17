@@ -19,6 +19,7 @@ import {
   type ShellValue,
 } from "@/lib/terminal-expression";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import { DEFAULT_JSON_DEPTH, itemsToJson, jsonToItems, MAX_JSON_DEPTH } from "@/lib/terminal-json";
 import { resolveLaunchProfile, type ShellProfileId } from "@/lib/terminal-profiles";
 import {
   compareValues as compareProperties,
@@ -301,7 +302,7 @@ function expandPaths(args: string[], ctx: Ctx) {
 
 // ------------------------------------------------------------- tokenization
 
-type Token = { kind: "word"; value: string; literal: boolean } | { kind: "op"; value: "|" | ";" | ">" | ">>" | "&&" | "||" };
+type Token = { kind: "word"; value: string; literal: boolean; quoted: boolean } | { kind: "op"; value: "|" | ";" | ">" | ">>" | "&&" | "||" };
 
 /** Index of the } that closes the { at `open`, skipping quoted text; -1 when it never closes. */
 function findBlockEnd(input: string, open: number) {
@@ -333,13 +334,15 @@ function tokenize(input: string): Token[] {
   let current = "";
   let inWord = false;
   let literal = false;
+  let quoted = false;
   let i = 0;
 
   const flush = () => {
-    if (inWord) tokens.push({ kind: "word", value: current, literal });
+    if (inWord) tokens.push({ kind: "word", value: current, literal, quoted });
     current = "";
     inWord = false;
     literal = false;
+    quoted = false;
   };
 
   while (i < input.length) {
@@ -349,7 +352,7 @@ function tokenize(input: string): Token[] {
     if (char === "{" && !inWord) {
       const end = findBlockEnd(input, i);
       if (end !== -1) {
-        tokens.push({ kind: "word", value: input.slice(i, end + 1), literal: true });
+        tokens.push({ kind: "word", value: input.slice(i, end + 1), literal: true, quoted: false });
         i = end + 1;
         continue;
       }
@@ -358,6 +361,7 @@ function tokenize(input: string): Token[] {
     if (char === "'") {
       inWord = true;
       literal = true;
+      quoted = true;
       i += 1;
       while (i < input.length) {
         if (input[i] === "'") {
@@ -377,6 +381,7 @@ function tokenize(input: string): Token[] {
 
     if (char === '"') {
       inWord = true;
+      quoted = true;
       i += 1;
       while (i < input.length && input[i] !== '"') {
         if (input[i] === "`" && i + 1 < input.length) {
@@ -559,6 +564,8 @@ function expandVariables(word: string, ctx: Ctx) {
 interface Word {
   value: string;
   literal: boolean;
+  /** Typed inside quotes: at the head of a pipeline stage it is a value, not a command name. */
+  quoted: boolean;
 }
 
 interface Statement {
@@ -586,7 +593,7 @@ function parseStatements(tokens: Token[]): Statement[] | string {
     const token = tokens[index];
 
     if (token.kind === "word") {
-      stages[stages.length - 1].push({ value: token.value, literal: token.literal });
+      stages[stages.length - 1].push({ value: token.value, literal: token.literal, quoted: token.quoted });
       continue;
     }
 
@@ -614,7 +621,7 @@ function parseStatements(tokens: Token[]): Statement[] | string {
 
     const target = tokens[index + 1];
     if (!target || target.kind !== "word") return "Missing file specification after redirection operator.";
-    redirect = { append: token.value === ">>", target: { value: target.value, literal: target.literal } };
+    redirect = { append: token.value === ">>", target: { value: target.value, literal: target.literal, quoted: target.quoted } };
     index += 1;
   }
 
@@ -1963,6 +1970,35 @@ function formatCmdlet(layout: "table" | "list"): CommandFn {
 const formatTableCmdlet = formatCmdlet("table");
 const formatListCmdlet = formatCmdlet("list");
 
+/** Text given as an argument, or else the piped lines, for the cmdlets that take an InputObject. */
+function inputText(parsed: ParsedArgs, stdin: string[] | null) {
+  const given = parsed.params.InputObject !== undefined ? [parsed.params.InputObject, ...parsed.positional] : parsed.positional;
+  return given.length ? given.join(" ") : (stdin ?? []).join("\n");
+}
+
+const convertToJson: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Compress", "AsArray", "EnumsAsStrings"], params: ["Depth", "InputObject"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const depth = parsed.params.Depth === undefined ? DEFAULT_JSON_DEPTH : Number(parsed.params.Depth);
+  if (!Number.isInteger(depth) || depth < 0 || depth > MAX_JSON_DEPTH) {
+    return fail(ctx, name, `Cannot validate argument on parameter 'Depth'. The ${parsed.params.Depth} argument is not in the valid range of 0 to ${MAX_JSON_DEPTH}.`);
+  }
+  const given = parsed.params.InputObject !== undefined ? [parsed.params.InputObject, ...parsed.positional] : parsed.positional;
+  const items: PipelineItem[] = given.length ? given : pipelineItems(stdin, ctx);
+  if (!items.length) return fail(ctx, name, "Cannot bind argument to parameter 'InputObject' because it is null.");
+  return ok(itemsToJson(items, { depth, compress: parsed.switches.has("Compress"), asArray: parsed.switches.has("AsArray") }).split("\n"));
+};
+
+const convertFromJson: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["AsHashtable", "NoEnumerate"], params: ["InputObject", "Depth"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const text = inputText(parsed, stdin).trim();
+  if (!text) return fail(ctx, name, "Cannot bind argument to parameter 'InputObject' because it is an empty string.");
+  const result = jsonToItems(text);
+  if ("error" in result) return fail(ctx, name, result.error);
+  return emitItems(result.items);
+};
+
 const getDate: CommandFn = () =>
   ok(["", new Intl.DateTimeFormat([], { dateStyle: "full", timeStyle: "medium" }).format(new Date()), ""]);
 
@@ -2662,6 +2698,8 @@ const EXTRA_COMMANDS: Record<string, CommandSpec> = {
   "Pop-Location": { aliases: ["popd"], synopsis: "Return to the folder saved by Push-Location.", syntax: "Pop-Location", run: popLocation },
   "Clear-History": { aliases: ["clhy"], synopsis: "Forget this terminal's command history.", syntax: "Clear-History", run: clearHistory },
   "Get-Variable": { aliases: ["gv"], synopsis: "List variables set in this session.", syntax: "Get-Variable [<name>]", run: getVariable },
+  "ConvertTo-Json": { aliases: [], synopsis: "Write piped objects as JSON text: ls | select Name, Length | ConvertTo-Json.", syntax: "<command> | ConvertTo-Json [-Depth <int>] [-Compress] [-AsArray]", run: convertToJson },
+  "ConvertFrom-Json": { aliases: [], synopsis: "Turn JSON text into objects: '{\"a\": 1}' | ConvertFrom-Json.", syntax: "<command> | ConvertFrom-Json [-InputObject <string>] [-AsHashtable]", run: convertFromJson },
 };
 
 // ------------------------------------------------------------------ registry
@@ -2845,7 +2883,7 @@ async function runScript(path: string, ctx: Ctx): Promise<Output> {
   return { out: [], ok: okay };
 }
 
-async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promise<Output> {
+async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx, quotedHead = false): Promise<Output> {
   // The call (&) and dot-source (.) operators just run what follows.
   const words = (argv[0] === "&" || argv[0] === ".") && argv.length > 1 ? argv.slice(1) : argv;
   const [rawName, ...args] = words;
@@ -2874,6 +2912,9 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
       return ok();
     }
   }
+
+  // 'some text' | ConvertFrom-Json: a quoted word that names nothing is a value, not a misspelt command.
+  if (quotedHead && words.length === 1) return ok([rawName]);
 
   return fail(
     ctx,
@@ -2914,7 +2955,7 @@ async function runPipeline(input: string, ctx: Ctx, capture = false): Promise<{ 
       // Object-aware stages read what the previous one produced as live objects; the rest read its text.
       ctx.input = index > 0 ? (output.objects ?? null) : null;
       // eslint-disable-next-line no-await-in-loop
-      output = await runStage(expanded.stages[index], stdin, ctx);
+      output = await runStage(expanded.stages[index], stdin, ctx, statement.stages[index][0]?.quoted === true);
       if (index < expanded.stages.length - 1) stdin = output.out.map(stripAnsi);
     }
     ctx.input = null;

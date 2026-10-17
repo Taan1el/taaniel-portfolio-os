@@ -190,3 +190,58 @@ describe("member access on automatic variables", () => {
     expect((await run("$PSVersionTable.constructor")).text).toBe("");
   });
 });
+
+describe("ConvertTo-Json and ConvertFrom-Json", () => {
+  it("writes piped objects as JSON", async () => {
+    const { text } = await run("ls ~ | select Name, PSIsContainer -First 1 | ConvertTo-Json");
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    expect(Object.keys(parsed)).toEqual(["Name", "PSIsContainer"]);
+    expect(typeof parsed.Name).toBe("string");
+  });
+
+  it("writes several items as an array, and -Compress on one line", async () => {
+    const compact = await run("ls ~ | select Name | ConvertTo-Json -Compress");
+    expect(compact.lines).toHaveLength(1);
+    expect(Array.isArray(JSON.parse(compact.text))).toBe(true);
+    expect((await run("echo hi | ConvertTo-Json -AsArray -Compress")).text).toBe('["hi"]');
+  });
+
+  it("writes an argument and rejects a bad depth", async () => {
+    expect((await run("ConvertTo-Json 'a b' -Compress")).text).toBe('"a b"');
+    const bad = await run("ConvertTo-Json x -Depth 500");
+    expect(bad.success).toBe(false);
+    expect(bad.text).toContain("valid range");
+    expect((await run("ConvertTo-Json")).success).toBe(false);
+  });
+
+  it("reads JSON into objects whose members can be piped on", async () => {
+    const { text } = await run(`'{"name": "Ada", "age": 36}' | ConvertFrom-Json`);
+    expect(text).toMatch(/name\s+age/);
+    expect(text).toMatch(/Ada\s+36/);
+    expect((await run(`'[{"id": 2}, {"id": 1}]' | ConvertFrom-Json | sort id | % id`)).lines.filter(Boolean)).toEqual(["1", "2"]);
+    expect((await run(`'[{"id": 2}, {"id": 1}]' | ConvertFrom-Json | where id -gt 1 | select -ExpandProperty id`)).lines.filter(Boolean)).toEqual(["2"]);
+  });
+
+  it("reads JSON from a file", async () => {
+    await run(`echo '{"title": "Hello"}' > data.json`);
+    expect((await run("cat data.json | ConvertFrom-Json | % title")).lines.filter(Boolean)).toEqual(["Hello"]);
+  });
+
+  it("reports invalid JSON and empty input as errors", async () => {
+    const bad = await run("'{nope' | ConvertFrom-Json");
+    expect(bad.success).toBe(false);
+    expect(bad.text).toContain("Conversion from JSON failed");
+    expect((await run("ConvertFrom-Json")).success).toBe(false);
+  });
+
+  it("round-trips an object", async () => {
+    const { text } = await run(`'{"a": {"b": 1}}' | ConvertFrom-Json | ConvertTo-Json -Compress`);
+    expect(JSON.parse(text)).toEqual({ a: { b: 1 } });
+  });
+
+  it("never runs code that is hidden in the JSON", async () => {
+    const result = await run(`'{"x": "(globalThis.pwned = 1)"}' | ConvertFrom-Json`);
+    expect(result.success).toBe(true);
+    expect((globalThis as { pwned?: number }).pwned).toBeUndefined();
+  });
+});
