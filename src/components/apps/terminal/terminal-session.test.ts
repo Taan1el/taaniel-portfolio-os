@@ -99,6 +99,10 @@ afterEach(() => {
 });
 
 describe("a PowerShell tab", () => {
+  it("keeps as much history on screen as Windows Terminal does", () => {
+    expect(create().terminal.options.scrollback).toBe(9001);
+  });
+
   it("greets with the banner, the focus hint and a prompt", async () => {
     const text = await screen(create());
     expect(text).toContain("PowerShell 7.4.5 on Taaniel OS");

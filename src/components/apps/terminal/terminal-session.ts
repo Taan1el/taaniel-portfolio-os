@@ -47,7 +47,8 @@ import {
  */
 
 const FONT_FAMILY = '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace';
-const SCROLLBACK = 5000;
+/** Windows Terminal's default history size. */
+const SCROLLBACK = 9001;
 /** A window that is still opening can report a sliver of width; text printed then wraps one character per line. */
 const MIN_COLUMNS = 20;
 const CLEAR_SCREEN = "\x1b[2J\x1b[3J\x1b[H";
