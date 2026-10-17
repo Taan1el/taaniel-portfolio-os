@@ -21,16 +21,31 @@ function TransferDialogInner({ request, onClose }: { request: TransferRequest; o
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const verb = request.operation === "move" ? "Move" : "Copy";
-  const first = nodes[request.paths[0]];
-  const subject = request.paths.length === 1 && first ? `"${getDisplayName(first)}"` : `${request.paths.length} items`;
+  // Read once: the item is gone from the listing by the time the closing animation plays.
+  const [subject] = useState(() => {
+    const first = nodes[request.paths[0]];
+    const count = request.paths.length;
+    return count === 1 && first ? `"${getDisplayName(first)}"` : `${count} ${count === 1 ? "item" : "items"}`;
+  });
 
-  // Focus moves into the dialog and goes back to where it was when the dialog closes.
+  // Focus moves into the dialog and goes back to where it was when the dialog closes. The menu item
+  // that opened the dialog is gone by then, so the item the dialog was about is the next best place.
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const firstPath = request.paths[0];
     dialogRef.current?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]')?.focus();
 
-    return () => previous?.focus?.();
-  }, []);
+    return () => {
+      if (previous?.isConnected && previous !== document.body) {
+        previous.focus();
+        return;
+      }
+
+      Array.from(document.querySelectorAll<HTMLElement>("[data-path]"))
+        .find((element) => element.dataset.path === firstPath)
+        ?.focus({ preventScroll: true });
+    };
+  }, [request.paths]);
 
   const confirm = async () => {
     if (!selected) {
@@ -59,7 +74,9 @@ function TransferDialogInner({ request, onClose }: { request: TransferRequest; o
 
     setSelected(enabled[next].path);
     window.requestAnimationFrame(() =>
-      dialogRef.current?.querySelector<HTMLElement>(`[data-folder-path="${CSS.escape(enabled[next].path)}"]`)?.focus()
+      Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("[data-folder-path]") ?? [])
+        .find((element) => element.dataset.folderPath === enabled[next].path)
+        ?.focus()
     );
   };
 
