@@ -301,7 +301,7 @@ function expandPaths(args: string[], ctx: Ctx) {
 
 // ------------------------------------------------------------- tokenization
 
-type Token = { kind: "word"; value: string; literal: boolean } | { kind: "op"; value: "|" | ";" | ">" | ">>" };
+type Token = { kind: "word"; value: string; literal: boolean } | { kind: "op"; value: "|" | ";" | ">" | ">>" | "&&" | "||" };
 
 /** Index of the } that closes the { at `open`, skipping quoted text; -1 when it never closes. */
 function findBlockEnd(input: string, open: number) {
@@ -401,6 +401,14 @@ function tokenize(input: string): Token[] {
     if (/\s/.test(char)) {
       flush();
       i += 1;
+      continue;
+    }
+
+    // PowerShell 7's pipeline chain operators: && runs the next only after success, || only after failure.
+    if ((char === "|" || char === "&") && input[i + 1] === char) {
+      flush();
+      tokens.push({ kind: "op", value: char === "|" ? "||" : "&&" });
+      i += 2;
       continue;
     }
 
@@ -547,33 +555,44 @@ function expandVariables(word: string, ctx: Ctx) {
   }
 }
 
-interface Statement {
-  stages: string[][];
-  redirect?: { append: boolean; target: string };
+/** A word as typed. It is expanded just before its statement runs, so `$?` sees the statement before it. */
+interface Word {
+  value: string;
+  literal: boolean;
 }
 
-function parseStatements(tokens: Token[], ctx: Ctx): Statement[] | string {
-  const statements: Statement[] = [];
-  let stages: string[][] = [[]];
-  let redirect: Statement["redirect"];
+interface Statement {
+  stages: Word[][];
+  redirect?: { append: boolean; target: Word };
+  /** How this statement hangs on the one before it: && after success only, || after failure only. */
+  chain?: "&&" | "||";
+}
 
+function parseStatements(tokens: Token[]): Statement[] | string {
+  const statements: Statement[] = [];
+  let stages: Word[][] = [[]];
+  let redirect: Statement["redirect"];
+  let chain: Statement["chain"];
+
+  const hasWords = () => stages.some((stage) => stage.length > 0);
   const closeStatement = () => {
-    const meaningful = stages.some((stage) => stage.length > 0);
-    if (meaningful) statements.push({ stages, redirect });
+    if (hasWords()) statements.push({ stages, redirect, chain });
     stages = [[]];
     redirect = undefined;
+    chain = undefined;
   };
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
 
     if (token.kind === "word") {
-      stages[stages.length - 1].push(token.literal ? token.value : expandVariables(token.value, ctx));
+      stages[stages.length - 1].push({ value: token.value, literal: token.literal });
       continue;
     }
 
     if (token.value === ";") {
       if (stages.some((stage) => stage.length === 0) && stages.length > 1) return "An empty pipe element is not allowed.";
+      if (chain && !hasWords()) return `Missing statement after '${chain}'.`;
       closeStatement();
       continue;
     }
@@ -584,15 +603,34 @@ function parseStatements(tokens: Token[], ctx: Ctx): Statement[] | string {
       continue;
     }
 
+    if (token.value === "&&" || token.value === "||") {
+      if (!hasWords()) return `Unexpected token '${token.value}' in expression or statement.`;
+      if (stages.some((stage) => stage.length === 0)) return "An empty pipe element is not allowed.";
+      const operator = token.value;
+      closeStatement();
+      chain = operator;
+      continue;
+    }
+
     const target = tokens[index + 1];
     if (!target || target.kind !== "word") return "Missing file specification after redirection operator.";
-    redirect = { append: token.value === ">>", target: target.literal ? target.value : expandVariables(target.value, ctx) };
+    redirect = { append: token.value === ">>", target: { value: target.value, literal: target.literal } };
     index += 1;
   }
 
   if (stages.length > 1 && stages[stages.length - 1].length === 0) return "An empty pipe element is not allowed.";
+  if (chain && !hasWords()) return `Missing statement after '${chain}'.`;
   closeStatement();
   return statements;
+}
+
+/** Expand $variables and $( expressions ) in a statement's words, now that the statements before it have run. */
+function expandStatement(statement: Statement, ctx: Ctx): { stages: string[][]; redirect?: { append: boolean; target: string } } {
+  const expand = (word: Word) => (word.literal ? word.value : expandVariables(word.value, ctx));
+  return {
+    stages: statement.stages.map((stage) => stage.map(expand)),
+    redirect: statement.redirect ? { append: statement.redirect.append, target: expand(statement.redirect.target) } : undefined,
+  };
 }
 
 // ------------------------------------------------------------ argument parsing
@@ -2844,8 +2882,8 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
   );
 }
 
-async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok: boolean }> {
-  const parsed = parseStatements(tokenize(input), ctx);
+async function runPipeline(input: string, ctx: Ctx, capture = false): Promise<{ out: string[]; ok: boolean; objects?: PipelineItem[] }> {
+  const parsed = parseStatements(tokenize(input));
 
   if (typeof parsed === "string") {
     fail(ctx, "ParserError", parsed);
@@ -2853,31 +2891,51 @@ async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok
   }
 
   const collected: string[] = [];
+  let lastObjects: PipelineItem[] | undefined;
+  // `;` separates statements that each must work; && and || chain statements into a group
+  // whose outcome is that of the last one that ran, as in PowerShell 7.
   let success = true;
+  let groupOk = true;
+
   for (const statement of parsed) {
+    if (!statement.chain) {
+      success &&= groupOk;
+      groupOk = true;
+    } else if ((statement.chain === "&&" && !groupOk) || (statement.chain === "||" && groupOk)) {
+      continue;
+    }
+
+    const expanded = expandStatement(statement, ctx);
     let stdin: string[] | null = null;
     let output: Output = ok();
 
-    for (let index = 0; index < statement.stages.length; index += 1) {
+    for (let index = 0; index < expanded.stages.length; index += 1) {
       checkInterrupt(ctx);
       // Object-aware stages read what the previous one produced as live objects; the rest read its text.
       ctx.input = index > 0 ? (output.objects ?? null) : null;
       // eslint-disable-next-line no-await-in-loop
-      output = await runStage(statement.stages[index], stdin, ctx);
-      if (index < statement.stages.length - 1) stdin = output.out.map(stripAnsi);
+      output = await runStage(expanded.stages[index], stdin, ctx);
+      if (index < expanded.stages.length - 1) stdin = output.out.map(stripAnsi);
     }
     ctx.input = null;
 
-    if (statement.redirect) {
+    if (expanded.redirect) {
       // eslint-disable-next-line no-await-in-loop
-      const written = await writeContent(ctx, "Out-File", statement.redirect.target, output.out, statement.redirect.append);
-      success &&= output.ok && written.ok;
+      const written = await writeContent(ctx, "Out-File", expanded.redirect.target, output.out, expanded.redirect.append);
+      groupOk = output.ok && written.ok;
+      lastObjects = undefined;
     } else {
       collected.push(...output.out);
-      success &&= output.ok;
+      groupOk = output.ok;
+      lastObjects = output.objects;
     }
+    // Recorded as each statement ends, so the next one (and $?) sees it.
+    ctx.session.lastSuccess = groupOk;
+    ctx.session.lastExitCode = groupOk ? 0 : 1;
+    // Output and errors appear in the order the statements ran, unless a caller is capturing the output.
+    if (!capture) ctx.lines.push(...collected.splice(0));
   }
-  return { out: collected, ok: success };
+  return { out: collected, ok: success && groupOk, objects: lastObjects };
 }
 
 const ASSIGNMENT = /^\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|=)\s*(.*)$/;
@@ -2894,6 +2952,7 @@ export async function runShellCommand(
 
   try {
     const result = await runLine(input, ctx);
+    session.lastSuccess = result.success;
     if (result.lines.length <= MAX_OUTPUT_LINES) return result;
     return { ...result, lines: [...result.lines.slice(0, MAX_OUTPUT_LINES), `${RED}Output stopped after ${MAX_OUTPUT_LINES} lines.${RESET}`] };
   } catch (error) {
@@ -2925,8 +2984,12 @@ async function runLine(input: string, ctx: Ctx): Promise<ShellResult> {
     } else if (evaluated) {
       value = evaluated.value;
     } else {
-      const piped = await runPipeline(rhs, ctx);
-      const lines = piped.out.map(stripAnsi).filter((line) => line.trim() !== "");
+      const piped = await runPipeline(rhs, ctx, true);
+      // New-Guid and Resolve-Path print a table but hand a variable just their value.
+      const scalars = piped.objects?.filter((item): item is ShellObject => isShellObject(item) && item.view === "scalar");
+      const lines = scalars?.length && scalars.length === piped.objects?.length
+        ? scalars.map((item) => item.text)
+        : piped.out.map(stripAnsi).filter((line) => line.trim() !== "");
       value = lines.length === 1 ? lines[0] : lines;
     }
 
@@ -3006,7 +3069,7 @@ export function completeShellInput(
   nodes: FileSystemRecord,
   options: CompletionOptions = {}
 ): CompletionResult {
-  const separators = options.separators ?? "|;";
+  const separators = options.separators ?? "|;&";
   const before = line.slice(0, cursor);
   let start = 0;
   let quote: string | null = null;
@@ -3125,6 +3188,13 @@ export function highlightShellInput(line: string) {
       continue;
     }
 
+    if (char === "&" && line[index + 1] === "&") {
+      out += `${SYNTAX.operator}&&${RESET}`;
+      index += 2;
+      expectCommand = true;
+      continue;
+    }
+
     if (char === ">") {
       const end = line[index + 1] === ">" ? index + 2 : index + 1;
       out += `${SYNTAX.operator}${line.slice(index, end)}${RESET}`;
@@ -3133,7 +3203,7 @@ export function highlightShellInput(line: string) {
     }
 
     let end = index;
-    while (end < line.length && !/[\s|;>'"]/.test(line[end])) end += 1;
+    while (end < line.length && !/[\s|;>'"]/.test(line[end]) && !(line[end] === "&" && line[end + 1] === "&")) end += 1;
     const word = line.slice(index, end);
     let colour = "";
     if (word.startsWith("$")) colour = SYNTAX.variable;

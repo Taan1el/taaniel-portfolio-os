@@ -9,7 +9,9 @@ vi.mock("idb-keyval", () => ({
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace } from "@/lib/system-workspace";
 import {
+  completeShellInput,
   createShellSession,
+  highlightShellInput,
   runShellCommand,
   stripAnsi,
   type ShellFileSystem,
@@ -44,6 +46,105 @@ async function run(input: string, host: ShellHost = {}) {
 beforeEach(() => {
   useFileSystemStore.setState({ nodes: ensureSystemWorkspace(buildSeedFileSystem()), initialized: true });
   session = createShellSession("/Desktop");
+});
+
+describe("pipeline chain operators && and ||", () => {
+  it("runs the second command only after the first worked", async () => {
+    expect((await run("echo one && echo two")).lines).toEqual(["one", "two"]);
+    const failed = await run("Get-Content nope.txt && echo two");
+    expect(failed.text).toContain("Cannot find path");
+    expect(failed.text).not.toContain("two");
+    expect(failed.success).toBe(false);
+  });
+
+  it("runs the second command only after the first failed with ||", async () => {
+    expect((await run("echo one || echo two")).lines).toEqual(["one"]);
+    const recovered = await run("Get-Content nope.txt || echo fallback");
+    expect(recovered.lines.at(-1)).toBe("fallback");
+    // The chain ends on the command that last ran, and that one worked.
+    expect(recovered.success).toBe(true);
+  });
+
+  it("chains left to right", async () => {
+    expect((await run("Get-Content nope.txt && echo a || echo b")).lines.at(-1)).toBe("b");
+    const second = await run("echo a && Get-Content nope.txt || echo b");
+    expect(second.lines[0]).toBe("a");
+    expect(second.lines.at(-1)).toBe("b");
+  });
+
+  it("changes folder and shows it in one line", async () => {
+    const { lines } = await run("cd ..\\Documents && pwd");
+    expect(lines).toContain("C:\\Users\\Taaniel\\Documents");
+    expect(session.cwd).toBe("/Documents");
+  });
+
+  it("keeps ; and | working beside it", async () => {
+    expect((await run("echo a; echo b && echo c")).lines).toEqual(["a", "b", "c"]);
+    expect((await run("echo hello && echo hello | sls ell")).lines.at(-1)).toContain("hello");
+  });
+
+  it("is not tripped by quotes, a lone & or a || inside a string", async () => {
+    expect((await run("echo 'a && b'")).text).toBe("a && b");
+    expect((await run('echo "x || y"')).text).toBe("x || y");
+    expect((await run("& echo called")).text).toBe("called");
+  });
+
+  it("reports operators with nothing to run", async () => {
+    expect((await run("&& echo a")).text).toContain("Unexpected token '&&'");
+    expect((await run("echo a &&")).text).toContain("Missing statement after '&&'");
+    expect((await run("echo a ||; echo b")).success).toBe(false);
+  });
+
+  it("colours the operator and the command after it", () => {
+    const line = "cd .. && ls";
+    const painted = highlightShellInput(line);
+    expect(stripAnsi(painted)).toBe(line);
+    expect(painted).toMatch(/\x1b\[90m&&\x1b\[0m \x1b\[93mls/);
+  });
+
+  it("completes a command after &&", () => {
+    const nodes = useFileSystemStore.getState().nodes;
+    expect(completeShellInput("cd .. && Get-Loc", 16, session, nodes).line).toBe("cd .. && Get-Location ");
+  });
+});
+
+describe("$? and $LASTEXITCODE", () => {
+  it("starts as True and 0", async () => {
+    expect((await run("$?")).text).toBe("True");
+    expect((await run("$LASTEXITCODE")).text).toBe("0");
+  });
+
+  it("follows the last command", async () => {
+    await run("Get-Content nope.txt");
+    expect((await run("$?")).text).toBe("False");
+    // Reading $? is itself a statement that worked; expressions leave $LASTEXITCODE alone.
+    expect((await run("$?")).text).toBe("True");
+    expect((await run("$LASTEXITCODE")).text).toBe("1");
+    await run("echo fine");
+    expect((await run("$LASTEXITCODE")).text).toBe("0");
+  });
+
+  it("is seen by the next statement on the same line", async () => {
+    expect((await run("echo fine; echo $LASTEXITCODE")).lines).toEqual(["fine", "0"]);
+    expect((await run('Get-Content nope.txt; echo "exit: $LASTEXITCODE"')).lines.at(-1)).toBe("exit: 1");
+  });
+
+  it("works inside expressions", async () => {
+    await run("Get-Content nope.txt");
+    expect((await run("$? -eq $false")).text).toBe("True");
+  });
+
+  it("is expanded when its statement runs, not before the line starts", async () => {
+    const { lines } = await run("Get-Content nope.txt; echo $?");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain("Cannot find path");
+    expect(lines[1]).toBe("False");
+  });
+
+  it("can be assigned over for $LASTEXITCODE only", async () => {
+    await run("$LASTEXITCODE = 5");
+    expect((await run("$LASTEXITCODE")).text).toBe("5");
+  });
 });
 
 describe("member access on automatic variables", () => {
