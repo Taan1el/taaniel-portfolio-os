@@ -601,8 +601,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   });
 
   const scrollToPath = (path: string) => {
-    const item = contentRef.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(path)}"]`);
-    item?.scrollIntoView({ block: "nearest" });
+    const items = contentRef.current?.querySelectorAll<HTMLElement>("[data-path]");
+    Array.from(items ?? [])
+      .find((element) => element.dataset.path === path)
+      ?.scrollIntoView({ block: "nearest" });
   };
 
   /** Items per row in Large icons view, measured from the laid-out grid. */
