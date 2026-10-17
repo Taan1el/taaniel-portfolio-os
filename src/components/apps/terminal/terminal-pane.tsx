@@ -94,6 +94,9 @@ export function TerminalPane(props: TerminalPaneProps) {
     });
     session.open(container);
     sessionRef.current = session;
+    // A tab opens in front, ready to type in. Focusing here rather than from the app also survives
+    // React's development double-mount, which would otherwise dispose the focused screen and drop focus.
+    if (initial.active) session.focus();
 
     return () => {
       sessionRef.current = null;
