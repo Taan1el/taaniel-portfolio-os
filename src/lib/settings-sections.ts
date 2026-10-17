@@ -55,7 +55,8 @@ export const SETTINGS_SECTIONS: SettingsSectionInfo[] = [
     id: "network",
     title: "Network & internet",
     description: "Wi-Fi, airplane mode",
-    keywords: ["network", "internet", "wifi", "wi-fi", "airplane mode", "offline", "connection"],
+    // "internet" is left to the Browser, which has long answered it; the page title still carries the word.
+    keywords: ["network", "wifi", "wi-fi", "airplane mode", "offline", "connection"],
   },
   {
     id: "personalization",

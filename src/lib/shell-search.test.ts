@@ -35,6 +35,76 @@ describe("shell search", () => {
     }
   );
 
+  describe("Settings pages", () => {
+    const index = buildShellSearchIndex(buildSeedFileSystem());
+    const topApp = (query: string) =>
+      queryShellSearch(index, query).find((section) => section.id === "apps")?.results[0];
+
+    it.each([
+      ["volume", "sound"],
+      ["speakers", "sound"],
+      ["mute", "sound"],
+      ["brightness", "display"],
+      ["night light", "display"],
+      ["wifi", "network"],
+      ["wi-fi", "network"],
+      ["airplane mode", "network"],
+      ["battery saver", "power"],
+      ["battery", "power"],
+      ["reduce motion", "accessibility"],
+      ["theme", "personalization"],
+      ["wallpaper", "personalization"],
+      ["time zone", "time"],
+      ["sound settings", "sound"],
+      ["open sound settings", "sound"],
+    ])("opens Settings on the matching page for '%s'", (query, section) => {
+      const top = topApp(query);
+
+      expect(top?.action).toEqual({ type: "launch-app", appId: "settings", payload: { section } });
+    });
+
+    it("keeps a bare 'settings' for the Settings app, which opens the overview", () => {
+      for (const query of ["settings", "open settings"]) {
+        const sections = queryShellSearch(index, query);
+        const top = getTopSearchResult(sections);
+
+        expect(top?.id).toBe("app:settings");
+        expect(top?.action).toEqual({ type: "launch-app", appId: "settings" });
+        expect(
+          sections.flatMap((section) => section.results).some((result) => result.id.startsWith("settings:"))
+        ).toBe(false);
+      }
+    });
+
+    it("still lists the Settings app beside the page it points to", () => {
+      const apps = queryShellSearch(index, "volume").find((section) => section.id === "apps");
+
+      expect(apps?.results.map((result) => result.id)).toContain("app:settings");
+    });
+
+    it("lists only the pages a query actually hits", () => {
+      const ids = (query: string) =>
+        queryShellSearch(index, query)
+          .flatMap((section) => section.results)
+          .filter((result) => result.id.startsWith("settings:"))
+          .map((result) => result.id);
+
+      expect(ids("volume")).toEqual(["settings:sound"]);
+      expect(ids("music")).toEqual([]);
+      expect(ids("browser")).toEqual([]);
+    });
+
+    it("leaves the Browser as the answer to 'internet'", () => {
+      expect(topApp("internet")?.id).toBe("app:browser");
+    });
+
+    it("keeps the pages out of the default list shown before typing", () => {
+      const apps = queryShellSearch(index, "").find((section) => section.id === "apps");
+
+      expect(apps?.results.some((result) => result.id.startsWith("settings:"))).toBe(false);
+    });
+  });
+
   it("surfaces the default note file in file search", () => {
     const index = buildShellSearchIndex(buildSeedFileSystem());
     const sections = queryShellSearch(index, "Notes To-do");
