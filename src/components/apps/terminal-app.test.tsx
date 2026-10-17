@@ -500,6 +500,83 @@ describe("launches while the terminal is open", () => {
   });
 });
 
+describe("focus when the window comes forward", () => {
+  const withState = (state: Partial<AppWindow>): AppWindow => ({ ...terminalWindow(), ...state });
+  const leave = () => (document.activeElement as HTMLElement | null)?.blur();
+
+  it("puts the cursor in the terminal when the window is brought to the front", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: false })} />);
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(mocks.focus).toHaveBeenCalledWith(newest().props.tabId);
+  });
+
+  it("does the same when the window is restored from minimized", () => {
+    const { rerender } = render(<TerminalApp window={withState({ minimized: true, focused: false })} />);
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ minimized: true, focused: true })} />);
+    expect(mocks.focus).not.toHaveBeenCalled();
+    rerender(<TerminalApp window={withState({ minimized: false, focused: true })} />);
+    expect(mocks.focus).toHaveBeenCalledWith(newest().props.tabId);
+  });
+
+  it("leaves focus alone while the window is behind another", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    expect(mocks.focus).not.toHaveBeenCalled();
+  });
+
+  it("does not move focus that is already somewhere inside the app", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: false })} />);
+    const settings = screen.getByRole("button", { name: "Terminal settings" });
+    settings.focus();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(document.activeElement).toBe(settings);
+    expect(mocks.focus).not.toHaveBeenCalled();
+  });
+
+  it("takes focus back to the find box, not to the terminal behind it", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    key(selectedTab(), { key: "F", code: "KeyF", ctrlKey: true, shiftKey: true });
+    const input = screen.getByLabelText("Find in terminal", { selector: "input" });
+    expect(document.activeElement).toBe(input);
+
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(document.activeElement).toBe(input);
+    expect(mocks.focus).not.toHaveBeenCalled();
+  });
+
+  it("takes focus back into the settings dialog", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    key(selectedTab(), { key: ",", code: "Comma", ctrlKey: true });
+    const scheme = screen.getByLabelText("Colour scheme");
+    expect(document.activeElement).toBe(scheme);
+
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    leave();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(document.activeElement).toBe(scheme);
+  });
+
+  it("falls back to the terminal when what had focus is gone", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    key(selectedTab(), { key: "F", code: "KeyF", ctrlKey: true, shiftKey: true });
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    key(screen.getByLabelText("Find in terminal", { selector: "input" }), { key: "Escape" });
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(mocks.focus).toHaveBeenCalledWith(newest().props.tabId);
+  });
+});
+
 describe("what the shell asks for", () => {
   it("opens a tab for wt, pwsh and cmd, in the folder the asking shell is in", () => {
     render(<TerminalApp window={terminalWindow()} />);

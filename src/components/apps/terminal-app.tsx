@@ -164,6 +164,8 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   /** Brings focus back to whatever opened a menu, the find box or the settings. */
   const restoreFocus = useRef<(() => void) | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
+  /** The last thing inside the app that had focus, for when the window is brought back to the front. */
+  const lastFocus = useRef<HTMLElement | null>(null);
 
   const panelId = (id: string) => `${idPrefix}-panel-${id}`;
   const tabDomId = (id: string) => `${idPrefix}-tab-${id}`;
@@ -296,6 +298,22 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     useProcessStore.getState().updateProcess(processId, { launchPayload: {} });
     // The payload is read through the signature: only a real change in it opens a tab.
   }, [launchSignature]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Bringing the window to the front (Alt+], the taskbar) or restoring it from minimized would leave focus on the
+  // taskbar or the window before it, and typing would go nowhere. Put it back where it was in here - the find box,
+  // the settings - or in the terminal, unless focus is already somewhere inside the app.
+  useEffect(() => {
+    if (!appWindow.focused || appWindow.minimized) return;
+    const root = rootRef.current;
+    if (!root || root.contains(document.activeElement)) return;
+    const remembered = lastFocus.current;
+    // A screen is never "remembered": the active one is found again, as a hidden tab's screen cannot take focus.
+    if (remembered?.isConnected && root.contains(remembered) && !remembered.closest(".terminal-pane")) {
+      remembered.focus();
+      if (document.activeElement === remembered) return;
+    }
+    focusTerminal();
+  }, [appWindow.focused, appWindow.minimized, focusTerminal]);
+
   // After a render that changed the active tab, put focus where the person's action meant it to go.
   useEffect(() => {
     const target = focusTarget.current;
@@ -535,6 +553,9 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       ref={rootRef}
       style={{ "--terminal-bg": appearance.theme.background, "--terminal-fg": appearance.theme.foreground } as CSSProperties}
       onKeyDown={handleRootKeyDown}
+      onFocus={(event) => {
+        lastFocus.current = event.target instanceof HTMLElement ? event.target : null;
+      }}
     >
       <div className="w11-terminal__chrome">
         <div
