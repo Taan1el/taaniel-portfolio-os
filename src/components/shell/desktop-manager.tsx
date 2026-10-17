@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import { DesktopSurface } from "@/components/shell/desktop-surface";
 import { DESKTOP_PATH, getDesktopNodeId } from "@/data/desktop-seed";
 import { useGridSystem } from "@/hooks/use-grid-system";
-import { createDesktopFolder } from "@/lib/desktop-actions";
+import { carryDesktopPositions, createDesktopFolder } from "@/lib/desktop-actions";
 import {
   buildDesktopEntries,
   findNeighborEntryId,
@@ -14,10 +14,10 @@ import {
 import { armFileDrag } from "@/lib/dnd/controller";
 import type { DragItem } from "@/lib/dnd/types";
 import { copyItems, cutItems, deleteItems, pasteIntoFolder } from "@/lib/file-actions";
-import { ensureUniqueName, isLockedNode, joinPath } from "@/lib/filesystem";
+import { isLockedNode } from "@/lib/filesystem";
 import { toStoredName } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
-import { useFileSystemStore } from "@/stores/filesystem-store";
+import { subscribeFileSystemMoves, useFileSystemStore } from "@/stores/filesystem-store";
 import { useShellStore } from "@/stores/shell-store";
 import type { DesktopEntry, FileSystemRecord } from "@/types/system";
 
@@ -82,6 +82,9 @@ export function DesktopManager({
   useEffect(() => {
     reconcileDesktopIconPositions(entries, { columns: gridSystem.columns, rows: gridSystem.rows });
   }, [entries, gridSystem.columns, gridSystem.rows, reconcileDesktopIconPositions]);
+
+  // A file renamed from anywhere (Explorer, the terminal) keeps its icon where it was.
+  useEffect(() => subscribeFileSystemMoves(carryDesktopPositions), []);
 
   // Icons that no longer exist (moved, deleted) drop out of the selection.
   useEffect(() => {
@@ -221,8 +224,7 @@ export function DesktopManager({
         return;
       }
 
-      const { nodes: current, iconPositions: positions } = latest.current;
-      const node = current[entry.path];
+      const node = latest.current.nodes[entry.path];
 
       if (!node) {
         return;
@@ -234,19 +236,14 @@ export function DesktopManager({
         return;
       }
 
-      // The icon is keyed by its path, so a renamed file is a new icon: carry its place over before it appears.
-      const nextPath = joinPath(DESKTOP_PATH, ensureUniqueName(current, DESKTOP_PATH, storedName, node.kind === "directory", node.path));
+      // The icon is keyed by its path, so the renamed file is a new icon; the move event carries its place over.
+      const nextPath = await rename(entry.path, storedName);
       const nextId = getDesktopNodeId(nextPath);
 
-      if (positions[entry.id] && nextPath !== node.path) {
-        placeDesktopIcons({ [nextId]: positions[entry.id] });
-      }
-
-      await rename(entry.path, storedName);
       select([nextId], nextId);
       window.requestAnimationFrame(() => focusIcon(nextId));
     },
-    [focusIcon, placeDesktopIcons, rename, select, setRenamingIconId]
+    [focusIcon, rename, select, setRenamingIconId]
   );
 
   const handleKeyDown = useCallback(
