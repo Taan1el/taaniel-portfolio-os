@@ -357,13 +357,65 @@ describe("keyboard", () => {
     expect(tabNames()).toHaveLength(1);
   });
 
-  it("zooms the text through the settings, within bounds, and resets it", () => {
+  /** The text size the screen of the tab at this position was given. */
+  const sizeOf = (index: number) => [...mocks.panes.values()][index].props.appearance.fontSize as number;
+
+  it("zooms the active tab only, and does not touch the saved size", () => {
+    useTerminalSettingsStore.getState().update({ fontSize: 18 });
+    render(<TerminalApp window={terminalWindow()} />);
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    expect([sizeOf(0), sizeOf(1)]).toEqual([18, 18]);
+
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    expect([sizeOf(0), sizeOf(1)]).toEqual([18, 20]);
+    expect(useTerminalSettingsStore.getState().fontSize).toBe(18);
+    expect(window.localStorage.getItem("taaniel-os-terminal-settings")).not.toContain('"fontSize":20');
+
+    // The other tab keeps its own zoom.
+    fireEvent.click(screen.getAllByRole("tab")[0]);
+    act(() => events().onCommand({ type: "zoom", delta: -1 }));
+    expect([sizeOf(0), sizeOf(1)]).toEqual([17, 20]);
+  });
+
+  it("returns to the configured size with Ctrl+0, not to the factory size", () => {
+    useTerminalSettingsStore.getState().update({ fontSize: 18 });
     render(<TerminalApp window={terminalWindow()} />);
     act(() => events().onCommand({ type: "zoom", delta: 1 }));
-    act(() => events().onCommand({ type: "zoom", delta: 1 }));
-    expect(useTerminalSettingsStore.getState().fontSize).toBe(16);
+    expect(sizeOf(0)).toBe(19);
     act(() => events().onCommand({ type: "zoom", delta: 0 }));
-    expect(useTerminalSettingsStore.getState().fontSize).toBe(14);
+    expect(sizeOf(0)).toBe(18);
+    expect(useTerminalSettingsStore.getState().fontSize).toBe(18);
+
+    // Even with no zoom at all, Ctrl+0 leaves the saved size alone.
+    act(() => events().onCommand({ type: "zoom", delta: 0 }));
+    expect(useTerminalSettingsStore.getState().fontSize).toBe(18);
+  });
+
+  it("stops zooming at the largest and smallest size", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    for (let index = 0; index < 40; index += 1) act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    expect(sizeOf(0)).toBe(32);
+    act(() => events().onCommand({ type: "zoom", delta: -1 }));
+    expect(sizeOf(0)).toBe(31);
+    for (let index = 0; index < 60; index += 1) act(() => events().onCommand({ type: "zoom", delta: -1 }));
+    expect(sizeOf(0)).toBe(8);
+  });
+
+  it("keeps a tab's zoom when the saved size changes, and a new tab starts at the saved size", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    act(() => useTerminalSettingsStore.getState().update({ fontSize: 20 }));
+    expect(sizeOf(0)).toBe(21);
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    expect(sizeOf(1)).toBe(20);
+  });
+
+  it("starts a duplicated tab at the saved size", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    key(selectedTab(), { key: "D", code: "KeyD", ctrlKey: true, shiftKey: true });
+    expect([sizeOf(0), sizeOf(1)]).toEqual([15, 14]);
   });
 });
 

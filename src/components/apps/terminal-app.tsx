@@ -8,7 +8,7 @@ import { TerminalPane, type TerminalPaneEvents, type TerminalPaneHandle } from "
 import type { PasteRequest } from "@/components/apps/terminal/terminal-session";
 import { TerminalSettingsPanel } from "@/components/apps/terminal/terminal-settings-panel";
 import { openFileSystemPath } from "@/lib/launchers";
-import { buildAppearance, prefersReducedMotion } from "@/lib/terminal-appearance";
+import { buildAppearance, prefersReducedMotion, type TerminalAppearance } from "@/lib/terminal-appearance";
 import { classifyTerminalKey, type TerminalCommand } from "@/lib/terminal-keys";
 import { isShellProfileId, resolveLaunchProfile, terminalProfiles, type TerminalProfileId } from "@/lib/terminal-profiles";
 import { LINUX_LAUNCH_MESSAGE, TERMINAL_HOME_PATH, type ShellFileSystem, type ShellHost, type TerminalAction } from "@/lib/terminal-shell";
@@ -26,6 +26,8 @@ import {
   MAX_TABS,
   neighbourTabId,
   renameTab,
+  tabFontSize,
+  zoomTab,
   type TabsState,
   type TerminalTab,
 } from "@/lib/terminal-tabs";
@@ -33,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
-import { DEFAULT_TERMINAL_SETTINGS, useTerminalSettingsStore } from "@/stores/terminal-settings-store";
+import { useTerminalSettingsStore } from "@/stores/terminal-settings-store";
 import { useWindowStore } from "@/stores/window-store";
 import type { AppComponentProps, WindowPayload } from "@/types/system";
 
@@ -140,6 +142,21 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [settings.schemeId, settings.fontSize, settings.cursorShape, settings.cursorBlink, settings.screenReaderMode, settings.improveContrast, reducedMotion]
   );
+
+  // Each tab's text size is the configured one moved by that tab's own zoom, so one appearance object per size:
+  // a screen is restyled only when its size or the settings really change.
+  const appearanceFor = useMemo(() => {
+    const bySize = new Map<number, TerminalAppearance>();
+    return (tab: TerminalTab) => {
+      const size = tabFontSize(appearance.fontSize, tab);
+      if (size === appearance.fontSize) return appearance;
+      const known = bySize.get(size);
+      if (known) return known;
+      const created = { ...appearance, fontSize: size };
+      bySize.set(size, created);
+      return created;
+    };
+  }, [appearance]);
 
   const handles = useRef<Record<string, TerminalPaneHandle | null>>({});
   /** Where focus goes once the next render has put the right tab in front. */
@@ -392,12 +409,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
         case "settings":
           openSettings();
           break;
-        case "zoom": {
-          const store = useTerminalSettingsStore.getState();
-          if (command.delta === 0) store.update({ fontSize: DEFAULT_TERMINAL_SETTINGS.fontSize });
-          else store.changeFontSize(command.delta);
+        case "zoom":
+          // This tab only, and not saved: the configured size changes in Settings, and Ctrl+0 returns to it.
+          setTabsState((state) => zoomTab(state, state.activeId, command.delta, useTerminalSettingsStore.getState().fontSize));
           break;
-        }
         case "move-focus":
           moveFocus();
           break;
@@ -615,7 +630,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
             profileId={tab.profileId}
             startPath={tab.startPath}
             active={tab.id === activeId}
-            appearance={appearance}
+            appearance={appearanceFor(tab)}
             ariaLabel={`${tab.title} terminal input`}
             fileSystem={fileSystem}
             host={host}

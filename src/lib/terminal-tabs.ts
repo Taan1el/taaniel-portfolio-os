@@ -1,4 +1,5 @@
 import { getTerminalProfile, type ShellProfileId } from "@/lib/terminal-profiles";
+import { clampFontSize } from "@/stores/terminal-settings-store";
 
 /*
  * The terminal's tab strip as plain data. Every operation returns a new state,
@@ -12,6 +13,11 @@ export interface TerminalTab {
   title: string;
   /** Virtual folder the shell starts in. */
   startPath: string;
+  /**
+   * How far the zoom keys have moved this tab's text from the configured size. It belongs to the tab and
+   * is not saved, as in Windows Terminal: Ctrl+0 brings it back to 0, and only Settings changes the saved size.
+   */
+  zoomDelta: number;
 }
 
 export interface TabsState {
@@ -24,7 +30,7 @@ export const MAX_TABS = 16;
 export const MAX_TITLE_LENGTH = 60;
 
 export function createTab(id: string, profileId: ShellProfileId, startPath: string): TerminalTab {
-  return { id, profileId, title: getTerminalProfile(profileId).name, startPath };
+  return { id, profileId, title: getTerminalProfile(profileId).name, startPath, zoomDelta: 0 };
 }
 
 export function createTabsState(first: TerminalTab): TabsState {
@@ -39,11 +45,34 @@ export function addTab(state: TabsState, tab: TerminalTab): TabsState {
   return { tabs: [...state.tabs, tab], activeId: tab.id };
 }
 
-/** The same shell in the same folder as an existing tab, added like any new tab. */
+/** The same shell in the same folder as an existing tab, added like any new tab (at the configured text size). */
 export function duplicateTab(state: TabsState, id: string, newId: string, startPath?: string): TabsState {
   const source = state.tabs.find((tab) => tab.id === id);
   if (!source) return state;
-  return addTab(state, { ...source, id: newId, startPath: startPath ?? source.startPath });
+  return addTab(state, { ...source, id: newId, startPath: startPath ?? source.startPath, zoomDelta: 0 });
+}
+
+/** The text size a tab shows: the configured size moved by the tab's zoom, kept within the sizes the terminal allows. */
+export function tabFontSize(baseFontSize: number, tab: Pick<TerminalTab, "zoomDelta">): number {
+  return clampFontSize(baseFontSize + tab.zoomDelta);
+}
+
+/**
+ * Zoom one tab: +1 or -1 point, or 0 to return to the configured size. At the largest or smallest
+ * size the zoom stops, so one press back always shrinks the text again.
+ */
+export function zoomTab(state: TabsState, id: string, change: 1 | -1 | 0, baseFontSize: number): TabsState {
+  return {
+    ...state,
+    tabs: state.tabs.map((tab) => {
+      if (tab.id !== id) return tab;
+      if (change === 0) return tab.zoomDelta === 0 ? tab : { ...tab, zoomDelta: 0 };
+      // Step from the size the tab shows, which is what the person sees, even if Settings moved the base since.
+      const shown = tabFontSize(baseFontSize, tab);
+      const size = clampFontSize(shown + change);
+      return size === shown ? tab : { ...tab, zoomDelta: size - clampFontSize(baseFontSize) };
+    }),
+  };
 }
 
 /** Close a tab. Null means that was the last one: the window closes with it. */
