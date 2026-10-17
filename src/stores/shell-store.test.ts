@@ -1,12 +1,62 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { themePresets } from "@/data/portfolio";
 import {
   DEFAULT_PINNED_APPS,
   migrateThemeId,
   sanitizePinnedAppIds,
   sanitizeThemeId,
+  useShellStore,
 } from "@/stores/shell-store";
+
+function openFlyouts() {
+  const { startMenuOpen, calendarOpen, quickSettingsOpen } = useShellStore.getState();
+  return { startMenuOpen, calendarOpen, quickSettingsOpen };
+}
+
+describe("shell flyouts", () => {
+  beforeEach(() => {
+    useShellStore.getState().closeOverlays();
+  });
+
+  it("closes the calendar when Start opens", () => {
+    const store = useShellStore.getState();
+    store.setCalendarOpen(true);
+    store.toggleStartMenu();
+    expect(openFlyouts()).toEqual({ startMenuOpen: true, calendarOpen: false, quickSettingsOpen: false });
+  });
+
+  it("keeps Start, the calendar and Quick Settings exclusive", () => {
+    const store = useShellStore.getState();
+    store.setStartMenuOpen(true);
+    store.toggleQuickSettings();
+    expect(openFlyouts()).toEqual({ startMenuOpen: false, calendarOpen: false, quickSettingsOpen: true });
+
+    store.setCalendarOpen(true);
+    expect(openFlyouts()).toEqual({ startMenuOpen: false, calendarOpen: true, quickSettingsOpen: false });
+
+    store.setQuickSettingsOpen(true);
+    store.setStartMenuOpen(true);
+    expect(openFlyouts()).toEqual({ startMenuOpen: true, calendarOpen: false, quickSettingsOpen: false });
+  });
+
+  it("toggles Quick Settings closed and leaves the others alone when closing", () => {
+    const store = useShellStore.getState();
+    store.toggleQuickSettings();
+    store.toggleQuickSettings();
+    expect(openFlyouts()).toEqual({ startMenuOpen: false, calendarOpen: false, quickSettingsOpen: false });
+
+    store.setCalendarOpen(true);
+    store.setQuickSettingsOpen(false);
+    expect(useShellStore.getState().calendarOpen).toBe(true);
+  });
+
+  it("closes every flyout with the rest of the overlays", () => {
+    useShellStore.getState().setQuickSettingsOpen(true);
+    useShellStore.getState().closeOverlays();
+    expect(openFlyouts()).toEqual({ startMenuOpen: false, calendarOpen: false, quickSettingsOpen: false });
+  });
+});
 
 describe("shell store persistence sanitizers", () => {
   it("keeps only known pinned app ids and removes duplicates", () => {

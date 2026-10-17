@@ -2,12 +2,12 @@ import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, ty
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
-import { BatteryFull, Volume2, Wifi } from "lucide-react";
 import { SearchInput } from "@/components/apps/app-layout";
+import { TaskbarTray } from "@/components/shell/taskbar-tray";
 import { LogoMark } from "@/components/ui/logo-mark";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
-import { cn, formatClock } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import taskbarMod from "@/components/shell/taskbar.module.css";
 import { useShellStore } from "@/stores/shell-store";
 import type { AppId, TaskbarWindowEntry, WindowPayload } from "@/types/system";
@@ -28,11 +28,6 @@ function getPreviewPlacement(button: HTMLButtonElement) {
     )
   );
   return { left, bottom: window.innerHeight - buttonRect.top + TASKBAR_PREVIEW_OFFSET };
-}
-
-/** Tray date the way Windows prints it: numeric, in the visitor's locale (6.10.2026, 10/6/2026, ...). */
-function formatTrayDate(date: Date) {
-  return new Intl.DateTimeFormat([], { day: "numeric", month: "numeric", year: "numeric" }).format(date);
 }
 
 // ── Slot model ────────────────────────────────────────────────────
@@ -126,7 +121,6 @@ export function Taskbar({
   onUnpinApp,
   onShowDesktop,
 }: TaskbarProps) {
-  const [now, setNow] = useState(() => new Date());
   const [previewEntry, setPreviewEntry] = useState<TaskbarPreviewEntry | null>(null);
   const [previewImages, setPreviewImages] = useState<Record<string, string | null>>({});
   const [jumpListMenu, setJumpListMenu] = useState<JumpListMenu | null>(null);
@@ -155,19 +149,6 @@ export function Taskbar({
       searchBrowseRef.current?.handleSearchKeyDown(event);
     }
   };
-
-  // Tick on the minute boundary, so the tray clock never lags a real one.
-  useEffect(() => {
-    let intervalId: number | undefined;
-    const timeoutId = window.setTimeout(() => {
-      setNow(new Date());
-      intervalId = window.setInterval(() => setNow(new Date()), 60_000);
-    }, 60_000 - (Date.now() % 60_000));
-    return () => {
-      window.clearTimeout(timeoutId);
-      if (intervalId !== undefined) window.clearInterval(intervalId);
-    };
-  }, []);
 
   useEffect(() => {
     if (previewEntry && !entries.some((entry) => entry.id === previewEntry.id)) {
@@ -465,34 +446,12 @@ export function Taskbar({
           </div>
         </div>
 
-        <div className="w11-taskbar__tray">
-          <button
-            className="w11-taskbar__tray-button w11-taskbar__quick"
-            type="button"
-            aria-label="Quick settings - open Settings"
-            onClick={() => onLaunchApp("settings")}
-          >
-            <Wifi size={16} aria-hidden="true" />
-            <Volume2 size={16} aria-hidden="true" />
-            <BatteryFull size={16} aria-hidden="true" />
-          </button>
-          <button
-            className={cn("w11-taskbar__tray-button w11-taskbar__clock", calendarOpen && "is-active")}
-            type="button"
-            aria-label={`${formatClock(now)}, ${formatTrayDate(now)} - open calendar`}
-            onClick={onToggleCalendar}
-          >
-            <span>{formatClock(now)}</span>
-            <span>{formatTrayDate(now)}</span>
-          </button>
-          <button
-            className="w11-taskbar__show-desktop"
-            type="button"
-            aria-label="Show desktop"
-            title="Show desktop"
-            onClick={onShowDesktop}
-          />
-        </div>
+        <TaskbarTray
+          calendarOpen={calendarOpen}
+          onToggleCalendar={onToggleCalendar}
+          onShowDesktop={onShowDesktop}
+          onLaunchApp={onLaunchApp}
+        />
       </footer>
 
       {previewNode}

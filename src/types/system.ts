@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { SettingsSectionId } from "@/lib/settings-sections";
 
 /**
  * The contract every icon in the shell satisfies.
@@ -52,6 +53,8 @@ export interface WindowPayload {
   title?: string;
   projectId?: string;
   externalUrl?: string;
+  /** Settings page to open on, e.g. "sound". */
+  section?: SettingsSectionId;
 }
 
 export type ProcessState = "focused" | "running" | "minimized";

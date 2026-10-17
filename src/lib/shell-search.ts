@@ -10,6 +10,7 @@ import { getAppRegistry } from "@/lib/app-registry";
 import { getFileAssociationDescriptor, isTextLikeExtension } from "@/lib/file-registry";
 import { normalizePath } from "@/lib/filesystem";
 import { isNotesPath } from "@/lib/notes";
+import { DEFAULT_SETTINGS_SECTION, getSettingsSection, SETTINGS_SECTIONS } from "@/lib/settings-sections";
 import type {
   AppDefinition,
   AppId,
@@ -40,6 +41,8 @@ export interface ShellSearchEntry {
   aliases: string[];
   semanticTags: string[];
   previewText?: string;
+  /** Listed only when the query itself hits the entry, not through intent expansion or generic words alone. */
+  requiresDirectMatch?: boolean;
 }
 
 export interface ShellSearchResult extends ShellSearchEntry {
@@ -181,13 +184,44 @@ const intentGroups = [
   },
   {
     tag: "settings",
-    terms: ["setting", "settings", "theme", "themes", "wallpaper", "wallpapers", "personalize"],
+    terms: [
+      "setting",
+      "settings",
+      "theme",
+      "themes",
+      "wallpaper",
+      "wallpapers",
+      "personalize",
+      "volume",
+      "sound",
+      "speakers",
+      "mute",
+      "wifi",
+      "wi-fi",
+      "network",
+      "internet",
+      "airplane",
+      "battery",
+      "power",
+      "brightness",
+      "display",
+      "night light",
+      "motion",
+      "animation",
+      "accessibility",
+    ],
   },
   {
     tag: "resume",
     terms: ["resume", "cv"],
   },
 ];
+
+/**
+ * Words every Settings page shares, so they say nothing about which page is
+ * meant: "open settings" belongs to the Settings app, "sound settings" to Sound.
+ */
+const genericSettingsTerms = new Set(["setting", "settings", "preferences", "options"]);
 
 const appAliases: Partial<Record<AppId, string[]>> = {
   about: ["profile", "bio", "about me", "skills", "availability"],
@@ -203,7 +237,14 @@ const appAliases: Partial<Record<AppId, string[]>> = {
   pdf: ["pdf", "document reader"],
   photos: ["gallery", "images", "pictures", "viewer", "photo", "photography"],
   projects: ["work", "case studies", "portfolio work"],
-  settings: ["theme", "wallpaper", "preferences"],
+  // Device words (volume, wifi, battery, ...) belong to the Settings page results from
+  // buildSettingsEntries, so those searches land on that page and not on the overview.
+  settings: [
+    "preferences",
+    "options",
+    "control panel",
+    ...getSettingsSection(DEFAULT_SETTINGS_SECTION).keywords,
+  ],
   terminal: ["console", "command line", "shell"],
   tetris: ["blocks", "falling blocks", "arcade puzzle"],
   v86: ["emulator", "virtual machine", "x86"],
@@ -623,6 +664,46 @@ function buildAppEntries(apps: AppDefinition[]) {
   });
 }
 
+/**
+ * One result per Settings page, so a search for "volume" or "airplane mode"
+ * opens Settings on Sound or Network & internet, the way Windows search does,
+ * instead of on the System overview. The overview is the Settings app's own
+ * result. They sit in the Apps section but out of `index.apps`, which feeds
+ * the default list shown before anything is typed.
+ */
+function buildSettingsEntries(apps: AppDefinition[]) {
+  const settingsApp = apps.find((app) => app.id === "settings");
+
+  if (!settingsApp) {
+    return [];
+  }
+
+  return SETTINGS_SECTIONS.filter((section) => section.id !== DEFAULT_SETTINGS_SECTION).map<ShellSearchEntry>(
+    (section) => {
+      const title = `${section.title} settings`;
+      const aliases = uniqueTerms([section.title, ...section.keywords]);
+
+      return {
+        id: `settings:${section.id}`,
+        section: "apps",
+        type: "app",
+        title,
+        subtitle: section.description,
+        icon: settingsApp.icon,
+        accent: settingsApp.accent,
+        action: { type: "launch-app", appId: "settings", payload: { section: section.id } },
+        actionLabel: "Open setting",
+        aliases,
+        semanticTags: ["settings", section.id],
+        tokens: joinSearchParts(title, section.description, aliases.join(" ")),
+        // Every page shares the "settings" intent's vocabulary, so without this a search
+        // for "volume" would list all of them, not just Sound.
+        requiresDirectMatch: true,
+      };
+    }
+  );
+}
+
 function buildFileEntries(nodes: FileSystemRecord) {
   return Object.values(nodes)
     .filter((node) => node.path !== "/")
@@ -801,6 +882,7 @@ function buildPortfolioEntries(nodes: FileSystemRecord) {
 export function buildShellSearchIndex(nodes: FileSystemRecord): ShellSearchIndex {
   const apps = getAppRegistry();
   const appEntries = buildAppEntries(apps);
+  const settingsEntries = buildSettingsEntries(apps);
   const fileEntries = buildFileEntries(nodes);
   const linkEntries = buildLinkEntries();
   const portfolioEntries = buildPortfolioEntries(nodes);
@@ -810,7 +892,7 @@ export function buildShellSearchIndex(nodes: FileSystemRecord): ShellSearchIndex
     files: fileEntries,
     links: linkEntries,
     portfolio: portfolioEntries,
-    all: [...appEntries, ...fileEntries, ...linkEntries, ...portfolioEntries],
+    all: [...appEntries, ...settingsEntries, ...fileEntries, ...linkEntries, ...portfolioEntries],
   };
 }
 
@@ -884,6 +966,14 @@ export function queryShellSearch(index: ShellSearchIndex, rawQuery: string): She
     const result = scoreEntry(entry, intent);
 
     if (!result) {
+      return;
+    }
+
+    if (
+      entry.requiresDirectMatch &&
+      result.matchMode !== "exact" &&
+      result.matchedTerms.every((term) => genericSettingsTerms.has(term))
+    ) {
       return;
     }
 

@@ -1,191 +1,116 @@
-import { Image as ImageIcon, Paintbrush, RotateCcw, Sparkles, Waves } from "lucide-react";
-import { AppContent, AppScaffold, Button } from "@/components/apps/app-layout";
-import { themePresets } from "@/data/portfolio";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AppContent, AppScaffold } from "@/components/apps/app-layout";
+import { AccessibilityPage } from "@/components/apps/settings/accessibility-page";
+import { DisplayPage } from "@/components/apps/settings/display-page";
+import { NetworkPage } from "@/components/apps/settings/network-page";
+import { PersonalizationPage } from "@/components/apps/settings/personalization-page";
+import { PowerPage } from "@/components/apps/settings/power-page";
+import { SETTINGS_SECTION_ICONS } from "@/components/apps/settings/section-icons";
+import { SoundPage } from "@/components/apps/settings/sound-page";
+import { SystemPage } from "@/components/apps/settings/system-page";
+import { TimePage } from "@/components/apps/settings/time-page";
+import { LogoMark } from "@/components/ui/logo-mark";
+import { profile } from "@/data/portfolio";
 import {
-  animatedWallpaperPresets,
-  gradientWallpaperPresets,
-  imageWallpaperPresets,
-} from "@/data/wallpapers";
-import { useSystemStore } from "@/stores/system-store";
+  SETTINGS_SECTIONS,
+  getSettingsSection,
+  sanitizeSettingsSection,
+  type SettingsSectionId,
+} from "@/lib/settings-sections";
+import { cn } from "@/lib/utils";
+import { useProcessStore } from "@/stores/process-store";
 import type { AppComponentProps } from "@/types/system";
 
+/**
+ * Keeps the window's launch payload on the page being shown. A later deep link
+ * to the page the visitor already left (Quick Settings > Sound settings, after
+ * browsing elsewhere) then differs from the payload, so it still navigates.
+ */
+function rememberSection(processId: string, section: SettingsSectionId) {
+  const store = useProcessStore.getState();
+  const process = store.processes.find((candidate) => candidate.id === processId);
+
+  if (process && process.launchPayload?.section !== section) {
+    store.updateProcess(processId, { launchPayload: { ...process.launchPayload, section } });
+  }
+}
+
 export function SettingsApp({ window }: AppComponentProps) {
-  void window;
-  const themeId = useSystemStore((state) => state.themeId);
-  const wallpaper = useSystemStore((state) => state.wallpaper);
-  const setThemeId = useSystemStore((state) => state.setThemeId);
-  const setWallpaperPreset = useSystemStore((state) => state.setWallpaperPreset);
-  const setWallpaperImage = useSystemStore((state) => state.setWallpaperImage);
-  const resetWallpaper = useSystemStore((state) => state.resetWallpaper);
-  const resetLayout = useSystemStore((state) => state.resetLayout);
+  const requestedSection = sanitizeSettingsSection(window.payload?.section);
+  const [section, setSection] = useState<SettingsSectionId>(requestedSection);
+  const seenRequest = useRef(requestedSection);
+
+  // A deep link that arrives while Settings is already open (ms-settings: style).
+  useEffect(() => {
+    if (seenRequest.current !== requestedSection) {
+      seenRequest.current = requestedSection;
+      setSection(requestedSection);
+    }
+  }, [requestedSection]);
+
+  const openSection = (next: SettingsSectionId) => {
+    setSection(next);
+    seenRequest.current = next;
+    rememberSection(window.processId, next);
+  };
+
+  const pages: Record<SettingsSectionId, ReactNode> = {
+    system: <SystemPage onOpen={openSection} />,
+    display: <DisplayPage />,
+    sound: <SoundPage />,
+    power: <PowerPage />,
+    network: <NetworkPage />,
+    personalization: <PersonalizationPage />,
+    accessibility: <AccessibilityPage />,
+    time: <TimePage />,
+  };
+  const current = getSettingsSection(section);
 
   return (
-    <AppScaffold className="settings-app">
-      <AppContent padded>
-      <section className="hero-panel">
-        <div>
-          <p className="eyebrow">Personalization</p>
-          <h1>Theme the desktop</h1>
-          <p className="lead">Wallpaper, shell tint, and accent presets. Custom image wallpapers are listed below.</p>
-        </div>
-      </section>
-
-      <div className="theme-grid">
-        {themePresets.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            className={`theme-card ${themeId === preset.id ? "is-active" : ""}`}
-            onClick={() => setThemeId(preset.id)}
-          >
-            <span className="theme-card__preview" style={{ background: preset.wallpaper }} />
-            <span className="theme-card__meta">
-              <strong>{preset.name}</strong>
-              <small>{preset.id}</small>
+    <AppScaffold className="settings-app w11-settings">
+      <div className="w11-settings__layout">
+        <nav className="w11-settings__nav" aria-label="Settings">
+          <div className="w11-settings__profile">
+            <LogoMark size={36} />
+            <span className="w11-settings__profile-text">
+              <strong>{profile.name}</strong>
+              <small>Local account</small>
             </span>
-          </button>
-        ))}
+          </div>
+          <ul className="w11-settings__nav-list">
+            {SETTINGS_SECTIONS.map((item) => {
+              const Icon = SETTINGS_SECTION_ICONS[item.id];
+              const active = item.id === section;
+
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={cn("w11-settings__nav-item", active && "is-active")}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => openSection(item.id)}
+                  >
+                    <Icon size={16} aria-hidden="true" />
+                    <span>{item.title}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <AppContent
+          padded
+          className="w11-settings__page"
+          role="region"
+          aria-label={current.title}
+          data-section={section}
+        >
+          {/* Personalization keeps its own hero heading, so the page has one h1. */}
+          {section === "personalization" ? null : <h1 className="w11-settings__title">{current.title}</h1>}
+          {pages[section]}
+        </AppContent>
       </div>
-
-      <article className="glass-card">
-        <div className="section-row">
-          <div>
-            <p className="eyebrow">Wallpaper mode</p>
-            <h3>
-              {wallpaper.mode === "theme"
-                ? "Using theme wallpaper"
-                : wallpaper.mode === "image"
-                  ? "Static image wallpaper"
-                  : wallpaper.mode === "gradient"
-                    ? "Gradient wallpaper"
-                    : "Animated wallpaper"}
-            </h3>
-            <p>
-              {wallpaper.mode === "image"
-                ? "A filesystem image is driving the desktop background."
-                : wallpaper.mode === "theme"
-                  ? "The desktop is using the active theme's built-in wallpaper."
-                  : "Pick a preset below or return to the theme wallpaper at any time."}
-            </p>
-          </div>
-          <Button type="button" variant="panel" onClick={() => resetWallpaper()}>
-            <Paintbrush size={15} />
-            Use theme wallpaper
-          </Button>
-        </div>
-      </article>
-
-      <article className="glass-card">
-        <div className="section-row">
-          <div>
-            <p className="eyebrow">Static images</p>
-            <h3>Photography as wallpaper</h3>
-          </div>
-          <div className="action-row">
-            <ImageIcon size={16} />
-            <small>Bundled local images</small>
-          </div>
-        </div>
-        <div className="theme-grid">
-          {imageWallpaperPresets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className={`theme-card ${wallpaper.mode === "image" && wallpaper.imageSource === preset.source ? "is-active" : ""}`}
-              onClick={() => setWallpaperImage(preset.source)}
-            >
-              <span
-                className="theme-card__preview"
-                style={{
-                  background: `linear-gradient(rgba(6, 12, 20, 0.22), rgba(6, 12, 20, 0.58)), url('${preset.preview}') center/cover no-repeat`,
-                }}
-              />
-              <span className="theme-card__meta">
-                <strong>{preset.name}</strong>
-                <small>Static image</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </article>
-
-      <article className="glass-card">
-        <div className="section-row">
-          <div>
-            <p className="eyebrow">Static gradients</p>
-            <h3>Compact desktop-friendly backgrounds</h3>
-          </div>
-          <div className="action-row">
-            <Waves size={16} />
-            <small>Lightweight CSS gradients</small>
-          </div>
-        </div>
-        <div className="theme-grid">
-          {gradientWallpaperPresets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className={`theme-card ${wallpaper.mode === "gradient" && wallpaper.presetId === preset.id ? "is-active" : ""}`}
-              onClick={() => setWallpaperPreset("gradient", preset.id)}
-            >
-              <span className="theme-card__preview" style={{ background: preset.preview }} />
-              <span className="theme-card__meta">
-                <strong>{preset.name}</strong>
-                <small>Gradient</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </article>
-
-      <article className="glass-card">
-        <div className="section-row">
-          <div>
-            <p className="eyebrow">Animated mode</p>
-            <h3>Slow-moving ambient wallpapers</h3>
-          </div>
-          <div className="action-row">
-            <Sparkles size={16} />
-            <small>CSS animation only</small>
-          </div>
-        </div>
-        <div className="theme-grid">
-          {animatedWallpaperPresets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className={`theme-card ${wallpaper.mode === "animated" && wallpaper.presetId === preset.id ? "is-active" : ""}`}
-              onClick={() => setWallpaperPreset("animated", preset.id)}
-            >
-              <span className="theme-card__preview" style={{ background: preset.preview }} />
-              <span className="theme-card__meta">
-                <strong>{preset.name}</strong>
-                <small>Animated</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </article>
-
-      <article className="glass-card">
-        <div className="section-row">
-          <div>
-            <p className="eyebrow">Session controls</p>
-            <h3>Refresh the workspace layout</h3>
-          </div>
-          <div className="action-row">
-            <button type="button" className="pill-button" onClick={() => resetLayout()}>
-              <RotateCcw size={15} />
-              Reset windows
-            </button>
-            <button type="button" className="pill-button" onClick={() => setThemeId(themePresets[0].id)}>
-              <Paintbrush size={15} />
-              Restore default
-            </button>
-          </div>
-        </div>
-      </article>
-      </AppContent>
     </AppScaffold>
   );
 }
