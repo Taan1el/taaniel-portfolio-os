@@ -26,6 +26,7 @@ describe("terminal settings are untrusted on read", () => {
       cursorShape: "vintage",
       cursorBlink: "yes",
       screenReaderMode: true,
+      improveContrast: "sure",
       defaultProfile: "bash",
       copyOnSelect: true,
       multiLinePasteWarning: 0,
@@ -38,6 +39,11 @@ describe("terminal settings are untrusted on read", () => {
       screenReaderMode: true,
       copyOnSelect: true,
     });
+  });
+
+  it("gives settings saved before a field existed that field's default", () => {
+    const { improveContrast: _missing, ...older } = DEFAULT_TERMINAL_SETTINGS;
+    expect(sanitizeTerminalSettings({ ...older, fontSize: 20 })).toEqual({ ...DEFAULT_TERMINAL_SETTINGS, fontSize: 20 });
   });
 
   it("drops unknown colour schemes", () => {

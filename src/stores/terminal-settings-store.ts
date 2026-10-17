@@ -17,6 +17,8 @@ export interface TerminalSettings {
   cursorBlink: boolean;
   /** Mirrors output into an accessibility tree that screen readers announce. */
   screenReaderMode: boolean;
+  /** Nudges text colours until they reach the WCAG AA contrast ratio (xterm's minimumContrastRatio). */
+  improveContrast: boolean;
   defaultProfile: ShellProfileId;
   copyOnSelect: boolean;
   multiLinePasteWarning: boolean;
@@ -31,6 +33,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   cursorShape: "bar",
   cursorBlink: true,
   screenReaderMode: false,
+  improveContrast: false,
   defaultProfile: DEFAULT_PROFILE_ID,
   copyOnSelect: false,
   multiLinePasteWarning: true,
@@ -59,6 +62,7 @@ export function sanitizeTerminalSettings(raw: unknown): TerminalSettings {
     cursorShape: pick(data.cursorShape, CURSOR_SHAPES.has(data.cursorShape as TerminalCursorShape), defaults.cursorShape),
     cursorBlink: pick(data.cursorBlink, typeof data.cursorBlink === "boolean", defaults.cursorBlink),
     screenReaderMode: pick(data.screenReaderMode, typeof data.screenReaderMode === "boolean", defaults.screenReaderMode),
+    improveContrast: pick(data.improveContrast, typeof data.improveContrast === "boolean", defaults.improveContrast),
     defaultProfile: pick(data.defaultProfile, isShellProfileId(data.defaultProfile), defaults.defaultProfile),
     copyOnSelect: pick(data.copyOnSelect, typeof data.copyOnSelect === "boolean", defaults.copyOnSelect),
     multiLinePasteWarning: pick(
@@ -81,6 +85,7 @@ const settingsOf = (state: TerminalSettings): TerminalSettings => ({
   cursorShape: state.cursorShape,
   cursorBlink: state.cursorBlink,
   screenReaderMode: state.screenReaderMode,
+  improveContrast: state.improveContrast,
   defaultProfile: state.defaultProfile,
   copyOnSelect: state.copyOnSelect,
   multiLinePasteWarning: state.multiLinePasteWarning,
