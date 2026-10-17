@@ -89,14 +89,22 @@ function TransferDialogInner({ request, onClose }: { request: TransferRequest; o
     }
 
     if (event.key === "Tab") {
-      // Keep Tab inside the dialog.
-      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [role="option"][aria-selected="true"]') ?? []);
-      const current = focusable.indexOf(document.activeElement as HTMLElement);
+      // Keep Tab inside the dialog. Only what Tab can reach counts: the folder list is one tab stop (the
+      // selected option, arrows move within it), so the other options must not look like places to land.
+      const tabbable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]):not([tabindex="-1"])') ?? []);
+
+      if (tabbable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const current = tabbable.indexOf(document.activeElement as HTMLElement);
       const next = event.shiftKey ? current - 1 : current + 1;
 
-      if (focusable.length > 0 && (next < 0 || next >= focusable.length)) {
+      if (current === -1 || next < 0 || next >= tabbable.length) {
         event.preventDefault();
-        focusable[(next + focusable.length) % focusable.length].focus();
+        const target = current === -1 ? (event.shiftKey ? tabbable.length - 1 : 0) : (next + tabbable.length) % tabbable.length;
+        tabbable[target].focus();
       }
     }
   };

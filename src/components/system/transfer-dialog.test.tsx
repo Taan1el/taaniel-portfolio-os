@@ -97,6 +97,31 @@ describe("Move to… and Copy to…", () => {
     expect(nodes()["/Desktop/note.txt"]).toBeTruthy();
   });
 
+  it("keeps Tab and Shift+Tab inside the dialog", () => {
+    render(<TransferDialog />);
+    open(["/Desktop/note.txt"], "copy");
+
+    const selected = screen.getAllByRole("option").find((option) => option.getAttribute("aria-selected") === "true") as HTMLElement;
+    const copyButton = screen.getByRole("button", { name: "Copy" });
+    const cancelButton = screen.getByRole("button", { name: "Cancel" });
+    const press = (shiftKey: boolean) => fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Tab", shiftKey });
+
+    expect(document.activeElement).toBe(selected);
+    // The selected option is not the first folder, yet it is the first thing Tab reaches: Shift+Tab must wrap.
+    expect(screen.getAllByRole("option")[0]).not.toBe(selected);
+    expect(press(true)).toBe(false);
+    expect(document.activeElement).toBe(cancelButton);
+
+    expect(press(false)).toBe(false);
+    expect(document.activeElement).toBe(selected);
+
+    // Moving inside the dialog is left to the browser.
+    selected.focus();
+    expect(press(false)).toBe(true);
+    copyButton.focus();
+    expect(press(false)).toBe(true);
+  });
+
   it("gives the focus back to the item it was about", async () => {
     const item = document.createElement("div");
     item.tabIndex = -1;
