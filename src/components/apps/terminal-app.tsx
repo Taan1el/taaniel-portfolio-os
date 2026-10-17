@@ -31,6 +31,7 @@ import {
   type TerminalTab,
 } from "@/lib/terminal-tabs";
 import { cn } from "@/lib/utils";
+import "@/styles/win11-terminal.css";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
