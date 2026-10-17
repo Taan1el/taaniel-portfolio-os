@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DesktopManager } from "@/components/shell/desktop-manager";
 import { desktopShortcutSeeds, initialDesktopIconPositions } from "@/data/desktop-seed";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
@@ -173,6 +173,18 @@ describe("the desktop", () => {
     expect(useFileSystemStore.getState().nodes["/Desktop/About.lnk"]).toBeUndefined();
     expect(await screen.findByRole("option", { name: "About me" })).toBeTruthy();
     expect(useShellStore.getState().desktopIconPositions["desktop-node:/Desktop/About me.lnk"]).toEqual(place);
+  });
+
+  it("keeps an icon where it was when its file is renamed from somewhere else", async () => {
+    render(<Desktop onActivateEntry={vi.fn()} />);
+    const place = useShellStore.getState().desktopIconPositions["desktop-node:/Desktop/Contact.lnk"];
+
+    await act(async () => {
+      await useFileSystemStore.getState().rename("/Desktop/Contact.lnk", "Email me.lnk");
+    });
+
+    expect(await screen.findByRole("option", { name: "Email me" })).toBeTruthy();
+    expect(useShellStore.getState().desktopIconPositions["desktop-node:/Desktop/Email me.lnk"]).toEqual(place);
   });
 
   it("does not offer to rename a protected item or several at once", () => {

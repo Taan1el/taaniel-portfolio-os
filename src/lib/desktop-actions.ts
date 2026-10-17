@@ -1,6 +1,8 @@
 import { DESKTOP_PATH, getDesktopNodeId } from "@/data/desktop-seed";
-import { useFileSystemStore } from "@/stores/filesystem-store";
+import { getParentPath } from "@/lib/filesystem";
+import { useFileSystemStore, type FileSystemMove } from "@/stores/filesystem-store";
 import { useShellStore } from "@/stores/shell-store";
+import type { DesktopGridPosition } from "@/types/system";
 
 /** Select a freshly created desktop item and drop into rename, as Windows does for "New". */
 function selectAndRename(path: string) {
@@ -27,4 +29,29 @@ export async function createDesktopTextDocument() {
   });
   selectAndRename(path);
   return path;
+}
+
+/**
+ * A file renamed inside the Desktop folder is the same icon under a new name:
+ * it keeps its place, whoever renamed it (the desktop, Explorer, the terminal).
+ */
+export function carryDesktopPositions(moves: FileSystemMove[]) {
+  const positions = useShellStore.getState().desktopIconPositions;
+  const carried: Record<string, DesktopGridPosition> = {};
+
+  moves.forEach(({ from, to }) => {
+    if (getParentPath(from) !== DESKTOP_PATH || getParentPath(to) !== DESKTOP_PATH) {
+      return;
+    }
+
+    const position = positions[getDesktopNodeId(from)];
+
+    if (position) {
+      carried[getDesktopNodeId(to)] = position;
+    }
+  });
+
+  if (Object.keys(carried).length > 0) {
+    useShellStore.getState().placeDesktopIcons(carried);
+  }
 }
