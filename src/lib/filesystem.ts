@@ -166,6 +166,33 @@ export function isLockedNode(nodes: FileSystemRecord, path: string) {
   return isProtectedPath(path) || hasReadonlyContent(nodes, path);
 }
 
+/**
+ * Why a change was refused: the item (or its destination) isn't there, it is a system
+ * folder, it holds read-only content, or the request makes no sense (into itself, onto a file).
+ */
+export type ChangeRefusal = "missing" | "protected" | "read-only" | "invalid";
+
+/** What happened to a delete or paste that reports back, for callers that word their own errors (the terminal). */
+export type NodeChangeResult = { ok: true } | { ok: false; reason: ChangeRefusal };
+
+/**
+ * Why an item can't be deleted, moved or renamed, or null when it can. Callers
+ * that print their own errors check this first instead of guessing from silence.
+ */
+export function getChangeRefusal(nodes: FileSystemRecord, path: string): ChangeRefusal | null {
+  const normalized = normalizePath(path);
+
+  if (!nodes[normalized]) {
+    return "missing";
+  }
+
+  if (isProtectedPath(normalized)) {
+    return "protected";
+  }
+
+  return hasReadonlyContent(nodes, normalized) ? "read-only" : null;
+}
+
 export function searchNodes(nodes: FileSystemRecord, query: string, limit = 10) {
   const normalizedQuery = query.trim().toLowerCase();
 

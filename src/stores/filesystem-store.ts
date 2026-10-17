@@ -8,6 +8,7 @@ import {
   createDirectoryRecord,
   createTextFileRecord,
   deleteNodeRecord,
+  getChangeRefusal,
   getParentPath,
   importFilesRecord,
   isLockedNode,
@@ -25,6 +26,8 @@ import {
   updateBinaryFileRecord,
   updateTextFileRecord,
   writeFileRecord,
+  type ChangeRefusal,
+  type NodeChangeResult,
   type TransferOperation,
   type TransferResult,
 } from "@/lib/filesystem";
@@ -50,6 +53,11 @@ interface FileSystemState {
   mkdir: (path: string, options?: { uniqueName?: boolean }) => Promise<string>;
   rename: (path: string, nextName: string) => Promise<string>;
   deleteNode: (path: string, options?: { quiet?: boolean }) => Promise<void>;
+  /**
+   * deleteNode that says whether anything was deleted, and why not. The Recycle Bin and the
+   * system folders are refused, never deleted. For callers that word their own errors.
+   */
+  tryDeleteNode: (path: string, options?: { quiet?: boolean }) => Promise<NodeChangeResult>;
   /** Put a Recycle Bin item back where it came from. Resolves to the restored path. */
   restoreNode: (path: string) => Promise<string | null>;
   /** Delete without going through the Recycle Bin (Shift+Delete). */
@@ -79,6 +87,13 @@ interface FileSystemState {
     operation: "copy" | "cut",
     options?: { quiet?: boolean }
   ) => Promise<void>;
+  /** pasteNode that says whether anything changed, and why not. It only announces a change that happened. */
+  tryPasteNode: (
+    sourcePath: string,
+    destinationDirectoryPath: string,
+    operation: "copy" | "cut",
+    options?: { quiet?: boolean }
+  ) => Promise<NodeChangeResult>;
   /**
    * Move, copy or link several items in one write - a drag, a paste or a
    * multi-item delete. Moving into the Recycle Bin records where items came from.
@@ -93,6 +108,34 @@ interface FileSystemState {
   canCutNode: (path: string) => boolean;
   emptyTrash: () => Promise<void>;
   reset: () => Promise<void>;
+}
+
+/** The toast for a refused delete. */
+function describeRefusal(refusal: ChangeRefusal, action: string) {
+  return refusal === "protected"
+    ? `This folder is part of the system and can't be ${action}`
+    : `This item is read-only and can't be ${action}`;
+}
+
+/** Why a paste changed nothing. */
+function getPasteRefusal(
+  nodes: FileSystemRecord,
+  sourcePath: string,
+  destinationPath: string,
+  operation: "copy" | "cut"
+): ChangeRefusal {
+  const destination = nodes[normalizePath(destinationPath)];
+
+  if (!nodes[normalizePath(sourcePath)] || !destination) {
+    return "missing";
+  }
+
+  if (destination.kind !== "directory") {
+    return "invalid";
+  }
+
+  // Only moving is held back by protection; a copy of a system folder is fine.
+  return (operation === "cut" ? getChangeRefusal(nodes, sourcePath) : null) ?? "invalid";
 }
 
 /** One toast per drag or paste, worded like Windows' progress dialog. */
@@ -229,26 +272,43 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     await persistNodes(nodes);
   },
   deleteNode: async (path, options) => {
-    // Permanently delete items that are already in the Trash, or are the Trash itself.
-    const normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "");
-    const inTrash =
-      normalized === TRASH_PATH || normalized.startsWith(`${TRASH_PATH}/`);
+    await get().tryDeleteNode(path, options);
+  },
+  tryDeleteNode: async (path, options) => {
+    const normalized = normalizePath(path);
+    const before = get().nodes;
+    const refusal = getChangeRefusal(before, normalized);
 
-    if (inTrash) {
-      const nodes = deleteNodeRecord(get().nodes, path);
+    // Nothing to delete is nothing to say; the Recycle Bin and the system folders are never deleted,
+    // not even for good.
+    if (refusal === "missing") {
+      return { ok: false, reason: refusal };
+    }
+
+    if (refusal === "protected") {
+      if (!options?.quiet) toast(describeRefusal(refusal, "deleted"), "error");
+      return { ok: false, reason: refusal };
+    }
+
+    // Items already in the Recycle Bin are deleted for good.
+    if (normalized.startsWith(`${TRASH_PATH}/`)) {
+      const nodes = deleteNodeRecord(before, normalized);
       set({ nodes });
       await persistNodes(nodes);
       if (!options?.quiet) toast("Permanently deleted", "success");
-      return;
+      return { ok: true };
+    }
+
+    if (refusal) {
+      if (!options?.quiet) toast(describeRefusal(refusal, "deleted"), "error");
+      return { ok: false, reason: refusal };
     }
 
     // Soft-delete: move into the Recycle Bin and remember where it came from.
-    const before = get().nodes;
-    const pasted = pasteNodeRecord(before, path, TRASH_PATH, "cut");
+    const pasted = pasteNodeRecord(before, normalized, TRASH_PATH, "cut");
 
     if (pasted === before) {
-      toast("This item is read-only and can't be deleted", "error");
-      return;
+      return { ok: false, reason: "invalid" };
     }
 
     const landed = Object.keys(pasted).find((key) => !(key in before) && getParentPath(key) === TRASH_PATH);
@@ -258,13 +318,21 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     set({ nodes });
     await persistNodes(nodes);
     if (!options?.quiet) toast("Moved to Recycle Bin", "success");
+    return { ok: true };
   },
   deleteNodePermanently: async (path) => {
     const before = get().nodes;
-    if (isLockedNode(before, path)) {
-      toast("This item is read-only and can't be deleted", "error");
+    const refusal = getChangeRefusal(before, path);
+
+    if (refusal === "missing") {
       return;
     }
+
+    if (refusal) {
+      toast(describeRefusal(refusal, "deleted"), "error");
+      return;
+    }
+
     const nodes = deleteNodeRecord(before, path);
     set({ nodes });
     await persistNodes(nodes);
@@ -309,10 +377,21 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     await persistNodes(nodes);
   },
   pasteNode: async (sourcePath, destinationDirectoryPath, operation, options) => {
-    const nodes = pasteNodeRecord(get().nodes, sourcePath, destinationDirectoryPath, operation);
+    await get().tryPasteNode(sourcePath, destinationDirectoryPath, operation, options);
+  },
+  tryPasteNode: async (sourcePath, destinationDirectoryPath, operation, options) => {
+    const before = get().nodes;
+    const nodes = pasteNodeRecord(before, sourcePath, destinationDirectoryPath, operation);
+
+    // Refused (read-only, into itself, nowhere to go): nothing changed, so there is nothing to announce.
+    if (nodes === before) {
+      return { ok: false, reason: getPasteRefusal(before, sourcePath, destinationDirectoryPath, operation) };
+    }
+
     set({ nodes });
     await persistNodes(nodes);
     if (!options?.quiet) toast(operation === "cut" ? "Moved" : "Copied", "success");
+    return { ok: true };
   },
   transferNodes: async (sourcePaths, destinationDirectoryPath, operation, options) => {
     const result = transferNodesRecord(get().nodes, sourcePaths, destinationDirectoryPath, operation, {
