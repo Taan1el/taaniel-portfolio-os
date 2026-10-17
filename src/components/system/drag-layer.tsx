@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowRight, Ban, ExternalLink, Link2, Plus } from "lucide-react";
 import { RecycleBinEmptyIcon } from "@/components/icons/apps";
 import { NodeIcon } from "@/components/icons/node-icon";
+import { ConfirmDialog } from "@/components/system/confirm-dialog";
 import { TransferDialog } from "@/components/system/transfer-dialog";
 import { DESKTOP_PATH, getDesktopNodeId } from "@/data/desktop-seed";
 import { configureDragEnvironment, type DropMenuChoice } from "@/lib/dnd/controller";
@@ -173,7 +174,8 @@ function DragGhost({ session }: { session: DragSession }) {
 
 /**
  * Wires the drag controller into the shell (what a drop does) and draws the
- * drag ghost. Mounted once, next to the window host.
+ * drag ghost, along with the dialogs that file actions open ("Move to...",
+ * "Are you sure?"). Mounted once, next to the window host.
  */
 export function DragLayer() {
   const session = useDragStore((state) => state.session);
@@ -208,6 +210,7 @@ export function DragLayer() {
     <>
       {session ? <DragGhost session={session} /> : null}
       <TransferDialog />
+      <ConfirmDialog />
     </>
   );
 }

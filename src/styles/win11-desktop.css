@@ -458,6 +458,45 @@ body.is-file-dragging[data-drag-effect="link"] * {
   outline-offset: 2px;
 }
 
+/* ------------------------------------------------------------ Are you sure? */
+
+.confirm-dialog {
+  width: min(380px, calc(100vw - 32px));
+  padding: 20px 20px 16px;
+  border: 1px solid var(--w11-surface-stroke);
+  border-radius: var(--w11-radius-overlay);
+  background: var(--w11-flyout);
+  box-shadow: var(--w11-shadow-overlay);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+}
+
+.confirm-dialog__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.confirm-dialog__message {
+  margin: 0;
+  color: var(--w11-text-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.confirm-dialog__actions .w11-button:focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .desktop-icon,
   .w11-explorer :is(.explorer-grid-item, .w11-details__row) {

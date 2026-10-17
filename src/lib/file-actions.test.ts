@@ -14,6 +14,7 @@ import {
   createShortcutsFor,
   cutItems,
   deleteItems,
+  emptyRecycleBin,
   getFileLocation,
   pasteIntoFolder,
   restoreItems,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/file-actions";
 import { buildFileMenu } from "@/lib/file-menu";
 import { ensureSystemWorkspace, TRASH_PATH } from "@/lib/system-workspace";
+import { useConfirmDialogStore } from "@/stores/confirm-dialog-store";
 import { useExplorerStore } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useShellStore } from "@/stores/shell-store";
@@ -40,7 +42,15 @@ const note = (path: string): VirtualFile => ({
   updatedAt: 1,
 });
 
+/** The "Are you sure?" the OS is showing, if any. */
+const question = () => {
+  const request = useConfirmDialogStore.getState().request;
+  return request ? { title: request.title, message: request.message, confirmLabel: request.confirmLabel } : undefined;
+};
+const answer = (accepted: boolean) => useConfirmDialogStore.getState().answer(accepted);
+
 beforeEach(() => {
+  useConfirmDialogStore.setState({ request: null });
   useFileSystemStore.setState({
     nodes: { ...ensureSystemWorkspace(buildSeedFileSystem()), "/Documents/a.txt": note("/Documents/a.txt"), "/Documents/b.txt": note("/Documents/b.txt") },
     initialized: true,
@@ -84,27 +94,80 @@ describe("deleteItems", () => {
     expect(nodes()[`${TRASH_PATH}/b.txt`]).toBeTruthy();
   });
 
-  it("asks before deleting for good, and respects a no", async () => {
-    const confirm = vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+  it("asks in the OS before deleting for good, and respects a no", async () => {
+    const browserConfirm = vi.spyOn(globalThis, "confirm");
 
-    expect(await deleteItems(["/Documents/a.txt"], { permanent: true })).toBe(0);
+    const refused = deleteItems(["/Documents/a.txt"], { permanent: true });
+    expect(question()).toEqual({
+      title: "Delete File",
+      message: 'Are you sure you want to permanently delete "a.txt"?',
+      confirmLabel: "Delete",
+    });
+    answer(false);
+    expect(await refused).toBe(0);
     expect(nodes()["/Documents/a.txt"]).toBeTruthy();
-    expect(confirm).toHaveBeenCalledWith('Are you sure you want to permanently delete "a.txt"?');
 
-    confirm.mockReturnValue(true);
-    expect(await deleteItems(["/Documents/a.txt"], { permanent: true })).toBe(1);
+    const accepted = deleteItems(["/Documents/a.txt"], { permanent: true });
+    answer(true);
+    expect(await accepted).toBe(1);
     expect(nodes()["/Documents/a.txt"]).toBeUndefined();
     expect(nodes()[`${TRASH_PATH}/a.txt`]).toBeUndefined();
-    confirm.mockRestore();
+
+    // Never the browser's own dialog, which looks foreign and says no where dialogs are blocked.
+    expect(browserConfirm).not.toHaveBeenCalled();
+    browserConfirm.mockRestore();
+  });
+
+  it("words the question for a folder and for several items", async () => {
+    await useFileSystemStore.getState().mkdir("/Desktop/Stuff");
+
+    const folder = deleteItems(["/Desktop/Stuff"], { permanent: true });
+    expect(question()).toMatchObject({ title: "Delete Folder", message: 'Are you sure you want to permanently delete "Stuff"?' });
+    answer(false);
+    await folder;
+
+    const several = deleteItems(["/Documents/a.txt", "/Documents/b.txt"], { permanent: true });
+    expect(question()).toMatchObject({
+      title: "Delete Multiple Items",
+      message: "Are you sure you want to permanently delete these 2 items?",
+    });
+    answer(false);
+    await several;
   });
 
   it("deletes for good when the items are already in the Recycle Bin", async () => {
     await deleteItems(["/Documents/a.txt"]);
-    const confirm = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
 
-    expect(await deleteItems([`${TRASH_PATH}/a.txt`])).toBe(1);
+    const deleting = deleteItems([`${TRASH_PATH}/a.txt`]);
+    answer(true);
+
+    expect(await deleting).toBe(1);
     expect(nodes()[`${TRASH_PATH}/a.txt`]).toBeUndefined();
-    confirm.mockRestore();
+  });
+
+  it("empties the Recycle Bin only after a yes", async () => {
+    await deleteItems(["/Documents/a.txt", "/Documents/b.txt"]);
+
+    const declined = emptyRecycleBin();
+    expect(question()).toMatchObject({
+      title: "Delete Multiple Items",
+      message: "Are you sure you want to permanently delete these 2 items?",
+    });
+    answer(false);
+    expect(await declined).toBe(false);
+    expect(nodes()[`${TRASH_PATH}/a.txt`]).toBeTruthy();
+
+    const confirmed = emptyRecycleBin();
+    answer(true);
+    expect(await confirmed).toBe(true);
+    expect(nodes()[`${TRASH_PATH}/a.txt`]).toBeUndefined();
+    expect(nodes()[`${TRASH_PATH}/b.txt`]).toBeUndefined();
+    expect(nodes()[TRASH_PATH]).toBeTruthy();
+  });
+
+  it("has nothing to ask about an empty Recycle Bin", async () => {
+    expect(await emptyRecycleBin()).toBe(false);
+    expect(question()).toBeUndefined();
   });
 
   it("brings items back with restoreItems", async () => {
@@ -155,12 +218,11 @@ describe("shortcuts", () => {
   });
 
   it("names shortcuts without .lnk when asking to delete them for good", async () => {
-    const confirm = vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+    const deleting = deleteItems(["/Desktop/About.lnk"], { permanent: true });
 
-    await deleteItems(["/Desktop/About.lnk"], { permanent: true });
-
-    expect(confirm).toHaveBeenCalledWith('Are you sure you want to permanently delete "About"?');
-    confirm.mockRestore();
+    expect(question()).toMatchObject({ title: "Delete Shortcut", message: 'Are you sure you want to permanently delete "About"?' });
+    answer(false);
+    await deleting;
   });
 
   it("opens Explorer on the folder with the file selected", () => {

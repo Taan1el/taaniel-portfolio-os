@@ -51,7 +51,16 @@ import { DND_SCROLL_ATTRIBUTE, folderDropProps } from "@/lib/dnd/dom";
 import { armFileDrag } from "@/lib/dnd/controller";
 import { useDragStore } from "@/lib/dnd/drag-store";
 import { hasExternalFiles } from "@/lib/drag-payload";
-import { copyItems, cutItems, deleteItems, isInTrash, pasteIntoFolder, restoreItems, transferItems } from "@/lib/file-actions";
+import {
+  copyItems,
+  cutItems,
+  deleteItems,
+  emptyRecycleBin as emptyRecycleBinAction,
+  isInTrash,
+  pasteIntoFolder,
+  restoreItems,
+  transferItems,
+} from "@/lib/file-actions";
 import { buildFileMenu } from "@/lib/file-menu";
 import { openFileSystemPath } from "@/lib/launchers";
 import { resolveShortcutNode, toStoredName } from "@/lib/shortcuts";
@@ -84,7 +93,6 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const writeFile = useFileSystemStore((state) => state.writeFile);
   const importFiles = useFileSystemStore((state) => state.importFiles);
   const rename = useFileSystemStore((state) => state.rename);
-  const emptyTrash = useFileSystemStore((state) => state.emptyTrash);
   const launchApp = useSystemStore((state) => state.launchApp);
   const recentPaths = useRecentFilesStore((state) => state.recentPaths);
   const clearRecent = useRecentFilesStore((state) => state.clearRecent);
@@ -302,11 +310,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   };
 
   const emptyRecycleBin = () => {
-    const count = listDirectory(TRASH_PATH).length;
-    if (count === 0) return;
-    if (globalThis.confirm(`Are you sure you want to permanently delete ${count === 1 ? "this item" : `these ${count} items`}?`)) {
-      void emptyTrash();
-    }
+    void emptyRecycleBinAction();
   };
 
   const goUp = () => {

@@ -17,7 +17,7 @@ import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { getContextMenuPoint } from "@/lib/context-menu-point";
 import { createDesktopFolder, createDesktopTextDocument } from "@/lib/desktop-actions";
 import { placeArrivalsOnDesktop } from "@/lib/dnd/desktop-placement";
-import { pasteIntoFolder } from "@/lib/file-actions";
+import { emptyRecycleBin, pasteIntoFolder } from "@/lib/file-actions";
 import { buildFileMenu } from "@/lib/file-menu";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { prefersStaticWallpaper } from "@/lib/device-capabilities";
@@ -138,7 +138,6 @@ export function DesktopShell() {
     initialized,
     initialize,
     importFiles,
-    emptyTrash,
     reset: resetFileSystem,
   } = useFileSystemStore(
     useShallow((state) => ({
@@ -146,7 +145,6 @@ export function DesktopShell() {
       initialized: state.initialized,
       initialize: state.initialize,
       importFiles: state.importFiles,
-      emptyTrash: state.emptyTrash,
       reset: state.reset,
     }))
   );
@@ -402,13 +400,7 @@ export function DesktopShell() {
               icon: Trash2,
               danger: true,
               disabled: trashCount === 0,
-              onSelect: () => {
-                const question = `Are you sure you want to permanently delete ${trashCount === 1 ? "this item" : `these ${trashCount} items`}?`;
-
-                if (globalThis.confirm(question)) {
-                  void emptyTrash();
-                }
-              },
+              onSelect: () => void emptyRecycleBin(),
             },
           ],
         });
@@ -429,7 +421,7 @@ export function DesktopShell() {
         }),
       });
     },
-    [activateEntry, emptyTrash, launchApp, setContextMenu, setRenamingIconId]
+    [activateEntry, launchApp, setContextMenu, setRenamingIconId]
   );
 
   if (initialized === false) {
