@@ -123,6 +123,10 @@ export interface ShellSession {
   variables: Record<string, ShellValue>;
   /** Push-Location / Pop-Location stack. */
   locationStack: string[];
+  /** $? : whether the last statement worked. Absent until something has run. */
+  lastSuccess?: boolean;
+  /** $LASTEXITCODE: 0 after a statement that worked, 1 after one that failed. */
+  lastExitCode?: number;
 }
 
 export interface ShellProcessInfo {
@@ -441,15 +445,79 @@ function environment(ctx: Ctx): Record<string, string> {
   };
 }
 
+// ----------------------------------------------------- automatic variables
+
+/** $PSVersionTable.PSVersion: Major, Minor and Patch read off POWERSHELL_VERSION. */
+function psVersionObject(): ShellObject {
+  const [major, minor, patch] = POWERSHELL_VERSION.split(".").map(Number);
+  return createObject(
+    "System.Management.Automation.SemanticVersion",
+    { Major: major, Minor: minor, Patch: patch, PreReleaseLabel: "", BuildLabel: "" },
+    POWERSHELL_VERSION,
+    { view: "table" }
+  );
+}
+
+const OS_ROW = "Taaniel OS 11.0";
+
+/** The rows of $PSVersionTable, in the order PowerShell lists them. */
+function psVersionRows(): Array<[string, PropertyValue]> {
+  return [
+    ["PSVersion", psVersionObject()],
+    ["PSEdition", "Core"],
+    ["GitCommitId", POWERSHELL_VERSION],
+    ["OS", OS_ROW],
+    ["Platform", "Win32NT"],
+    ["PSCompatibleVersions", "{1.0, 2.0, 3.0, 4.0…}"],
+    ["PSRemotingProtocolVersion", "2.3"],
+    ["SerializationVersion", "1.1.0.1"],
+    ["WSManStackVersion", "3.0"],
+  ];
+}
+
+function psVersionTable(): ShellObject {
+  return createObject("System.Collections.Hashtable", Object.fromEntries(psVersionRows()), "System.Collections.Hashtable");
+}
+
+function pathInfoObject(virtualPath: string): ShellObject {
+  const shown = toWindowsPath(virtualPath);
+  return createObject(
+    "System.Management.Automation.PathInfo",
+    { Drive: "C", Provider: "FileSystem", ProviderPath: shown, Path: shown },
+    shown,
+    { view: "scalar" }
+  );
+}
+
+/** One id for this page's lifetime, as a host has one per session. */
+const HOST_INSTANCE_ID = globalThis.crypto?.randomUUID?.() ?? "5d0bd2a7-3f1c-4b6e-9a58-7c2e1d4f8b03";
+
+function hostObject(): ShellObject {
+  const language = typeof navigator === "undefined" ? "en-US" : navigator.language || "en-US";
+  return createObject(
+    "System.Management.Automation.Internal.Host.InternalHost",
+    {
+      Name: "ConsoleHost",
+      Version: POWERSHELL_VERSION,
+      InstanceId: HOST_INSTANCE_ID,
+      CurrentCulture: language,
+      CurrentUICulture: language,
+      DebuggerEnabled: true,
+      IsRunspacePushed: false,
+    },
+    `Taaniel OS terminal (PowerShell ${POWERSHELL_VERSION})`
+  );
+}
+
 /** Look up $name: environment, automatic variables, then the session's own. */
-function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
+function readVariable(rawName: string, ctx: Ctx): ShellValue | ShellObject | undefined {
   const name = rawName.toLowerCase();
   if (name.startsWith("env:")) return own(environment(ctx), name.slice(4));
   switch (name) {
     case "home":
       return PROFILE_ROOT;
     case "pwd":
-      return toWindowsPath(ctx.session.cwd);
+      return pathInfoObject(ctx.session.cwd);
     case "true":
       return true;
     case "false":
@@ -457,7 +525,13 @@ function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
     case "null":
       return "";
     case "host":
-      return `Taaniel OS terminal (PowerShell ${POWERSHELL_VERSION})`;
+      return hostObject();
+    case "psversiontable":
+      return psVersionTable();
+    case "?":
+      return ctx.session.lastSuccess ?? true;
+    case "lastexitcode":
+      return own(ctx.session.variables, name) ?? ctx.session.lastExitCode ?? 0;
     default:
       return own(ctx.session.variables, name);
   }
@@ -719,6 +793,8 @@ function renderItems(items: PipelineItem[], layout: "default" | "table" | "list"
       if (layout === "list") lines.push(...formatListView(objects));
       else if (objects[0].view === "filesystem") lines.push(...formatFileObjects(objects));
       else if (objects[0].view === "process") lines.push(...formatProcessObjects(objects));
+      else if (objects[0].view === "table") lines.push(...formatTableView(objects));
+      else if (objects[0].view === "scalar") lines.push(...formatTableView(objects, [Object.keys(objects[0].properties).at(-1) ?? ""]));
       else lines.push(...(layout === "table" ? formatTableView(objects) : formatGenericView(objects)));
     }
     start = end;
@@ -1779,7 +1855,8 @@ const selectObject: CommandFn = (args, stdin, ctx) => {
     const values: PipelineItem[] = [];
     for (const item of items) {
       const value = getProperty(item, expand);
-      if (value !== null && value !== undefined) values.push(typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : formatPropertyValue(value));
+      if (value === null || value === undefined) continue;
+      values.push(typeof value === "string" || typeof value === "number" || typeof value === "boolean" || isShellObject(value) ? value : formatPropertyValue(value));
     }
     return emitItems(values);
   }
@@ -1948,26 +2025,30 @@ function formatValue(value: ShellValue): string[] {
   return [toText(value)];
 }
 
-const PS_VERSION_TABLE = (): string[] => {
-  const rows: Array<[string, string]> = [
-    ["PSVersion", POWERSHELL_VERSION],
-    ["PSEdition", "Core"],
-    ["GitCommitId", POWERSHELL_VERSION],
-    ["OS", `Taaniel OS (${typeof navigator === "undefined" ? "browser" : navigator.userAgent.split(" ")[0]})`],
-    ["Platform", "Win32NT"],
-    ["PSCompatibleVersions", "{1.0, 2.0, 3.0, 4.0…}"],
-    ["PSRemotingProtocolVersion", "2.3"],
-    ["SerializationVersion", "1.1.0.1"],
-    ["WSManStackVersion", "3.0"],
-  ];
-  return [
-    "",
-    `${TABLE}${"Name".padEnd(31)}Value${RESET}`,
-    `${TABLE}${"----".padEnd(31)}-----${RESET}`,
-    ...rows.map(([name, value]) => `${name.padEnd(31)}${value}`),
-    "",
-  ];
-};
+const PS_VERSION_TABLE = (): string[] => [
+  "",
+  `${TABLE}${"Name".padEnd(31)}Value${RESET}`,
+  `${TABLE}${"----".padEnd(31)}-----${RESET}`,
+  ...psVersionRows().map(([name, value]) => `${name.padEnd(31)}${formatPropertyValue(value)}`),
+  "",
+];
+
+/**
+ * `$PSVersionTable.PSVersion`: an object reached through member access prints
+ * the way PowerShell shows it. Other member chains ($PWD.Path, $Host.Version,
+ * $PSVersionTable.PSEdition) are plain values and take the expression path.
+ */
+const VARIABLE_MEMBERS = /^\$((?:env:)?[A-Za-z_][A-Za-z0-9_]*)((?:\.[A-Za-z_][A-Za-z0-9_]*)+)$/i;
+
+function memberObject(text: string, ctx: Ctx): ShellObject | null {
+  const match = VARIABLE_MEMBERS.exec(text);
+  if (!match) return null;
+  let value: unknown = readVariable(match[1], ctx);
+  for (const member of match[2].split(".").filter(Boolean)) {
+    value = isShellObject(value) ? getProperty(value, member) : undefined;
+  }
+  return isShellObject(value) ? value : null;
+}
 
 // ---------------------------------------------------------- host commands
 
@@ -2831,7 +2912,7 @@ async function runLine(input: string, ctx: Ctx): Promise<ShellResult> {
   if (assignment && !assignment[3].startsWith("=")) {
     const [, rawName, operator, rhs] = assignment;
     const name = rawName.toLowerCase();
-    if (["true", "false", "null", "home", "pwd", "host"].includes(name)) {
+    if (["true", "false", "null", "home", "pwd", "host", "psversiontable"].includes(name)) {
       fail(ctx, "SessionStateUnauthorizedAccessException", `Cannot overwrite variable ${rawName} because it is read-only or constant.`);
       return { lines: ctx.lines, clear: false, actions: [], success: false };
     }
@@ -2864,6 +2945,10 @@ async function runLine(input: string, ctx: Ctx): Promise<ShellResult> {
   if (/^\$psversiontable$/i.test(trimmed)) {
     return { lines: PS_VERSION_TABLE(), clear: false, actions: [], success: true };
   }
+
+  // $PSVersionTable.PSVersion and other objects reached by member access.
+  const reached = memberObject(trimmed, ctx);
+  if (reached) return { lines: renderItems([reached]), clear: false, actions: [], success: true };
 
   // A line that is an expression (2 + 2, "Hello $name", $x * 3, 5 -gt 3) is evaluated and printed.
   if (/^[\d("'$.-]/.test(trimmed) && !/^-[A-Za-z]/.test(trimmed)) {
