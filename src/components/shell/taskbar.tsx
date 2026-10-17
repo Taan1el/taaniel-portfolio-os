@@ -7,6 +7,7 @@ import { SearchInput } from "@/components/apps/app-layout";
 import { LogoMark } from "@/components/ui/logo-mark";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
+import { taskbarDropProps } from "@/lib/dnd/dom";
 import { cn, formatClock } from "@/lib/utils";
 import taskbarMod from "@/components/shell/taskbar.module.css";
 import { useShellStore } from "@/stores/shell-store";
@@ -433,6 +434,8 @@ export function Taskbar({
                 <button
                   key={entry.id}
                   data-window-id={entry.windowId}
+                  // Holding a dragged file over this button brings the window forward.
+                  {...taskbarDropProps(entry.windowId)}
                   className={cn("w11-taskbar__app", "is-open", focused && "is-active")}
                   type="button"
                   aria-label={entry.title}

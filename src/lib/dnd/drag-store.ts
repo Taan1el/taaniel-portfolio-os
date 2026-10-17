@@ -18,6 +18,8 @@ export interface DragSession {
   /** Where inside the grabbed icon the pointer was, for placing icons on the desktop grid. */
   grab: { x: number; y: number };
   plan: DropPlan;
+  /** True when the pointer is over something that could take a drop (even if this drop is refused). */
+  overZone: boolean;
   hover: DragHover | null;
 }
 
