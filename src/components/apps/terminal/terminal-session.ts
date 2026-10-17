@@ -129,6 +129,13 @@ export class TerminalSession {
       fontFamily: FONT_FAMILY,
       fontSize: options.appearance.fontSize,
       lineHeight: 1.15,
+      // OSC 8 hyperlinks (an escape sequence in the output) would otherwise open any address through xterm's own
+      // confirm-and-window.open. They go through the same check and the in-OS browser as a plain URL does.
+      linkHandler: {
+        activate: (event, uri) => this.handleLink(event, uri),
+        hover: () => this.showLinkHint(),
+        leave: () => this.hideLinkHint(),
+      },
       minimumContrastRatio: options.appearance.minimumContrastRatio,
       screenReaderMode: options.appearance.screenReaderMode,
       scrollback: SCROLLBACK,
@@ -148,12 +155,8 @@ export class TerminalSession {
     terminal.loadAddon(this.searchAddon);
     terminal.loadAddon(
       new WebLinksAddon(this.handleLink, {
-        hover: () => {
-          container.title = this.options.coarsePointer ? "" : "Ctrl+Click to follow link";
-        },
-        leave: () => {
-          container.removeAttribute("title");
-        },
+        hover: () => this.showLinkHint(),
+        leave: () => this.hideLinkHint(),
       })
     );
     terminal.open(container);
@@ -702,6 +705,14 @@ export class TerminalSession {
     const target = safeLinkTarget(uri);
     if (target) this.options.callbacks.onOpenLink(target);
   };
+
+  private showLinkHint() {
+    if (this.container) this.container.title = this.options.coarsePointer ? "" : "Ctrl+Click to follow link";
+  }
+
+  private hideLinkHint() {
+    this.container?.removeAttribute("title");
+  }
 
   private requestPaste(raw: string) {
     const text = sanitizePaste(raw);

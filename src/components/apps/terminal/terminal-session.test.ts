@@ -272,6 +272,32 @@ describe("a Command Prompt tab", () => {
   });
 });
 
+describe("links", () => {
+  const range = { start: { x: 1, y: 1 }, end: { x: 2, y: 1 } };
+
+  it("sends escape-sequence hyperlinks through the same address check as plain links", () => {
+    const session = create();
+    const handler = session.terminal.options.linkHandler;
+    expect(handler).toBeTruthy();
+    const ctrl = new MouseEvent("click", { ctrlKey: true });
+
+    // xterm's own handler would confirm and window.open anything, javascript: included.
+    handler?.activate(ctrl, "javascript:alert(1)", range);
+    handler?.activate(ctrl, "data:text/html,<script>1</script>", range);
+    handler?.activate(ctrl, "https://user:secret@example.com/", range);
+    expect(callbacks.onOpenLink).not.toHaveBeenCalled();
+
+    handler?.activate(ctrl, "https://example.com/page", range);
+    expect(callbacks.onOpenLink).toHaveBeenCalledWith("https://example.com/page");
+  });
+
+  it("needs Ctrl for a mouse, like Windows Terminal", () => {
+    const session = create();
+    session.terminal.options.linkHandler?.activate(new MouseEvent("click"), "https://example.com/", range);
+    expect(callbacks.onOpenLink).not.toHaveBeenCalled();
+  });
+});
+
 describe("find", () => {
   it("highlights matches and reports how many there were", async () => {
     const session = create();
