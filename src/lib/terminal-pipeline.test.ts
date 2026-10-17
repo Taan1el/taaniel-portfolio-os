@@ -103,7 +103,9 @@ describe("Get-ChildItem objects", () => {
   });
 
   it("reads size suffixes and operators in both syntaxes", async () => {
-    await fileSystem.writeFile("/Desktop/big.txt", "x".repeat(2048));
+    // In its own folder: the Desktop holds 1 KB shortcut files.
+    await makeLab();
+    await fileSystem.writeFile("/Desktop/Lab/big.txt", "x".repeat(2048));
     expect((await run("ls | where Length -ge 1kb | select -ExpandProperty Name")).text).toBe("big.txt");
     expect((await run("ls | ? { $_.Length -ge 1kb } | select -ExpandProperty Name")).text).toBe("big.txt");
     expect((await run("ls | where -Property Name -Like -Value big*")).text).toContain("big.txt");
