@@ -1,0 +1,661 @@
+/*
+ * Terminal chrome: the tab strip, new-tab menu, find box, settings and paste
+ * prompt around the xterm screens. Windows Terminal's own look.
+ *
+ * The screens take their colours from the chosen colour scheme (set inline on
+ * the app as --terminal-bg / --terminal-fg), so the active tab, which joins
+ * the screen in Windows Terminal, can follow the scheme too. Everything else
+ * is dark, as app windows are (see .window-frame in win11.css).
+ */
+
+.w11-terminal {
+  --w11-terminal-strip: #1f1f1f;
+  --w11-terminal-surface: #2c2c2c;
+  --w11-terminal-field: rgba(255, 255, 255, 0.06);
+  --w11-terminal-line: rgba(255, 255, 255, 0.1);
+  --w11-terminal-accent: #60cdff;
+  --w11-terminal-on-accent: #000000;
+  --w11-terminal-danger: #ff99a4;
+
+  position: relative;
+  background: var(--w11-terminal-strip);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+.w11-terminal :is(button, input, select):focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: -2px;
+}
+
+/* -------------------------------------------------------------- tab strip */
+
+.w11-terminal__chrome {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px 0;
+  background: var(--w11-terminal-strip);
+}
+
+.w11-terminal__tabs {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.w11-terminal__tab {
+  display: flex;
+  flex: 0 1 200px;
+  align-items: center;
+  min-width: 96px;
+  max-width: 220px;
+  height: 34px;
+  border-radius: 8px 8px 0 0;
+  color: var(--w11-text-2);
+}
+
+.w11-terminal__tab:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-terminal__tab.is-active {
+  background: var(--terminal-bg, #0c0c0c);
+  color: var(--terminal-fg, #cccccc);
+}
+
+.w11-terminal__tab-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  border: 0;
+  border-radius: 8px 0 0 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+  user-select: none;
+}
+
+.w11-terminal__tab-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.w11-terminal__tab-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+}
+
+.w11-terminal__tab-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w11-terminal__tab-close,
+.w11-terminal__icon-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  cursor: default;
+}
+
+.w11-terminal__tab-close {
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+  opacity: 0.8;
+}
+
+.w11-terminal__tab-close:hover,
+.w11-terminal__tab-close:focus-visible {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  opacity: 1;
+}
+
+.w11-terminal__icon-button {
+  width: 32px;
+  height: 30px;
+  margin-bottom: 2px;
+  color: var(--w11-text);
+}
+
+.w11-terminal__icon-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.w11-terminal__icon-button[aria-pressed="true"],
+.w11-terminal__icon-button[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.w11-terminal__icon-button:disabled {
+  opacity: 0.4;
+}
+
+/* The settings button sits at the far end, as in Windows Terminal. */
+.w11-terminal__chrome > .w11-terminal__icon-button:last-child {
+  margin-left: auto;
+}
+
+/* ----------------------------------------------------------------- screens */
+
+.w11-terminal__body {
+  background: var(--terminal-bg, #0c0c0c);
+}
+
+.terminal-pane {
+  display: none;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.terminal-pane.is-active {
+  display: flex;
+}
+
+.terminal-pane__screen {
+  padding: 8px 4px 4px 12px;
+}
+
+/* -------------------------------------------------------------- find box */
+
+.w11-terminal__find {
+  position: absolute;
+  top: 8px;
+  right: 22px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100% - 30px);
+  padding: 4px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: 8px;
+  background: var(--w11-terminal-surface);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.36);
+}
+
+.w11-terminal__find .w11-terminal__icon-button {
+  height: 28px;
+  margin: 0;
+}
+
+.w11-terminal__find-input {
+  width: 180px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-terminal-field);
+  color: inherit;
+  font: inherit;
+}
+
+.w11-terminal__find-input:focus-visible {
+  outline-offset: 0;
+}
+
+.w11-terminal__find-status {
+  min-width: 64px;
+  padding: 0 6px;
+  color: var(--w11-text-2);
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.w11-terminal__find-status.is-empty {
+  color: var(--w11-terminal-danger);
+}
+
+/* ------------------------------------------------------------- menus, notice */
+
+.w11-terminal__menu {
+  position: absolute;
+  z-index: 40;
+  min-width: 224px;
+  max-width: calc(100% - 8px);
+  padding: 4px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: 8px;
+  background: var(--w11-terminal-surface);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.36);
+}
+
+.w11-terminal__menu-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.w11-terminal__menu-item:hover:not(:disabled),
+.w11-terminal__menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.w11-terminal__menu-item:disabled {
+  opacity: 0.4;
+}
+
+.w11-terminal__menu-icon {
+  display: grid;
+  place-items: center;
+}
+
+.w11-terminal__menu-shortcut {
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
+
+.w11-terminal__menu-separator {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--w11-terminal-line);
+}
+
+.w11-terminal__notice {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 8px 12px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: 8px;
+  background: var(--w11-terminal-surface);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.36);
+  font-size: 12px;
+}
+
+/* -------------------------------------------------------------- settings */
+
+.w11-terminal__settings {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: min(360px, 100%);
+  border-left: 1px solid var(--w11-terminal-line);
+  background: var(--w11-terminal-surface);
+  box-shadow: -8px 0 16px rgba(0, 0, 0, 0.3);
+}
+
+.w11-terminal__settings-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--w11-terminal-line);
+}
+
+.w11-terminal__settings-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.w11-terminal__settings-header .w11-terminal__icon-button {
+  margin: 0;
+}
+
+.w11-terminal__settings-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 4px 16px 16px;
+  overflow-y: auto;
+}
+
+.w11-terminal__settings-group {
+  margin: 12px 0 0;
+  color: var(--w11-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.w11-terminal__field {
+  display: grid;
+  gap: 6px;
+}
+
+.w11-terminal__field-label {
+  font-weight: 600;
+}
+
+.w11-terminal__field-hint {
+  color: var(--w11-text-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.w11-terminal__settings select,
+.w11-terminal__settings input[type="number"] {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-terminal-field);
+  color: inherit;
+  font: inherit;
+}
+
+.w11-terminal__settings select option {
+  background: var(--w11-terminal-surface);
+  color: var(--w11-text);
+}
+
+.w11-terminal__stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.w11-terminal__stepper input {
+  width: 72px;
+  text-align: center;
+}
+
+.w11-terminal__stepper .w11-terminal__icon-button {
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  background: var(--w11-terminal-field);
+}
+
+.w11-terminal__swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: var(--w11-radius-control);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.w11-terminal__swatch i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.w11-terminal__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: default;
+}
+
+.w11-terminal__toggle input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--w11-terminal-accent);
+}
+
+.w11-terminal__toggle-text {
+  display: grid;
+  gap: 2px;
+}
+
+.w11-terminal__shortcuts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.w11-terminal__shortcut {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.w11-terminal__shortcut dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.w11-terminal__shortcut dd {
+  margin: 0;
+  color: var(--w11-text-2);
+}
+
+.w11-terminal__shortcut kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: 4px;
+  background: var(--w11-terminal-field);
+  font: inherit;
+  font-size: 12px;
+}
+
+.w11-terminal__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 16px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-terminal-field);
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+
+.w11-terminal__button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.w11-terminal__button:disabled {
+  opacity: 0.4;
+}
+
+.w11-terminal__button.is-primary {
+  border-color: transparent;
+  background: var(--w11-terminal-accent);
+  color: var(--w11-terminal-on-accent);
+}
+
+.w11-terminal__button.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--w11-terminal-accent) 85%, white);
+}
+
+.w11-terminal__settings .w11-terminal__button {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+/* ---------------------------------------------------------- paste prompt */
+
+.w11-terminal__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.w11-terminal__dialog {
+  display: grid;
+  gap: 10px;
+  width: min(440px, 100%);
+  padding: 20px;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: 8px;
+  background: var(--w11-terminal-surface);
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.37);
+}
+
+.w11-terminal__dialog h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.w11-terminal__dialog p {
+  margin: 0;
+  color: var(--w11-text-2);
+}
+
+.w11-terminal__dialog-preview {
+  max-height: 7.5em;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--w11-terminal-line);
+  border-radius: var(--w11-radius-control);
+  background: rgba(0, 0, 0, 0.3);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.w11-terminal__dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.w11-terminal__dialog-actions .w11-terminal__button {
+  flex: 1 1 120px;
+}
+
+/* ------------------------------------------------------- touch and narrow */
+
+@media (pointer: coarse) {
+  .w11-terminal__icon-button {
+    width: 40px;
+    height: 36px;
+  }
+
+  .w11-terminal__tab {
+    height: 38px;
+  }
+
+  .w11-terminal__tab-close {
+    width: 32px;
+    height: 32px;
+  }
+
+  .w11-terminal__menu-item {
+    height: 42px;
+  }
+}
+
+@media (max-width: 520px) {
+  .w11-terminal__chrome {
+    padding: 4px 4px 0;
+  }
+
+  .w11-terminal__tab {
+    flex-basis: 140px;
+    min-width: 80px;
+  }
+
+  .w11-terminal__find {
+    right: 8px;
+    left: 8px;
+    max-width: none;
+    flex-wrap: wrap;
+  }
+
+  .w11-terminal__find-input {
+    flex: 1;
+    width: auto;
+  }
+
+  .w11-terminal__settings {
+    width: 100%;
+    border-left: 0;
+  }
+
+  .terminal-pane__screen {
+    padding: 6px 2px 2px 6px;
+  }
+}
+
+/* Windows high contrast: the tab strip and flyouts lean on colour differences that are not there, so draw them. */
+@media (forced-colors: active) {
+  .w11-terminal__tab.is-active {
+    border-bottom: 3px solid Highlight;
+  }
+
+  .w11-terminal__menu,
+  .w11-terminal__find,
+  .w11-terminal__settings,
+  .w11-terminal__dialog,
+  .w11-terminal__notice {
+    border: 1px solid CanvasText;
+  }
+
+  .w11-terminal__menu-item:hover:not(:disabled),
+  .w11-terminal__menu-item:focus-visible,
+  .w11-terminal__icon-button[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+  }
+
+  .w11-terminal__button.is-primary {
+    border: 2px solid ButtonText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .w11-terminal * {
+    scroll-behavior: auto;
+    transition: none;
+    animation: none;
+  }
+}

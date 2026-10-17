@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
+import { TERMINAL_SHORTCUTS } from "@/lib/terminal-keys";
 
 interface ShortcutEntry {
   keys: string[];
@@ -31,6 +32,11 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ["Alt", "]"], label: "Focus next window" },
       { keys: ["Alt", "["], label: "Focus previous window" },
     ],
+  },
+  {
+    // One list, shared with the terminal's own settings panel and key handling.
+    title: "Terminal",
+    shortcuts: TERMINAL_SHORTCUTS,
   },
   {
     title: "File Explorer",

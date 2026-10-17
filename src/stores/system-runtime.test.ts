@@ -3,8 +3,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   getLegacyProcessSeed,
   getLegacyWindowSeed,
+  launchPayloadsMatch,
   LEGACY_SYSTEM_STORAGE_KEY,
 } from "@/stores/system-runtime";
+
+describe("launch payload matching", () => {
+  it("treats a new terminal profile or launch nonce as a new launch", () => {
+    expect(launchPayloadsMatch({ directoryPath: "/" }, { directoryPath: "/" })).toBe(true);
+    expect(launchPayloadsMatch({ profile: "cmd" }, { profile: "pwsh" })).toBe(false);
+    expect(launchPayloadsMatch({ launchNonce: "a" }, { launchNonce: "b" })).toBe(false);
+    expect(launchPayloadsMatch({ profile: "cmd", launchNonce: "a" }, { profile: "cmd", launchNonce: "a" })).toBe(true);
+  });
+});
 
 describe("legacy system runtime migration", () => {
   beforeEach(() => {
