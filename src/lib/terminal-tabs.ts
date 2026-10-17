@@ -33,23 +33,17 @@ export function createTabsState(first: TerminalTab): TabsState {
 
 export const canAddTab = (state: TabsState) => state.tabs.length < MAX_TABS;
 
-/** Add a tab right after the active one (as Windows Terminal does) and switch to it. Full strips ignore the request. */
+/** Add a tab at the end of the strip (Windows Terminal's default newTabPosition) and switch to it. A full strip ignores the request. */
 export function addTab(state: TabsState, tab: TerminalTab): TabsState {
   if (!canAddTab(state)) return state;
-  const index = state.tabs.findIndex((entry) => entry.id === state.activeId);
-  const tabs = [...state.tabs];
-  tabs.splice(index + 1, 0, tab);
-  return { tabs, activeId: tab.id };
+  return { tabs: [...state.tabs, tab], activeId: tab.id };
 }
 
-/** The same shell in the same folder as an existing tab. */
+/** The same shell in the same folder as an existing tab, added like any new tab. */
 export function duplicateTab(state: TabsState, id: string, newId: string, startPath?: string): TabsState {
   const source = state.tabs.find((tab) => tab.id === id);
-  if (!source || !canAddTab(state)) return state;
-  const copy: TerminalTab = { ...source, id: newId, startPath: startPath ?? source.startPath };
-  const tabs = [...state.tabs];
-  tabs.splice(state.tabs.indexOf(source) + 1, 0, copy);
-  return { tabs, activeId: copy.id };
+  if (!source) return state;
+  return addTab(state, { ...source, id: newId, startPath: startPath ?? source.startPath });
 }
 
 /** Close a tab. Null means that was the last one: the window closes with it. */
