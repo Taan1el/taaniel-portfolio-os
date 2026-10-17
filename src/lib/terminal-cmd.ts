@@ -14,6 +14,7 @@ import {
   runShellCommand,
   sanitizeForTerminal,
   stripAnsi,
+  toDisplayPath,
   type CompletionResult,
   type ShellFileSystem,
   type ShellHost,
@@ -47,7 +48,7 @@ const FAILED = 1;
 const NOT_RECOGNIZED = 9009;
 
 export function formatCmdPrompt(cwd: string) {
-  return `${sanitizeForTerminal(toWindowsPath(cwd))}>`;
+  return `${toDisplayPath(cwd)}>`;
 }
 
 /** What a new Command Prompt tab prints first. */
@@ -113,7 +114,7 @@ function builtinEnvironment(ctx: CmdCtx): Record<string, string> {
     TEMP: `${PROFILE_ROOT}\\AppData\\Local\\Temp`,
     TMP: `${PROFILE_ROOT}\\AppData\\Local\\Temp`,
     PROMPT: "$P$G",
-    CD: toWindowsPath(ctx.session.cwd),
+    CD: toDisplayPath(ctx.session.cwd),
     DATE: `${WEEKDAYS[now.getDay()]} ${dateText(now)}`,
     TIME: `${timeText(now)}:${pad2(now.getSeconds())}.${pad2(Math.floor(now.getMilliseconds() / 10))}`,
     RANDOM: String(randomNumber()),
@@ -305,7 +306,8 @@ const psQuote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 async function viaPowerShell(command: string, ctx: CmdCtx, quiet = false): Promise<boolean> {
   const result = await runShellCommand(command, ctx.session, ctx.fs, ctx.host, ctx.depth + 1);
   if (result.interrupted) throw new InterruptedCmd();
-  if (!quiet || result.success) result.lines.forEach((line) => ctx.lines.push(stripAnsi(line)));
+  // stripAnsi only knows CSI colours; sanitizing removes what is left, OSC sequences included.
+  if (!quiet || result.success) result.lines.forEach((line) => ctx.lines.push(sanitizeForTerminal(stripAnsi(line))));
   ctx.actions.push(...result.actions);
   if (result.clear) ctx.clear = true;
   return result.success;

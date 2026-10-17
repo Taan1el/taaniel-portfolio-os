@@ -80,9 +80,18 @@ export function stripAnsi(text: string) {
   return text.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
 }
 
+/**
+ * A virtual path as it prints: Windows style, with control characters removed. A
+ * folder name is data, never terminal commands - and names imported from a disk
+ * can hold anything - so every path that reaches the screen goes through here.
+ */
+export function toDisplayPath(path: string) {
+  return sanitizeForTerminal(toWindowsPath(path)).replace(/[\t\n]/g, "");
+}
+
 export function formatPrompt(cwd: string) {
-  // A folder name is data, never terminal commands: the prompt is printed on every line.
-  return `PS ${sanitizeForTerminal(toWindowsPath(cwd))}> `;
+  // The prompt is printed on every line.
+  return `PS ${toDisplayPath(cwd)}> `;
 }
 
 /** The two lines PowerShell greets a new session with, then a pointer to the keys that matter here. */
@@ -222,6 +231,12 @@ export function sanitizeForTerminal(text: string) {
   return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
 }
 
+/** True when `text` holds a control character: C0, DEL or C1. */
+export function hasControlCharacters(text: string) {
+  // eslint-disable-next-line no-control-regex
+  return /[\u0000-\u001F\u007F-\u009F]/.test(text);
+}
+
 function fail(ctx: Ctx, command: string, message: string): Output {
   sanitizeForTerminal(message)
     .split("\n")
@@ -258,7 +273,7 @@ function joinVirtual(directory: string, name: string) {
 
 function displayRelative(path: string, cwd: string) {
   const prefix = cwd === "/" ? "/" : `${cwd}/`;
-  return path.startsWith(prefix) ? path.slice(prefix.length).replace(/\//g, "\\") : toWindowsPath(path);
+  return path.startsWith(prefix) ? sanitizeForTerminal(path.slice(prefix.length).replace(/\//g, "\\")).replace(/[\t\n]/g, "") : toDisplayPath(path);
 }
 
 function isInside(path: string, ancestor: string) {
@@ -454,7 +469,7 @@ function environment(ctx: Ctx): Record<string, string> {
     homepath: `\\Users\\${SHELL_USER}`,
     os: "Taaniel_OS",
     temp: `${PROFILE_ROOT}\\AppData\\Local\\Temp`,
-    pwd: toWindowsPath(ctx.session.cwd),
+    pwd: toDisplayPath(ctx.session.cwd),
   };
 }
 
@@ -493,7 +508,7 @@ function psVersionTable(): ShellObject {
 }
 
 function pathInfoObject(virtualPath: string): ShellObject {
-  const shown = toWindowsPath(virtualPath);
+  const shown = toDisplayPath(virtualPath);
   return createObject(
     "System.Management.Automation.PathInfo",
     { Drive: "C", Provider: "FileSystem", ProviderPath: shown, Path: shown },
@@ -728,7 +743,7 @@ function fileTableRow(mode: string, updatedAt: number, length: string, name: str
 }
 
 function fileTableBlock(directoryPath: string, rows: string[]) {
-  return ["", `    Directory: ${toWindowsPath(directoryPath)}`, "", `${TABLE}${FILE_TABLE_HEADER}${RESET}`, `${TABLE}${FILE_TABLE_RULE}${RESET}`, ...rows, ""];
+  return ["", `    Directory: ${toDisplayPath(directoryPath)}`, "", `${TABLE}${FILE_TABLE_HEADER}${RESET}`, `${TABLE}${FILE_TABLE_RULE}${RESET}`, ...rows, ""];
 }
 
 function formatTable(directoryPath: string, entries: VirtualNode[], nameOnly = false) {
@@ -753,9 +768,9 @@ function fileObject(node: VirtualNode): ShellObject {
     {
       Name: sanitizeForTerminal(node.name),
       Length: isDirectory || length === "" ? null : Number(length),
-      DirectoryName: toWindowsPath(getParentPath(node.path)),
+      DirectoryName: toDisplayPath(getParentPath(node.path)),
       IsReadOnly: node.kind === "file" && node.readonly === true,
-      FullName: toWindowsPath(node.path),
+      FullName: toDisplayPath(node.path),
       Extension: node.kind === "file" && node.extension ? `.${node.extension}` : "",
       BaseName: sanitizeForTerminal(baseName),
       CreationTime: { kind: "date", time: node.createdAt },
@@ -993,7 +1008,7 @@ function openTerminalTab(name: string, args: string[], ctx: Ctx): Output {
   if (directory !== undefined) {
     const nodes = ctx.fs.getNodes();
     const path = resolveShellPath(directory, ctx.session.cwd, nodes);
-    if (nodes[path]?.kind !== "directory") return fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+    if (nodes[path]?.kind !== "directory") return fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
     directoryPath = path;
   }
 
@@ -1034,7 +1049,7 @@ async function launchExecutable(name: string, args: string[], ctx: Ctx): Promise
     }
 
     if (!node) {
-      return fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      return fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
     }
 
     if (node.kind === "directory") {
@@ -1095,7 +1110,7 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
   for (const { path } of resolved) {
     const node = nodes[path];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -1128,7 +1143,7 @@ const setLocation: CommandFn = (args, _stdin, ctx, name) => {
   const node = nodes[path];
 
   if (!node || node.kind !== "directory") {
-    return fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+    return fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
   }
 
   if (path !== ctx.session.cwd) {
@@ -1139,7 +1154,7 @@ const setLocation: CommandFn = (args, _stdin, ctx, name) => {
 };
 
 const getLocation: CommandFn = (_args, _stdin, ctx) =>
-  ok(["", `${TABLE}Path${RESET}`, `${TABLE}----${RESET}`, toWindowsPath(ctx.session.cwd), ""]);
+  ok(["", `${TABLE}Path${RESET}`, `${TABLE}----${RESET}`, toDisplayPath(ctx.session.cwd), ""]);
 
 const getContent: CommandFn = (args, _stdin, ctx, name) => {
   const parsed = parseArgs(args, { params: ["Path", "TotalCount", "Head", "First", "Tail", "Last"] });
@@ -1156,12 +1171,12 @@ const getContent: CommandFn = (args, _stdin, ctx, name) => {
   for (const { path } of expandPaths(targets, ctx)) {
     const node = nodes[path];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
     if (node.kind === "directory") {
-      fail(ctx, name, `Unable to get content because it is a directory: '${toWindowsPath(path)}'. Please use 'Get-ChildItem' instead.`);
+      fail(ctx, name, `Unable to get content because it is a directory: '${toDisplayPath(path)}'. Please use 'Get-ChildItem' instead.`);
       okay = false;
       continue;
     }
@@ -1207,7 +1222,7 @@ async function newItemCore(
 ): Promise<Output> {
   const nodes = ctx.fs.getNodes();
   const existing = nodes[path];
-  const display = toWindowsPath(path);
+  const display = toDisplayPath(path);
 
   if (path === "/") return fail(ctx, name, `An item with the specified name ${display} already exists.`);
 
@@ -1217,7 +1232,7 @@ async function newItemCore(
 
   if (kind === "directory") {
     if (!(await ensureDirectory(ctx, path))) {
-      return fail(ctx, name, `An item with the specified name ${toWindowsPath(getParentPath(path))} already exists.`);
+      return fail(ctx, name, `An item with the specified name ${toDisplayPath(getParentPath(path))} already exists.`);
     }
     return ok(createItemListing(path, ctx));
   }
@@ -1311,7 +1326,7 @@ const removeItem: CommandFn = async (args, _stdin, ctx, name) => {
   for (const { path } of expandPaths(targets, ctx)) {
     const nodes = ctx.fs.getNodes();
     const node = nodes[path];
-    const display = toWindowsPath(path);
+    const display = toDisplayPath(path);
 
     if (!node) {
       fail(ctx, name, `Cannot find path '${display}' because it does not exist.`);
@@ -1364,7 +1379,7 @@ async function transfer(args: string[], ctx: Ctx, name: string, operation: "copy
     const nodes = ctx.fs.getNodes();
     const node = nodes[source];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(source)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(source)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -1390,26 +1405,26 @@ async function transfer(args: string[], ctx: Ctx, name: string, operation: "copy
       targetDirectory = getParentPath(destination);
       targetName = baseName(destination);
       if (nodes[targetDirectory]?.kind !== "directory") {
-        fail(ctx, name, `Could not find a part of the path '${toWindowsPath(destination)}'.`);
+        fail(ctx, name, `Could not find a part of the path '${toDisplayPath(destination)}'.`);
         okay = false;
         continue;
       }
     }
 
     if (node.kind === "directory" && isInside(targetDirectory, source)) {
-      fail(ctx, name, `Destination path cannot be a subdirectory of the source: ${toWindowsPath(joinVirtual(targetDirectory, targetName))}.`);
+      fail(ctx, name, `Destination path cannot be a subdirectory of the source: ${toDisplayPath(joinVirtual(targetDirectory, targetName))}.`);
       okay = false;
       continue;
     }
 
     if (operation === "cut") {
       if (source === "/" || source === TRASH_PATH || hasReadonly(nodes, source)) {
-        fail(ctx, name, `Access to the path '${toWindowsPath(source)}' is denied.`);
+        fail(ctx, name, `Access to the path '${toDisplayPath(source)}' is denied.`);
         okay = false;
         continue;
       }
       if (isInside(ctx.session.cwd, source)) {
-        fail(ctx, name, `Cannot move item because the item at '${toWindowsPath(source)}' is in use.`);
+        fail(ctx, name, `Cannot move item because the item at '${toDisplayPath(source)}' is in use.`);
         okay = false;
         continue;
       }
@@ -1434,7 +1449,7 @@ async function transfer(args: string[], ctx: Ctx, name: string, operation: "copy
     );
 
     if (!landed) {
-      fail(ctx, name, `Access to the path '${toWindowsPath(source)}' is denied.`);
+      fail(ctx, name, `Access to the path '${toDisplayPath(source)}' is denied.`);
       okay = false;
       continue;
     }
@@ -1460,9 +1475,9 @@ const renameItem: CommandFn = async (args, _stdin, ctx, name) => {
   const nodes = ctx.fs.getNodes();
   const path = resolveShellPath(target, ctx.session.cwd, nodes);
   const node = nodes[path];
-  if (!node) return fail(ctx, name, `Cannot rename because item at '${toWindowsPath(path)}' does not exist.`);
+  if (!node) return fail(ctx, name, `Cannot rename because item at '${toDisplayPath(path)}' does not exist.`);
   if (path === "/" || path === TRASH_PATH || hasReadonly(nodes, path)) {
-    return fail(ctx, name, `Access to the path '${toWindowsPath(path)}' is denied.`);
+    return fail(ctx, name, `Access to the path '${toDisplayPath(path)}' is denied.`);
   }
   const collision = findChild(nodes, getParentPath(path), nextName);
   if (collision && collision.path !== path) return fail(ctx, name, "Cannot create a file when that file already exists.");
@@ -1475,7 +1490,7 @@ const renameItem: CommandFn = async (args, _stdin, ctx, name) => {
 async function writeContent(ctx: Ctx, name: string, target: string, lines: string[], append: boolean): Promise<Output> {
   const nodes = ctx.fs.getNodes();
   const path = resolveShellPath(target, ctx.session.cwd, nodes);
-  const display = toWindowsPath(path);
+  const display = toDisplayPath(path);
   const node = nodes[path];
 
   if (node?.kind === "directory" || (node?.kind === "file" && node.readonly)) {
@@ -1597,14 +1612,14 @@ const tree: CommandFn = (args, _stdin, ctx, name) => {
   const nodes = ctx.fs.getNodes();
   const path = target ? resolveShellPath(target, ctx.session.cwd, nodes) : ctx.session.cwd;
   const node = nodes[path];
-  if (!node || node.kind !== "directory") return fail(ctx, name, `Invalid path - ${toWindowsPath(path).toUpperCase()}`);
+  if (!node || node.kind !== "directory") return fail(ctx, name, `Invalid path - ${toDisplayPath(path).toUpperCase()}`);
 
   const body = treeLines(nodes, path, "", switches.includes("/F"), switches.includes("/A"));
   const hasFolders = childrenOf(nodes, path).some((child) => child.kind === "directory" && child.path !== TRASH_PATH);
   return ok([
     "Folder PATH listing for volume Taaniel OS",
     "Volume serial number is 7A1C-3E5D",
-    toWindowsPath(path).toUpperCase(),
+    toDisplayPath(path).toUpperCase(),
     ...body,
     ...(hasFolders ? [] : ["No subfolders exist", ""]),
   ]);
@@ -1639,7 +1654,7 @@ const selectString: CommandFn = (args, stdin, ctx, name) => {
     for (const { path } of expandPaths(paths, ctx)) {
       const node = nodes[path];
       if (!node) {
-        fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+        fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
         continue;
       }
       const files = node.kind === "directory" ? childrenOf(nodes, path).filter((child) => child.kind === "file") : [node];
@@ -2517,7 +2532,7 @@ const getFileHash: CommandFn = async (args, _stdin, ctx, name) => {
     const node = nodes[path];
     const bytes = node ? fileBytes(node) : null;
     if (!node || node.kind !== "file" || !bytes) {
-      fail(ctx, name, node ? `Unable to read the file '${toWindowsPath(path)}'.` : `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, node ? `Unable to read the file '${toDisplayPath(path)}'.` : `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -2533,7 +2548,7 @@ const getFileHash: CommandFn = async (args, _stdin, ctx, name) => {
       "",
       `${TABLE}${"Algorithm".padEnd(16)}${"Hash".padEnd(width)}Path${RESET}`,
       `${TABLE}${"---------".padEnd(16)}${"----".padEnd(width)}----${RESET}`,
-      ...hashes.map((entry) => `${algorithm.padEnd(16)}${entry.hex.padEnd(width)}${toWindowsPath(entry.path)}`),
+      ...hashes.map((entry) => `${algorithm.padEnd(16)}${entry.hex.padEnd(width)}${toDisplayPath(entry.path)}`),
       "",
     ],
     ok: okay,
@@ -2625,7 +2640,7 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
   for (const { path } of expandPaths(targets, ctx)) {
     const node = nodes[path];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -2633,7 +2648,7 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
     out.push(
       "",
       `Name          : ${sanitizeForTerminal(node.name)}`,
-      `FullName      : ${toWindowsPath(path)}`,
+      `FullName      : ${toDisplayPath(path)}`,
       `Mode          : ${modeOf(node, path === TRASH_PATH)}`,
       ...(node.kind === "file" ? [`Length        : ${fileLength(node) || 0}`, `Extension     : .${node.extension}`] : []),
       `CreationTime  : ${new Date(node.createdAt).toLocaleString()}`,
@@ -2862,7 +2877,7 @@ async function runScript(path: string, ctx: Ctx): Promise<Output> {
   if (ctx.depth >= MAX_SCRIPT_DEPTH) return fail(ctx, getPathName(path), "The script failed due to call depth overflow.");
   const node = ctx.fs.getNodes()[path];
   const text = node ? textContent(node) : null;
-  if (text === null) return fail(ctx, getPathName(path), `Cannot read the script '${toWindowsPath(path)}'.`);
+  if (text === null) return fail(ctx, getPathName(path), `Cannot read the script '${toDisplayPath(path)}'.`);
 
   let okay = true;
   const lines = text.split(/\r?\n/).slice(0, MAX_SCRIPT_LINES);
@@ -3151,7 +3166,8 @@ export function completeShellInput(
     const prefix = (separator >= 0 ? normalized.slice(separator + 1) : normalized).toLowerCase();
     const directory = resolveShellPath(directoryPart || ".", session.cwd, nodes);
     matches = childrenOf(nodes, directory)
-      .filter((node) => node.path !== TRASH_PATH && node.name.toLowerCase().startsWith(prefix))
+      // A name with control characters in it is never offered: it would put them in the line being typed.
+      .filter((node) => node.path !== TRASH_PATH && !hasControlCharacters(node.name) && node.name.toLowerCase().startsWith(prefix))
       .map((node) => {
         const suffix = node.kind === "directory" ? "\\" : "";
         return { text: `${directoryPart}${node.name}${suffix}`, display: `${node.name}${suffix}` };
