@@ -74,6 +74,29 @@ describe("findDropZone", () => {
     expect(findDropZone([element({ "data-dnd-barrier": "" }), desktop])).toBeNull();
   });
 
+  it("stops at any flyout, and at anything marked data-dnd-barrier, so a drop never falls through to the desktop", () => {
+    const desktop = element(folderDropProps("/Desktop", { surface: "desktop" }));
+    const flyout = element({}, document.body, "w11-flyout tray-flyout");
+    const insideFlyout = element({}, element({}, flyout));
+    const marked = element({ "data-dnd-barrier": "true" });
+
+    expect(findDropZone([flyout, desktop])).toBeNull();
+    expect(findDropZone([insideFlyout, flyout, desktop])).toBeNull();
+    expect(findDropZone([element({}, marked), marked, desktop])).toBeNull();
+  });
+
+  it("is shut out by a flyout mounted inside a zone, and by a barrier inside a window", () => {
+    const surface = element(folderDropProps("/Desktop", { surface: "desktop" }));
+    const flyout = element({}, surface, "w11-flyout");
+    const frame = element(windowDropProps("w1", "photos"));
+    const marked = element({ "data-dnd-barrier": "true" }, frame);
+
+    expect(findDropZone([element({}, flyout), flyout, surface])).toBeNull();
+    expect(findDropZone([marked, frame])).toBeNull();
+    // Beside the flyout, the surface is still a zone.
+    expect(findDropZone([surface])?.zone).toMatchObject({ kind: "folder", surface: "desktop" });
+  });
+
   it("still finds a taskbar button inside the taskbar", () => {
     const bar = element({}, document.body, "taskbar");
     const button = element(taskbarDropProps("w3"), bar);

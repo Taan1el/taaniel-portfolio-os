@@ -167,6 +167,29 @@ describe("mouse drags", () => {
     expect(useDragStore.getState().session?.plan).toMatchObject({ operation: "link", label: "Create link in Documents" });
   });
 
+  it("drops nothing on a flyout or an element marked data-dnd-barrier, even over the desktop", () => {
+    const desktop = zone(folderDropProps("/Desktop", { surface: "desktop" }));
+    nodes["/Documents/b.txt"] = file("/Documents/b.txt");
+    const flyout = document.createElement("div");
+    flyout.className = "w11-flyout";
+    const marked = zone({ "data-dnd-barrier": "true" });
+    document.body.append(flyout);
+
+    for (const barrier of [flyout, marked]) {
+      underPointer = [barrier, desktop];
+      press({ items: ["/Documents/b.txt"] });
+      pointer("pointermove", { clientX: 40, clientY: 40 });
+
+      expect(useDragStore.getState().session).toMatchObject({ plan: { kind: "none" }, overZone: false });
+      expect(desktop.hasAttribute("data-drop-active")).toBe(false);
+
+      pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0 });
+      expect(env.transfer).not.toHaveBeenCalled();
+    }
+
+    delete nodes["/Documents/b.txt"];
+  });
+
   it("does nothing on release over empty space", () => {
     press();
     pointer("pointermove", { clientX: 40, clientY: 40 });
