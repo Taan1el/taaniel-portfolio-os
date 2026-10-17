@@ -787,7 +787,7 @@ describe("context menus and paste", () => {
 
   it("asks before pasting several lines, with Cancel focused", () => {
     render(<TerminalApp window={terminalWindow()} />);
-    act(() => events().onPasteReview({ text: "ls\ncd ..\nrm x", review: { lines: 3, characters: 13, reason: "multiline" } }));
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "ls\ncd ..\nrm x", review: { lines: 3, characters: 13, reason: "multiline" } }));
 
     const dialog = screen.getByRole("alertdialog", { name: "Paste 3 lines?" });
     expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -800,15 +800,60 @@ describe("context menus and paste", () => {
 
   it("pastes once confirmed", () => {
     render(<TerminalApp window={terminalWindow()} />);
-    act(() => events().onPasteReview({ text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
     fireEvent.click(screen.getByRole("button", { name: "Paste anyway" }));
     expect(mocks.pasteText).toHaveBeenCalledWith("ls\ncd ..");
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
+  it("pastes into the tab that asked, not the tab in front when it is confirmed", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const asker = newest().props.tabId as string;
+    act(() => events().onPasteReview({ tabId: asker, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    // Nothing in the app can bring another tab forward while the dialog is open; if one did, the paste still goes back.
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    const other = newest().props.tabId as string;
+    expect(other).not.toBe(asker);
+    fireEvent.click(screen.getByRole("button", { name: "Paste anyway" }));
+    expect(mocks.pasteText).toHaveBeenCalledTimes(1);
+    expect(mocks.pasteText).toHaveBeenCalledWith("ls\ncd ..");
+  });
+
+  it("drops a waiting paste when its tab closes", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const first = newest().props.tabId as string;
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    act(() => events().onPasteReview({ tabId: first, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    act(() => events().onAction(first, { type: "exit" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(mocks.pasteText).not.toHaveBeenCalled();
+  });
+
+  it("ignores the app's shortcuts while the paste dialog is open", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    const [first] = screen.getAllByRole("tab");
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    const dialog = screen.getByRole("alertdialog");
+
+    key(dialog, { key: "1", code: "Digit1", ctrlKey: true, altKey: true });
+    key(dialog, { key: "D", code: "KeyD", ctrlKey: true, shiftKey: true });
+    key(dialog, { key: "T", code: "KeyT", ctrlKey: true, shiftKey: true });
+    act(() => events().onCommand({ type: "next-tab" }));
+    expect(tabNames()).toHaveLength(2);
+    expect(selectedTab()).not.toBe(first);
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    // Once it is closed they work again.
+    key(dialog, { key: "Escape" });
+    key(selectedTab(), { key: "1", code: "Digit1", ctrlKey: true, altKey: true });
+    expect(selectedTab()).toBe(screen.getAllByRole("tab")[0]);
+  });
+
   it("names a very large paste by its size", () => {
     render(<TerminalApp window={terminalWindow()} />);
-    act(() => events().onPasteReview({ text: "x".repeat(6000), review: { lines: 1, characters: 6000, reason: "large" } }));
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "x".repeat(6000), review: { lines: 1, characters: 6000, reason: "large" } }));
     expect(screen.getByRole("alertdialog", { name: "Paste a large amount of text?" }).textContent).toContain("6,000 characters");
   });
 });

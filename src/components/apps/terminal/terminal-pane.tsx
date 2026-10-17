@@ -28,11 +28,16 @@ export interface TerminalPaneHandle {
   isBusy: () => boolean;
 }
 
+/** A paste that needs confirming, and the tab it was made in: the paste belongs there, whatever tab is in front when it is confirmed. */
+export interface TabPasteRequest extends PasteRequest {
+  tabId: string;
+}
+
 export interface TerminalPaneEvents {
   onAction: (tabId: string, action: TerminalAction) => void;
   onCommand: (command: TerminalCommand) => void;
   onOpenLink: (url: string) => void;
-  onPasteReview: (request: PasteRequest) => void;
+  onPasteReview: (request: TabPasteRequest) => void;
   onContextMenu: (point: { x: number; y: number }) => void;
   onSearchResults: (result: { index: number; count: number }) => void;
 }
@@ -76,7 +81,7 @@ export function TerminalPane(props: TerminalPaneProps) {
       onAction: (action) => current().events.onAction(initial.tabId, action),
       onCommand: (command) => current().events.onCommand(command),
       onOpenLink: (url) => current().events.onOpenLink(url),
-      onPasteReview: (request) => current().events.onPasteReview(request),
+      onPasteReview: (request) => current().events.onPasteReview({ ...request, tabId: initial.tabId }),
       onContextMenu: (point) => current().events.onContextMenu(point),
       onSearchResults: (result) => current().events.onSearchResults(result),
     };

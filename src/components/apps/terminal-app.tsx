@@ -4,8 +4,7 @@ import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { TerminalFindBar } from "@/components/apps/terminal/terminal-find-bar";
 import { TerminalMenu, type TerminalMenuItem } from "@/components/apps/terminal/terminal-menu";
 import { TerminalPasteDialog } from "@/components/apps/terminal/terminal-paste-dialog";
-import { TerminalPane, type TerminalPaneEvents, type TerminalPaneHandle } from "@/components/apps/terminal/terminal-pane";
-import type { PasteRequest } from "@/components/apps/terminal/terminal-session";
+import { TerminalPane, type TabPasteRequest, type TerminalPaneEvents, type TerminalPaneHandle } from "@/components/apps/terminal/terminal-pane";
 import { TerminalSettingsPanel } from "@/components/apps/terminal/terminal-settings-panel";
 import { openFileSystemPath } from "@/lib/launchers";
 import { buildAppearance, prefersReducedMotion, type TerminalAppearance } from "@/lib/terminal-appearance";
@@ -131,7 +130,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   const [findFocus, setFindFocus] = useState(0);
   const [searchResult, setSearchResult] = useState<{ index: number; count: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [pasteRequest, setPasteRequest] = useState<PasteRequest | null>(null);
+  const [pasteRequest, setPasteRequest] = useState<TabPasteRequest | null>(null);
+  /** The paste dialog is modal: while it is open the app's own shortcuts do nothing. */
+  const pasteOpen = useRef(false);
+  pasteOpen.current = pasteRequest !== null;
   const [notice, setNotice] = useState("");
 
   const settings = useTerminalSettingsStore();
@@ -325,6 +327,11 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     // tabDomId only depends on idPrefix, which never changes.
   }, [activeId, tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A paste waiting for confirmation belongs to a tab: if that tab closes, there is nothing to paste into.
+  useEffect(() => {
+    if (pasteRequest && !tabs.some((tab) => tab.id === pasteRequest.tabId)) setPasteRequest(null);
+  }, [pasteRequest, tabs]);
+
   // ----------------------------------------------------------------------- actions
 
   const handleAction = useCallback(
@@ -391,6 +398,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
   const runCommand = useCallback(
     (command: TerminalCommand) => {
+      if (pasteOpen.current) return;
       switch (command.type) {
         case "new-tab":
           openDefaultTab();
@@ -444,7 +452,8 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
   // Keys pressed while focus is on the tab strip or a button rather than in a screen.
   const handleRootKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.defaultPrevented) return;
+    // Under a modal dialog a tab switch or a new tab would happen behind it, with focus pulled out of it.
+    if (event.defaultPrevented || pasteRequest) return;
     const decision = classifyTerminalKey(event.nativeEvent, { hasSelection: false });
     if (decision?.kind !== "command" || !APP_COMMANDS.has(decision.command.type)) return;
     event.preventDefault();
@@ -691,7 +700,8 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
         <TerminalPasteDialog
           request={pasteRequest}
           onConfirm={() => {
-            handles.current[activeId]?.pasteText(pasteRequest.text);
+            // Into the tab that asked, which may be gone by now.
+            handles.current[pasteRequest.tabId]?.pasteText(pasteRequest.text);
             setPasteRequest(null);
           }}
           onCancel={() => {
