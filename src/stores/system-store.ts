@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { canLaunchMultiple, getAppDefinition } from "@/lib/app-registry";
-import { buildDesktopEntries } from "@/lib/desktop-entries";
 import { resolveOpenApp } from "@/lib/file-registry";
 import { normalizePath } from "@/lib/filesystem";
 import { resolveShortcutNode } from "@/lib/shortcuts";
@@ -437,8 +436,3 @@ syncWindowMetadata();
 syncProcessRuntime();
 syncShellRuntime();
 syncSystemFacadeState();
-
-/** The icons on the desktop right now: the files in /Desktop and the Recycle Bin. */
-export function getDesktopEntries() {
-  return buildDesktopEntries(useFileSystemStore.getState().nodes);
-}
