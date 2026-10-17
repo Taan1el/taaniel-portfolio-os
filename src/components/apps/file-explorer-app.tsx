@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   ArrowDownAZ,
@@ -10,14 +10,11 @@ import {
   ChevronUp,
   ClipboardPaste,
   Copy,
-  ExternalLink,
   FilePlus2,
-  FolderOpen,
   FolderPlus,
   LayoutGrid,
   List,
   ListFilter,
-  MapPin,
   Pencil,
   Plus,
   RotateCcw,
@@ -33,17 +30,33 @@ import {
   ScrollArea,
   StatusBar,
 } from "@/components/apps/app-layout";
+import { ExplorerGridItem, ExplorerListItem, type ExplorerItemHandlers } from "@/components/apps/explorer/explorer-items";
+import {
+  buildBreadcrumbs,
+  formatSize,
+  getNodeLabel,
+  getNodeSize,
+  getSearchText,
+  selectPathRange,
+  sortExplorerNodes,
+} from "@/components/apps/explorer/explorer-model";
 import { ExplorerSidebar, type ExplorerSidebarLocation } from "@/components/apps/explorer/explorer-sidebar";
-import { ExplorerToolbar, type ExplorerBreadcrumb, type ExplorerCommand } from "@/components/apps/explorer/explorer-toolbar";
+import { ExplorerToolbar, type ExplorerCommand } from "@/components/apps/explorer/explorer-toolbar";
 import { FilesIcon, FolderIcon, MusicIcon, PhotosIcon, RecycleBinEmptyIcon, RecycleBinFullIcon } from "@/components/icons/apps";
-import { describeFileType, getFileIcon } from "@/components/icons/file-icon";
 import { TRASH_PATH } from "@/lib/system-workspace";
-import { resolveShellPath, SHELL_USER, toWindowsPath } from "@/lib/windows-path";
-import { getParentPath, joinPath, normalizePath } from "@/lib/filesystem";
-import { isBrowserRenderableImageExtension } from "@/lib/file-registry";
+import { resolveShellPath, SHELL_USER } from "@/lib/windows-path";
+import { getParentPath, isLockedNode, joinPath, normalizePath } from "@/lib/filesystem";
+import { getContextMenuPoint } from "@/lib/context-menu-point";
+import { DND_SCROLL_ATTRIBUTE, folderDropProps } from "@/lib/dnd/dom";
+import { armFileDrag } from "@/lib/dnd/controller";
+import { useDragStore } from "@/lib/dnd/drag-store";
+import { hasExternalFiles } from "@/lib/drag-payload";
+import { copyItems, cutItems, deleteItems, pasteIntoFolder, restoreItems, transferItems } from "@/lib/file-actions";
+import { buildFileMenu } from "@/lib/file-menu";
 import { openFileSystemPath } from "@/lib/launchers";
-import { hasPathDragPayload, readPathDragPayload, setPathDragPayload } from "@/lib/drag-payload";
+import { resolveShortcutNode, toStoredName } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
+import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
 import { useExplorerStore, type ExplorerSortKey } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useRecentFilesStore } from "@/stores/recent-files-store";
@@ -52,30 +65,6 @@ import { useSystemStore } from "@/stores/system-store";
 import { toast } from "@/stores/toast-store";
 import type { AppComponentProps, ContextMenuAction, FileNode, VirtualFile } from "@/types/system";
 
-interface ItemEventHandlers {
-  onOpen: (node: FileNode) => void;
-  onPointerDown: (node: FileNode, event: React.PointerEvent) => void;
-  onContextMenu: (node: FileNode, event: React.MouseEvent) => void;
-  onDoubleClick: (node: FileNode) => void;
-  onDragStart: (node: FileNode, event: React.DragEvent) => void;
-  onDragOver: (node: FileNode, event: React.DragEvent) => void;
-  onDragLeave: (node: FileNode, event: React.DragEvent) => void;
-  onDrop: (node: FileNode, event: React.DragEvent) => void;
-  onCommitRename: (node: FileNode, nextName: string) => void;
-  onCancelRename: () => void;
-}
-
-interface ExplorerItemPropsBase extends ItemEventHandlers {
-  node: FileNode;
-  selected: boolean;
-  renaming: boolean;
-  dropTarget: boolean;
-  /** On the clipboard from a Cut: drawn faded until pasted, as in Windows. */
-  cut: boolean;
-  /** Showing the Recycle Bin: Details shows original location and date deleted. */
-  recycleBin?: boolean;
-}
-
 const explorerLocations: ExplorerSidebarLocation[] = [
   { label: SHELL_USER, path: "/", icon: FilesIcon },
   { label: "Desktop", path: "/Desktop", icon: FolderIcon },
@@ -83,350 +72,10 @@ const explorerLocations: ExplorerSidebarLocation[] = [
   { label: "Portfolio", path: "/Portfolio", icon: FolderIcon },
   { label: "Pictures", path: "/Media/Photography", icon: PhotosIcon },
   { label: "Music", path: "/Media/Music", icon: MusicIcon },
-  { label: "Games", path: "/Games", icon: FolderIcon },
   { label: "Recycle Bin", path: TRASH_PATH, icon: RecycleBinEmptyIcon },
 ];
 
-function buildBreadcrumbs(path: string): ExplorerBreadcrumb[] {
-  const normalized = normalizePath(path);
-
-  if (normalized === "/") {
-    return [{ label: SHELL_USER, path: "/" }];
-  }
-
-  const parts = normalized.split("/").filter(Boolean);
-
-  return [
-    { label: SHELL_USER, path: "/" },
-    ...parts.map((part, index) => ({
-      label: part,
-      path: `/${parts.slice(0, index + 1).join("/")}`,
-    })),
-  ];
-}
-
-function hasOnlyExternalFiles(event: React.DragEvent) {
-  const types = Array.from(event.dataTransfer?.types ?? []);
-  return types.includes("Files") && !types.includes("application/x-taaniel-path");
-}
-
-function getFileNodeSearchText(node: FileNode) {
-  return [node.name, node.path, node.type, node.mimeType ?? "", node.extension ?? ""].join(" ").toLowerCase();
-}
-
-function getNodeMeta(node: FileNode) {
-  if (node.type === "folder") {
-    return "Folder";
-  }
-
-  if (node.mimeType?.startsWith("image/")) {
-    return node.mimeType.replace("image/", "").toUpperCase();
-  }
-
-  if (node.mimeType?.startsWith("audio/")) {
-    return node.mimeType.replace("audio/", "").toUpperCase();
-  }
-
-  if (node.extension) {
-    return node.extension.toUpperCase();
-  }
-
-  return "File";
-}
-
-function getNodeIcon(node: FileNode, size = 16) {
-  const Icon = getFileIcon(node);
-  return <Icon size={size} />;
-}
-
-/** Best available byte size of a file: recorded size, text length, or decoded data-URL length. */
-function getNodeSize(node: { size?: number; content?: unknown; source?: string }) {
-  if (typeof node.size === "number") return node.size;
-  if (typeof node.content === "string") return node.content.length;
-  if (node.source?.startsWith("data:")) {
-    const comma = node.source.indexOf(",");
-    return Math.floor(((node.source.length - comma - 1) * 3) / 4);
-  }
-  return 0;
-}
-
-/** Status bar size: "512 bytes", "2.34 KB", "1.20 MB". */
-function formatSize(size?: number) {
-  if (!size || size <= 0) {
-    return "";
-  }
-
-  if (size < 1024) return `${size} bytes`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-/** Details column size: whole kilobytes rounded up, like Windows ("1 KB" for 12 bytes). */
-function formatDetailsSize(size: number) {
-  return `${Math.max(1, Math.ceil(size / 1024)).toLocaleString()} KB`;
-}
-
-function formatDateTime(timestamp: number) {
-  const date = new Date(timestamp);
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-}
-
-function sortNodes(nodes: FileNode[], key: ExplorerSortKey, direction: "asc" | "desc"): FileNode[] {
-  const mult = direction === "asc" ? 1 : -1;
-  return [...nodes].sort((a, b) => {
-    // Folders always sort above files, regardless of key.
-    if (a.type !== b.type) {
-      return a.type === "folder" ? -1 : 1;
-    }
-
-    let cmp = 0;
-    switch (key) {
-      case "name":
-        cmp = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
-        break;
-      case "date":
-        cmp = a.updatedAt - b.updatedAt;
-        break;
-      case "size":
-        cmp = (a.size ?? 0) - (b.size ?? 0);
-        break;
-      case "type":
-        cmp = (a.extension ?? "").localeCompare(b.extension ?? "");
-        break;
-    }
-    return cmp === 0
-      ? a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
-      : cmp * mult;
-  });
-}
-
-/** Disallow moving a folder into itself or any of its descendants. */
-function isInvalidMoveTarget(sourcePath: string, destinationDirectory: string) {
-  const src = normalizePath(sourcePath);
-  const dst = normalizePath(destinationDirectory);
-  return dst === src || dst.startsWith(`${src}/`);
-}
-
-interface RenameInputProps {
-  initialName: string;
-  onCommit: (next: string) => void;
-  onCancel: () => void;
-}
-
-function RenameInput({ initialName, onCommit, onCancel }: RenameInputProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.focus();
-    // Select just the basename so users can quickly type a new name while
-    // keeping the extension.
-    const dot = initialName.lastIndexOf(".");
-    if (dot > 0) {
-      el.setSelectionRange(0, dot);
-    } else {
-      el.select();
-    }
-  }, [initialName]);
-
-  return (
-    <input
-      ref={inputRef}
-      className="explorer-rename-input"
-      defaultValue={initialName}
-      onClick={(event) => event.stopPropagation()}
-      onPointerDown={(event) => event.stopPropagation()}
-      onDoubleClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-        if (event.key === "Enter") {
-          event.preventDefault();
-          onCommit(event.currentTarget.value);
-        } else if (event.key === "Escape") {
-          event.preventDefault();
-          onCancel();
-        }
-      }}
-      onBlur={(event) => onCommit(event.currentTarget.value)}
-    />
-  );
-}
-
-const ExplorerGridItem = memo(function ExplorerGridItem({
-  node,
-  selected,
-  renaming,
-  dropTarget,
-  cut,
-  onOpen,
-  onPointerDown,
-  onContextMenu,
-  onDoubleClick,
-  onDragStart,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onCommitRename,
-  onCancelRename,
-}: ExplorerItemPropsBase) {
-  const canRenderThumbnail =
-    node.type === "file" &&
-    Boolean(node.mimeType?.startsWith("image/")) &&
-    Boolean(node.extension && isBrowserRenderableImageExtension(node.extension)) &&
-    Boolean(node.source);
-
-  return (
-    <div
-      className={cn(
-        "explorer-grid-item",
-        selected && "is-selected",
-        dropTarget && "is-drop-target",
-        renaming && "is-renaming",
-        cut && "is-cut"
-      )}
-      data-path={node.path}
-      role="button"
-      tabIndex={-1}
-      title={node.name}
-      draggable={!renaming}
-      onDragStart={(event) => onDragStart(node, event)}
-      onDragOver={(event) => onDragOver(node, event)}
-      onDragLeave={(event) => onDragLeave(node, event)}
-      onDrop={(event) => onDrop(node, event)}
-      onPointerDown={(event) => onPointerDown(node, event)}
-      onClick={(event) => {
-        // Click is handled via onPointerDown to support multi-select modifier
-        // keys consistently; here we just stop the event from bubbling and
-        // optionally activate the item for single-click users.
-        event.stopPropagation();
-      }}
-      onDoubleClick={(event) => {
-        event.stopPropagation();
-        onDoubleClick(node);
-      }}
-      onContextMenu={(event) => onContextMenu(node, event)}
-      onKeyDown={(event) => {
-        if (renaming) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen(node);
-        }
-      }}
-    >
-      <span className="explorer-grid-item__thumb">
-        {canRenderThumbnail ? (
-          <img
-            src={node.source}
-            alt={node.name}
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-          />
-        ) : (
-          getNodeIcon(node, 48)
-        )}
-      </span>
-      {renaming ? (
-        <RenameInput
-          initialName={node.name}
-          onCommit={(next) => onCommitRename(node, next)}
-          onCancel={onCancelRename}
-        />
-      ) : (
-        <span className="explorer-grid-item__label">{node.name}</span>
-      )}
-    </div>
-  );
-});
-
-const ExplorerListItem = memo(function ExplorerListItem({
-  node,
-  selected,
-  renaming,
-  dropTarget,
-  cut,
-  recycleBin,
-  onOpen,
-  onPointerDown,
-  onContextMenu,
-  onDoubleClick,
-  onDragStart,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onCommitRename,
-  onCancelRename,
-}: ExplorerItemPropsBase) {
-  const size = getNodeSize(node);
-
-  return (
-    <div
-      className={cn(
-        "explorer-list-item w11-details__row",
-        selected && "is-selected",
-        dropTarget && "is-drop-target",
-        renaming && "is-renaming",
-        cut && "is-cut"
-      )}
-      data-path={node.path}
-      role="row"
-      aria-selected={selected}
-      tabIndex={-1}
-      title={node.name}
-      draggable={!renaming}
-      onDragStart={(event) => onDragStart(node, event)}
-      onDragOver={(event) => onDragOver(node, event)}
-      onDragLeave={(event) => onDragLeave(node, event)}
-      onDrop={(event) => onDrop(node, event)}
-      onPointerDown={(event) => onPointerDown(node, event)}
-      onClick={(event) => event.stopPropagation()}
-      onDoubleClick={(event) => {
-        event.stopPropagation();
-        onDoubleClick(node);
-      }}
-      onContextMenu={(event) => onContextMenu(node, event)}
-      onKeyDown={(event) => {
-        if (renaming) return;
-        if (event.key === "Enter") {
-          event.preventDefault();
-          onOpen(node);
-        }
-      }}
-    >
-      <span className="w11-details__cell w11-details__name" role="gridcell">
-        <span className="w11-details__icon">{getNodeIcon(node, 16)}</span>
-        {renaming ? (
-          <RenameInput
-            initialName={node.name}
-            onCommit={(next) => onCommitRename(node, next)}
-            onCancel={onCancelRename}
-          />
-        ) : (
-          <span className="w11-details__label">{node.name}</span>
-        )}
-      </span>
-      {recycleBin ? (
-        <>
-          <span className="w11-details__cell" role="gridcell">
-            {node.originalPath ? toWindowsPath(getParentPath(node.originalPath)) : ""}
-          </span>
-          <span className="w11-details__cell" role="gridcell">
-            {node.deletedAt ? formatDateTime(node.deletedAt) : ""}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="w11-details__cell" role="gridcell">{formatDateTime(node.updatedAt)}</span>
-          <span className="w11-details__cell" role="gridcell">{describeFileType(node)}</span>
-        </>
-      )}
-      <span className="w11-details__cell w11-details__size" role="gridcell">
-        {node.type === "file" ? formatDetailsSize(size) : ""}
-      </span>
-    </div>
-  );
-});
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 export function FileExplorerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
@@ -435,20 +84,14 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const writeFile = useFileSystemStore((state) => state.writeFile);
   const importFiles = useFileSystemStore((state) => state.importFiles);
   const rename = useFileSystemStore((state) => state.rename);
-  const deleteNode = useFileSystemStore((state) => state.deleteNode);
-  const deleteNodePermanently = useFileSystemStore((state) => state.deleteNodePermanently);
-  const restoreNode = useFileSystemStore((state) => state.restoreNode);
-  const pasteNode = useFileSystemStore((state) => state.pasteNode);
-  const canCutNode = useFileSystemStore((state) => state.canCutNode);
   const emptyTrash = useFileSystemStore((state) => state.emptyTrash);
   const launchApp = useSystemStore((state) => state.launchApp);
   const recentPaths = useRecentFilesStore((state) => state.recentPaths);
   const clearRecent = useRecentFilesStore((state) => state.clearRecent);
 
   const clipboard = useShellStore((state) => state.clipboard);
-  const setClipboard = useShellStore((state) => state.setClipboard);
-  const clearClipboard = useShellStore((state) => state.clearClipboard);
   const setContextMenu = useShellStore((state) => state.setContextMenu);
+  const dragItems = useDragStore((state) => state.session?.items ?? null);
 
   const {
     session,
@@ -458,8 +101,6 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     goForward,
     setSelectedPath,
     setSelectedPaths,
-    toggleSelected,
-    extendSelection,
     clearSelection,
     beginRename,
     endRename,
@@ -475,8 +116,6 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       goForward: state.goForward,
       setSelectedPath: state.setSelectedPath,
       setSelectedPaths: state.setSelectedPaths,
-      toggleSelected: state.toggleSelected,
-      extendSelection: state.extendSelection,
       clearSelection: state.clearSelection,
       beginRename: state.beginRename,
       endRename: state.endRename,
@@ -488,10 +127,12 @@ export function FileExplorerApp({ window }: AppComponentProps) {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const itemsRootRef = useRef<HTMLDivElement | null>(null);
   const dragDepthRef = useRef(0);
+  const externalHighlightRef = useRef<HTMLElement | null>(null);
   const initialPath = window.payload?.directoryPath ?? "/Portfolio";
   const [externalDropActive, setExternalDropActive] = useState(false);
-  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const [addressEditNonce, setAddressEditNonce] = useState(0);
   const [refreshTick, setRefreshTick] = useState(0);
   const typeAheadRef = useRef({ text: "", at: 0 });
@@ -519,29 +160,34 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     () => new Set(clipboard?.operation === "cut" ? clipboard.paths : []),
     [clipboard]
   );
-
-  const children = useMemo(
-    () => listDirectory(currentDirectoryPath),
-    // refreshTick re-reads the folder on F5 / Refresh.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentDirectoryPath, listDirectory, nodes, refreshTick]
+  const dragSourcePaths = useMemo(
+    () => (dragItems ? new Set(dragItems.flatMap((item) => (item.path ? [item.path] : []))) : EMPTY_SET),
+    [dragItems]
   );
 
+  const children = useMemo(() => {
+    const listed = listDirectory(currentDirectoryPath);
+    // The Recycle Bin is not a folder inside the profile folder in Windows; the navigation pane has it.
+    return currentDirectoryPath === "/" ? listed.filter((node) => node.path !== TRASH_PATH) : listed;
+    // refreshTick re-reads the folder on F5 / Refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDirectoryPath, listDirectory, nodes, refreshTick]);
+
   const sortedChildren = useMemo(
-    () => sortNodes(children, sortKey, sortDirection),
+    () => sortExplorerNodes(children, sortKey, sortDirection),
     [children, sortKey, sortDirection]
   );
 
   const filteredChildren = useMemo(() => {
     const normalizedQuery = deferredSearchQuery.trim().toLowerCase();
     if (!normalizedQuery) return sortedChildren;
-    return sortedChildren.filter((node) => getFileNodeSearchText(node).includes(normalizedQuery));
+    return sortedChildren.filter((node) => getSearchText(node).includes(normalizedQuery));
   }, [sortedChildren, deferredSearchQuery]);
 
+  const orderedPaths = useMemo(() => filteredChildren.map((child) => child.path), [filteredChildren]);
   const breadcrumbs = useMemo(() => buildBreadcrumbs(currentDirectoryPath), [currentDirectoryPath]);
 
   const selectedSet = useMemo(() => new Set(selectedPaths), [selectedPaths]);
-  const selectedNode = selectedPaths.length > 0 ? nodes[selectedPaths[selectedPaths.length - 1]] ?? null : null;
 
   // Drop selection rectangles that point to deleted nodes.
   useEffect(() => {
@@ -563,13 +209,23 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       navigate(window.id, node.path);
       return;
     }
+
+    // A shortcut to a folder opens that folder right here, as it does in Windows.
+    const saved = nodes[node.path];
+    const target = saved?.kind === "file" && saved.shortcut ? resolveShortcutNode(nodes, saved) : null;
+
+    if (target?.kind === "directory") {
+      navigate(window.id, target.path);
+      return;
+    }
+
     openFileSystemPath(node.path, nodes, launchApp);
   };
 
-  const uploadIntoCurrentDirectory = async (files: File[] | FileList) => {
-    const importedPaths = await importFiles(currentDirectoryPath, Array.from(files));
+  const uploadIntoFolder = async (files: File[] | FileList, destination = currentDirectoryPath) => {
+    const importedPaths = await importFiles(destination, Array.from(files));
     const latestPath = importedPaths.at(-1);
-    if (latestPath) {
+    if (latestPath && destination === currentDirectoryPath) {
       setSelectedPath(window.id, latestPath);
     }
   };
@@ -591,97 +247,57 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   };
 
   const commitRename = async (node: FileNode, nextName: string) => {
-    const trimmed = nextName.trim();
     endRename(window.id);
 
-    if (!trimmed || trimmed === node.name) {
+    // A shortcut keeps its hidden .lnk however the name was typed.
+    const storedName = toStoredName(nextName, node);
+
+    if (!storedName || storedName === node.name) {
       return;
     }
 
     try {
-      const nextPath = await rename(node.path, trimmed);
+      const nextPath = await rename(node.path, storedName);
       setSelectedPath(window.id, nextPath);
     } catch (error) {
       toast(error instanceof Error ? error.message : "Could not rename", "error");
     }
   };
 
-  const moveSelectionToTrash = async () => {
+  const deleteSelection = async (permanent = false) => {
     const targets = selectedPaths.slice();
     if (targets.length === 0) return;
-    for (const path of targets) {
-      // eslint-disable-next-line no-await-in-loop
-      await deleteNode(path, { quiet: targets.length > 1 });
-    }
-    if (targets.length > 1) toast(`Moved ${targets.length} items to the Recycle Bin`, "success");
+    await deleteItems(targets, { permanent: permanent || isTrashView });
     clearSelection(window.id);
   };
 
-  const duplicateSelection = async () => {
-    const targets = selectedPaths.slice();
-    if (targets.length === 0) return;
-    for (const path of targets) {
-      const parent = getParentPath(path);
+  /** "Duplicate": a copy beside each item, named "notes - Copy.txt". */
+  const duplicateItems = async (paths: string[]) => {
+    const byFolder = new Map<string, string[]>();
+
+    paths.forEach((path) => {
+      const folder = getParentPath(path);
+      byFolder.set(folder, [...(byFolder.get(folder) ?? []), path]);
+    });
+
+    for (const [folder, sources] of byFolder) {
       // eslint-disable-next-line no-await-in-loop
-      await pasteNode(path, parent, "copy");
+      await transferItems(sources, folder, "copy");
     }
   };
 
-  const copySelection = () => {
-    if (selectedPaths.length === 0) return;
-    setClipboard({ paths: selectedPaths.slice(), operation: "copy" });
-  };
+  const copySelection = () => copyItems(selectedPaths);
 
   const cutSelection = () => {
-    if (selectedPaths.length === 0) return;
-    if (selectedPaths.some((path) => !canCutNode(path))) {
-      toast("Read-only items can't be cut", "error");
-      return;
-    }
-    setClipboard({ paths: selectedPaths.slice(), operation: "cut" });
+    cutItems(selectedPaths);
   };
 
-  const pasteIntoCurrentDirectory = async (destination = currentDirectoryPath) => {
-    if (!clipboard) return;
-    const sources = clipboard.paths.filter((path) => nodes[path]);
-    if (sources.some((path) => isInvalidMoveTarget(path, destination))) {
-      toast("The destination folder is a subfolder of the source folder", "error");
-      return;
-    }
-    const quiet = sources.length > 1;
-    for (const path of sources) {
-      if (clipboard.operation === "cut" && getParentPath(path) === destination) continue;
-      // Sequential on purpose: each paste reads the store the previous one wrote.
-      // eslint-disable-next-line no-await-in-loop
-      await pasteNode(path, destination, clipboard.operation, { quiet });
-    }
-    if (quiet) toast(`${clipboard.operation === "cut" ? "Moved" : "Copied"} ${sources.length} items`, "success");
-    if (clipboard.operation === "cut") {
-      clearClipboard();
-    }
+  const pasteIntoCurrentDirectory = () => {
+    if (!isTrashView) void pasteIntoFolder(currentDirectoryPath);
   };
 
-  const restoreItems = async (paths: string[]) => {
-    let restored = 0;
-    for (const path of paths) {
-      // eslint-disable-next-line no-await-in-loop
-      if (await restoreNode(path)) restored += 1;
-    }
-    clearSelection(window.id);
-    if (restored > 0) toast(restored === 1 ? "Restored 1 item" : `Restored ${restored} items`, "success");
-  };
-
-  const deletePermanently = async (paths: string[]) => {
-    if (paths.length === 0) return;
-    const message =
-      paths.length === 1
-        ? `Are you sure you want to permanently delete "${nodes[paths[0]]?.name ?? "this item"}"?`
-        : `Are you sure you want to permanently delete these ${paths.length} items?`;
-    if (!globalThis.confirm(message)) return;
-    for (const path of paths) {
-      // eslint-disable-next-line no-await-in-loop
-      await deleteNodePermanently(path);
-    }
+  const restoreSelection = async (paths: string[]) => {
+    await restoreItems(paths);
     clearSelection(window.id);
   };
 
@@ -722,154 +338,56 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     setContextMenu({ x: rect.left, y: rect.bottom + 4, title, actions });
   };
 
-  const moveDraggedPathsTo = async (paths: string[], destinationDirectoryPath: string) => {
-    const destination = normalizePath(destinationDirectoryPath);
+  /* ------------------------------------------------------------------ */
+  /*  Drag and drop                                                      */
+  /* ------------------------------------------------------------------ */
 
-    let moved = 0;
-    for (const raw of paths) {
-      const source = normalizePath(raw);
-      if (source === destination) continue;
-      if (getParentPath(source) === destination) continue; // already there
-      if (isInvalidMoveTarget(source, destination)) {
-        toast(`Cannot move "${source}" into itself`, "error");
-        continue;
-      }
-      if (!canCutNode(source)) {
-        toast(`"${source}" is read-only`, "error");
-        continue;
-      }
-      // eslint-disable-next-line no-await-in-loop
-      await pasteNode(source, destination, "cut", { quiet: true });
-      moved += 1;
-    }
+  /** Everything here is a drop target for the pointer drag controller; the tags are all it needs. */
+  const dropProps = (path: string) => folderDropProps(path, { windowId: window.id });
 
-    if (moved > 0) {
-      toast(moved === 1 ? "Moved 1 item" : `Moved ${moved} items`, "success");
-    }
+  /** Files dragged in from the visitor's computer go through the browser's own drag events. */
+  const clearExternalHighlight = () => {
+    externalHighlightRef.current?.removeAttribute("data-drop-active");
+    externalHighlightRef.current = null;
   };
+
+  const getExternalDropFolder = (target: EventTarget | null) =>
+    (target as HTMLElement | null)?.closest<HTMLElement>("[data-path][data-drop-folder]") ?? null;
 
   /* ------------------------------------------------------------------ */
   /*  Context menu builders                                              */
   /* ------------------------------------------------------------------ */
 
-  const buildItemContextMenu = (node: FileNode): ContextMenuAction[] => {
-    const isSelected = selectedSet.has(node.path);
-    const targets = isSelected && selectedPaths.length > 1 ? selectedPaths : [node.path];
-    const multi = targets.length > 1;
-    const inTrash = node.path.startsWith("/Trash/") || node.path === "/Trash";
-    const isReadonly = !canCutNode(node.path);
+  const openPaths = (paths: string[]) => {
+    paths.forEach((path) => {
+      const node = listDirectory(getParentPath(path)).find((entry) => entry.path === path);
+      if (node) openNode(node);
+    });
+  };
 
-    const actions: ContextMenuAction[] = [];
-
-    if (inTrash && getParentPath(node.path) === TRASH_PATH) {
-      actions.push({
-        id: "restore",
-        label: multi ? `Restore ${targets.length} items` : "Restore",
-        icon: RotateCcw,
-        onSelect: () => void restoreItems(targets),
-      });
-      actions.push({ id: "sep-restore", label: "", separator: true, onSelect: () => {} });
-    }
-
-    actions.push({
-      id: "open",
-      label: node.type === "folder" ? "Open" : "Open",
-      icon: node.type === "folder" ? FolderOpen : ExternalLink,
-      onSelect: () => openNode(node),
+  const buildItemContextMenu = (node: FileNode, targets: string[]): ContextMenuAction[] => {
+    const menu = buildFileMenu({
+      nodes,
+      paths: targets,
+      clipboard,
+      onOpen: () => openPaths(targets),
+      onRename: () => beginRename(window.id, node.path),
+      onOpenInNewWindow: () => launchApp({ appId: "files", payload: { directoryPath: node.path } }),
     });
 
-    if (node.type === "folder") {
-      actions.push({
-        id: "open-new-window",
-        label: "Open in new window",
-        icon: ExternalLink,
-        onSelect: () =>
-          launchApp({
-            appId: "files",
-            payload: { directoryPath: node.path },
-          }),
+    // Duplicate is File Explorer's own convenience, next to Copy.
+    const copyIndex = menu.findIndex((action) => action.id === "copy");
+
+    if (copyIndex >= 0 && !isTrashView) {
+      menu.splice(copyIndex + 1, 0, {
+        id: "duplicate",
+        label: targets.length > 1 ? `Duplicate ${targets.length} items` : "Duplicate",
+        icon: Copy,
+        onSelect: () => void duplicateItems(targets),
       });
     }
 
-    actions.push({ id: "sep-1", label: "", separator: true, onSelect: () => {} });
-
-    actions.push({
-      id: "rename",
-      label: "Rename",
-      icon: Pencil,
-      shortcut: "F2",
-      disabled: multi || isReadonly,
-      onSelect: () => beginRename(window.id, node.path),
-    });
-
-    actions.push({
-      id: "duplicate",
-      label: multi ? `Duplicate ${targets.length} items` : "Duplicate",
-      icon: Copy,
-      onSelect: () => void duplicateSelection(),
-    });
-
-    actions.push({ id: "sep-2", label: "", separator: true, onSelect: () => {} });
-
-    actions.push({
-      id: "cut",
-      label: multi ? `Cut ${targets.length} items` : "Cut",
-      icon: Scissors,
-      shortcut: "Ctrl+X",
-      disabled: isReadonly,
-      onSelect: () => cutSelection(),
-    });
-
-    actions.push({
-      id: "copy",
-      label: multi ? `Copy ${targets.length} items` : "Copy",
-      icon: Copy,
-      shortcut: "Ctrl+C",
-      onSelect: () => copySelection(),
-    });
-
-    if (clipboard && node.type === "folder") {
-      actions.push({
-        id: "paste-into",
-        label: clipboard.operation === "cut" ? "Move here" : "Paste into folder",
-        icon: ClipboardPaste,
-        onSelect: () => void pasteIntoCurrentDirectory(node.path),
-      });
-    }
-
-    actions.push({ id: "sep-3", label: "", separator: true, onSelect: () => {} });
-
-    if (inTrash) {
-      actions.push({
-        id: "delete-permanent",
-        label: multi ? `Delete ${targets.length} items permanently` : "Delete permanently",
-        icon: Trash2,
-        danger: true,
-        onSelect: () => void deletePermanently(targets),
-      });
-    } else {
-      actions.push({
-        id: "trash",
-        label: multi ? `Delete ${targets.length} items` : "Delete",
-        icon: Trash2,
-        shortcut: "Del",
-        danger: true,
-        disabled: isReadonly,
-        onSelect: () => void moveSelectionToTrash(),
-      });
-    }
-
-    if (!multi) {
-      actions.push({ id: "sep-4", label: "", separator: true, onSelect: () => {} });
-      actions.push({
-        id: "reveal",
-        label: "Open file location",
-        icon: MapPin,
-        onSelect: () => navigate(window.id, getParentPath(node.path)),
-      });
-    }
-
-    return actions;
+    return menu;
   };
 
   const buildEmptyAreaContextMenu = (): ContextMenuAction[] => {
@@ -879,6 +397,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       id: "new-folder",
       label: "New folder",
       icon: FolderPlus,
+      disabled: isTrashView,
       onSelect: () => void createFolder(),
     });
 
@@ -886,6 +405,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       id: "new-note",
       label: "New text document",
       icon: FilePlus2,
+      disabled: isTrashView,
       onSelect: () => void createNote(),
     });
 
@@ -893,6 +413,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       id: "upload",
       label: "Upload files…",
       icon: Upload,
+      disabled: isTrashView,
       onSelect: () => fileInputRef.current?.click(),
     });
 
@@ -903,8 +424,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       label: "Paste",
       icon: ClipboardPaste,
       shortcut: "Ctrl+V",
-      disabled: !clipboard,
-      onSelect: () => void pasteIntoCurrentDirectory(),
+      disabled: !clipboard || isTrashView,
+      onSelect: pasteIntoCurrentDirectory,
     });
 
     actions.push({ id: "sep-empty-2", label: "", separator: true, onSelect: () => {} });
@@ -916,7 +437,9 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         key === "name"
           ? "Sort by name"
           : key === "date"
-            ? "Sort by date modified"
+            ? isRecycleBinRoot
+              ? "Sort by date deleted"
+              : "Sort by date modified"
             : key === "size"
               ? "Sort by size"
               : "Sort by type",
@@ -939,10 +462,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       label: "Select all",
       icon: CheckSquare,
       shortcut: "Ctrl+A",
-      onSelect: () => setSelectedPaths(window.id, filteredChildren.map((c) => c.path)),
+      onSelect: () => setSelectedPaths(window.id, orderedPaths),
     });
 
-    if (isTrashView) {
+    if (isRecycleBinRoot) {
       actions.push({
         id: "empty-trash",
         label: "Empty Recycle Bin",
@@ -963,117 +486,79 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     if (renamingPath === node.path) return;
     if (event.button !== 0 && event.button !== 2) return;
 
-    event.stopPropagation();
+    const additive = event.ctrlKey || event.metaKey;
+    const isSelected = selectedSet.has(node.path);
+    let next = selectedPaths;
+    // Pressing a selected item keeps the selection (so the group can be dragged); it narrows on release.
+    let onRelease: (() => void) | null = null;
 
     if (event.button === 2) {
-      // Right-click: select the item if not already selected, then let
-      // onContextMenu open the menu.
-      if (!selectedSet.has(node.path)) {
-        setSelectedPath(window.id, node.path);
+      // Right-click selects the item if it isn't selected; the context menu follows.
+      if (!isSelected) next = [node.path];
+    } else if (event.shiftKey && !additive) {
+      next = selectPathRange(orderedPaths, selectedPaths.at(-1), node.path);
+    } else if (additive) {
+      if (isSelected) {
+        onRelease = () => setSelectedPaths(window.id, selectedPaths.filter((path) => path !== node.path));
+      } else {
+        next = [...selectedPaths, node.path];
       }
-      return;
+    } else if (!isSelected) {
+      next = [node.path];
+    } else if (selectedPaths.length > 1) {
+      onRelease = () => setSelectedPath(window.id, node.path);
     }
 
-    if (event.shiftKey) {
-      extendSelection(
-        window.id,
-        node.path,
-        filteredChildren.map((c) => c.path)
+    if (next !== selectedPaths) {
+      setSelectedPaths(window.id, next);
+    }
+
+    const dragPaths = next.includes(node.path) ? [node.path, ...next.filter((path) => path !== node.path)] : [node.path];
+    let dragged = false;
+
+    armFileDrag({
+      event: event.nativeEvent,
+      items: dragPaths.map((path) => ({ id: path, path })),
+      origin: "explorer",
+      originWindowId: window.id,
+      contextTarget: event.currentTarget as Element,
+      onStart: () => {
+        dragged = true;
+      },
+    });
+
+    if (onRelease) {
+      const apply = onRelease;
+      globalThis.addEventListener(
+        "pointerup",
+        () => {
+          if (!dragged) apply();
+        },
+        { once: true }
       );
-      return;
     }
-
-    if (event.metaKey || event.ctrlKey) {
-      toggleSelected(window.id, node.path);
-      return;
-    }
-
-    setSelectedPath(window.id, node.path);
   };
 
   const handleItemContextMenu = (node: FileNode, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
 
-    // If the user right-clicks outside the current selection, snap selection
-    // to just this item.
-    if (!selectedSet.has(node.path)) {
+    // Right-clicking outside the selection snaps it to just this item.
+    const inSelection = selectedSet.has(node.path);
+    const targets = inSelection ? selectedPaths.slice() : [node.path];
+
+    if (!inSelection) {
       setSelectedPath(window.id, node.path);
     }
+
+    const { x, y } = getContextMenuPoint(event);
 
     setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      title: node.name,
-      actions: buildItemContextMenu(node),
+      x,
+      y,
+      title: targets.length > 1 ? plural(targets.length) : getNodeLabel(node),
+      actions: buildItemContextMenu(node, targets),
     });
-  };
-
-  const handleItemDoubleClick = (node: FileNode) => {
-    openNode(node);
-  };
-
-  const handleItemDragStart = (node: FileNode, event: React.DragEvent) => {
-    // If dragging an item that isn't currently selected, drag just that item.
-    const draggedPaths = selectedSet.has(node.path) ? selectedPaths.slice() : [node.path];
-    setPathDragPayload(event.dataTransfer, draggedPaths);
-    if (!selectedSet.has(node.path)) {
-      setSelectedPath(window.id, node.path);
-    }
-  };
-
-  const handleItemDragOver = (node: FileNode, event: React.DragEvent) => {
-    // Only folders accept drops, and only if the drag carries one of our paths
-    // or external files.
-    const isFolder = node.type === "folder";
-    const internal = hasPathDragPayload(event.dataTransfer);
-    const external = hasOnlyExternalFiles(event);
-    if (!isFolder || (!internal && !external)) return;
-
-    // Don't accept drop into the same folder being dragged.
-    if (internal) {
-      const dragged = readPathDragPayload(event.dataTransfer);
-      if (dragged.some((p) => isInvalidMoveTarget(p, node.path) || getParentPath(p) === node.path)) {
-        return;
-      }
-    }
-
-    event.preventDefault();
-    event.dataTransfer.dropEffect = internal ? "move" : "copy";
-    if (dropTargetPath !== node.path) {
-      setDropTargetPath(node.path);
-    }
-  };
-
-  const handleItemDragLeave = (node: FileNode, _event: React.DragEvent) => {
-    if (dropTargetPath === node.path) {
-      setDropTargetPath(null);
-    }
-  };
-
-  const handleItemDrop = (node: FileNode, event: React.DragEvent) => {
-    if (node.type !== "folder") return;
-    event.preventDefault();
-    event.stopPropagation();
-    setDropTargetPath(null);
-
-    const internalPaths = readPathDragPayload(event.dataTransfer);
-    if (internalPaths.length > 0) {
-      void moveDraggedPathsTo(internalPaths, node.path);
-      return;
-    }
-
-    if (hasOnlyExternalFiles(event)) {
-      void (async () => {
-        const importedPaths = await importFiles(node.path, Array.from(event.dataTransfer.files));
-        if (importedPaths.length > 0) {
-          toast(
-            importedPaths.length === 1 ? `Imported into ${node.name}` : `Imported ${importedPaths.length} files`,
-            "success"
-          );
-        }
-      })();
-    }
   };
 
   const handleEmptyAreaContextMenu = (event: React.MouseEvent) => {
@@ -1097,9 +582,29 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     clearSelection(window.id);
   };
 
+  const marquee = useMarqueeSelection({
+    contentRef: itemsRootRef,
+    scrollRef,
+    itemSelector: "[data-path]",
+    getItemId: (element) => element.dataset.path ?? null,
+    getSelection: () => selectedPaths,
+    onSelectionChange: (paths) => setSelectedPaths(window.id, paths),
+    canStart: (target, event) => {
+      if (target.closest("[data-path], .w11-details__header, input, textarea, button")) {
+        return false;
+      }
+
+      // A press on the scrollbar scrolls; it doesn't start a selection.
+      const scroller = scrollRef.current;
+      return !(scroller && target === scroller && event.clientX > scroller.getBoundingClientRect().left + scroller.clientWidth);
+    },
+  });
+
   const scrollToPath = (path: string) => {
-    const item = contentRef.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(path)}"]`);
-    item?.scrollIntoView({ block: "nearest" });
+    const items = contentRef.current?.querySelectorAll<HTMLElement>("[data-path]");
+    Array.from(items ?? [])
+      .find((element) => element.dataset.path === path)
+      ?.scrollIntoView({ block: "nearest" });
   };
 
   /** Items per row in Large icons view, measured from the laid-out grid. */
@@ -1113,13 +618,6 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       count += 1;
     }
     return Math.max(1, count);
-  };
-
-  const openSelection = () => {
-    selectedPaths.forEach((path) => {
-      const node = listDirectory(getParentPath(path)).find((entry) => entry.path === path);
-      if (node) openNode(node);
-    });
   };
 
   /** Window-wide shortcuts: they work while the address bar or toolbar has focus too. */
@@ -1164,8 +662,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     if (key === "Delete") {
       if (selectedPaths.length === 0) return;
       event.preventDefault();
-      if (event.shiftKey || isTrashView) void deletePermanently(selectedPaths.slice());
-      else void moveSelectionToTrash();
+      void deleteSelection(event.shiftKey);
       return;
     }
 
@@ -1179,14 +676,14 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     if (key === "F2") {
       if (selectedPaths.length !== 1) return;
       event.preventDefault();
-      beginRename(window.id, selectedPaths[0]);
+      if (!isLockedNode(nodes, selectedPaths[0])) beginRename(window.id, selectedPaths[0]);
       return;
     }
 
     if (key === "Enter") {
       if (selectedPaths.length === 0) return;
       event.preventDefault();
-      openSelection();
+      openPaths(selectedPaths);
       return;
     }
 
@@ -1198,7 +695,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
 
     if (ctrl && key.toLowerCase() === "a") {
       event.preventDefault();
-      setSelectedPaths(window.id, filteredChildren.map((c) => c.path));
+      setSelectedPaths(window.id, orderedPaths);
       return;
     }
 
@@ -1216,16 +713,15 @@ export function FileExplorerApp({ window }: AppComponentProps) {
 
     if (ctrl && key.toLowerCase() === "v") {
       event.preventDefault();
-      void pasteIntoCurrentDirectory();
+      pasteIntoCurrentDirectory();
       return;
     }
 
     if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) {
-      if (filteredChildren.length === 0) return;
+      if (orderedPaths.length === 0) return;
       event.preventDefault();
-      const ordered = filteredChildren.map((c) => c.path);
       const anchor = selectedPaths.at(-1);
-      const index = anchor ? ordered.indexOf(anchor) : -1;
+      const index = anchor ? orderedPaths.indexOf(anchor) : -1;
       const columns = measureColumns();
       let next = index;
 
@@ -1235,11 +731,11 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       else if (key === "ArrowDown") next = index + columns;
       else if (key === "ArrowUp") next = index - columns;
       else if (key === "Home") next = 0;
-      else if (key === "End") next = ordered.length - 1;
+      else if (key === "End") next = orderedPaths.length - 1;
 
-      next = Math.min(ordered.length - 1, Math.max(0, next));
-      const path = ordered[next];
-      if (event.shiftKey) extendSelection(window.id, path, ordered);
+      next = Math.min(orderedPaths.length - 1, Math.max(0, next));
+      const path = orderedPaths[next];
+      if (event.shiftKey) setSelectedPaths(window.id, selectPathRange(orderedPaths, anchor, path));
       else if (ctrl) return;
       else setSelectedPath(window.id, path);
       scrollToPath(path);
@@ -1251,7 +747,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       const now = Date.now();
       const text = now - typeAheadRef.current.at < 900 ? typeAheadRef.current.text + key : key;
       typeAheadRef.current = { text, at: now };
-      const match = filteredChildren.find((node) => node.name.toLowerCase().startsWith(text.toLowerCase()));
+      const match = filteredChildren.find((node) => getNodeLabel(node).toLowerCase().startsWith(text.toLowerCase()));
       if (match) {
         setSelectedPath(window.id, match.path);
         scrollToPath(match.path);
@@ -1260,7 +756,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   };
 
   const hasSelection = selectedPaths.length > 0;
-  const selectionReadonly = selectedPaths.some((path) => !canCutNode(path));
+  const selectionLocked = selectedPaths.some((path) => isLockedNode(nodes, path));
   const sortMenu = (): ContextMenuAction[] => {
     const option = (key: ExplorerSortKey, label: string): ContextMenuAction => ({
       id: `sort-${key}`,
@@ -1299,9 +795,9 @@ export function FileExplorerApp({ window }: AppComponentProps) {
           icon: RotateCcw,
           showLabel: true,
           disabled: children.length === 0,
-          onSelect: () => void restoreItems(hasSelection ? selectedPaths.slice() : children.map((child) => child.path)),
+          onSelect: () => void restoreSelection(hasSelection ? selectedPaths.slice() : children.map((child) => child.path)),
         },
-        { id: "delete", label: "Delete", icon: Trash2, groupStart: true, disabled: !hasSelection, onSelect: () => void deletePermanently(selectedPaths.slice()) },
+        { id: "delete", label: "Delete", icon: Trash2, groupStart: true, disabled: !hasSelection, onSelect: () => void deleteSelection(true) },
         { id: "sort", label: "Sort", icon: ArrowUpDown, showLabel: true, hasMenu: true, groupStart: true, onSelect: (event) => openMenuAt(event, "Sort by", sortMenu()) },
         { id: "view", label: "View", icon: viewMode === "grid" ? LayoutGrid : List, showLabel: true, hasMenu: true, onSelect: (event) => openMenuAt(event, "View", viewMenu()) },
       ]
@@ -1321,17 +817,17 @@ export function FileExplorerApp({ window }: AppComponentProps) {
               { id: "upload", label: "Upload files…", icon: Upload, onSelect: () => fileInputRef.current?.click() },
             ]),
         },
-        { id: "cut", label: "Cut (Ctrl+X)", icon: Scissors, groupStart: true, disabled: !hasSelection || selectionReadonly, onSelect: cutSelection },
+        { id: "cut", label: "Cut (Ctrl+X)", icon: Scissors, groupStart: true, disabled: !hasSelection || selectionLocked, onSelect: cutSelection },
         { id: "copy", label: "Copy (Ctrl+C)", icon: Copy, disabled: !hasSelection, onSelect: copySelection },
-        { id: "paste", label: "Paste (Ctrl+V)", icon: ClipboardPaste, disabled: !clipboard, onSelect: () => void pasteIntoCurrentDirectory() },
+        { id: "paste", label: "Paste (Ctrl+V)", icon: ClipboardPaste, disabled: !clipboard || isTrashView, onSelect: pasteIntoCurrentDirectory },
         {
           id: "rename",
           label: "Rename (F2)",
           icon: Pencil,
-          disabled: selectedPaths.length !== 1 || selectionReadonly,
+          disabled: selectedPaths.length !== 1 || selectionLocked,
           onSelect: () => beginRename(window.id, selectedPaths[0]),
         },
-        { id: "delete", label: "Delete (Del)", icon: Trash2, disabled: !hasSelection || selectionReadonly, onSelect: () => void moveSelectionToTrash() },
+        { id: "delete", label: "Delete (Del)", icon: Trash2, disabled: !hasSelection || selectionLocked, onSelect: () => void deleteSelection() },
         { id: "sort", label: "Sort", icon: ArrowUpDown, showLabel: true, hasMenu: true, groupStart: true, onSelect: (event) => openMenuAt(event, "Sort by", sortMenu()) },
         { id: "view", label: "View", icon: viewMode === "grid" ? LayoutGrid : List, showLabel: true, hasMenu: true, onSelect: (event) => openMenuAt(event, "View", viewMenu()) },
       ];
@@ -1348,15 +844,11 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   /*  Render                                                             */
   /* ------------------------------------------------------------------ */
 
-  const itemHandlers: ItemEventHandlers = {
+  const itemHandlers: ExplorerItemHandlers = {
     onOpen: openNode,
     onPointerDown: handleItemPointerDown,
     onContextMenu: handleItemContextMenu,
-    onDoubleClick: handleItemDoubleClick,
-    onDragStart: handleItemDragStart,
-    onDragOver: handleItemDragOver,
-    onDragLeave: handleItemDragLeave,
-    onDrop: handleItemDrop,
+    onDoubleClick: openNode,
     onCommitRename: commitRename,
     onCancelRename: () => endRename(window.id),
   };
@@ -1372,7 +864,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
           if (!event.target.files?.length) {
             return;
           }
-          void uploadIntoCurrentDirectory(event.target.files);
+          void uploadIntoFolder(event.target.files);
           event.target.value = "";
         }}
       />
@@ -1394,6 +886,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         searchPlaceholder={`Search ${currentLabel}`}
         onSearchChange={(query) => setSearchQuery(window.id, query)}
         commands={commands}
+        getCrumbDropProps={dropProps}
       />
 
       <AppContent className="explorer-window__layout" padded={false} scrollable={false} stacked={false}>
@@ -1404,29 +897,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
           onNavigate={(path) => navigate(window.id, path)}
           onOpenFile={(path) => openFileSystemPath(path, nodes, launchApp)}
           onClearRecent={clearRecent}
-          dropTargetPath={dropTargetPath}
-          onItemDragOver={(path, event) => {
-            const internal = hasPathDragPayload(event.dataTransfer);
-            if (!internal) return;
-            const dragged = readPathDragPayload(event.dataTransfer);
-            if (dragged.some((p) => isInvalidMoveTarget(p, path) || getParentPath(p) === path)) {
-              return;
-            }
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            setDropTargetPath(path);
-          }}
-          onItemDragLeave={(path) => {
-            if (dropTargetPath === path) setDropTargetPath(null);
-          }}
-          onItemDrop={(path, event) => {
-            event.preventDefault();
-            setDropTargetPath(null);
-            const dragged = readPathDragPayload(event.dataTransfer);
-            if (dragged.length > 0) {
-              void moveDraggedPathsTo(dragged, path);
-            }
-          }}
+          getDropProps={dropProps}
         />
 
         <section
@@ -1434,44 +905,49 @@ export function FileExplorerApp({ window }: AppComponentProps) {
           className={cn("explorer-window__content", externalDropActive && "is-drop-target")}
           tabIndex={0}
           role="presentation"
+          // The folder this window shows takes drops anywhere there is no item to take them.
+          {...dropProps(currentDirectoryPath)}
+          onPointerDown={marquee.onPointerDown}
           onClick={handleBackgroundClick}
           onContextMenu={handleEmptyAreaContextMenu}
           onKeyDown={handleKeyDown}
           onDragEnter={(event) => {
-            if (!hasOnlyExternalFiles(event)) return;
+            if (!hasExternalFiles(event.dataTransfer)) return;
             event.preventDefault();
             dragDepthRef.current += 1;
             setExternalDropActive(true);
           }}
           onDragLeave={(event) => {
-            if (!hasOnlyExternalFiles(event)) return;
+            if (!hasExternalFiles(event.dataTransfer)) return;
             event.preventDefault();
             dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-            if (dragDepthRef.current === 0) setExternalDropActive(false);
+            if (dragDepthRef.current === 0) {
+              setExternalDropActive(false);
+              clearExternalHighlight();
+            }
           }}
           onDragOver={(event) => {
-            const internal = hasPathDragPayload(event.dataTransfer);
-            const external = hasOnlyExternalFiles(event);
-            if (!internal && !external) return;
+            if (!hasExternalFiles(event.dataTransfer)) return;
             event.preventDefault();
-            event.dataTransfer.dropEffect = internal ? "move" : "copy";
+            event.dataTransfer.dropEffect = "copy";
+
+            // Files hovering a folder go into that folder: show which.
+            const folder = getExternalDropFolder(event.target);
+
+            if (folder !== externalHighlightRef.current) {
+              clearExternalHighlight();
+              folder?.setAttribute("data-drop-active", "true");
+              externalHighlightRef.current = folder;
+            }
           }}
           onDrop={(event) => {
-            if ((event.target as HTMLElement).closest(".explorer-grid-item, .explorer-list-item")) {
-              return;
-            }
-            const internal = readPathDragPayload(event.dataTransfer);
-            if (internal.length > 0) {
-              event.preventDefault();
-              void moveDraggedPathsTo(internal, currentDirectoryPath);
-              return;
-            }
-            if (hasOnlyExternalFiles(event)) {
-              event.preventDefault();
-              dragDepthRef.current = 0;
-              setExternalDropActive(false);
-              void uploadIntoCurrentDirectory(event.dataTransfer.files);
-            }
+            if (!hasExternalFiles(event.dataTransfer)) return;
+            event.preventDefault();
+            const destination = getExternalDropFolder(event.target)?.dataset.dropFolder ?? currentDirectoryPath;
+            dragDepthRef.current = 0;
+            setExternalDropActive(false);
+            clearExternalHighlight();
+            void uploadIntoFolder(event.dataTransfer.files, destination);
           }}
         >
           {externalDropActive ? (
@@ -1481,75 +957,88 @@ export function FileExplorerApp({ window }: AppComponentProps) {
             </div>
           ) : null}
 
-          <ScrollArea className="explorer-window__scroll-area" padded>
-            {filteredChildren.length > 0 ? (
-              viewMode === "grid" ? (
-                <GridView
-                  className="explorer-grid"
-                  minItemWidth={108}
-                  role="list"
-                  aria-label={`${currentDirectoryPath} contents`}
-                >
-                  {filteredChildren.map((node) => (
-                    <ExplorerGridItem
-                      key={node.path}
-                      node={node}
-                      selected={selectedSet.has(node.path)}
-                      renaming={renamingPath === node.path}
-                      dropTarget={dropTargetPath === node.path}
-                      cut={cutPaths.has(node.path)}
-                      {...itemHandlers}
-                    />
-                  ))}
-                </GridView>
-              ) : (
-                <div className="explorer-list w11-details" role="grid" aria-label={`${currentLabel} contents`}>
-                  <div className="w11-details__header" role="row">
-                    {detailsColumns.map((column) => (
-                      <button
-                        key={column.label}
-                        type="button"
-                        role="columnheader"
-                        className="w11-details__column"
-                        disabled={!column.sort}
-                        aria-sort={column.sort === sortKey ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
-                        onClick={() => {
-                          if (!column.sort) return;
-                          setSort(window.id, column.sort, column.sort === sortKey && sortDirection === "asc" ? "desc" : "asc");
-                        }}
-                      >
-                        <span>{column.label}</span>
-                        {column.sort === sortKey ? (sortDirection === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : null}
-                      </button>
+          <ScrollArea ref={scrollRef} className="explorer-window__scroll-area" padded {...{ [DND_SCROLL_ATTRIBUTE]: "true" }}>
+            <div ref={itemsRootRef} className="explorer-window__items">
+              {filteredChildren.length > 0 ? (
+                viewMode === "grid" ? (
+                  <GridView
+                    className="explorer-grid"
+                    minItemWidth={108}
+                    role="listbox"
+                    aria-multiselectable="true"
+                    aria-label={`${currentLabel} contents`}
+                  >
+                    {filteredChildren.map((node) => (
+                      <ExplorerGridItem
+                        key={node.path}
+                        node={node}
+                        windowId={window.id}
+                        selected={selectedSet.has(node.path)}
+                        renaming={renamingPath === node.path}
+                        cut={cutPaths.has(node.path)}
+                        dragSource={dragSourcePaths.has(node.path)}
+                        {...itemHandlers}
+                      />
+                    ))}
+                  </GridView>
+                ) : (
+                  <div className="explorer-list w11-details" role="grid" aria-multiselectable="true" aria-label={`${currentLabel} contents`}>
+                    <div className="w11-details__header" role="row">
+                      {detailsColumns.map((column) => (
+                        <button
+                          key={column.label}
+                          type="button"
+                          role="columnheader"
+                          className="w11-details__column"
+                          disabled={!column.sort}
+                          aria-sort={column.sort === sortKey ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                          onClick={() => {
+                            if (!column.sort) return;
+                            setSort(window.id, column.sort, column.sort === sortKey && sortDirection === "asc" ? "desc" : "asc");
+                          }}
+                        >
+                          <span>{column.label}</span>
+                          {column.sort === sortKey ? (sortDirection === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />) : null}
+                        </button>
+                      ))}
+                    </div>
+                    {filteredChildren.map((node) => (
+                      <ExplorerListItem
+                        key={node.path}
+                        node={node}
+                        windowId={window.id}
+                        selected={selectedSet.has(node.path)}
+                        renaming={renamingPath === node.path}
+                        cut={cutPaths.has(node.path)}
+                        dragSource={dragSourcePaths.has(node.path)}
+                        recycleBin={isRecycleBinRoot}
+                        {...itemHandlers}
+                      />
                     ))}
                   </div>
-                  {filteredChildren.map((node) => (
-                    <ExplorerListItem
-                      key={node.path}
-                      node={node}
-                      selected={selectedSet.has(node.path)}
-                      renaming={renamingPath === node.path}
-                      dropTarget={dropTargetPath === node.path}
-                      cut={cutPaths.has(node.path)}
-                      recycleBin={isRecycleBinRoot}
-                      {...itemHandlers}
-                    />
-                  ))}
-                </div>
-              )
-            ) : children.length === 0 ? (
-              <EmptyState
-                className="explorer-window__empty"
-                title={isRecycleBinRoot ? "The Recycle Bin is empty" : "This folder is empty."}
-                description={isRecycleBinRoot ? "Deleted files and folders appear here until you empty it." : "Right-click to create a new folder or text document, or drag files in."}
-              />
-            ) : (
-              <EmptyState
-                className="explorer-window__empty"
-                title={`No items match "${deferredSearchQuery.trim()}"`}
-                description="Try another search or clear the filter to see everything in this folder."
-              />
-            )}
+                )
+              ) : children.length === 0 ? (
+                <EmptyState
+                  className="explorer-window__empty"
+                  title={isRecycleBinRoot ? "The Recycle Bin is empty" : "This folder is empty."}
+                  description={isRecycleBinRoot ? "Deleted files and folders appear here until you empty it." : "Right-click to create a new folder or text document, or drag files in."}
+                />
+              ) : (
+                <EmptyState
+                  className="explorer-window__empty"
+                  title={`No items match "${deferredSearchQuery.trim()}"`}
+                  description="Try another search or clear the filter to see everything in this folder."
+                />
+              )}
+
+              {marquee.rect ? (
+                <div
+                  className="explorer-window__marquee"
+                  aria-hidden="true"
+                  style={{ left: marquee.rect.left, top: marquee.rect.top, width: marquee.rect.width, height: marquee.rect.height }}
+                />
+              ) : null}
+            </div>
           </ScrollArea>
         </section>
       </AppContent>
@@ -1585,4 +1074,3 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     </AppScaffold>
   );
 }
-

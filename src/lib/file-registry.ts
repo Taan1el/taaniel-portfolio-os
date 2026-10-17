@@ -352,6 +352,15 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     label: "ZIP archive",
     capabilities: ["open"],
   },
+  ".lnk": {
+    extension: ".lnk",
+    // Shortcuts open their target (see launchers.ts); this is only the fallback.
+    openWith: "files",
+    mimeType: "application/x-shortcut",
+    family: "other",
+    label: "Shortcut",
+    capabilities: ["open"],
+  },
   ".img": {
     extension: ".img",
     openWith: "v86",

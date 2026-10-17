@@ -13,7 +13,7 @@ vi.mock("@/lib/system-workspace", async (importOriginal) => {
   return { ...actual, ensureSystemWorkspace: (nodes: FileSystemRecord) => nodes };
 });
 
-import { useFileSystemStore } from "@/stores/filesystem-store";
+import { subscribeFileSystemMoves, useFileSystemStore } from "@/stores/filesystem-store";
 
 const dir = (path: string, name: string): VirtualDirectory => ({
   kind: "directory",
@@ -122,12 +122,21 @@ describe("filesystem-store", () => {
     });
 
     it("moves a directory and its descendants to /Trash (soft-delete)", async () => {
-      await useFileSystemStore.getState().deleteNode("/Documents");
-      // /Documents is no longer a child of /
+      // /Documents is a protected system folder, so use a folder of the visitor's own.
+      useFileSystemStore.setState({
+        nodes: {
+          ...useFileSystemStore.getState().nodes,
+          "/Work": dir("/Work", "Work"),
+          "/Work/plan.txt": txt("/Work/plan.txt", "plan.txt", "ship it"),
+        },
+      });
+      await useFileSystemStore.getState().deleteNode("/Work");
+      // /Work is no longer a child of /
       const rootChildren = useFileSystemStore.getState().listDirectory("/");
-      expect(rootChildren.every((c) => c.name !== "Documents")).toBe(true);
-      // The directory now exists under /Trash
+      expect(rootChildren.every((c) => c.name !== "Work")).toBe(true);
+      // The directory and its contents now exist under /Trash
       expect(useFileSystemStore.getState().listDirectory("/Trash")).toHaveLength(1);
+      expect(useFileSystemStore.getState().readFile("/Trash/Work/plan.txt")?.content).toBe("ship it");
     });
 
     it("permanently deletes a file already inside /Trash", async () => {
@@ -201,5 +210,66 @@ describe("filesystem-store", () => {
     it("returns true for normal writable content", () => {
       expect(useFileSystemStore.getState().canCutNode("/Documents/notes.txt")).toBe(true);
     });
+  });
+});
+
+describe("move events", () => {
+  const heard: Array<Array<{ from: string; to: string }>> = [];
+  let stop = () => {};
+
+  beforeEach(() => {
+    heard.length = 0;
+    stop = subscribeFileSystemMoves((moves) => heard.push(moves));
+  });
+
+  afterEach(() => stop());
+
+  it("announces a rename with the old and new path, before the listing changes", async () => {
+    let listedWhenHeard: string[] = [];
+    stop();
+    stop = subscribeFileSystemMoves(() => {
+      listedWhenHeard = useFileSystemStore.getState().listDirectory("/Documents").map((node) => node.name);
+    });
+
+    await useFileSystemStore.getState().rename("/Documents/notes.txt", "todo.txt");
+
+    expect(listedWhenHeard).toEqual(["notes.txt"]);
+    expect(useFileSystemStore.getState().readFile("/Documents/todo.txt")).not.toBeNull();
+  });
+
+  it("reports where a renamed item ended up", async () => {
+    await useFileSystemStore.getState().rename("/Documents/notes.txt", "todo.txt");
+
+    expect(heard).toEqual([[{ from: "/Documents/notes.txt", to: "/Documents/todo.txt" }]]);
+  });
+
+  it("reports every item of a batch move, and nothing for a copy", async () => {
+    useFileSystemStore.setState({
+      nodes: { ...SEED, "/Documents/b.txt": txt("/Documents/b.txt", "b.txt"), "/Media": dir("/Media", "Media") },
+      initialized: true,
+    });
+
+    await useFileSystemStore.getState().transferNodes(["/Documents/notes.txt", "/Documents/b.txt"], "/Media", "copy");
+    expect(heard).toEqual([]);
+
+    // Start again without the copies, so the moved items keep their names.
+    useFileSystemStore.setState({
+      nodes: { ...SEED, "/Documents/b.txt": txt("/Documents/b.txt", "b.txt"), "/Media": dir("/Media", "Media") },
+      initialized: true,
+    });
+    await useFileSystemStore.getState().transferNodes(["/Documents/notes.txt", "/Documents/b.txt"], "/Media", "move");
+    expect(heard).toEqual([
+      [
+        { from: "/Documents/notes.txt", to: "/Media/notes.txt" },
+        { from: "/Documents/b.txt", to: "/Media/b.txt" },
+      ],
+    ]);
+  });
+
+  it("stays quiet when nothing moved", async () => {
+    await useFileSystemStore.getState().rename("/Documents/notes.txt", "notes.txt");
+    await useFileSystemStore.getState().transferNodes(["/Documents/notes.txt"], "/Documents", "move");
+
+    expect(heard).toEqual([]);
   });
 });

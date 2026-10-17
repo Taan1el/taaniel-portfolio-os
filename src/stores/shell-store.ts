@@ -3,8 +3,14 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { themePresets } from "@/data/portfolio";
 import { defaultDesktopWallpaper } from "@/data/wallpapers";
 import { getAppDefinition } from "@/lib/app-registry";
+import { remapLegacyDesktopIconIds } from "@/data/desktop-seed";
 import { getSafeLocalStorage } from "@/lib/safe-storage";
-import { reconcileDesktopGridPositions, resolveDesktopGridPlacement } from "@/lib/desktop-grid";
+import {
+  areDesktopPositionsEqual,
+  reconcileDesktopGridPositions,
+  resolveDesktopGroupPlacement,
+  sanitizeDesktopGridPositions,
+} from "@/lib/desktop-grid";
 import {
   SHELL_STORAGE_KEY,
   getLegacyShellSeed,
@@ -49,8 +55,71 @@ export function migrateThemeId(value: unknown, version: number) {
   return version < 5 && themeId === "windows-bloom" ? themePresets[0].id : themeId;
 }
 
+const WALLPAPER_MODES = new Set<DesktopWallpaperState["mode"]>(["theme", "image", "gradient", "animated"]);
+
+/** A saved wallpaper choice, or undefined when what was stored isn't one. */
+export function sanitizeWallpaper(value: unknown): DesktopWallpaperState | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const { mode, imageSource, presetId } = value as Partial<DesktopWallpaperState>;
+
+  if (!mode || !WALLPAPER_MODES.has(mode)) {
+    return undefined;
+  }
+
+  return {
+    mode,
+    imageSource: typeof imageSource === "string" ? imageSource : null,
+    presetId: typeof presetId === "string" ? presetId : null,
+  };
+}
+
+interface PersistedShellState {
+  themeId?: string;
+  wallpaper?: DesktopWallpaperState;
+  customWallpaperSource?: string | null;
+  desktopIconPositions?: Record<string, DesktopGridPosition>;
+  pinnedAppIds?: AppId[];
+}
+
+/**
+ * Bring saved shell state up to the current version. Version 6 keys desktop
+ * icons by the file they show ("desktop-node:/Desktop/About.lnk") instead of
+ * a fixed list, so older positions are re-keyed rather than lost.
+ */
+export function migrateShellState(persistedState: unknown, version: number) {
+  const state = persistedState as PersistedShellState | undefined;
+  const savedPositions = sanitizeDesktopGridPositions(state?.desktopIconPositions);
+
+  return {
+    themeId: migrateThemeId(state?.themeId, version),
+    wallpaper:
+      sanitizeWallpaper(state?.wallpaper) ??
+      (state?.customWallpaperSource
+        ? {
+            mode: "image" as const,
+            imageSource: state.customWallpaperSource,
+            presetId: null,
+          }
+        : defaultDesktopWallpaper),
+    desktopIconPositions: savedPositions
+      ? version < 6
+        ? remapLegacyDesktopIconIds(savedPositions)
+        : savedPositions
+      : initialIconPositions,
+    pinnedAppIds: sanitizePinnedAppIds(state?.pinnedAppIds),
+  };
+}
+
 interface ShellStoreState {
+  /** The icon with the focus ring, and the anchor for Shift+click. */
   selectedIconId: string | null;
+  /** Every selected icon on the desktop. */
+  selectedIconIds: string[];
+  /** The icon being renamed in place, if any. */
+  renamingIconId: string | null;
   startMenuOpen: boolean;
   pinnedAppIds: AppId[];
   pinApp: (appId: AppId) => void;
@@ -76,6 +145,9 @@ interface ShellStoreState {
   setQuickSettingsOpen: (open: boolean) => void;
   toggleQuickSettings: () => void;
   setSelectedIconId: (iconId: string | null) => void;
+  /** Select several icons; the active one (focus ring, Shift anchor) defaults to the last. */
+  setSelectedIconIds: (iconIds: string[], activeId?: string | null) => void;
+  setRenamingIconId: (iconId: string | null) => void;
   setContextMenu: (contextMenu: ContextMenuState | null) => void;
   setOpenWithTarget: (target: { filePath: string; node: VirtualNode } | null) => void;
   setClipboard: (clipboard: ClipboardState | null) => void;
@@ -91,6 +163,15 @@ interface ShellStoreState {
     position: DesktopGridPosition,
     metrics: { columns: number; rows: number }
   ) => void;
+  /** Move icons together: `anchorId` lands on `position` and the others keep their offset from it. */
+  moveDesktopIcons: (
+    anchorId: string,
+    iconIds: string[],
+    position: DesktopGridPosition,
+    metrics: { columns: number; rows: number }
+  ) => void;
+  /** Put icons on exact cells, such as files dropped onto the desktop. */
+  placeDesktopIcons: (placements: Record<string, DesktopGridPosition>) => void;
   reconcileDesktopIconPositions: (
     entries: DesktopEntry[],
     metrics: { columns: number; rows: number }
@@ -115,6 +196,8 @@ const legacyShellSeed = getLegacyShellSeed();
 
 const initialShellState = {
   selectedIconId: null,
+  selectedIconIds: [] as string[],
+  renamingIconId: null,
   startMenuOpen: false,
   pinnedAppIds: DEFAULT_PINNED_APPS,
   startMenuSearchFocusNonce: 0,
@@ -161,7 +244,18 @@ export const useShellStore = create<ShellStoreState>()(
         ),
       unpinApp: (appId) =>
         set((state) => ({ pinnedAppIds: state.pinnedAppIds.filter((id) => id !== appId) })),
-      setSelectedIconId: (selectedIconId) => set({ selectedIconId }),
+      setSelectedIconId: (selectedIconId) =>
+        set({ selectedIconId, selectedIconIds: selectedIconId ? [selectedIconId] : [], renamingIconId: null }),
+      setSelectedIconIds: (iconIds, activeId) => {
+        const selectedIconIds = Array.from(new Set(iconIds));
+
+        set({
+          selectedIconIds,
+          selectedIconId: activeId !== undefined ? activeId : (selectedIconIds.at(-1) ?? null),
+          renamingIconId: null,
+        });
+      },
+      setRenamingIconId: (renamingIconId) => set({ renamingIconId }),
       setContextMenu: (contextMenu) => set({ contextMenu }),
       setOpenWithTarget: (openWithTarget) => set({ openWithTarget }),
       setClipboard: (clipboard) => set({ clipboard }),
@@ -195,23 +289,24 @@ export const useShellStore = create<ShellStoreState>()(
               }
             : defaultDesktopWallpaper,
         }),
-      moveDesktopIcon: (iconId, position, metrics) =>
+      moveDesktopIcon: (iconId, position, metrics) => get().moveDesktopIcons(iconId, [iconId], position, metrics),
+      moveDesktopIcons: (anchorId, iconIds, position, metrics) =>
         set((state) => ({
-          desktopIconPositions: resolveDesktopGridPlacement(
+          desktopIconPositions: resolveDesktopGroupPlacement(
             state.desktopIconPositions,
-            iconId,
+            iconIds,
+            anchorId,
             position,
-            metrics
-          ).positions,
-        })),
-      reconcileDesktopIconPositions: (entries, metrics) =>
-        set((state) => ({
-          desktopIconPositions: reconcileDesktopGridPositions(
-            entries,
-            state.desktopIconPositions,
             metrics
           ),
         })),
+      placeDesktopIcons: (placements) =>
+        set((state) => ({ desktopIconPositions: { ...state.desktopIconPositions, ...placements } })),
+      reconcileDesktopIconPositions: (entries, metrics) =>
+        set((state) => {
+          const desktopIconPositions = reconcileDesktopGridPositions(entries, state.desktopIconPositions, metrics);
+          return areDesktopPositionsEqual(desktopIconPositions, state.desktopIconPositions) ? state : { desktopIconPositions };
+        }),
       syncRuntimeState: ({ viewportMode, focusedWindowId, focusedProcessId }) => {
         const current = get();
 
@@ -249,32 +344,20 @@ export const useShellStore = create<ShellStoreState>()(
     }),
     {
       name: SHELL_STORAGE_KEY,
-      version: 5,
+      version: 6,
       storage: createJSONStorage(getSafeLocalStorage),
-      migrate: (persistedState, version) => {
-        const state = persistedState as
-          | {
-              themeId?: string;
-              wallpaper?: DesktopWallpaperState;
-              customWallpaperSource?: string | null;
-              desktopIconPositions?: Record<string, DesktopGridPosition>;
-              pinnedAppIds?: AppId[];
-            }
-          | undefined;
+      migrate: migrateShellState,
+      // Whatever was saved is checked on every load, not only when the version changes.
+      merge: (persistedState, currentState) => {
+        const state = persistedState as PersistedShellState | undefined;
 
         return {
-          themeId: migrateThemeId(state?.themeId, version),
-          wallpaper:
-            state?.wallpaper ??
-            (state?.customWallpaperSource
-              ? {
-                  mode: "image" as const,
-                  imageSource: state.customWallpaperSource,
-                  presetId: null,
-                }
-              : defaultDesktopWallpaper),
-          desktopIconPositions: state?.desktopIconPositions ?? initialIconPositions,
-          pinnedAppIds: sanitizePinnedAppIds(state?.pinnedAppIds),
+          ...currentState,
+          themeId: state?.themeId === undefined ? currentState.themeId : sanitizeThemeId(state.themeId),
+          wallpaper: sanitizeWallpaper(state?.wallpaper) ?? currentState.wallpaper,
+          desktopIconPositions:
+            sanitizeDesktopGridPositions(state?.desktopIconPositions) ?? currentState.desktopIconPositions,
+          pinnedAppIds: state?.pinnedAppIds === undefined ? currentState.pinnedAppIds : sanitizePinnedAppIds(state.pinnedAppIds),
         };
       },
       partialize: (state) => ({

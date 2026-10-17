@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { createPortal } from "react-dom";
 import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
+import { windowDropProps } from "@/lib/dnd/dom";
 import { cn } from "@/lib/utils";
 import type { AppWindow } from "@/types/system";
 import wfStyles from "@/components/shell/window-frame.module.css";
@@ -169,6 +170,8 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         <motion.section
           ref={ref}
           data-window-preview-id={window.id}
+          // A file dragged onto the window opens in it (or moves into the folder an Explorer window shows).
+          {...windowDropProps(window.id, window.appId)}
           role="dialog"
           aria-labelledby={`window-title-${window.id}`}
           aria-modal="false"
