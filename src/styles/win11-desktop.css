@@ -153,6 +153,22 @@
   pointer-events: none;
 }
 
+/*
+ * The file area is a column so its scroll area takes the height that is left
+ * and scrolls; as a block the scroll area grew to fit every item and the
+ * window clipped what did not fit. The items sit in a box at least as tall as
+ * the view, so a rubber band can start on the empty part below them.
+ */
+.explorer-window__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.explorer-window__content > .explorer-window__scroll-area {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 .explorer-window__items {
   position: relative;
   min-height: 100%;
