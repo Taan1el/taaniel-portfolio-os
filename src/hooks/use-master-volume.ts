@@ -5,8 +5,9 @@ import { attachMediaVolume, type MediaVolumeController } from "@/lib/master-volu
  * Plays an <audio> or <video> through the master volume from Quick Settings.
  *
  * `localVolume` is the app's own 0-1 slider (omit it for a player that only has
- * native controls). `resetKey` changes whenever a different element is
- * rendered, such as a new track, so the volume is applied to the new one.
+ * native controls, whose own mute and level are kept and scaled by the master).
+ * `resetKey` changes whenever a different element is rendered, such as a new
+ * track, so the volume is applied to the new one.
  */
 export function useMasterVolume(
   ref: RefObject<HTMLMediaElement | null>,

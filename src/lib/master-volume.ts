@@ -27,38 +27,95 @@ export interface MediaVolumeController {
   detach: () => void;
 }
 
-type VolumeTarget = Pick<HTMLMediaElement, "volume" | "muted">;
+type VolumeTarget = Pick<HTMLMediaElement, "volume" | "muted"> &
+  Partial<Pick<HTMLMediaElement, "addEventListener" | "removeEventListener">>;
+
+/** Browsers store the volume as a double, but allow for a little drift when comparing it. */
+const VOLUME_EPSILON = 1e-6;
 
 /**
  * Keeps an <audio> or <video> at the master volume. `getLocalVolume` is the
- * app's own slider (1 for players that only have native controls). The element
- * follows every master change, and between changes a native control may still
- * move it, which acts as that player's own level on top of the master.
+ * app's own slider (1 for players that only have native controls).
+ *
+ * The element also has a state of its own: whatever its native controls set,
+ * which is a mute and a level on top of the app's slider and the master. That
+ * is tracked from `volumechange` events the controller did not cause, so a
+ * master change scales the player's own level and never clears its own mute.
+ * A master mute still wins, since nothing can play through it.
  */
 export function attachMediaVolume(
   element: VolumeTarget,
   getLocalVolume: () => number = () => 1
 ): MediaVolumeController {
+  let master: { volume: number; muted: boolean } | null = null;
   let applied: { volume: number; muted: boolean } | null = null;
+  let applying = false;
+  let ownMuted = element.muted;
+  let ownLevel = 1;
+
+  const write = (volume: number, muted: boolean) => {
+    // jsdom dispatches volumechange synchronously, browsers queue it; this covers the first,
+    // and comparing against `applied` covers the second.
+    applying = true;
+    try {
+      element.volume = volume;
+      element.muted = muted;
+    } finally {
+      applying = false;
+    }
+  };
 
   const apply = (force: boolean) => {
     const { volume, muted } = getSystemSettings();
 
-    if (!force && applied && applied.volume === volume && applied.muted === muted) {
+    if (!force && master && master.volume === volume && master.muted === muted) {
       return;
     }
 
-    applied = { volume, muted };
-    element.volume = scaleVolume(getLocalVolume(), volume, false);
-    element.muted = muted;
+    master = { volume, muted };
+    applied = {
+      volume: scaleVolume(getLocalVolume() * ownLevel, volume, false),
+      muted: muted || ownMuted,
+    };
+    write(applied.volume, applied.muted);
+  };
+
+  const handleVolumeChange = () => {
+    if (applying || !applied || !master) {
+      return;
+    }
+
+    const levelMoved = Math.abs(element.volume - applied.volume) > VOLUME_EPSILON;
+    const muteMoved = element.muted !== applied.muted;
+
+    if (!levelMoved && !muteMoved) {
+      return;
+    }
+
+    if (levelMoved) {
+      const scale = getLocalVolume() * getMasterGain(master.volume, false);
+      ownLevel = scale > 0 ? clampUnit(element.volume / scale) : clampUnit(element.volume);
+    }
+
+    if (muteMoved) {
+      ownMuted = element.muted;
+    }
+
+    apply(true);
   };
 
   apply(true);
   const unsubscribe = useSystemSettingsStore.subscribe(() => apply(false));
+  element.addEventListener?.("volumechange", handleVolumeChange);
 
   return {
     sync: () => apply(true),
-    detach: unsubscribe,
+    detach: () => {
+      unsubscribe();
+      element.removeEventListener?.("volumechange", handleVolumeChange);
+      // Hand the element back at its own level, so attaching again starts from that and not the master's.
+      write(clampUnit(getLocalVolume() * ownLevel), ownMuted);
+    },
   };
 }
 
