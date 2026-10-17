@@ -2074,6 +2074,38 @@ const getUptime: CommandFn = (args, _stdin, ctx, name) => {
 
 const getHost: CommandFn = () => emitItems([hostObject()]);
 
+/**
+ * Invoke-Expression runs text as a command line through this same interpreter, one
+ * level deeper, never through JavaScript. The script depth limit stops `iex` from
+ * calling itself for ever.
+ */
+const invokeExpression: CommandFn = async (args, stdin, ctx, name) => {
+  if (ctx.depth >= MAX_SCRIPT_DEPTH) return fail(ctx, name, "The script failed due to call depth overflow.");
+  const parsed = parseArgs(args, { params: ["Command"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+
+  const typed = (parsed.params.Command !== undefined ? [parsed.params.Command, ...parsed.positional] : parsed.positional).join(" ");
+  const sources = typed.trim() ? [typed] : (stdin ?? []).filter((line) => line.trim() !== "");
+  if (!sources.length) return fail(ctx, name, "Cannot bind argument to parameter 'Command' because it is an empty string.");
+
+  const out: string[] = [];
+  let okay = true;
+  for (const source of sources) {
+    checkInterrupt(ctx);
+    // eslint-disable-next-line no-await-in-loop
+    const result = await runShellCommand(source, ctx.session, ctx.fs, ctx.host, ctx.depth + 1);
+    if (result.interrupted) throw new InterruptedError("The command was interrupted.");
+    if (result.clear) {
+      ctx.clear = true;
+      out.length = 0;
+    }
+    out.push(...result.lines);
+    ctx.actions.push(...result.actions);
+    okay &&= result.success;
+  }
+  return { out, ok: okay };
+};
+
 const whoami: CommandFn = () => ok([`${SHELL_HOST.toLowerCase()}\\${SHELL_USER.toLowerCase()}`]);
 const hostname: CommandFn = () => ok([SHELL_HOST]);
 
@@ -2870,6 +2902,7 @@ const EXTRA_COMMANDS: Record<string, CommandSpec> = {
   "Join-Path": { aliases: [], synopsis: "Join folder and file names into one path: Join-Path $HOME Documents.", syntax: "Join-Path [-Path] <string> [-ChildPath] <string> [[-AdditionalChildPath] <string[]>] [-Resolve]", run: joinPathCmd },
   "Split-Path": { aliases: [], synopsis: "Take a path apart: -Parent (the default), -Leaf, -LeafBase, -Extension, -Qualifier.", syntax: "Split-Path [-Path] <string[]> [-Parent] [-Leaf] [-LeafBase] [-Extension] [-Qualifier] [-NoQualifier] [-IsAbsolute]", run: splitPathCmd },
   "Resolve-Path": { aliases: ["rvpa"], synopsis: "Turn a relative path or wildcard into full paths: Resolve-Path ..\\*.", syntax: "Resolve-Path [-Path] <string[]> [-Relative]", run: resolvePathCmd },
+  "Invoke-Expression": { aliases: ["iex"], synopsis: "Run text as a command: iex 'Get-Date' (it goes through this shell, never through JavaScript).", syntax: "Invoke-Expression [-Command] <string>", run: invokeExpression },
   "New-Guid": { aliases: [], synopsis: "Make a new random GUID: $id = New-Guid.", syntax: "New-Guid [-Empty]", run: newGuid },
   "Get-Uptime": { aliases: [], synopsis: "How long this desktop session has been running.", syntax: "Get-Uptime [-Since]", run: getUptime },
   "Get-Host": { aliases: [], synopsis: "Show the shell host: its name, version and culture.", syntax: "Get-Host", run: getHost },

@@ -296,6 +296,57 @@ describe("New-Guid, Get-Uptime and Get-Host", () => {
   });
 });
 
+describe("Invoke-Expression", () => {
+  it("runs text through the shell, expressions included", async () => {
+    expect((await run("iex 'echo hi'")).text).toBe("hi");
+    expect((await run("Invoke-Expression '1 + 1'")).text).toBe("2");
+    expect((await run("iex 'echo a; echo b'")).lines).toEqual(["a", "b"]);
+    expect((await run("iex echo bare words")).lines).toEqual(["bare", "words"]);
+  });
+
+  it("runs each piped string, and lets what it ran change the session", async () => {
+    expect((await run("echo 'echo one' 'echo two' | iex")).lines).toEqual(["one", "two"]);
+    await run("iex 'cd ..'");
+    expect(session.cwd).toBe("/");
+  });
+
+  it("hands its output to the next stage and to variables", async () => {
+    expect((await run(`iex "echo 'alpha beta'" | sls beta`)).text).toContain("alpha beta");
+    await run("$x = iex 'echo captured'");
+    expect((await run("$x")).text).toBe("captured");
+  });
+
+  it("reports what the text did wrong, and succeeds or fails with it", async () => {
+    const bad = await run("iex 'Get-Content nope.txt'");
+    expect(bad.success).toBe(false);
+    expect(bad.text).toContain("Cannot find path");
+    expect((await run("iex 'echo fine'")).success).toBe(true);
+    const empty = await run("iex ''");
+    expect(empty.success).toBe(false);
+    expect(empty.text).toContain("empty string");
+  });
+
+  it("never runs JavaScript", async () => {
+    await run("iex '(globalThis.pwned = 2)'");
+    await run("iex 'globalThis.pwned = 3'");
+    expect((globalThis as { pwned?: number }).pwned).toBeUndefined();
+  });
+
+  it("stops at the script depth limit when it calls itself", async () => {
+    await run("$s = 'iex $s'");
+    const result = await run("iex $s");
+    expect(result.success).toBe(false);
+    expect(result.text).toContain("call depth overflow");
+  });
+
+  it("stops when Ctrl+C is pressed", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const result = await run("iex 'echo never'", { signal: controller.signal });
+    expect(result.interrupted).toBe(true);
+  });
+});
+
 describe("ConvertTo-Json and ConvertFrom-Json", () => {
   it("writes piped objects as JSON", async () => {
     const { text } = await run("ls ~ | select Name, PSIsContainer -First 1 | ConvertTo-Json");
