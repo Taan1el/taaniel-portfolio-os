@@ -186,6 +186,7 @@ export function DesktopManager({
         items,
         origin: "desktop",
         grab: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+        contextTarget: event.currentTarget,
         onStart: () => {
           dragged = true;
         },

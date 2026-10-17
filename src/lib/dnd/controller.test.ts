@@ -91,6 +91,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cancelFileDrag();
+  // Let timers that undo something (the brief context-menu swallow) run, so one test never leaks into the next.
+  vi.runOnlyPendingTimers();
   restoreEnvironment();
   document.body.innerHTML = "";
   vi.useRealTimers();
@@ -212,6 +214,13 @@ describe("right-button drags", () => {
 
     expect(listener).not.toHaveBeenCalled();
     window.removeEventListener("contextmenu", listener);
+
+    // The swallow lifts itself after a moment; let it, so later tests hear context menus again.
+    vi.advanceTimersByTime(300);
+    const later = vi.fn();
+    document.body.addEventListener("contextmenu", later);
+    document.body.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    expect(later).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -228,6 +237,46 @@ describe("touch drags", () => {
     pointer("pointermove", { pointerType: "touch", clientX: 60, clientY: 60 });
     pointer("pointerup", { pointerType: "touch", clientX: 60, clientY: 60, buttons: 0 });
     expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", expect.anything());
+  });
+
+  it("open the context menu when held and lifted without moving", () => {
+    const item = zone({});
+    const heard = vi.fn();
+    item.addEventListener("contextmenu", heard);
+    underPointer = [zone(folderDropProps("/Documents"))];
+
+    armFileDrag({
+      event: { clientX: 10, clientY: 10, pointerId: 1, pointerType: "touch", button: 0, ctrlKey: false, shiftKey: false, altKey: false },
+      items: [{ id: "/Desktop/todo.txt", path: "/Desktop/todo.txt" }],
+      origin: "explorer",
+      contextTarget: item,
+    });
+    vi.advanceTimersByTime(TOUCH_HOLD_MS + 10);
+    pointer("pointerup", { pointerType: "touch", clientX: 12, clientY: 11, buttons: 0 });
+
+    expect(heard).toHaveBeenCalledTimes(1);
+    expect(env.transfer).not.toHaveBeenCalled();
+    expect(isFileDragActive()).toBe(false);
+  });
+
+  it("do not open it after a real drag", () => {
+    const item = zone({});
+    const heard = vi.fn();
+    item.addEventListener("contextmenu", heard);
+    underPointer = [zone(folderDropProps("/Documents"))];
+
+    armFileDrag({
+      event: { clientX: 10, clientY: 10, pointerId: 1, pointerType: "touch", button: 0, ctrlKey: false, shiftKey: false, altKey: false },
+      items: [{ id: "/Desktop/todo.txt", path: "/Desktop/todo.txt" }],
+      origin: "explorer",
+      contextTarget: item,
+    });
+    vi.advanceTimersByTime(TOUCH_HOLD_MS + 10);
+    pointer("pointermove", { pointerType: "touch", clientX: 90, clientY: 90 });
+    pointer("pointerup", { pointerType: "touch", clientX: 90, clientY: 90, buttons: 0 });
+
+    expect(heard).not.toHaveBeenCalled();
+    expect(env.transfer).toHaveBeenCalled();
   });
 
   it("leave scrolling alone when the finger moves first", () => {

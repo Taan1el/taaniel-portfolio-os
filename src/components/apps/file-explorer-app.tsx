@@ -521,6 +521,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       items: dragPaths.map((path) => ({ id: path, path })),
       origin: "explorer",
       originWindowId: window.id,
+      contextTarget: event.currentTarget as Element,
       onStart: () => {
         dragged = true;
       },
