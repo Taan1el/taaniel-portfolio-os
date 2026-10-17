@@ -4,7 +4,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import type { TerminalAppearance } from "@/lib/terminal-appearance";
 import type { ShellEngine } from "@/lib/terminal-engines";
-import { loadHistory, recordHistory, saveHistory } from "@/lib/terminal-history";
+import { appendHistory, loadHistory } from "@/lib/terminal-history";
 import { classifyTerminalKey, FOCUS_ESCAPE_HINT, type ScrollTarget, type TerminalCommand } from "@/lib/terminal-keys";
 import {
   deleteBackward,
@@ -450,6 +450,7 @@ export class TerminalSession {
     const controller = new AbortController();
     this.abort = controller;
     let interrupted = false;
+    const hadHistory = this.shell.history.length > 0;
 
     try {
       const host: ShellHost = { ...this.options.host, signal: controller.signal };
@@ -468,9 +469,12 @@ export class TerminalSession {
     }
 
     this.abort = null;
-    // Recorded after running, so Get-History excludes the command that is executing.
-    recordHistory(this.shell.history, input);
-    saveHistory(this.options.engine.historyKey, this.shell.history);
+    // Recorded after running, so Get-History excludes the command that is executing. It is added to what
+    // is stored now (other tabs may have saved commands meanwhile), and this tab then takes up the result.
+    // A command that emptied the list (Clear-History) starts the saved one over.
+    const cleared = hadHistory && this.shell.history.length === 0;
+    const saved = appendHistory(this.options.engine.historyKey, input, this.shell.history, cleared);
+    this.shell.history.splice(0, this.shell.history.length, ...saved);
     this.walk = startHistoryWalk(this.shell.history);
     this.busy = false;
     if (this.disposed) return;

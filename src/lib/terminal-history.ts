@@ -39,3 +39,19 @@ export function recordHistory(history: string[], input: string) {
 export function saveHistory(key: string, history: string[]) {
   writeLocalStorage(key, JSON.stringify(history));
 }
+
+/**
+ * Save one finished command on top of what is stored now, not on top of what this
+ * tab remembers: tabs share the saved list, and a command that ends in a background
+ * tab must not erase what the others saved meanwhile. Returns the saved list.
+ *
+ * `reset` starts the saved list over (Clear-History). When storage is empty or
+ * unavailable the tab's own list stands in for it, so history still works without storage.
+ */
+export function appendHistory(key: string, input: string, memory: string[] = [], reset = false): string[] {
+  const stored = reset ? [] : loadHistory(key);
+  const merged = reset || stored.length ? stored : memory.filter((entry) => !CONTROL_CHARACTERS.test(entry));
+  recordHistory(merged, input);
+  saveHistory(key, merged);
+  return merged;
+}

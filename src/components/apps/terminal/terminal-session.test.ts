@@ -136,6 +136,26 @@ describe("a PowerShell tab", () => {
     expect(window.localStorage.getItem("taaniel-os-terminal-history-cmd")).toBeNull();
   });
 
+  it("saves history on top of what other tabs saved while a command was running", async () => {
+    const first = create();
+    const second = create();
+    first.terminal.input("Start-Sleep -Milliseconds 150\r", true);
+    await vi.waitFor(() => expect(first.isBusy()).toBe(true));
+    await type(second, "echo from second\r");
+    await vi.waitFor(() => expect(first.isBusy()).toBe(false), { timeout: 3000 });
+    const stored = JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history") ?? "[]");
+    expect(stored).toEqual(["echo from second", "Start-Sleep -Milliseconds 150"]);
+    // The tab that was waiting takes up the merged list, so the up arrow finds the other tab's command too.
+    expect(first.shell.history).toEqual(stored);
+  });
+
+  it("lets Clear-History empty the saved list as well", async () => {
+    const session = create();
+    await type(session, "echo a\r");
+    await type(session, "Clear-History\r");
+    expect(JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history") ?? "[]")).toEqual(["Clear-History"]);
+  });
+
   it("completes a command with Tab", async () => {
     const session = create();
     const text = await type(session, "Get-Chil\t");

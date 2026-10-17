@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
-import { HISTORY_LIMIT, loadHistory, parseHistory, recordHistory, saveHistory } from "@/lib/terminal-history";
+import { appendHistory, HISTORY_LIMIT, loadHistory, parseHistory, recordHistory, saveHistory } from "@/lib/terminal-history";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -37,6 +37,34 @@ describe("terminal history", () => {
     expect(long).toHaveLength(HISTORY_LIMIT);
     expect(long.at(-1)).toBe("newest");
     expect(long[0]).toBe("c1");
+  });
+
+  it("appends to what is stored, so a tab's old list cannot erase what other tabs saved", () => {
+    saveHistory("shared", ["ls", "pwd"]);
+    // A background tab that only remembers "old" finishes a command after the others saved theirs.
+    const saved = appendHistory("shared", "Start-Sleep 30", ["old"]);
+    expect(saved).toEqual(["ls", "pwd", "Start-Sleep 30"]);
+    expect(loadHistory("shared")).toEqual(["ls", "pwd", "Start-Sleep 30"]);
+  });
+
+  it("does not repeat the last saved command, and keeps to the limit", () => {
+    saveHistory("shared", ["same"]);
+    expect(appendHistory("shared", "same")).toEqual(["same"]);
+    saveHistory("shared", Array.from({ length: HISTORY_LIMIT }, (_, index) => `c${index}`));
+    const saved = appendHistory("shared", "newest");
+    expect(saved).toHaveLength(HISTORY_LIMIT);
+    expect(saved.at(-1)).toBe("newest");
+  });
+
+  it("falls back to the tab's own list when nothing can be read from storage", () => {
+    expect(appendHistory("empty", "two", ["one"])).toEqual(["one", "two"]);
+    expect(loadHistory("empty")).toEqual(["one", "two"]);
+  });
+
+  it("starts the saved list over after Clear-History", () => {
+    saveHistory("shared", ["a", "b", "c"]);
+    expect(appendHistory("shared", "Clear-History", [], true)).toEqual(["Clear-History"]);
+    expect(loadHistory("shared")).toEqual(["Clear-History"]);
   });
 
   it("saves and loads through localStorage", () => {
