@@ -347,9 +347,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
         openTab(action.profile ?? useTerminalSettingsStore.getState().defaultProfile, from);
       } else if (action.type === "set-title") {
         setTabsState((state) => renameTab(state, tabId, action.title));
-      } else {
+      } else if (action.type === "launch-app") {
         launchApp({ appId: action.appId, payload: action.payload, title: action.title });
       }
+      // set-colors and reset-colors are the screen's own business: the tab's session applies them.
     },
     [closeTabById, launchApp, openTab]
   );

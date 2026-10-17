@@ -411,6 +411,72 @@ describe("links", () => {
   });
 });
 
+describe("a Command Prompt tab's own prompt and colours", () => {
+  it("draws a prompt of several lines, and edits the input on the last one", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "prompt $P$_$G$S\r");
+    let text = await screen(session);
+    expect(text.split("\n").slice(-2)).toEqual(["C:\\Users\\Taaniel\\Documents", ">"]);
+
+    // The cursor maths use the last line only: a character inserted in the middle lands where it should.
+    text = await type(session, "echo abc", "\x1b[D", "\x1b[D", "X");
+    expect(text.split("\n").slice(-2)).toEqual(["C:\\Users\\Taaniel\\Documents", "> echo aXbc"]);
+
+    text = await type(session, "\r");
+    expect(text.split("\n").slice(-3)).toEqual(["aXbc", "C:\\Users\\Taaniel\\Documents", ">"]);
+  });
+
+  it("puts the earlier lines of the prompt back after the screen is cleared", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "prompt $P$_$G$S\r");
+    await type(session, "echo hello\r");
+    const text = await type(session, "\x0c");
+    expect(text).not.toContain("hello");
+    expect(text.split("\n").slice(-2)).toEqual(["C:\\Users\\Taaniel\\Documents", ">"]);
+  });
+
+  it("measures a coloured prompt without its colour codes", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "prompt $E[32m$P$E[0m$G\r");
+    const text = await type(session, "echo ab", "\x1b[D", "X");
+    expect(text.split("\n").at(-1)).toBe("C:\\Users\\Taaniel\\Documents>echo aXb");
+  });
+
+  it("recolours the screen for COLOR, and brings the scheme back for COLOR alone", async () => {
+    const session = create({ engine: "cmd" });
+    const scheme = buildAppearance(DEFAULT_TERMINAL_SETTINGS, false).theme;
+    const container = session.terminal.element?.parentElement as HTMLElement;
+
+    // Light green on black: ANSI 10 on ANSI 0.
+    await type(session, "color 0a\r");
+    expect(session.terminal.options.theme?.foreground).toBe(scheme.brightGreen);
+    expect(session.terminal.options.theme?.background).toBe(scheme.black);
+    expect(container.style.background).not.toBe("");
+    // Nothing of this goes to the app: the screen applies it itself.
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+
+    await type(session, "color\r");
+    expect(session.terminal.options.theme?.foreground).toBe(scheme.foreground);
+    expect(session.terminal.options.theme?.background).toBe(scheme.background);
+  });
+
+  it("keeps the chosen colours when the colour scheme changes, taking them from the new palette", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "color 0a\r");
+    const light = buildAppearance({ ...DEFAULT_TERMINAL_SETTINGS, schemeId: "one-half-light" }, false);
+    session.setAppearance(light);
+    expect(session.terminal.options.theme?.foreground).toBe(light.theme.brightGreen);
+    expect(session.terminal.options.theme?.background).toBe(light.theme.black);
+  });
+
+  it("recolours only its own tab", async () => {
+    const first = create({ engine: "cmd" });
+    const second = create({ engine: "cmd" });
+    await type(first, "color 1f\r");
+    expect(first.terminal.options.theme?.background).not.toBe(second.terminal.options.theme?.background);
+  });
+});
+
 describe("find", () => {
   it("highlights matches and reports how many there were", async () => {
     const session = create();

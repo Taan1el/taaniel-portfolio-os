@@ -23,6 +23,7 @@ import {
   type ShellSession,
   type TerminalAction,
 } from "@/lib/terminal-shell";
+import { DEFAULT_PROMPT_TEMPLATE, expandPromptTemplate, sanitizePromptTemplate } from "@/lib/terminal-prompt";
 import { childrenOf, findChild, PROFILE_ROOT, resolveShellPath, SHELL_HOST, SHELL_USER, toWindowsPath } from "@/lib/windows-path";
 import type { FileSystemRecord, VirtualNode } from "@/types/system";
 
@@ -52,8 +53,25 @@ const OK = 0;
 const FAILED = 1;
 const NOT_RECOGNIZED = 9009;
 
-export function formatCmdPrompt(cwd: string) {
-  return `${toDisplayPath(cwd)}>`;
+/** The template PROMPT set for this tab (as `set PROMPT=...` does), or the default $P$G. */
+function promptTemplateOf(session: ShellSession) {
+  const stored = own(session.variables, "prompt");
+  return typeof stored === "string" ? stored : DEFAULT_PROMPT_TEMPLATE;
+}
+
+/** The prompt for a folder: the PROMPT template expanded, `C:\Users\Taaniel>` by default. */
+export function formatCmdPrompt(cwd: string, template: string = DEFAULT_PROMPT_TEMPLATE, now: Date = new Date()) {
+  return expandPromptTemplate(template, {
+    path: toDisplayPath(cwd),
+    date: dateStamp(now),
+    time: timeStamp(now),
+    version: `Taaniel OS [Version ${CMD_VERSION}]`,
+  });
+}
+
+/** What the engine prints before each line, from this tab's own PROMPT. */
+export function getCmdPrompt(session: ShellSession) {
+  return formatCmdPrompt(session.cwd, promptTemplateOf(session));
 }
 
 /** What a new Command Prompt tab prints first. */
@@ -101,6 +119,10 @@ const pad2 = (value: number) => String(value).padStart(2, "0");
 const dateText = (date: Date) => `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
 const timeText = (date: Date) => `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** %DATE% and $D: Fri 17/10/2026 */
+const dateStamp = (date: Date) => `${WEEKDAYS[date.getDay()]} ${dateText(date)}`;
+/** %TIME% and $T: 09:05:30.12 */
+const timeStamp = (date: Date) => `${timeText(date)}:${pad2(date.getSeconds())}.${pad2(Math.floor(date.getMilliseconds() / 10))}`;
 
 function randomNumber() {
   const buffer = new Uint16Array(1);
@@ -122,8 +144,8 @@ function builtinEnvironment(ctx: CmdCtx): Record<string, string> {
     TMP: `${PROFILE_ROOT}\\AppData\\Local\\Temp`,
     PROMPT: "$P$G",
     CD: toDisplayPath(ctx.session.cwd),
-    DATE: `${WEEKDAYS[now.getDay()]} ${dateText(now)}`,
-    TIME: `${timeText(now)}:${pad2(now.getSeconds())}.${pad2(Math.floor(now.getMilliseconds() / 10))}`,
+    DATE: dateStamp(now),
+    TIME: timeStamp(now),
     RANDOM: String(randomNumber()),
   };
 }
@@ -403,13 +425,107 @@ register(["hostname"], (_rest, ctx) => {
   return OK;
 });
 // Accepted so scripts written for the real thing carry on; they change nothing here.
-register(["rem", "setlocal", "endlocal", "prompt", "mode", "chcp"], () => OK);
+register(["rem", "setlocal", "endlocal", "mode", "chcp"], () => OK);
+
+const PROMPT_HELP = [
+  "Changes the cmd.exe command prompt.",
+  "",
+  "PROMPT [text]",
+  "",
+  "  text    Specifies a new command prompt. With no text, the prompt goes back to $P$G.",
+  "",
+  "Prompt can be made up of normal characters and the following special codes:",
+  "",
+  "  $A   & (Ampersand)",
+  "  $B   | (pipe)",
+  "  $C   ( (Left parenthesis)",
+  "  $D   Current date",
+  "  $E   Escape code (use $E[32m for colour)",
+  "  $F   ) (Right parenthesis)",
+  "  $G   > (greater-than sign)",
+  "  $H   Backspace (erases previous character)",
+  "  $L   < (less-than sign)",
+  "  $N   Current drive",
+  "  $P   Current drive and path",
+  "  $Q   = (equal sign)",
+  "  $S     (space)",
+  "  $T   Current time",
+  "  $V   Version",
+  "  $_   Carriage return and linefeed",
+  "  $$   $ (dollar sign)",
+];
+
+register(["prompt"], (rest, ctx) => {
+  const text = rest.trim();
+  if (text === "/?") {
+    say(ctx, ...PROMPT_HELP);
+    return OK;
+  }
+  // No text puts the default back; anything else is kept (cleaned and capped) for this tab, as PROMPT does.
+  if (!text) delete ctx.session.variables.prompt;
+  else ctx.session.variables.prompt = sanitizePromptTemplate(text);
+  return OK;
+});
 register(["pause"], (_rest, ctx) => {
   say(ctx, "Press any key to continue . . .");
   return OK;
 });
-register(["color"], (_rest, ctx) => {
-  say(ctx, "Colours come from the terminal's colour scheme here. Press Ctrl+, to change it.");
+const COLOR_HELP = [
+  "Sets the default console foreground and background colors.",
+  "",
+  "COLOR [attr]",
+  "",
+  "  attr        Specifies color attribute of console output",
+  "",
+  "Color attributes are specified by TWO hex digits -- the first",
+  "corresponds to the background; the second the foreground.  Each digit",
+  "can be any of the following values:",
+  "",
+  "    0 = Black       8 = Gray",
+  "    1 = Blue        9 = Light Blue",
+  "    2 = Green       A = Light Green",
+  "    3 = Aqua        B = Light Aqua",
+  "    4 = Red         C = Light Red",
+  "    5 = Purple      D = Light Purple",
+  "    6 = Yellow      E = Light Yellow",
+  "    7 = White       F = Bright White",
+  "",
+  "If no argument is given, this command restores the color to what it was",
+  "before. One digit sets the foreground on a black background.",
+  "",
+  "The COLOR command sets ERRORLEVEL to 1 if an attempt is made to execute",
+  "the COLOR command with a foreground and background color that are the",
+  "same.",
+  "",
+  "Example: COLOR fc   produces light red on bright white",
+];
+
+/** cmd names its 16 colours 0-F in a different order from the ANSI palette: this is where each one is drawn. */
+const CMD_COLOR_TO_ANSI = [0, 4, 2, 6, 1, 5, 3, 7, 8, 12, 10, 14, 9, 13, 11, 15];
+
+register(["color"], (rest, ctx) => {
+  const text = rest.trim();
+  if (text === "/?") {
+    say(ctx, ...COLOR_HELP);
+    return OK;
+  }
+  if (!text) {
+    ctx.actions.push({ type: "reset-colors" });
+    return OK;
+  }
+  const match = /^([0-9a-f])([0-9a-f])?$/i.exec(text);
+  if (!match) {
+    say(ctx, ...COLOR_HELP);
+    return FAILED;
+  }
+  const [background, foreground] = match[2] ? [match[1], match[2]] : ["0", match[1]];
+  // The same colour for both would make the text vanish: cmd refuses and sets the errorlevel.
+  if (background.toLowerCase() === foreground.toLowerCase()) return FAILED;
+  ctx.actions.push({
+    type: "set-colors",
+    foreground: CMD_COLOR_TO_ANSI[parseInt(foreground, 16)],
+    background: CMD_COLOR_TO_ANSI[parseInt(background, 16)],
+  });
   return OK;
 });
 
@@ -979,6 +1095,7 @@ register(["ipconfig"], (_rest, ctx) => {
 const HELP: Record<string, string> = {
   cd: "Displays the name of or changes the current directory.",
   cls: "Clears the screen.",
+  color: "Sets the text and background colours: COLOR 0A. COLOR alone restores them.",
   copy: "Copies files to another location. Add /y to overwrite.",
   date: "Displays the date: DATE /T.",
   del: "Deletes files (they go to the Recycle Bin).",
@@ -994,6 +1111,7 @@ const HELP: Record<string, string> = {
   more: "Displays the contents of a file or piped output.",
   move: "Moves files or directories.",
   popd: "Returns to the directory saved by PUSHD.",
+  prompt: "Changes the command prompt: PROMPT $P$G. PROMPT /? lists the codes.",
   pushd: "Saves the current directory, then changes it.",
   ren: "Renames a file or directory.",
   rmdir: "Removes a directory. RMDIR /S /Q removes it and what it holds.",

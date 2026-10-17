@@ -2,7 +2,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
-import type { TerminalAppearance } from "@/lib/terminal-appearance";
+import { withColors, type ColorOverride, type TerminalAppearance } from "@/lib/terminal-appearance";
 import type { ShellEngine } from "@/lib/terminal-engines";
 import { appendHistory, loadHistory } from "@/lib/terminal-history";
 import { classifyTerminalKey, FOCUS_ESCAPE_HINT, type ScrollTarget, type TerminalCommand } from "@/lib/terminal-keys";
@@ -31,9 +31,11 @@ import {
 } from "@/lib/terminal-line";
 import { buildIncrementalRedraw } from "@/lib/terminal-line-render";
 import { safeLinkTarget } from "@/lib/terminal-links";
+import { splitPrompt } from "@/lib/terminal-prompt";
 import {
   createShellSession,
   sanitizeForTerminal,
+  stripAnsi,
   type ShellFileSystem,
   type ShellHost,
   type ShellSession,
@@ -117,6 +119,8 @@ export class TerminalSession {
   private started = false;
   private disposed = false;
   private appearance: TerminalAppearance;
+  /** Colours the shell chose for this tab (cmd's `color`); they outlast a change of colour scheme. */
+  private colors: ColorOverride | null = null;
   private lastZoomWheel = 0;
 
   constructor(options: TerminalSessionOptions) {
@@ -145,7 +149,7 @@ export class TerminalSession {
       minimumContrastRatio: options.appearance.minimumContrastRatio,
       screenReaderMode: options.appearance.screenReaderMode,
       scrollback: SCROLLBACK,
-      theme: options.appearance.theme,
+      theme: withColors(options.appearance.theme, this.colors),
     });
     this.searchAddon = new SearchAddon({ highlightLimit: 1000 });
   }
@@ -236,7 +240,7 @@ export class TerminalSession {
     const { terminal } = this;
     const previous = this.appearance;
     this.appearance = next;
-    terminal.options.theme = next.theme;
+    this.applyTheme();
     terminal.options.cursorStyle = next.cursorShape;
     terminal.options.cursorBlink = next.cursorBlink;
     terminal.options.screenReaderMode = next.screenReaderMode;
@@ -248,6 +252,20 @@ export class TerminalSession {
       this.refit();
     }
     this.applyLabel();
+  }
+
+  /** The theme in use: the scheme's, with the colours the shell chose for this tab on top. */
+  private applyTheme() {
+    const theme = withColors(this.appearance.theme, this.colors);
+    this.terminal.options.theme = theme;
+    // The padding around the text takes the background too, or a recoloured tab would sit in a frame of the old colour.
+    if (this.container) this.container.style.background = theme.background ?? "";
+  }
+
+  setColors(colors: ColorOverride | null) {
+    if (this.disposed) return;
+    this.colors = colors;
+    this.applyTheme();
   }
 
   setLabel(label: string) {
@@ -387,6 +405,15 @@ export class TerminalSession {
   }
 
   /**
+   * A prompt can take several lines (cmd's $_). Only the last one is repainted as the input changes: the
+   * lines above it are written once, when the prompt starts. Colour codes take no room, so the width is the text's.
+   */
+  private promptLayout() {
+    const { head, last } = splitPrompt(this.prompt());
+    return { head, last, width: stripAnsi(last).length };
+  }
+
+  /**
    * Repaint prompt + input in place, coloured like the shell colours it, with
    * the grey history prediction after the cursor. Wrap-safe: climbs to the
    * input's first row before redrawing.
@@ -404,8 +431,7 @@ export class TerminalSession {
     const { engine } = this.options;
     const { line, cursor } = this.state;
     const cols = this.terminal.cols;
-    const prompt = this.prompt();
-    const promptWidth = prompt.length;
+    const { last: prompt, width: promptWidth } = this.promptLayout();
     const prediction = showPrediction && !this.appearance.screenReaderMode && cursor === line.length ? engine.predict(line, this.shell.history) : "";
     const rowsUp = Math.floor((promptWidth + this.drawnCursor) / cols);
     let sequence = rowsUp > 0 ? `\x1b[${rowsUp}A` : "";
@@ -429,7 +455,7 @@ export class TerminalSession {
   private renderChanges() {
     const { line, cursor } = this.state;
     const sequence = buildIncrementalRedraw({
-      promptWidth: this.prompt().length,
+      promptWidth: this.promptLayout().width,
       cols: this.terminal.cols,
       previous: { line: this.drawnLine, cursor: this.drawnCursor },
       next: { line, cursor },
@@ -444,7 +470,14 @@ export class TerminalSession {
     this.state = { line: "", cursor: 0 };
     this.drawnCursor = 0;
     this.drawnLine = "";
-    this.terminal.write(this.prompt());
+    this.writePrompt();
+  }
+
+  /** The prompt in full: its earlier lines, then the line the input goes on. */
+  private writePrompt() {
+    const { head, last } = this.promptLayout();
+    if (head) this.terminal.write(head.replace(/\r?\n/g, "\r\n"));
+    this.terminal.write(last);
   }
 
   private writeLines(lines: string[]) {
@@ -499,7 +532,12 @@ export class TerminalSession {
       } else {
         if (result.clear) this.terminal.write(CLEAR_SCREEN);
         this.writeLines(result.lines);
-        result.actions.forEach((action) => this.options.callbacks.onAction(action));
+        result.actions.forEach((action) => {
+          // Colours are this screen's own business; everything else is for the app to carry out.
+          if (action.type === "set-colors") this.setColors({ foreground: action.foreground, background: action.background });
+          else if (action.type === "reset-colors") this.setColors(null);
+          else this.options.callbacks.onAction(action);
+        });
       }
     } catch (error) {
       if (this.disposed) return;
@@ -676,6 +714,8 @@ export class TerminalSession {
           this.terminal.write(CLEAR_SCREEN);
           this.drawnCursor = 0;
           this.drawnLine = "";
+          // The prompt's earlier lines go back on the cleared screen; the last one is repainted with the line.
+          this.terminal.write(this.promptLayout().head.replace(/\r?\n/g, "\r\n"));
           this.render(true, true);
           break;
         case "\t":

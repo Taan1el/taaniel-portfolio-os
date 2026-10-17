@@ -120,6 +120,10 @@ export type TerminalAction =
   | { type: "open-tab"; profile?: ShellProfileId; directoryPath?: string }
   /** Rename this tab (cmd's `title`). */
   | { type: "set-title"; title: string }
+  /** Recolour this tab's screen (cmd's `color`). Both are ANSI palette indices 0-15, read from the colour scheme in use. */
+  | { type: "set-colors"; foreground: number; background: number }
+  /** Back to the colour scheme's own colours (`color` with nothing after it). */
+  | { type: "reset-colors" }
   | { type: "exit" };
 
 /** The write surface the shell needs. The terminal app backs it with the filesystem store. */

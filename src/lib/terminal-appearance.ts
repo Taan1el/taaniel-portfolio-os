@@ -14,6 +14,41 @@ export interface TerminalAppearance {
   search: { match: string; active: string };
 }
 
+/** The 16 ANSI palette entries of a theme, in index order. */
+const ANSI_COLOR_KEYS = [
+  "black",
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "magenta",
+  "cyan",
+  "white",
+  "brightBlack",
+  "brightRed",
+  "brightGreen",
+  "brightYellow",
+  "brightBlue",
+  "brightMagenta",
+  "brightCyan",
+  "brightWhite",
+] as const;
+
+/** Colours a shell chose for its own tab (cmd's `color`), as ANSI palette indices. */
+export interface ColorOverride {
+  foreground: number;
+  background: number;
+}
+
+/** The theme with a tab's own text and background colours taken from the theme's palette. No override leaves it as it is. */
+export function withColors(theme: ITheme, override: ColorOverride | null): ITheme {
+  if (!override) return theme;
+  const pick = (index: number, fallback: string | undefined) => theme[ANSI_COLOR_KEYS[index]] ?? fallback;
+  const foreground = pick(override.foreground, theme.foreground);
+  // The caret has to stay visible against the new background.
+  return { ...theme, foreground, background: pick(override.background, theme.background), cursor: foreground };
+}
+
 /** WCAG AA for normal text. */
 export const AA_CONTRAST_RATIO = 4.5;
 

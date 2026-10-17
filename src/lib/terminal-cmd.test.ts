@@ -8,7 +8,7 @@ vi.mock("idb-keyval", () => ({
 
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace, TRASH_PATH } from "@/lib/system-workspace";
-import { completeCmdInput, formatCmdPrompt, getCmdBanner, highlightCmdInput, MAX_COMMAND_STEPS, runCmdCommand } from "@/lib/terminal-cmd";
+import { completeCmdInput, formatCmdPrompt, getCmdBanner, getCmdPrompt, highlightCmdInput, MAX_COMMAND_STEPS, runCmdCommand } from "@/lib/terminal-cmd";
 import { createShellSession, MAX_OUTPUT_LINES, stripAnsi, type ShellFileSystem, type ShellHost, type ShellSession } from "@/lib/terminal-shell";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 
@@ -50,6 +50,99 @@ describe("the prompt and the banner", () => {
     expect(text).toContain("Taaniel OS [Version");
     expect(text).not.toMatch(/Windows|Microsoft/);
     expect((await run("help")).text).not.toMatch(/Windows|Microsoft/);
+  });
+});
+
+describe("PROMPT", () => {
+  it("expands a template for the folder, in the shell's own prompt", async () => {
+    expect(getCmdPrompt(session)).toBe("C:\\Users\\Taaniel\\Desktop>");
+    expect((await run("prompt $P$_$G")).success).toBe(true);
+    expect(getCmdPrompt(session)).toBe("C:\\Users\\Taaniel\\Desktop\n>");
+    await run("prompt [$N]$S$G$S");
+    expect(getCmdPrompt(session)).toBe("[C] > ");
+    expect(formatCmdPrompt("/Documents", "$P$G")).toBe("C:\\Users\\Taaniel\\Documents>");
+  });
+
+  it("puts the default back when given nothing", async () => {
+    await run("prompt $G");
+    expect(getCmdPrompt(session)).toBe(">");
+    await run("prompt");
+    expect(getCmdPrompt(session)).toBe("C:\\Users\\Taaniel\\Desktop>");
+    expect((await run("echo %PROMPT%")).text).toBe("$P$G");
+  });
+
+  it("is the same thing as setting the PROMPT variable", async () => {
+    await run("set PROMPT=$T$G");
+    expect(getCmdPrompt(session)).toMatch(/^\d\d:\d\d:\d\d\.\d\d>$/);
+    expect((await run("echo %PROMPT%")).text).toBe("$T$G");
+    await run("prompt $G");
+    expect((await run("set PROMPT")).text).toContain("$G");
+  });
+
+  it("is kept for the tab, not shared with another one", async () => {
+    await run("prompt $G");
+    const other = createShellSession("/Desktop");
+    expect(getCmdPrompt(other)).toBe("C:\\Users\\Taaniel\\Desktop>");
+  });
+
+  it("cleans what it keeps: no escape sequences but colours, and a length cap", async () => {
+    await run("prompt $E[2J$E]0;pwned$G");
+    const cleaned = getCmdPrompt(session);
+    expect(cleaned).not.toContain("\x1b");
+    expect(cleaned).toBe("[2J]0;pwned>");
+    await run(`prompt ${"x".repeat(5000)}`);
+    expect(getCmdPrompt(session).length).toBeLessThanOrEqual(300);
+    expect(String(session.variables.prompt).length).toBeLessThanOrEqual(256);
+  });
+
+  it("lets a colour through, and turns it off again for what is typed", async () => {
+    await run("prompt $E[32m$P$E[0m$G");
+    expect(getCmdPrompt(session)).toBe("\x1b[32mC:\\Users\\Taaniel\\Desktop\x1b[0m>");
+    await run("prompt $E[31m$G");
+    expect(getCmdPrompt(session)).toBe("\x1b[31m>\x1b[0m");
+  });
+
+  it("explains itself with /? and in HELP, without the Windows or Microsoft name", async () => {
+    const help = await run("prompt /?");
+    expect(help.text).toContain("$P   Current drive and path");
+    expect(help.text).not.toMatch(/Windows|Microsoft/);
+    expect((await run("help prompt")).text).toContain("PROMPT");
+    expect((await run("help")).text).toMatch(/PROMPT\s+Changes the command prompt/);
+  });
+});
+
+describe("COLOR", () => {
+  it("asks for the foreground and background it was given, as palette colours", async () => {
+    // cmd: background first, then foreground. 0 black, A light green; ANSI 0 and 10.
+    expect((await run("color 0a")).actions).toEqual([{ type: "set-colors", foreground: 10, background: 0 }]);
+    // F bright white (15) behind C light red (9).
+    expect((await run("color FC")).actions).toEqual([{ type: "set-colors", foreground: 9, background: 15 }]);
+    // 1 is blue in cmd and ANSI 4; 6 is yellow in cmd and ANSI 3.
+    expect((await run("color 16")).actions).toEqual([{ type: "set-colors", foreground: 3, background: 4 }]);
+  });
+
+  it("takes a single digit as the foreground on black", async () => {
+    expect((await run("color a")).actions).toEqual([{ type: "set-colors", foreground: 10, background: 0 }]);
+  });
+
+  it("restores the scheme's colours when given nothing", async () => {
+    expect((await run("color")).actions).toEqual([{ type: "reset-colors" }]);
+  });
+
+  it("refuses a foreground the same as the background, as cmd does, and sets the errorlevel", async () => {
+    const result = await run("color 44");
+    expect(result.actions).toEqual([]);
+    expect(result.success).toBe(false);
+    expect((await run("echo %ERRORLEVEL%")).text).toBe("1");
+  });
+
+  it("explains itself for a bad argument or /?", async () => {
+    const bad = await run("color zz");
+    expect(bad.success).toBe(false);
+    expect(bad.actions).toEqual([]);
+    expect(bad.text).toContain("COLOR [attr]");
+    expect((await run("color /?")).text).toContain("0 = Black");
+    expect((await run("color /?")).text).not.toMatch(/Windows|Microsoft/);
   });
 });
 
