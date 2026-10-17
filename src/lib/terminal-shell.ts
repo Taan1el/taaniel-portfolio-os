@@ -19,7 +19,14 @@ import {
   type ShellValue,
 } from "@/lib/terminal-expression";
 import { TRASH_PATH } from "@/lib/system-workspace";
-import { READLINE_KEY_HANDLERS } from "@/lib/terminal-help";
+import {
+  ABOUT_TOPICS,
+  findAboutTopic,
+  HELP_EXAMPLES,
+  READLINE_KEY_HANDLERS,
+  syntaxParameters,
+  type AboutTopic,
+} from "@/lib/terminal-help";
 import { DEFAULT_JSON_DEPTH, itemsToJson, jsonToItems, MAX_JSON_DEPTH } from "@/lib/terminal-json";
 import { isAbsolutePath, joinPath, splitPath, type SplitPart } from "@/lib/terminal-paths";
 import { resolveLaunchProfile, type ShellProfileId } from "@/lib/terminal-profiles";
@@ -2991,16 +2998,78 @@ Object.entries(COMMANDS).forEach(([canonical, spec]) => {
   spec.aliases.forEach((alias) => COMMAND_LOOKUP.set(alias.toLowerCase(), canonical));
 });
 
-const getCommand: CommandFn = (args) => {
-  const filter = args[0] ? new RegExp(`^${args[0].replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`, "i") : null;
-  const names = Object.keys(COMMANDS)
-    .filter((name) => !filter || filter.test(name))
+/** Where the apps that launch from the prompt notionally live. A neutral place: this is the owner's own OS. */
+const APPLICATION_FOLDER = "C:\\Program Files\\Taaniel OS";
+const APPLICATION_VERSION = "11.0.0.0";
+const MODULE_NAME = "Taaniel.Shell";
+
+/** notepad.exe, calc.exe...: the names in EXECUTABLES that are programs rather than ms-settings: addresses. */
+function applicationNames() {
+  return Object.keys(EXECUTABLES)
+    .filter((entry) => !entry.includes(":"))
+    .map((entry) => `${entry}.exe`)
     .sort((a, b) => a.localeCompare(b));
+}
+
+const COMMAND_TYPES = ["alias", "cmdlet", "function", "application", "all"];
+
+const getCommand: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Name", "CommandType"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const pattern = parsed.params.Name ?? parsed.positional[0];
+  const type = (parsed.params.CommandType ?? "all").toLowerCase();
+  if (!COMMAND_TYPES.includes(type)) {
+    return fail(ctx, name, `Cannot bind parameter 'CommandType'. Cannot convert value "${parsed.params.CommandType}" to type "System.Management.Automation.CommandTypes". Specify one of: Alias, Cmdlet, Function, Application, All.`);
+  }
+  const wants = (kind: string) => type === "all" || type === kind;
+
+  // A name with no wildcard asks what that one name is, and gets Version and Source too.
+  if (pattern && !/[*?]/.test(pattern)) {
+    const key = pattern.toLowerCase();
+    const canonical = COMMAND_LOOKUP.get(key);
+    const application = applicationNames().find((entry) => entry.toLowerCase() === key || entry.toLowerCase() === `${key}.exe`);
+    const rows: Array<[string, string, string, string]> = [];
+
+    if (canonical && key !== canonical.toLowerCase()) {
+      if (wants("alias")) rows.push(["Alias", `${pattern} -> ${canonical}`, "", ""]);
+    } else if (canonical && (type === "all" || type === (canonical.includes("-") ? "cmdlet" : "function"))) {
+      rows.push([canonical.includes("-") ? "Cmdlet" : "Function", canonical, POWERSHELL_VERSION, MODULE_NAME]);
+    }
+    if (application && wants("application")) rows.push(["Application", application, APPLICATION_VERSION, `${APPLICATION_FOLDER}\\${application}`]);
+
+    if (!rows.length) {
+      return fail(
+        ctx,
+        name,
+        `The term '${pattern}' is not recognized as a name of a cmdlet, function, script file, or executable program.\nCheck the spelling of the name, or if a path was included, verify that the path is correct and try again.`
+      );
+    }
+    const nameWidth = Math.max(4, ...rows.map((row) => row[1].length)) + 2;
+    return ok([
+      "",
+      `${TABLE}${"CommandType".padEnd(16)}${"Name".padEnd(nameWidth)}${"Version".padEnd(12)}Source${RESET}`,
+      `${TABLE}${"-----------".padEnd(16)}${"----".padEnd(nameWidth)}${"-------".padEnd(12)}------${RESET}`,
+      ...rows.map((row) => `${row[0].padEnd(16)}${sanitizeForTerminal(row[1]).padEnd(nameWidth)}${row[2].padEnd(12)}${row[3]}`),
+      "",
+    ]);
+  }
+
+  const filter = pattern ? wildcardRegex(pattern) : null;
+  const rows = [
+    ...Object.keys(COMMANDS)
+      .filter((entry) => !filter || filter.test(entry))
+      .sort((a, b) => a.localeCompare(b))
+      .filter((entry) => wants(entry.includes("-") ? "cmdlet" : "function"))
+      .map((entry) => [entry.includes("-") ? "Cmdlet" : "Function", entry]),
+    ...(wants("application") ? applicationNames().filter((entry) => !filter || filter.test(entry)).map((entry) => ["Application", entry]) : []),
+  ];
+  // A wildcard that matches nothing prints nothing, as in PowerShell.
+  if (pattern && !rows.length) return ok();
   return ok([
     "",
     `${TABLE}${"CommandType".padEnd(16)}Name${RESET}`,
     `${TABLE}${"-----------".padEnd(16)}----${RESET}`,
-    ...names.map((name) => `${(name.includes("-") ? "Cmdlet" : "Function").padEnd(16)}${name}`),
+    ...rows.map(([kind, entry]) => `${kind.padEnd(16)}${entry}`),
     "",
   ]);
 };
@@ -3052,38 +3121,139 @@ const HELP_OVERVIEW = [
   "  .\\script.ps1     Run a script from this drive     echo 'Write-Host hi -ForegroundColor Cyan' > a.ps1",
   "  Write-Host       Coloured output                  Write-Host hi -ForegroundColor Green",
   "  Test-Path, gi    Check or inspect a path          Test-Path Documents",
+  "  &&, ||           Run the next command only after   mkdir Demo && cd Demo",
+  "                   success (&&) or failure (||)      Get-Content x.txt || echo none",
+  "  iex              Run text as a command             iex 'Get-Date'",
+  "  Join-Path, Split-Path, Resolve-Path               Join-Path $HOME Documents",
+  "  ConvertTo-Json, ConvertFrom-Json, New-Guid        ls | select Name | ConvertTo-Json",
   "",
   `${TABLE}Shell${RESET}`,
   "  cls, history, Get-Date, whoami, Get-Command, Get-Alias, help <command>, exit",
+  "  help <command> -Examples, <command> -?, help about_*   More help, and help topics",
   "  wt, pwsh, cmd    Open another tab here            wt -p cmd, cmd",
   "  Tab completes commands and paths. Up/Down recalls history. Ctrl+C cancels, Ctrl+L clears.",
   "  F6 moves focus out of the terminal (Tab and Esc belong to the shell). Ctrl+, opens settings.",
   "",
 ];
 
-const getHelp: CommandFn = (args, _stdin, ctx, name) => {
-  if (!args.length) return ok(HELP_OVERVIEW);
-  const canonical = COMMAND_LOOKUP.get(args[0].toLowerCase());
-  if (!canonical) return fail(ctx, name, `Get-Help could not find ${args[0]} in a help file in this session.`);
-  const spec = COMMANDS[canonical];
-  return ok([
+type HelpDetail = "default" | "examples" | "detailed" | "full";
+
+const heading = (title: string) => `${TABLE}${title}${RESET}`;
+
+function exampleLines(canonical: string): string[] {
+  const examples = own(HELP_EXAMPLES, canonical) ?? [];
+  if (!examples.length) return [`    There are no examples for ${canonical}.`, ""];
+  return examples.flatMap(([code, remarks], index) => [
+    `    ${`-------------------------- EXAMPLE ${index + 1} --------------------------`}`,
     "",
-    `${TABLE}NAME${RESET}`,
-    `    ${canonical}`,
+    `    PS C:\\> ${code}`,
     "",
-    `${TABLE}SYNOPSIS${RESET}`,
-    `    ${spec.synopsis}`,
-    "",
-    `${TABLE}SYNTAX${RESET}`,
-    `    ${spec.syntax}`,
-    ...(spec.aliases.length ? ["", `${TABLE}ALIASES${RESET}`, `    ${spec.aliases.join(", ")}`] : []),
+    `    ${remarks}`,
     "",
   ]);
+}
+
+function parameterLines(spec: CommandSpec): string[] {
+  const parameters = syntaxParameters(spec.syntax);
+  if (!parameters.length) return ["    This command has no named parameters.", ""];
+  return parameters.flatMap((parameter) => [`    -${parameter.name} ${parameter.type ? (parameter.type.startsWith("<") ? parameter.type : `<${parameter.type}>`) : "[<SwitchParameter>]"}`, ""]);
+}
+
+/** One command's help. The default view is the long-standing NAME, SYNOPSIS, SYNTAX and ALIASES. */
+function commandHelp(canonical: string, detail: HelpDetail): string[] {
+  const spec = COMMANDS[canonical];
+  const nameAndSynopsis = ["", heading("NAME"), `    ${canonical}`, "", heading("SYNOPSIS"), `    ${spec.synopsis}`, ""];
+  const syntax = [heading("SYNTAX"), `    ${spec.syntax}`];
+  const aliases = spec.aliases.length ? ["", heading("ALIASES"), `    ${spec.aliases.join(", ")}`] : [];
+
+  if (detail === "examples") return [...nameAndSynopsis, heading("EXAMPLES"), ...exampleLines(canonical)];
+  if (detail === "default") return [...nameAndSynopsis, ...syntax, ...aliases, ""];
+
+  return [
+    ...nameAndSynopsis,
+    ...syntax,
+    ...aliases,
+    "",
+    heading("PARAMETERS"),
+    ...parameterLines(spec),
+    heading("EXAMPLES"),
+    ...exampleLines(canonical),
+    ...(detail === "full"
+      ? [
+          heading("NOTES"),
+          "    Commands here work on the portfolio's own drive; nothing leaves your browser except",
+          "    the web requests you ask for. Output is text, and also live objects for the next",
+          "    command in a pipeline.",
+          "",
+        ]
+      : []),
+  ];
+}
+
+/** What `command -?` prints: the default help, and where to read more. */
+function helpForQuestionMark(canonical: string): string[] {
+  return [
+    ...commandHelp(canonical, "default"),
+    heading("REMARKS"),
+    `    To see the examples, type: "Get-Help ${canonical} -Examples".`,
+    `    For more information, type: "Get-Help ${canonical} -Detailed".`,
+    `    For technical information, type: "Get-Help ${canonical} -Full".`,
+    "",
+  ];
+}
+
+function topicHelp(topic: AboutTopic): string[] {
+  return [
+    "",
+    heading("TOPIC"),
+    `    ${topic.name}`,
+    "",
+    heading("SHORT DESCRIPTION"),
+    `    ${topic.synopsis}`,
+    "",
+    heading("LONG DESCRIPTION"),
+    ...topic.body.map((line) => (line ? `    ${line}` : "")),
+    "",
+  ];
+}
+
+const getHelp: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Examples", "Detailed", "Full", "Online", "ShowWindow"], params: ["Name"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const topic = parsed.params.Name ?? parsed.positional[0];
+  if (!topic) return ok(HELP_OVERVIEW);
+  if (parsed.switches.has("Online")) {
+    return fail(ctx, name, `Online help is not available in this terminal. Try: Get-Help ${topic} -Examples`);
+  }
+  const detail: HelpDetail = parsed.switches.has("Full") ? "full" : parsed.switches.has("Detailed") ? "detailed" : parsed.switches.has("Examples") ? "examples" : "default";
+  const notFound = () => fail(ctx, name, `Get-Help could not find ${topic} in a help file in this session.`);
+
+  const show = (matchName: string): Output => {
+    const aboutTopic = findAboutTopic(matchName);
+    return ok(aboutTopic ? topicHelp(aboutTopic) : commandHelp(matchName, detail));
+  };
+
+  if (/[*?]/.test(topic)) {
+    const pattern = wildcardRegex(topic);
+    const matches = [
+      ...Object.keys(COMMANDS).filter((entry) => pattern.test(entry)).map((entry) => ({ entry, category: entry.includes("-") ? "Cmdlet" : "Function", synopsis: COMMANDS[entry].synopsis })),
+      ...ABOUT_TOPICS.filter((entry) => pattern.test(entry.name)).map((entry) => ({ entry: entry.name, category: "HelpFile", synopsis: entry.synopsis })),
+    ].sort((a, b) => a.entry.localeCompare(b.entry));
+    if (!matches.length) return notFound();
+    if (matches.length === 1) return show(matches[0].entry);
+    const objects = matches.map((match) => createObject("HelpInfo", { Name: match.entry, Category: match.category, Synopsis: match.synopsis }, match.entry));
+    return { out: formatTableView(objects), ok: true, objects };
+  }
+
+  const aboutTopic = findAboutTopic(topic);
+  if (aboutTopic) return ok(topicHelp(aboutTopic));
+  const canonical = COMMAND_LOOKUP.get(topic.toLowerCase());
+  return canonical ? show(canonical) : notFound();
 };
 
-COMMANDS["Get-Command"] = { aliases: ["gcm"], synopsis: "List available commands.", syntax: "Get-Command [<name>]", run: getCommand };
+COMMANDS["Get-Command"] = { aliases: ["gcm"], synopsis: "List available commands.", syntax: "Get-Command [[-Name] <string>] [-CommandType Alias|Cmdlet|Function|Application|All]", run: getCommand };
 COMMANDS["Get-Alias"] = { aliases: ["gal", "alias"], synopsis: "List command aliases.", syntax: "Get-Alias", run: getAlias };
-COMMANDS["Get-Help"] = { aliases: ["help", "man"], synopsis: "Show help for the shell or a command.", syntax: "Get-Help [<command>]", run: getHelp };
+COMMANDS["Get-Help"] = { aliases: ["help", "man"], synopsis: "Show help for the shell or a command.", syntax: "Get-Help [[-Name] <string>] [-Examples] [-Detailed] [-Full]", run: getHelp };
 ["Get-Command", "Get-Alias", "Get-Help"].forEach((canonical) => {
   COMMAND_LOOKUP.set(canonical.toLowerCase(), canonical);
   COMMANDS[canonical].aliases.forEach((alias) => COMMAND_LOOKUP.set(alias.toLowerCase(), canonical));
@@ -3138,6 +3308,8 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx, quoted
   }
 
   const canonical = COMMAND_LOOKUP.get(key);
+  // `ls -?` asks for help, as `Get-Help ls` does.
+  if (canonical && args.length === 1 && args[0] === "-?") return ok(helpForQuestionMark(canonical));
   if (canonical) return COMMANDS[canonical].run(args, stdin, ctx, canonical);
 
   if (/^ms-settings:./.test(key)) return openSettingsUri(rawName, ctx);

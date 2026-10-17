@@ -347,6 +347,172 @@ describe("Invoke-Expression", () => {
   });
 });
 
+describe("Get-Help", () => {
+  const BRAND = /microsoft|\bwindows\b/i;
+
+  it("keeps the long-standing default view: NAME, SYNOPSIS, SYNTAX and ALIASES", async () => {
+    const { lines } = await run("Get-Help Get-Date");
+    expect(lines).toEqual(["", "NAME", "    Get-Date", "", "SYNOPSIS", "    Show the current date and time.", "", "SYNTAX", "    Get-Date", "", "ALIASES", "    date", ""]);
+    expect((await run("help ls")).text).toContain("ALIASES\n    ls, dir, gci");
+  });
+
+  it("shows examples for a command, by name or alias", async () => {
+    const { text } = await run("Get-Help ls -Examples");
+    expect(text).toContain("NAME\n    Get-ChildItem");
+    expect(text).toContain("-------------------------- EXAMPLE 1 --------------------------");
+    expect(text).toContain("PS C:\\> Get-ChildItem");
+    expect(text).toContain("Lists the files and folders in the current folder.");
+    expect(text).toContain("EXAMPLE 3");
+    expect(text).not.toContain("SYNTAX");
+    expect((await run("Get-Help -Name Get-Date -Examples")).text).toContain("PS C:\\> Get-Date");
+  });
+
+  it("adds PARAMETERS with -Detailed and NOTES with -Full", async () => {
+    const detailed = await run("help Get-ChildItem -Detailed");
+    expect(detailed.text).toContain("PARAMETERS");
+    expect(detailed.text).toContain("-Path <string>");
+    expect(detailed.text).toContain("-Recurse [<SwitchParameter>]");
+    expect(detailed.text).toContain("-Depth <uint>");
+    expect(detailed.text).toContain("EXAMPLES");
+    expect(detailed.text).not.toContain("NOTES");
+
+    const full = await run("help Get-ChildItem -Full");
+    expect(full.text).toContain("NOTES");
+    expect(full.text).toContain("PARAMETERS");
+  });
+
+  it("says so when a command has no named parameters", async () => {
+    expect((await run("Get-Help Get-Location -Detailed")).text).toContain("This command has no named parameters.");
+  });
+
+  it("lists matches for a wildcard as a table, and shows a single match in full", async () => {
+    const list = await run("Get-Help Get-*");
+    expect(list.lines.filter(Boolean)[0]).toMatch(/^Name\s+Category\s+Synopsis$/);
+    expect(list.text).toMatch(/Get-ChildItem\s+Cmdlet\s+List the items in a folder\./);
+    expect(list.text).toMatch(/Get-Uptime\s+Cmdlet/);
+
+    const single = await run("Get-Help Get-Dat*");
+    expect(single.text).toContain("NAME\n    Get-Date");
+    expect((await run("Get-Help Zzz*")).success).toBe(false);
+  });
+
+  it("reads about_ topics, and lists them", async () => {
+    const topic = await run("Get-Help about_Pipelines");
+    expect(topic.text).toContain("TOPIC\n    about_Pipelines");
+    expect(topic.text).toContain("SHORT DESCRIPTION");
+    expect(topic.text).toContain("LONG DESCRIPTION");
+    expect(topic.text).toContain("ls | where Length -gt 1kb");
+    expect((await run("help ABOUT_comparison_operators")).text).toContain("-like");
+
+    const list = await run("Get-Help about_*");
+    expect(list.text).toMatch(/about_Chain_Operators\s+HelpFile/);
+    expect(list.text).toMatch(/about_Terminal_Shortcuts\s+HelpFile/);
+    expect((await run("Get-Help about_Terminal_Shortcuts")).text).toContain("F6");
+  });
+
+  it("answers `command -?` with help and where to read more", async () => {
+    const { text, success } = await run("ls -?");
+    expect(success).toBe(true);
+    expect(text).toContain("NAME\n    Get-ChildItem");
+    expect(text).toContain("REMARKS");
+    expect(text).toContain('Get-Help Get-ChildItem -Examples');
+    expect((await run("Get-Date -?")).text).toContain("Show the current date and time.");
+    // A value that merely looks like the switch is not a request for help.
+    expect((await run("echo a -? b")).lines).toEqual(["a", "-?", "b"]);
+  });
+
+  it("explains an unknown name and online help", async () => {
+    const unknown = await run("Get-Help Nope-Cmdlet");
+    expect(unknown.success).toBe(false);
+    expect(unknown.text).toContain("Get-Help could not find Nope-Cmdlet in a help file in this session.");
+    const online = await run("Get-Help ls -Online");
+    expect(online.success).toBe(false);
+    expect(online.text).toContain("not available");
+    expect((await run("Get-Help ls -Bogus")).success).toBe(false);
+  });
+
+  it("has examples for every command, and each starts with a command this shell knows", async () => {
+    const listing = (await run("Get-Command -CommandType Cmdlet")).lines.concat((await run("Get-Command -CommandType Function")).lines);
+    const names = listing.map((line) => line.split(/\s+/)[1]).filter((word) => word && !/^(Name|----)$/.test(word));
+    expect(names.length).toBeGreaterThan(60);
+
+    for (const name of names) {
+      // eslint-disable-next-line no-await-in-loop
+      const { text } = await run(`Get-Help ${name} -Examples`);
+      expect(text, name).not.toContain("There are no examples");
+      for (const match of text.matchAll(/PS C:\\> (.+)/g)) {
+        for (const stage of match[1].split("|")) {
+          const word = stage.trim().split(/\s+/)[0];
+          // Quoted values, script blocks and variables head a stage as data, not as a command.
+          if (!word || /^['"{$(\d]/.test(word)) continue;
+          // eslint-disable-next-line no-await-in-loop
+          expect((await run(`Get-Command ${word}`)).success, `${name}: ${word}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("never names the Windows or Microsoft brand", async () => {
+    const listing = (await run("Get-Command -CommandType Cmdlet")).lines;
+    for (const line of listing) {
+      const name = line.split(/\s+/)[1];
+      if (!name || /^(Name|----)$/.test(name)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      expect((await run(`Get-Help ${name} -Full`)).text, name).not.toMatch(BRAND);
+    }
+    expect((await run("Get-Help about_*")).text).not.toMatch(BRAND);
+    expect((await run("ls -?")).text).not.toMatch(BRAND);
+  });
+});
+
+describe("Get-Command", () => {
+  const BRAND = /microsoft|\bwindows\b/i;
+
+  it("lists the commands, then the apps that start from the prompt", async () => {
+    const { lines, text } = await run("Get-Command");
+    expect(lines.filter(Boolean)[0]).toMatch(/^CommandType\s+Name$/);
+    expect(text).toMatch(/Cmdlet\s+Get-ChildItem/);
+    expect(text).toMatch(/Function\s+mkdir/);
+    expect(text).toMatch(/Application\s+notepad\.exe/);
+    expect(text).toMatch(/Application\s+calc\.exe/);
+    // The apps come after every command, and the ms-settings: address is no program.
+    expect(text.lastIndexOf("Cmdlet")).toBeLessThan(text.indexOf("Application"));
+    expect(text).not.toContain("ms-settings");
+  });
+
+  it("describes one name with its version and a neutral source", async () => {
+    const app = await run("Get-Command notepad");
+    expect(app.lines.filter(Boolean)[0]).toMatch(/^CommandType\s+Name\s+Version\s+Source$/);
+    expect(app.text).toMatch(/Application\s+notepad\.exe\s+11\.0\.0\.0\s+C:\\Program Files\\Taaniel OS\\notepad\.exe/);
+    expect(app.text).not.toMatch(BRAND);
+    expect((await run("gcm notepad.exe")).text).toContain("notepad.exe");
+
+    expect((await run("gcm Get-Date")).text).toMatch(/Cmdlet\s+Get-Date\s+7\.4\.5\s+Taaniel\.Shell/);
+    expect((await run("gcm ls")).text).toMatch(/Alias\s+ls -> Get-ChildItem/);
+  });
+
+  it("filters by wildcard and command type", async () => {
+    const gets = await run("Get-Command Get-*");
+    expect(gets.text).toMatch(/Cmdlet\s+Get-Date/);
+    expect(gets.text).not.toContain("Application");
+    expect(gets.text).not.toMatch(/Function\s+mkdir/);
+
+    const apps = await run("Get-Command -CommandType Application");
+    expect(apps.text).toMatch(/Application\s+wt\.exe/);
+    expect(apps.text).not.toContain("Cmdlet");
+
+    expect((await run("gcm *.exe")).text).toContain("notepad.exe");
+    expect((await run("gcm Zzz*")).lines).toEqual([]);
+  });
+
+  it("reports an unknown name, and a bad command type", async () => {
+    const unknown = await run("Get-Command nope");
+    expect(unknown.success).toBe(false);
+    expect(unknown.text).toContain("The term 'nope' is not recognized");
+    expect((await run("Get-Command -CommandType Nonsense")).success).toBe(false);
+  });
+});
+
 describe("Get-ChildItem -Depth", () => {
   const blocks = (text: string) => text.split("\n").filter((line) => line.includes("Directory:"));
 
