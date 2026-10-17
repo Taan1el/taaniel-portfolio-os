@@ -218,8 +218,12 @@ const registry: Record<AppId, AppDefinition> = {
     defaultPosition: { x: 214, y: 126 },
     defaultSize: { width: 820, height: 520 },
     load: async () => ({ default: (await import("@/components/apps/terminal-app")).TerminalApp }),
+    // Windows Terminal's taskbar menu lists its profiles. Each opens a tab (the terminal is single-instance);
+    // the Linux profile hands off to Virtual x86.
     jumpList: [
-      { id: "new-terminal", label: "New Terminal" },
+      { id: "terminal-powershell", label: "PowerShell", payload: { profile: "pwsh" } },
+      { id: "terminal-cmd", label: "Command Prompt", payload: { profile: "cmd" } },
+      { id: "terminal-linux", label: "Linux (Virtual x86)", payload: { profile: "linux" } },
     ],
   }),
   editor: defineApp({
