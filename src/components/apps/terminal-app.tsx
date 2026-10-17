@@ -685,11 +685,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
         {settingsOpen ? <TerminalSettingsPanel reducedMotion={reducedMotion} onClose={closeSettings} /> : null}
 
-        {notice ? (
-          <div role="status" className="w11-terminal__notice">
-            {notice}
-          </div>
-        ) : null}
+        {/* Always in the page, so a screen reader is already watching it when a message arrives in it. */}
+        <div role="status" className="w11-terminal__notice">
+          {notice}
+        </div>
       </AppContent>
 
       {menu ? (

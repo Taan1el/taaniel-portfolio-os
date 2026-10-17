@@ -234,6 +234,16 @@ describe("the tab strip", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(1);
   });
 
+  it("keeps its message area in the page even when there is nothing to say, so a screen reader is already watching it", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const area = screen.getByRole("status");
+    expect(area.textContent).toBe("");
+    // The same element receives the message, rather than a new one appearing already filled in.
+    for (let index = 0; index < MAX_TABS + 1; index += 1) fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    expect(screen.getByRole("status")).toBe(area);
+    expect(area.textContent).toContain("tabs");
+  });
+
   it("stops at the tab limit and says so", () => {
     render(<TerminalApp window={terminalWindow()} />);
     for (let index = 0; index < MAX_TABS + 2; index += 1) fireEvent.click(screen.getByRole("button", { name: "New tab" }));
