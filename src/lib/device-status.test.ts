@@ -52,8 +52,11 @@ describe("network status", () => {
 
     expect(describeOfflineBanner("connected")).toBeNull();
     expect(describeOfflineBanner("no-internet")).toContain("Offline");
-    expect(describeOfflineBanner("wifi-off")).toContain("Wi-Fi is off");
-    expect(describeOfflineBanner("airplane")).toContain("Airplane mode");
+  });
+
+  it("keeps the offline banner for real outages, not the visitor's own switches", () => {
+    expect(describeOfflineBanner("wifi-off")).toBeNull();
+    expect(describeOfflineBanner("airplane")).toBeNull();
   });
 
   it("maps effective connection types to signal bars", () => {
