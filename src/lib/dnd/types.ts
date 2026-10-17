@@ -45,4 +45,5 @@ export type DropPlan =
   | { kind: "open-with"; appId: AppId; windowId?: string; paths: string[]; label: string }
   /** Move desktop icons to another grid cell. */
   | { kind: "reposition" }
-  | { kind: "none" };
+  /** Nothing happens. `quiet` marks a plain no-op (the item's own folder) as opposed to a refusal, which the ghost says out loud. */
+  | { kind: "none"; quiet?: boolean };

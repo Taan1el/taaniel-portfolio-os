@@ -526,7 +526,8 @@ function evaluate() {
       y: drag.y,
       grab: drag.options.grab ?? { x: 0, y: 0 },
       plan,
-      overZone: found !== null,
+      // A taskbar button never takes a drop, it only brings its window forward: not a place to be refused.
+      overZone: found !== null && zone?.kind !== "taskbar",
       hover: drag.hover,
     },
   });

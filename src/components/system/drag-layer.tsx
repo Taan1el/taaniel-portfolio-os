@@ -70,11 +70,16 @@ function buildDropMenu(destination: string, paths: string[], point: { x: number;
   ];
 }
 
+/** Over a place that turns the drop down (as opposed to open space, or the folder the items are already in). */
+function isRefused(session: DragSession) {
+  return session.plan.kind === "none" && !session.plan.quiet && session.overZone;
+}
+
 function OperationGlyph({ session }: { session: DragSession }) {
   const { plan } = session;
 
   if (plan.kind === "none") {
-    return session.overZone ? <Ban size={14} aria-hidden="true" /> : null;
+    return isRefused(session) ? <Ban size={14} aria-hidden="true" /> : null;
   }
 
   if (plan.kind === "open-with") return <ExternalLink size={14} aria-hidden="true" />;
@@ -93,7 +98,7 @@ function describeSession(session: DragSession) {
     case "choose":
       return session.plan.label;
     default:
-      return session.overZone ? "You can't drop these items here" : "";
+      return isRefused(session) ? "You can't drop these items here" : "";
   }
 }
 
@@ -103,7 +108,7 @@ function getDragEffect(session: DragSession | null) {
 
   const { plan } = session;
 
-  if (plan.kind === "none") return session.overZone ? "blocked" : undefined;
+  if (plan.kind === "none") return isRefused(session) ? "blocked" : undefined;
   if (plan.kind === "transfer" && plan.operation === "copy") return "copy";
   if (plan.kind === "transfer" && plan.operation === "link") return "link";
   return undefined;
@@ -120,7 +125,7 @@ function DragGhost({ session }: { session: DragSession }) {
       className="drag-ghost"
       data-dnd-ignore="true"
       data-pointer={session.pointerType}
-      data-blocked={session.plan.kind === "none" && session.overZone ? "true" : undefined}
+      data-blocked={isRefused(session) ? "true" : undefined}
       style={{ transform: `translate3d(${session.x}px, ${session.y}px, 0)` }}
     >
       <div className="drag-ghost__stack" aria-hidden="true">
