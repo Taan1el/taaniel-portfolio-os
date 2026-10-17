@@ -29,6 +29,7 @@ import {
   type LineState,
   type PasteReview,
 } from "@/lib/terminal-line";
+import { buildIncrementalRedraw } from "@/lib/terminal-line-render";
 import { safeLinkTarget } from "@/lib/terminal-links";
 import {
   createShellSession,
@@ -104,6 +105,10 @@ export class TerminalSession {
   private state: LineState = { line: "", cursor: 0 };
   /** Cursor offset within the input as it is currently drawn: needed to find the input's first row. */
   private drawnCursor = 0;
+  /** The input line as it is drawn, so screen reader mode can write only what changed. */
+  private drawnLine = "";
+  /** Columns at the last fit: a resize that changes nothing needs no repaint. */
+  private lastCols = 0;
   private walk: HistoryWalk;
   private busy = false;
   private queued = "";
@@ -235,6 +240,8 @@ export class TerminalSession {
     terminal.options.cursorBlink = next.cursorBlink;
     terminal.options.screenReaderMode = next.screenReaderMode;
     terminal.options.minimumContrastRatio = next.minimumContrastRatio;
+    // Switching screen reader mode changes how the line is drawn (no grey suggestion): draw it once in the new way.
+    if (next.screenReaderMode !== previous.screenReaderMode && this.started && !this.busy) this.render(true, true);
     if (next.fontSize !== previous.fontSize) {
       terminal.options.fontSize = next.fontSize;
       this.refit();
@@ -351,8 +358,11 @@ export class TerminalSession {
 
   private refit() {
     if (this.disposed || !this.fitNow()) return;
+    const resized = this.terminal.cols !== this.lastCols;
+    this.lastCols = this.terminal.cols;
     if (!this.started) this.start();
-    else if (!this.busy) this.render();
+    // A screen reader would read the whole prompt and line again for a repaint that changes nothing.
+    else if (!this.busy && (resized || !this.appearance.screenReaderMode)) this.render(true, true);
   }
 
   private applyLabel() {
@@ -362,6 +372,7 @@ export class TerminalSession {
   private start() {
     if (this.started || this.disposed || this.terminal.cols < MIN_COLUMNS) return;
     this.started = true;
+    this.lastCols = this.terminal.cols;
     this.options.engine.banner().forEach((line) => this.terminal.writeln(line));
     this.terminal.writeln(`\x1b[90m${FOCUS_ESCAPE_HINT}\x1b[0m`);
     this.terminal.writeln("");
@@ -378,15 +389,23 @@ export class TerminalSession {
    * Repaint prompt + input in place, coloured like the shell colours it, with
    * the grey history prediction after the cursor. Wrap-safe: climbs to the
    * input's first row before redrawing.
+   *
+   * In screen reader mode an edit writes only what changed (see terminal-line-render.ts),
+   * because a screen reader reads out whatever is printed. `full` asks for the whole
+   * repaint anyway: after the screen was cleared, resized, or the prompt printed again.
    */
-  private render(showPrediction = true) {
+  private render(showPrediction = true, full = false) {
     if (this.disposed) return;
+    if (this.appearance.screenReaderMode && !full) {
+      this.renderChanges();
+      return;
+    }
     const { engine } = this.options;
     const { line, cursor } = this.state;
     const cols = this.terminal.cols;
     const prompt = this.prompt();
     const promptWidth = prompt.length;
-    const prediction = showPrediction && cursor === line.length ? engine.predict(line, this.shell.history) : "";
+    const prediction = showPrediction && !this.appearance.screenReaderMode && cursor === line.length ? engine.predict(line, this.shell.history) : "";
     const rowsUp = Math.floor((promptWidth + this.drawnCursor) / cols);
     let sequence = rowsUp > 0 ? `\x1b[${rowsUp}A` : "";
     sequence += `\r\x1b[J${prompt}${engine.highlight(line)}${prediction ? `\x1b[90m${prediction}\x1b[0m` : ""}`;
@@ -402,11 +421,28 @@ export class TerminalSession {
 
     this.terminal.write(sequence);
     this.drawnCursor = cursor;
+    this.drawnLine = line;
+  }
+
+  /** Screen reader mode: write only the difference between what is drawn and the line now. */
+  private renderChanges() {
+    const { line, cursor } = this.state;
+    const sequence = buildIncrementalRedraw({
+      promptWidth: this.prompt().length,
+      cols: this.terminal.cols,
+      previous: { line: this.drawnLine, cursor: this.drawnCursor },
+      next: { line, cursor },
+      highlight: this.options.engine.highlight,
+    });
+    if (sequence) this.terminal.write(sequence);
+    this.drawnCursor = cursor;
+    this.drawnLine = line;
   }
 
   private newPrompt() {
     this.state = { line: "", cursor: 0 };
     this.drawnCursor = 0;
+    this.drawnLine = "";
     this.terminal.write(this.prompt());
   }
 
@@ -430,7 +466,8 @@ export class TerminalSession {
   /** Right arrow or End at the end of the line takes the grey prediction, as in PSReadLine. */
   private acceptPrediction() {
     const { line, cursor } = this.state;
-    const prediction = cursor === line.length ? this.options.engine.predict(line, this.shell.history) : "";
+    // Screen reader mode shows no grey suggestion, so there is nothing to accept.
+    const prediction = !this.appearance.screenReaderMode && cursor === line.length ? this.options.engine.predict(line, this.shell.history) : "";
     if (!prediction) return false;
     this.edit({ line: `${line}${prediction}`, cursor: line.length + prediction.length });
     return true;
@@ -513,7 +550,8 @@ export class TerminalSession {
     }
     this.state = { line, cursor };
     this.drawnCursor = 0;
-    this.render();
+    this.drawnLine = "";
+    this.render(true, true);
   }
 
   private showHistory(step: HistoryStep) {
@@ -636,7 +674,8 @@ export class TerminalSession {
         case "\x0c":
           this.terminal.write(CLEAR_SCREEN);
           this.drawnCursor = 0;
-          this.render();
+          this.drawnLine = "";
+          this.render(true, true);
           break;
         case "\t":
           this.complete();

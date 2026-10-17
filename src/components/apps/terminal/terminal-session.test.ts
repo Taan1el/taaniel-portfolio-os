@@ -28,7 +28,9 @@ const fileSystem: ShellFileSystem = {
 let sessions: TerminalSession[] = [];
 let callbacks: { [K in keyof TerminalSessionCallbacks]: ReturnType<typeof vi.fn> };
 
-function create(options: { engine?: "pwsh" | "cmd"; host?: ShellHost; behaviour?: { copyOnSelect: boolean; multiLinePasteWarning: boolean } } = {}) {
+function create(
+  options: { engine?: "pwsh" | "cmd"; host?: ShellHost; behaviour?: { copyOnSelect: boolean; multiLinePasteWarning: boolean }; screenReader?: boolean } = {}
+) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const session = new TerminalSession({
@@ -36,7 +38,7 @@ function create(options: { engine?: "pwsh" | "cmd"; host?: ShellHost; behaviour?
     startPath: "/Documents",
     fileSystem,
     host: options.host ?? {},
-    appearance: buildAppearance(DEFAULT_TERMINAL_SETTINGS, false),
+    appearance: buildAppearance({ ...DEFAULT_TERMINAL_SETTINGS, screenReaderMode: options.screenReader ?? false }, false),
     ariaLabel: "PowerShell terminal input",
     getBehaviour: () => options.behaviour ?? { copyOnSelect: false, multiLinePasteWarning: true },
     callbacks: callbacks as unknown as TerminalSessionCallbacks,
@@ -289,6 +291,93 @@ describe("a Command Prompt tab", () => {
     expect(text).toContain("hi there");
     expect(window.localStorage.getItem("taaniel-os-terminal-history-cmd")).toContain("echo hi there");
     expect(window.localStorage.getItem("taaniel-os-terminal-history")).toBeNull();
+  });
+});
+
+describe("screen reader mode", () => {
+  /** Everything written to the screen from now on, without colours. */
+  const watchWrites = (session: TerminalSession) => {
+    const write = vi.spyOn(session.terminal, "write");
+    return () => write.mock.calls.map((call) => String(call[0]).replace(/\x1b\[[0-9;]*m/g, ""));
+  };
+
+  it("writes only the typed character for a keystroke, not the prompt and the line again", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    const written = watchWrites(session);
+    session.terminal.input("l", true);
+    session.terminal.input("s", true);
+    expect(written()).toEqual(["l", "s"]);
+  });
+
+  it("erases a backspaced character with back, blank, back", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    session.terminal.input("lsx", true);
+    const written = watchWrites(session);
+    session.terminal.input("\x7f", true);
+    expect(written()).toEqual(["\b \b"]);
+    expect((await screen(session)).split("\n").at(-1)).toMatch(/> ls$/);
+  });
+
+  it("only moves the cursor for the arrow keys, and edits from the first changed column", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    session.terminal.input("echo hlo", true);
+    const written = watchWrites(session);
+    session.terminal.input("\x1b[D", true);
+    session.terminal.input("\x1b[D", true);
+    expect(written().filter((entry) => !/^\x1b\[\d+G$/.test(entry))).toEqual([]);
+    session.terminal.input("e", true);
+    session.terminal.input("l", true);
+    expect(written().join("")).not.toContain("PS ");
+    expect(written().join("")).not.toContain("echo");
+    expect((await screen(session)).split("\n").at(-1)).toMatch(/> echo hello$/);
+  });
+
+  it("repaints the prompt for every keystroke without it, as before", async () => {
+    const session = create();
+    await screen(session);
+    const written = watchWrites(session);
+    session.terminal.input("l", true);
+    expect(written().join("")).toContain("PS C:\\Users\\Taaniel\\Documents> l");
+  });
+
+  it("recalls history without writing the prompt, and runs the line as usual", async () => {
+    const session = create({ screenReader: true });
+    await type(session, "echo one\r");
+    const written = watchWrites(session);
+    session.terminal.input("\x1b[A", true);
+    expect(written().join("")).toContain("echo one");
+    expect(written().join("")).not.toContain("PS ");
+    expect(await type(session, "\r")).toMatch(/^one$/m);
+  });
+
+  it("shows no grey suggestion, so the right arrow has nothing to accept", async () => {
+    const session = create({ screenReader: true });
+    await type(session, "echo remembered\r");
+    session.terminal.input("echo rem", true);
+    session.terminal.input("\x1b[C", true);
+    expect((await screen(session)).split("\n").at(-1)).toMatch(/> echo rem$/);
+  });
+
+  it("does not repaint for a resize that changes no column", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    session.terminal.input("ls", true);
+    const written = watchWrites(session);
+    session.activate();
+    expect(written()).toEqual([]);
+  });
+
+  it("draws the line once more, plainly, when the mode is switched on", async () => {
+    const session = create();
+    await screen(session);
+    session.terminal.input("echo rem", true);
+    session.setAppearance(buildAppearance({ ...DEFAULT_TERMINAL_SETTINGS, screenReaderMode: true }, false));
+    session.terminal.input("x", true);
+    const text = (await screen(session)).split("\n").at(-1);
+    expect(text).toMatch(/> echo remx$/);
   });
 });
 
