@@ -10,6 +10,7 @@ import {
 import {
   completeShellInput,
   isExecutableName,
+  MAX_OUTPUT_LINES,
   processNumber,
   runShellCommand,
   sanitizeForTerminal,
@@ -41,6 +42,10 @@ const FREE_BYTES = 128_849_018_880;
 
 const MAX_LOOP_ITERATIONS = 1000;
 const MAX_LINE_LENGTH = 8191;
+/** Commands one line may run in total, loops inside loops included: a runaway cannot freeze the page. */
+export const MAX_COMMAND_STEPS = 10_000;
+/** Every this many steps the line lets the page breathe, which is when Ctrl+C can be heard. */
+const YIELD_EVERY_STEPS = 250;
 
 /** Errorlevels: 0 worked, 1 failed, 9009 is "not recognized". */
 const OK = 0;
@@ -70,6 +75,8 @@ interface CmdCtx {
   stdin: string[] | null;
   /** Whether `echo` with no text reports the command echo as on. */
   echo: boolean;
+  /** Commands run so far by this line, against MAX_COMMAND_STEPS. */
+  steps: number;
 }
 
 type Builtin = (rest: string, ctx: CmdCtx) => Promise<number> | number;
@@ -314,6 +321,22 @@ async function viaPowerShell(command: string, ctx: CmdCtx, quiet = false): Promi
 }
 
 class InterruptedCmd extends Error {}
+
+/** A line that ran too long or printed too much is stopped; what it printed so far is kept. */
+class LimitReached extends Error {}
+
+/**
+ * Counted before every command a line runs. Past the step budget, or past the output
+ * limit, the line stops. Every so often it waits a moment so the page can answer a
+ * Ctrl+C - without that the whole loop would run before anything could cancel it.
+ */
+async function tick(ctx: CmdCtx) {
+  ctx.steps += 1;
+  if (ctx.steps > MAX_COMMAND_STEPS) throw new LimitReached(`The command was stopped after ${MAX_COMMAND_STEPS} steps.`);
+  if (ctx.lines.length >= MAX_OUTPUT_LINES) throw new LimitReached(`Output stopped after ${MAX_OUTPUT_LINES} lines.`);
+  if (ctx.steps % YIELD_EVERY_STEPS === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  if (ctx.host.signal?.aborted) throw new InterruptedCmd();
+}
 
 /** Commands the PowerShell engine answers as cmd would. */
 const DELEGATED = new Set(["systeminfo", "ping", "curl", "tree"]);
@@ -1090,6 +1113,7 @@ register(["for"], async (rest, ctx) => {
 
 /** One command: a built-in, something the PowerShell engine answers, a script, a document, or nothing. */
 async function runSimple(text: string, stdin: string[] | null, ctx: CmdCtx): Promise<{ code: number; lines: string[] }> {
+  await tick(ctx);
   const { command, redirects } = extractRedirects(text.replace(/^\s*@/, ""));
   const firstWord = command.split(/\s+/)[0] ?? "";
   const before = ctx.lines.length;
@@ -1207,15 +1231,22 @@ export async function runCmdCommand(
   host: ShellHost = {},
   depth = 0
 ): Promise<ShellResult> {
-  const ctx: CmdCtx = { session, fs, host, depth, lines: [], actions: [], clear: false, stdin: null, echo: true };
+  const ctx: CmdCtx = { session, fs, host, depth, lines: [], actions: [], clear: false, stdin: null, echo: true, steps: 0 };
   const line = input.trim().slice(0, MAX_LINE_LENGTH);
+
+  // A single command (type on a huge file) can print more than the limit at once.
+  const capped = (lines: string[]) =>
+    lines.length <= MAX_OUTPUT_LINES ? lines : [...lines.slice(0, MAX_OUTPUT_LINES), `Output stopped after ${MAX_OUTPUT_LINES} lines.`];
 
   try {
     if (host.signal?.aborted) throw new InterruptedCmd();
     const code = line ? await executeLine(line, ctx) : OK;
-    return { lines: ctx.lines, clear: ctx.clear, actions: ctx.actions, success: code === OK };
+    return { lines: capped(ctx.lines), clear: ctx.clear, actions: ctx.actions, success: code === OK };
   } catch (error) {
     if (error instanceof InterruptedCmd) return { lines: [], clear: false, actions: [], success: false, interrupted: true };
+    if (error instanceof LimitReached) {
+      return { lines: [...capped(ctx.lines), error.message], clear: ctx.clear, actions: ctx.actions, success: false };
+    }
     throw error;
   }
 }

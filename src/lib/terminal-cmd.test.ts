@@ -8,8 +8,8 @@ vi.mock("idb-keyval", () => ({
 
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace, TRASH_PATH } from "@/lib/system-workspace";
-import { completeCmdInput, formatCmdPrompt, getCmdBanner, highlightCmdInput, runCmdCommand } from "@/lib/terminal-cmd";
-import { createShellSession, stripAnsi, type ShellFileSystem, type ShellHost, type ShellSession } from "@/lib/terminal-shell";
+import { completeCmdInput, formatCmdPrompt, getCmdBanner, highlightCmdInput, MAX_COMMAND_STEPS, runCmdCommand } from "@/lib/terminal-cmd";
+import { createShellSession, MAX_OUTPUT_LINES, stripAnsi, type ShellFileSystem, type ShellHost, type ShellSession } from "@/lib/terminal-shell";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 
 const fileSystem: ShellFileSystem = {
@@ -424,6 +424,60 @@ describe("the system", () => {
     const pending = run("powershell -c 1 & ping github.com", { signal: sleeping.signal, fetch: (() => new Promise(() => {})) as unknown as typeof fetch });
     sleeping.abort();
     expect((await pending).interrupted).toBe(true);
+  });
+});
+
+describe("loops cannot run away", () => {
+  it("still runs an ordinary loop to the end", async () => {
+    const { lines, success } = await run("for /l %a in (1,1,1000) do echo %a");
+    expect(success).toBe(true);
+    expect(lines).toHaveLength(1000);
+    expect(lines.at(-1)).toBe("1000");
+  });
+
+  it("stops nested loops after a fixed number of commands, keeping what they printed", async () => {
+    const started = Date.now();
+    const { lines, success, interrupted } = await run("for /l %a in (1,1,1000) do for /l %b in (1,1,1000) do echo x");
+    expect(interrupted).toBeUndefined();
+    expect(success).toBe(false);
+    expect(lines.at(-1)).toBe(`The command was stopped after ${MAX_COMMAND_STEPS} steps.`);
+    expect(lines.length).toBeGreaterThan(1000);
+    expect(lines.length).toBeLessThanOrEqual(MAX_COMMAND_STEPS + 1);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it("counts a loop three deep the same way, instead of running a billion commands", async () => {
+    const { text, success } = await run("for /l %a in (1,1,1000) do for /l %b in (1,1,1000) do for /l %c in (1,1,1000) do echo x");
+    expect(success).toBe(false);
+    expect(text).toContain("stopped after");
+  });
+
+  it("caps the output of a loop at the output limit", async () => {
+    await fileSystem.writeFile("/Desktop/big.txt", Array.from({ length: 1000 }, (_, index) => `line ${index}`).join("\n"));
+    const { lines, success } = await run("for /l %a in (1,1,100) do type big.txt");
+    expect(success).toBe(false);
+    expect(lines).toHaveLength(MAX_OUTPUT_LINES + 1);
+    expect(lines.at(-1)).toBe(`Output stopped after ${MAX_OUTPUT_LINES} lines.`);
+  });
+
+  it("caps what a single command prints too", async () => {
+    await fileSystem.writeFile("/Desktop/huge.txt", Array.from({ length: MAX_OUTPUT_LINES + 500 }, (_, index) => `l${index}`).join("\n"));
+    const { lines } = await run("type huge.txt");
+    expect(lines).toHaveLength(MAX_OUTPUT_LINES + 1);
+  });
+
+  it("listens for Ctrl+C while a loop runs", async () => {
+    const controller = new AbortController();
+    const pending = run("for /l %a in (1,1,1000) do for /l %b in (1,1,1000) do echo x", { signal: controller.signal });
+    setTimeout(() => controller.abort(), 10);
+    const result = await pending;
+    expect(result.interrupted).toBe(true);
+    expect(result.lines).toEqual([]);
+  });
+
+  it("gives a plain line a step budget of its own each time", async () => {
+    await run("for /l %a in (1,1,9000) do rem");
+    expect((await run("echo again")).text).toBe("again");
   });
 });
 
