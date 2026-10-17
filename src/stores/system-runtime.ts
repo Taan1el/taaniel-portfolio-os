@@ -1,5 +1,7 @@
-import { desktopEntries, themePresets } from "@/data/portfolio";
+import { initialDesktopIconPositions, remapLegacyDesktopIconIds } from "@/data/desktop-seed";
+import { themePresets } from "@/data/portfolio";
 import { getAppDefinition } from "@/lib/app-registry";
+import { sanitizeDesktopGridPositions } from "@/lib/desktop-grid";
 import { LEGACY_WELCOME_PATH } from "@/lib/system-workspace";
 import { clamp, createId } from "@/lib/utils";
 import { readLocalStorage } from "@/lib/safe-storage";
@@ -24,13 +26,8 @@ export const SHELL_STORAGE_KEY = "taaniel-os-shell-v1";
 /** Windows 11 taskbar: a flush 48px bar along the bottom edge. */
 const TASKBAR_HEIGHT = 48;
 
-export const initialIconPositions = desktopEntries.reduce<Record<string, DesktopGridPosition>>(
-  (positions, entry) => {
-    positions[entry.id] = entry.defaultGridPosition;
-    return positions;
-  },
-  {}
-);
+/** Where the default desktop icons sit: the seeded shortcuts and the Recycle Bin. */
+export const initialIconPositions: Record<string, DesktopGridPosition> = initialDesktopIconPositions;
 
 interface LegacyWindowState extends Partial<WindowRecord> {
   appId?: AppId;
@@ -352,6 +349,8 @@ export function getLegacyShellSeed() {
   const defaultThemeId = themePresets[0].id;
   const themeId =
     themePresets.find((preset) => preset.id === legacyState?.themeId)?.id ?? defaultThemeId;
+  // Icon positions from before the desktop was built from /Desktop use the old fixed ids.
+  const savedPositions = sanitizeDesktopGridPositions(legacyState?.desktopIconPositions);
 
   return {
     themeId,
@@ -366,7 +365,7 @@ export function getLegacyShellSeed() {
           imageSource: null,
           presetId: null,
         },
-    desktopIconPositions: legacyState?.desktopIconPositions ?? initialIconPositions,
+    desktopIconPositions: savedPositions ? remapLegacyDesktopIconIds(savedPositions) : initialIconPositions,
   };
 }
 
