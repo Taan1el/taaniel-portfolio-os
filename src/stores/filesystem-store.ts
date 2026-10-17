@@ -121,6 +121,32 @@ function describeTransfer(
   return null;
 }
 
+/** An item that kept its identity but changed path: renamed or moved. */
+export interface FileSystemMove {
+  from: string;
+  to: string;
+}
+
+const moveListeners = new Set<(moves: FileSystemMove[]) => void>();
+
+/**
+ * Hear about renames and moves as they happen, before the new listing is
+ * published. The desktop uses it to keep an icon where it was when its file is
+ * renamed from Explorer, a move that icons keyed by path would otherwise lose.
+ */
+export function subscribeFileSystemMoves(listener: (moves: FileSystemMove[]) => void) {
+  moveListeners.add(listener);
+  return () => {
+    moveListeners.delete(listener);
+  };
+}
+
+function emitMoves(moves: FileSystemMove[]) {
+  if (moves.length > 0) {
+    moveListeners.forEach((listener) => listener(moves));
+  }
+}
+
 async function persistNodes(nodes: FileSystemRecord) {
   try {
     await saveFileSystem(nodes);
@@ -174,6 +200,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
   },
   rename: async (path, nextName) => {
     const result = renameRecord(get().nodes, path, nextName);
+    if (result.path !== normalizePath(path)) emitMoves([{ from: normalizePath(path), to: result.path }]);
     set({ nodes: result.nodes });
     await persistNodes(result.nodes);
     return result.path;
@@ -293,6 +320,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     });
 
     if (result.transferred.length > 0) {
+      if (operation === "move") emitMoves(result.transferred);
       set({ nodes: result.nodes });
       await persistNodes(result.nodes);
     }
