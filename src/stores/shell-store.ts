@@ -43,6 +43,18 @@ export function sanitizePinnedAppIds(value: unknown): AppId[] {
   return pinnedAppIds.length > 0 ? pinnedAppIds : DEFAULT_PINNED_APPS;
 }
 
+/**
+ * The pinned apps as saved. A stored empty list is a visitor who unpinned
+ * everything and stays empty; anything that is not a usable list gets the defaults.
+ */
+function restorePinnedAppIds(value: unknown, fallback: AppId[]): AppId[] {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return Array.isArray(value) && value.length === 0 ? [] : sanitizePinnedAppIds(value);
+}
+
 export function sanitizeThemeId(value: unknown) {
   return typeof value === "string" && themePresets.some((theme) => theme.id === value)
     ? value
@@ -109,7 +121,25 @@ export function migrateShellState(persistedState: unknown, version: number) {
         ? remapLegacyDesktopIconIds(savedPositions)
         : savedPositions
       : initialIconPositions,
-    pinnedAppIds: sanitizePinnedAppIds(state?.pinnedAppIds),
+    pinnedAppIds: restorePinnedAppIds(state?.pinnedAppIds, DEFAULT_PINNED_APPS),
+  };
+}
+
+/**
+ * Put saved state on top of the current state when the store loads. Everything
+ * that was saved comes back as it was, so a field added to `partialize` later
+ * needs nothing here; the fields that must be valid to be used are checked on top.
+ */
+export function mergeShellState(persistedState: unknown, currentState: ShellStoreState): ShellStoreState {
+  const saved = (persistedState && typeof persistedState === "object" ? persistedState : {}) as PersistedShellState;
+
+  return {
+    ...currentState,
+    ...saved,
+    themeId: saved.themeId === undefined ? currentState.themeId : sanitizeThemeId(saved.themeId),
+    wallpaper: sanitizeWallpaper(saved.wallpaper) ?? currentState.wallpaper,
+    desktopIconPositions: sanitizeDesktopGridPositions(saved.desktopIconPositions) ?? currentState.desktopIconPositions,
+    pinnedAppIds: restorePinnedAppIds(saved.pinnedAppIds, currentState.pinnedAppIds),
   };
 }
 
@@ -348,18 +378,7 @@ export const useShellStore = create<ShellStoreState>()(
       storage: createJSONStorage(getSafeLocalStorage),
       migrate: migrateShellState,
       // Whatever was saved is checked on every load, not only when the version changes.
-      merge: (persistedState, currentState) => {
-        const state = persistedState as PersistedShellState | undefined;
-
-        return {
-          ...currentState,
-          themeId: state?.themeId === undefined ? currentState.themeId : sanitizeThemeId(state.themeId),
-          wallpaper: sanitizeWallpaper(state?.wallpaper) ?? currentState.wallpaper,
-          desktopIconPositions:
-            sanitizeDesktopGridPositions(state?.desktopIconPositions) ?? currentState.desktopIconPositions,
-          pinnedAppIds: state?.pinnedAppIds === undefined ? currentState.pinnedAppIds : sanitizePinnedAppIds(state.pinnedAppIds),
-        };
-      },
+      merge: mergeShellState,
       partialize: (state) => ({
         themeId: state.themeId,
         wallpaper: state.wallpaper,

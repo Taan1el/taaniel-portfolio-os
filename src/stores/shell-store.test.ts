@@ -5,6 +5,7 @@ import { RECYCLE_BIN_DESKTOP_ID, initialDesktopIconPositions } from "@/data/desk
 import { defaultDesktopWallpaper } from "@/data/wallpapers";
 import {
   DEFAULT_PINNED_APPS,
+  mergeShellState,
   migrateShellState,
   migrateThemeId,
   sanitizePinnedAppIds,
@@ -91,6 +92,52 @@ describe("shell store persistence sanitizers", () => {
     expect(migrateThemeId("windows-bloom", 5)).toBe("windows-bloom");
     expect(migrateThemeId("ember-grid", 4)).toBe("ember-grid");
     expect(migrateThemeId("not-a-theme", 4)).toBe("windows-bloom-dark");
+  });
+});
+
+describe("shell store merge on load", () => {
+  const current = () => useShellStore.getState();
+  const merge = (saved: unknown) => mergeShellState(saved, current());
+
+  it("brings back every saved field, including ones added to the store later", () => {
+    const merged = merge({ themeId: themePresets[1].id, quickSettingsVolume: 40 }) as unknown as Record<string, unknown>;
+
+    expect(merged.themeId).toBe(themePresets[1].id);
+    expect(merged.quickSettingsVolume).toBe(40);
+    // Everything not saved keeps its current value.
+    expect(merged.pinnedAppIds).toEqual(current().pinnedAppIds);
+    expect(typeof merged.setThemeId).toBe("function");
+  });
+
+  it("keeps an emptied pinned list instead of resetting it to the defaults", () => {
+    expect(merge({ pinnedAppIds: [] }).pinnedAppIds).toEqual([]);
+    expect(merge({ pinnedAppIds: ["files", "nope"] }).pinnedAppIds).toEqual(["files"]);
+    // A list that holds nothing usable, or no list at all, is not a choice the visitor made.
+    expect(merge({ pinnedAppIds: ["nope"] }).pinnedAppIds).toEqual(DEFAULT_PINNED_APPS);
+    expect(merge({ pinnedAppIds: "files" }).pinnedAppIds).toEqual(DEFAULT_PINNED_APPS);
+    expect(merge({}).pinnedAppIds).toEqual(current().pinnedAppIds);
+  });
+
+  it("checks the theme, wallpaper and icon positions that were saved", () => {
+    const merged = merge({ themeId: "not-a-theme", wallpaper: { mode: "video" }, desktopIconPositions: "nope" });
+
+    expect(merged.themeId).toBe(themePresets[0].id);
+    expect(merged.wallpaper).toEqual(current().wallpaper);
+    expect(merged.desktopIconPositions).toEqual(current().desktopIconPositions);
+  });
+
+  it("ignores saved state that is not an object", () => {
+    expect(merge(undefined).themeId).toBe(current().themeId);
+    expect(merge("oops").pinnedAppIds).toEqual(current().pinnedAppIds);
+  });
+
+  it("is the merge the persisted store uses", () => {
+    expect(useShellStore.persist.getOptions().merge).toBe(mergeShellState);
+  });
+
+  it("does not turn an emptied pinned list back into the defaults when the version changes", () => {
+    expect(migrateShellState({ pinnedAppIds: [] }, 5).pinnedAppIds).toEqual([]);
+    expect(migrateShellState({}, 5).pinnedAppIds).toEqual(DEFAULT_PINNED_APPS);
   });
 });
 
