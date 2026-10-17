@@ -117,7 +117,7 @@ describe("resolveDropPlan into folders", () => {
   });
 
   it("does nothing when items are dropped on the folder they already live in", () => {
-    expect(resolve({ items: toItems("/Documents/notes.txt"), zone: folder("/Documents") })).toEqual({ kind: "none" });
+    expect(resolve({ items: toItems("/Documents/notes.txt"), zone: folder("/Documents") })).toEqual({ kind: "none", quiet: true });
   });
 
   it("duplicates when Ctrl-dropped on the same folder", () => {
@@ -164,7 +164,7 @@ describe("resolveDropPlan into the Recycle Bin", () => {
   });
 
   it("does nothing for items already in the Recycle Bin", () => {
-    expect(resolve({ items: toItems("/Trash/old.txt"), zone: folder("/Trash") })).toEqual({ kind: "none" });
+    expect(resolve({ items: toItems("/Trash/old.txt"), zone: folder("/Trash") })).toEqual({ kind: "none", quiet: true });
   });
 });
 

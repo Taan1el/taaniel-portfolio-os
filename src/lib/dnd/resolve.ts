@@ -22,6 +22,8 @@ export interface ResolveDropInput {
 }
 
 const NONE: DropPlan = { kind: "none" };
+/** Nothing to do, and nothing wrong: dropped where the items already are. */
+const NO_OP: DropPlan = { kind: "none", quiet: true };
 
 /** The name Windows shows for a destination: the folder's name, the profile folder as the user's name. */
 export function describeDestination(nodes: FileSystemRecord, path: string) {
@@ -84,7 +86,9 @@ function planFolderDrop(input: ResolveDropInput, destinationPath: string, surfac
     operation = "move";
     const deletable = placeable.filter((path) => !isLockedNode(nodes, path) && getParentPath(path) !== TRASH_PATH);
     return deletable.length === 0
-      ? NONE
+      ? placeable.every((path) => getParentPath(path) === TRASH_PATH)
+        ? NO_OP
+        : NONE
       : { kind: "transfer", operation, destination, paths: deletable, label: describeOperation(operation, "Recycle Bin") };
   }
 
@@ -97,7 +101,7 @@ function planFolderDrop(input: ResolveDropInput, destinationPath: string, surfac
 
   if (operation === "move" && placeable.every((path) => getParentPath(path) === destination)) {
     // Dropping icons where they already are: on the desktop that repositions them, in Explorer it does nothing.
-    return origin === "desktop" && surface === "desktop" ? { kind: "reposition" } : NONE;
+    return origin === "desktop" && surface === "desktop" ? { kind: "reposition" } : NO_OP;
   }
 
   if (input.button === 2) {

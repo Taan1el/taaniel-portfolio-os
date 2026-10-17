@@ -252,6 +252,17 @@ describe("hover actions", () => {
     expect(env.activateWindow).toHaveBeenCalledWith("window-7");
   });
 
+  it("lights up the taskbar button without calling it a refusal", () => {
+    const button = zone(taskbarDropProps("window-7"));
+    underPointer = [button];
+
+    press();
+    pointer("pointermove", { clientX: 40, clientY: 40 });
+
+    expect(button.getAttribute("data-drop-active")).toBe("true");
+    expect(useDragStore.getState().session).toMatchObject({ hover: "restore-window", overZone: false });
+  });
+
   it("forgets the hover when the pointer moves to something else", () => {
     const taskbar = zone(taskbarDropProps("window-7"));
     const folder = zone(folderDropProps("/Documents"));
