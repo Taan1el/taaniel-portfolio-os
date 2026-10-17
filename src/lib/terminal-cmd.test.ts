@@ -438,6 +438,36 @@ describe("completion and highlighting", () => {
     expect(completeCmdInput("Get-Chi", 7, session, nodes).candidates).toEqual([]);
   });
 
+  it("quotes a name with spaces in double quotes, which cmd can read back", async () => {
+    const nodes = () => useFileSystemStore.getState().nodes;
+    session.cwd = "/Portfolio";
+    const folder = completeCmdInput("cd Ca", 5, session, nodes());
+    expect(folder.line).toBe('cd "Case Studies\\"');
+    // The completed line has to run: this is what the single quotes of PowerShell broke.
+    expect((await run(folder.line)).success).toBe(true);
+    expect(session.cwd).toBe("/Portfolio/Case Studies");
+
+    session.cwd = "/Desktop";
+    await fileSystem.writeFile("/Desktop/My file.txt", "hello there");
+    const file = completeCmdInput("type My", 7, session, nodes());
+    expect(file.line).toBe('type "My file.txt"');
+    expect((await run(file.line)).text).toBe("hello there");
+  });
+
+  it("treats a leading double quote as the start of a quoted name, and keeps it", async () => {
+    await fileSystem.writeFile("/Desktop/My file.txt", "x");
+    const nodes = useFileSystemStore.getState().nodes;
+    expect(completeCmdInput('type "My f', 10, session, nodes).line).toBe('type "My file.txt"');
+    expect(completeCmdInput('type "My', 8, session, nodes).line).toBe('type "My file.txt"');
+  });
+
+  it("does not take a single quote for a quote, or offer PowerShell parameter names", async () => {
+    await fileSystem.writeFile("/Desktop/My file.txt", "x");
+    const nodes = useFileSystemStore.getState().nodes;
+    expect(completeCmdInput("type 'My", 8, session, nodes)).toMatchObject({ line: "type 'My", candidates: [] });
+    expect(completeCmdInput("dir -Rec", 8, session, nodes)).toMatchObject({ line: "dir -Rec", candidates: [] });
+  });
+
   it("leaves typed text uncoloured", () => {
     expect(highlightCmdInput("dir /b | find \"x\"")).toBe("dir /b | find \"x\"");
   });

@@ -1227,8 +1227,8 @@ const COMMAND_NAMES = () =>
 
 /** Tab completion: command names first, then paths. Commands are separated by & and |. */
 export function completeCmdInput(line: string, cursor: number, session: ShellSession, nodes: FileSystemRecord): CompletionResult {
-  // cmd's options look like /s, not -Name, so PowerShell's parameter names are not offered here.
-  return completeShellInput(line, cursor, session, nodes, { commands: COMMAND_NAMES(), separators: "|&", parameters: false });
+  // cmd quotes with " only (a ' is just a character), and its options look like /s, not -Name.
+  return completeShellInput(line, cursor, session, nodes, { commands: COMMAND_NAMES(), separators: "|&", quotes: '"', parameters: false });
 }
 
 /** The Command Prompt does not colour what is typed. */

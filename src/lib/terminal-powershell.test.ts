@@ -392,6 +392,12 @@ describe("parameter name completion", () => {
     expect(complete("Get-Chil").line).toBe("Get-ChildItem ");
     expect(complete("cd ..\\Doc").line).toBe("cd ..\\Documents\\");
   });
+
+  it("keeps the quote the person opened, and wraps a name with spaces in single quotes", () => {
+    expect(complete('cd "..\\Doc').line).toBe('cd "..\\Documents\\"');
+    expect(complete("cd '..\\Doc").line).toBe("cd '..\\Documents\\'");
+    expect(complete("cd ..\\Portfolio\\Ca").line).toBe("cd '..\\Portfolio\\Case Studies\\'");
+  });
 });
 
 describe("Get-Help", () => {
