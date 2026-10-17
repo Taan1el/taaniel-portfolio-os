@@ -83,6 +83,106 @@ describe("attachMediaVolume", () => {
     useSystemSettingsStore.getState().setVolume(10);
     expect(element.volume).toBe(1);
   });
+
+  describe("with an element's own native controls", () => {
+    it("keeps the player's own mute when the master volume moves", () => {
+      const element = document.createElement("video");
+      const controller = attachMediaVolume(element);
+
+      element.muted = true;
+      useSystemSettingsStore.getState().setVolume(55);
+      expect(element.muted).toBe(true);
+      expect(element.volume).toBeCloseTo(0.55, 5);
+
+      // Muting and unmuting the speakers leaves that own mute in place.
+      useSystemSettingsStore.getState().setMuted(true);
+      useSystemSettingsStore.getState().setMuted(false);
+      expect(element.muted).toBe(true);
+
+      element.muted = false;
+      useSystemSettingsStore.getState().setVolume(70);
+      expect(element.muted).toBe(false);
+      controller.detach();
+    });
+
+    it("scales the level set on the native slider instead of discarding it", () => {
+      const element = document.createElement("audio");
+      const controller = attachMediaVolume(element);
+
+      element.volume = 0.3;
+      useSystemSettingsStore.getState().setVolume(50);
+      expect(element.volume).toBeCloseTo(0.15, 5);
+
+      useSystemSettingsStore.getState().setVolume(100);
+      expect(element.volume).toBeCloseTo(0.3, 5);
+
+      // Dragging the native slider while the master is at 50 sets the own level relative to it.
+      useSystemSettingsStore.getState().setVolume(50);
+      element.volume = 0.4;
+      expect(element.volume).toBeCloseTo(0.4, 5);
+      useSystemSettingsStore.getState().setVolume(100);
+      expect(element.volume).toBeCloseTo(0.8, 5);
+      controller.detach();
+    });
+
+    it("lets a master mute win over a native unmute", () => {
+      const element = document.createElement("video");
+      const controller = attachMediaVolume(element);
+
+      useSystemSettingsStore.getState().setMuted(true);
+      expect(element.muted).toBe(true);
+
+      element.muted = false;
+      expect(element.muted).toBe(true);
+
+      useSystemSettingsStore.getState().setMuted(false);
+      expect(element.muted).toBe(false);
+      controller.detach();
+    });
+
+    it("tracks native changes that arrive after the apply, as browsers queue them", () => {
+      const listeners = new Set<() => void>();
+      const element = {
+        volume: 1,
+        muted: false,
+        addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+      };
+      const emitVolumeChange = () => listeners.forEach((listener) => listener());
+      const controller = attachMediaVolume(element as unknown as HTMLMediaElement);
+
+      // The event for the controller's own write lands late and changes nothing.
+      useSystemSettingsStore.getState().setVolume(50);
+      emitVolumeChange();
+      expect(element.volume).toBeCloseTo(0.5, 5);
+
+      element.muted = true;
+      emitVolumeChange();
+      useSystemSettingsStore.getState().setVolume(80);
+      expect(element.muted).toBe(true);
+      expect(element.volume).toBeCloseTo(0.8, 5);
+
+      controller.detach();
+      expect(listeners.size).toBe(0);
+    });
+
+    it("hands the element back at its own state when detached", () => {
+      const element = document.createElement("audio");
+      const controller = attachMediaVolume(element, () => 0.5);
+      useSystemSettingsStore.getState().setVolume(20);
+      useSystemSettingsStore.getState().setMuted(true);
+      expect(element.volume).toBeCloseTo(0.1, 5);
+      expect(element.muted).toBe(true);
+
+      controller.detach();
+      expect(element.volume).toBeCloseTo(0.5, 5);
+      expect(element.muted).toBe(false);
+
+      // Attaching again does not mistake the master's mute for the player's own.
+      attachMediaVolume(element, () => 0.5).detach();
+      expect(element.muted).toBe(false);
+    });
+  });
 });
 
 describe("attachV86Volume", () => {
