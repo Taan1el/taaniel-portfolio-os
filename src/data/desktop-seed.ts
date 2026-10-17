@@ -22,6 +22,8 @@ export const RECYCLE_BIN_DEFAULT_POSITION: DesktopGridPosition = { gridX: 2, gri
 export interface DesktopShortcutSeed {
   /** Stored file name; the desktop hides the .lnk. */
   name: string;
+  /** The DESKTOP_SEED_VERSION that added this shortcut. Defaults to 1, the first version. */
+  since?: number;
   /** The id this icon had before the desktop was built from /Desktop. */
   legacyId: string;
   target: ShortcutTarget;
@@ -107,14 +109,21 @@ export function getDefaultDesktopPosition(id: string): DesktopGridPosition {
  * /Desktop folder records that this happened, so a shortcut the visitor
  * deletes stays deleted (Recycle Bin restore and Reset bring it back).
  */
-export function ensureDesktopShortcuts(nodes: FileSystemRecord, timestamp = Date.now()): FileSystemRecord {
+export function ensureDesktopShortcuts(
+  nodes: FileSystemRecord,
+  timestamp = Date.now(),
+  seeds: DesktopShortcutSeed[] = desktopShortcutSeeds,
+  version = DESKTOP_SEED_VERSION
+): FileSystemRecord {
   const desktop = nodes[DESKTOP_PATH];
 
   if (desktop && desktop.kind !== "directory") {
     return nodes;
   }
 
-  if (desktop && (desktop.desktopSeedVersion ?? 0) >= DESKTOP_SEED_VERSION) {
+  const placedVersion = desktop?.desktopSeedVersion ?? 0;
+
+  if (desktop && placedVersion >= version) {
     return nodes;
   }
 
@@ -125,8 +134,9 @@ export function ensureDesktopShortcuts(nodes: FileSystemRecord, timestamp = Date
       .map((node) => node.name.toLowerCase())
   );
 
-  desktopShortcutSeeds.forEach((seed) => {
-    if (takenNames.has(seed.name.toLowerCase())) {
+  seeds.forEach((seed) => {
+    // Shortcuts from earlier versions were placed already; a visitor who deleted one keeps it deleted.
+    if ((seed.since ?? 1) <= placedVersion || takenNames.has(seed.name.toLowerCase())) {
       return;
     }
 
@@ -142,6 +152,6 @@ export function ensureDesktopShortcuts(nodes: FileSystemRecord, timestamp = Date
     updatedAt: timestamp,
   };
 
-  next[DESKTOP_PATH] = { ...desktopNode, desktopSeedVersion: DESKTOP_SEED_VERSION };
+  next[DESKTOP_PATH] = { ...desktopNode, desktopSeedVersion: version };
   return next;
 }
