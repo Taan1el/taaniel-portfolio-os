@@ -16,11 +16,8 @@ interface ExplorerSidebarProps {
   onNavigate: (path: string) => void;
   onOpenFile: (path: string) => void;
   onClearRecent?: () => void;
-  /** Path currently highlighted as a drop target (e.g. while a drag hovers over a sidebar location). */
-  dropTargetPath?: string | null;
-  onItemDragOver?: (path: string, event: React.DragEvent<HTMLButtonElement>) => void;
-  onItemDragLeave?: (path: string, event: React.DragEvent<HTMLButtonElement>) => void;
-  onItemDrop?: (path: string, event: React.DragEvent<HTMLButtonElement>) => void;
+  /** data-drop-* attributes that make a location a drop target (see lib/dnd/dom). */
+  getDropProps?: (path: string) => Record<string, string | undefined>;
 }
 
 function basename(path: string) {
@@ -34,10 +31,7 @@ export function ExplorerSidebar({
   onNavigate,
   onOpenFile,
   onClearRecent,
-  dropTargetPath,
-  onItemDragOver,
-  onItemDragLeave,
-  onItemDrop,
+  getDropProps,
 }: ExplorerSidebarProps) {
   return (
     <AppSidebar className="explorer-window__sidebar">
@@ -51,7 +45,6 @@ export function ExplorerSidebar({
           {locations.map((location) => {
             const Icon = location.icon;
             const active = activePath === location.path || activePath.startsWith(`${location.path}/`);
-            const isDropTarget = dropTargetPath === location.path;
 
             return (
               <Button
@@ -60,15 +53,9 @@ export function ExplorerSidebar({
                 variant="panel"
                 block
                 align="start"
-                className={cn(
-                  "explorer-window__sidebar-item",
-                  active && "is-active",
-                  isDropTarget && "is-drop-target"
-                )}
+                className={cn("explorer-window__sidebar-item", active && "is-active")}
                 onClick={() => onNavigate(location.path)}
-                onDragOver={(event) => onItemDragOver?.(location.path, event)}
-                onDragLeave={(event) => onItemDragLeave?.(location.path, event)}
-                onDrop={(event) => onItemDrop?.(location.path, event)}
+                {...getDropProps?.(location.path)}
               >
                 <Icon size={15} />
                 <span>{location.label}</span>
