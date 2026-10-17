@@ -88,6 +88,13 @@ function readZone(element: Element): DropZone | null {
 }
 
 /**
+ * Shell surfaces that sit over the desktop without being drop targets: the
+ * taskbar, Start and the flyouts. A pointer over one of them is over nothing,
+ * not over the desktop behind it. Add `data-dnd-barrier` to any other overlay.
+ */
+const BARRIER_SELECTOR = "[data-dnd-barrier], .taskbar, .w11-start, .w11-flyout, .context-menu, .open-with-overlay";
+
+/**
  * The drop zone under the pointer. `elements` is document.elementsFromPoint
  * (top-most first); the nearest tagged ancestor of the top-most element wins,
  * so a folder inside an Explorer window beats the window around it.
@@ -101,6 +108,11 @@ export function findDropZone(elements: Element[]): FoundDropZone | null {
     const tagged = element.closest(DROP_ZONE_SELECTOR);
 
     if (!tagged) {
+      // Something solid with nothing to drop on: stop here rather than reach through to the desktop.
+      if (element.closest(BARRIER_SELECTOR)) {
+        return null;
+      }
+
       continue;
     }
 
