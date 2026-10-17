@@ -259,6 +259,43 @@ describe("Join-Path, Split-Path and Resolve-Path", () => {
   });
 });
 
+describe("New-Guid, Get-Uptime and Get-Host", () => {
+  const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  it("prints a new GUID as a one-column table, and a different one each time", async () => {
+    const first = await run("New-Guid");
+    expect(first.lines.filter(Boolean)[0]).toBe("Guid");
+    expect(first.lines.filter(Boolean)[1]).toBe("----");
+    expect(first.lines.filter(Boolean)[2]).toMatch(GUID);
+    const second = await run("New-Guid");
+    expect(second.lines.filter(Boolean)[2]).not.toBe(first.lines.filter(Boolean)[2]);
+  });
+
+  it("hands a variable just the GUID, and has -Empty", async () => {
+    await run("$id = New-Guid");
+    expect((await run("$id")).text).toMatch(GUID);
+    expect((await run('"id: $id"')).text).toMatch(/^id: [0-9a-f-]{36}$/);
+    expect((await run("New-Guid -Empty | % { $_.Guid }")).text).toBe("00000000-0000-0000-0000-000000000000");
+  });
+
+  it("reports how long the session has run as a TimeSpan", async () => {
+    const { text } = await run("Get-Uptime");
+    expect(text).toMatch(/Days\s+: \d+/);
+    expect(text).toMatch(/TotalSeconds\s+: [\d.]+/);
+    expect((await run("Get-Uptime | % TotalSeconds")).text).toMatch(/^[\d.]+$/);
+    expect((await run("Get-Uptime -Since")).lines.filter(Boolean)).toHaveLength(1);
+    expect((await run("Get-Uptime -Bogus")).success).toBe(false);
+  });
+
+  it("describes the host", async () => {
+    const { text } = await run("Get-Host");
+    expect(text).toMatch(/Name\s+: ConsoleHost/);
+    expect(text).toMatch(/Version\s+: 7\.4\.5/);
+    expect(text).not.toMatch(/Microsoft|Windows/);
+    expect((await run("Get-Host | % Version")).text).toBe("7.4.5");
+  });
+});
+
 describe("ConvertTo-Json and ConvertFrom-Json", () => {
   it("writes piped objects as JSON", async () => {
     const { text } = await run("ls ~ | select Name, PSIsContainer -First 1 | ConvertTo-Json");

@@ -2018,6 +2018,62 @@ const convertFromJson: CommandFn = (args, stdin, ctx, name) => {
 const getDate: CommandFn = () =>
   ok(["", new Intl.DateTimeFormat([], { dateStyle: "full", timeStyle: "medium" }).format(new Date()), ""]);
 
+const EMPTY_GUID = "00000000-0000-0000-0000-000000000000";
+
+const newGuid: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Empty"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const guid = parsed.switches.has("Empty") ? EMPTY_GUID : globalThis.crypto?.randomUUID?.();
+  if (!guid) return fail(ctx, name, "Cryptography is not available in this browser.");
+  // Printed as a one-column table; a variable (and a string) gets just the value.
+  return emitItems([createObject("System.Guid", { Guid: guid }, guid, { view: "scalar" })]);
+};
+
+/** A .NET TimeSpan as it prints: [d.]hh:mm:ss.fffffff */
+function timeSpanText(milliseconds: number) {
+  const ticks = Math.round(milliseconds * 10_000);
+  const pad = (value: number, width = 2) => String(value).padStart(width, "0");
+  const days = Math.floor(ticks / 864_000_000_000);
+  const hours = Math.floor(ticks / 36_000_000_000) % 24;
+  const minutes = Math.floor(ticks / 600_000_000) % 60;
+  const seconds = Math.floor(ticks / 10_000_000) % 60;
+  return `${days > 0 ? `${days}.` : ""}${pad(hours)}:${pad(minutes)}:${pad(seconds)}.${pad(ticks % 10_000_000, 7)}`;
+}
+
+/** The time this page has been open, as a TimeSpan object: a browser has no boot time to report. */
+function uptimeObject(milliseconds: number): ShellObject {
+  const total = (divisor: number) => Number((milliseconds / divisor).toPrecision(15));
+  return createObject(
+    "System.TimeSpan",
+    {
+      Days: Math.floor(milliseconds / 86_400_000),
+      Hours: Math.floor(milliseconds / 3_600_000) % 24,
+      Minutes: Math.floor(milliseconds / 60_000) % 60,
+      Seconds: Math.floor(milliseconds / 1000) % 60,
+      Milliseconds: Math.floor(milliseconds) % 1000,
+      Ticks: Math.round(milliseconds * 10_000),
+      TotalDays: total(86_400_000),
+      TotalHours: total(3_600_000),
+      TotalMinutes: total(60_000),
+      TotalSeconds: total(1000),
+      TotalMilliseconds: Number(milliseconds.toFixed(4)),
+    },
+    timeSpanText(milliseconds)
+  );
+}
+
+const getUptime: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Since"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const elapsed = Math.max(0, globalThis.performance?.now?.() ?? 0);
+  if (parsed.switches.has("Since")) {
+    return ok(["", new Intl.DateTimeFormat([], { dateStyle: "full", timeStyle: "medium" }).format(new Date(Date.now() - elapsed)), ""]);
+  }
+  return emitItems([uptimeObject(elapsed)]);
+};
+
+const getHost: CommandFn = () => emitItems([hostObject()]);
+
 const whoami: CommandFn = () => ok([`${SHELL_HOST.toLowerCase()}\\${SHELL_USER.toLowerCase()}`]);
 const hostname: CommandFn = () => ok([SHELL_HOST]);
 
@@ -2814,6 +2870,9 @@ const EXTRA_COMMANDS: Record<string, CommandSpec> = {
   "Join-Path": { aliases: [], synopsis: "Join folder and file names into one path: Join-Path $HOME Documents.", syntax: "Join-Path [-Path] <string> [-ChildPath] <string> [[-AdditionalChildPath] <string[]>] [-Resolve]", run: joinPathCmd },
   "Split-Path": { aliases: [], synopsis: "Take a path apart: -Parent (the default), -Leaf, -LeafBase, -Extension, -Qualifier.", syntax: "Split-Path [-Path] <string[]> [-Parent] [-Leaf] [-LeafBase] [-Extension] [-Qualifier] [-NoQualifier] [-IsAbsolute]", run: splitPathCmd },
   "Resolve-Path": { aliases: ["rvpa"], synopsis: "Turn a relative path or wildcard into full paths: Resolve-Path ..\\*.", syntax: "Resolve-Path [-Path] <string[]> [-Relative]", run: resolvePathCmd },
+  "New-Guid": { aliases: [], synopsis: "Make a new random GUID: $id = New-Guid.", syntax: "New-Guid [-Empty]", run: newGuid },
+  "Get-Uptime": { aliases: [], synopsis: "How long this desktop session has been running.", syntax: "Get-Uptime [-Since]", run: getUptime },
+  "Get-Host": { aliases: [], synopsis: "Show the shell host: its name, version and culture.", syntax: "Get-Host", run: getHost },
   "ConvertTo-Json": { aliases: [], synopsis: "Write piped objects as JSON text: ls | select Name, Length | ConvertTo-Json.", syntax: "<command> | ConvertTo-Json [-Depth <int>] [-Compress] [-AsArray]", run: convertToJson },
   "ConvertFrom-Json": { aliases: [], synopsis: "Turn JSON text into objects: '{\"a\": 1}' | ConvertFrom-Json.", syntax: "<command> | ConvertFrom-Json [-InputObject <string>] [-AsHashtable]", run: convertFromJson },
 };
