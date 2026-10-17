@@ -9,6 +9,7 @@ vi.mock("idb-keyval", () => ({
 
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import {
+  chooseAppFor,
   copyItems,
   createShortcutsFor,
   cutItems,
@@ -131,6 +132,35 @@ describe("shortcuts", () => {
     // Apps and pages have no file to show.
     expect(getFileLocation("/Desktop/About.lnk")).toBeNull();
     expect(getFileLocation("/Desktop/Portfolio.lnk")).toBeNull();
+  });
+
+  it("offers Open with for a file shortcut using the file it points at", () => {
+    chooseAppFor("/Desktop/OS Case Study.md.lnk");
+
+    expect(useShellStore.getState().openWithTarget).toMatchObject({
+      filePath: "/Portfolio/OS-Case-Study.md",
+      node: { path: "/Portfolio/OS-Case-Study.md" },
+    });
+
+    // The menu entry does the same, and it is not offered for a shortcut to an app.
+    useShellStore.getState().setOpenWithTarget(null);
+    buildFileMenu({ nodes: nodes(), paths: ["/Desktop/OS Case Study.md.lnk"], clipboard: null, onOpen: () => {} })
+      .find((action) => action.id === "open-with")
+      ?.onSelect();
+    expect(useShellStore.getState().openWithTarget?.filePath).toBe("/Portfolio/OS-Case-Study.md");
+
+    useShellStore.getState().setOpenWithTarget(null);
+    chooseAppFor("/Desktop/About.lnk");
+    expect(useShellStore.getState().openWithTarget).toBeNull();
+  });
+
+  it("names shortcuts without .lnk when asking to delete them for good", async () => {
+    const confirm = vi.spyOn(globalThis, "confirm").mockReturnValue(false);
+
+    await deleteItems(["/Desktop/About.lnk"], { permanent: true });
+
+    expect(confirm).toHaveBeenCalledWith('Are you sure you want to permanently delete "About"?');
+    confirm.mockRestore();
   });
 
   it("opens Explorer on the folder with the file selected", () => {

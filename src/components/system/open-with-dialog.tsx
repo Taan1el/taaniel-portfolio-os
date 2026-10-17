@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { getAppDefinition } from "@/lib/app-registry";
 import { getOpenWithOptions } from "@/lib/file-registry";
+import { getDisplayName } from "@/lib/shortcuts";
 import type { AppId, VirtualNode } from "@/types/system";
 
 interface OpenWithDialogProps {
@@ -13,7 +14,8 @@ interface OpenWithDialogProps {
 
 function OpenWithDialogInner({ filePath, node, onOpen, onClose }: OpenWithDialogProps) {
   const options = getOpenWithOptions(node);
-  const fileName = filePath.split("/").pop() ?? filePath;
+  // Shortcuts show without their .lnk, as everywhere else.
+  const fileName = getDisplayName(node) || (filePath.split("/").pop() ?? filePath);
 
   return (
     <div className="open-with-overlay" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>

@@ -1,7 +1,7 @@
 import { getOpenWithOptions } from "@/lib/file-registry";
 import { getParentPath, isLockedNode, normalizePath, type TransferOperation } from "@/lib/filesystem";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
-import { resolveShortcut } from "@/lib/shortcuts";
+import { getDisplayName, resolveShortcut, resolveShortcutNode } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
 import { useExplorerStore } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
@@ -86,7 +86,8 @@ export async function deleteItems(paths: string[], options: { permanent?: boolea
   }
 
   const nodes = fileSystem().nodes;
-  const name = nodes[targets[0]]?.name ?? "this item";
+  const first = nodes[targets[0]];
+  const name = first ? getDisplayName(first) : "this item";
   const question =
     targets.length === 1
       ? `Are you sure you want to permanently delete "${name}"?`
@@ -155,9 +156,11 @@ export function editItem(path: string) {
   editFileSystemPath(path, fileSystem().nodes, useSystemStore.getState().launchApp);
 }
 
-/** The "Open with..." dialog for a file. */
+/** The "Open with..." dialog for a file. A shortcut offers the apps that can open what it points at. */
 export function chooseAppFor(path: string) {
-  const node = fileSystem().nodes[normalizePath(path)];
+  const nodes = fileSystem().nodes;
+  const saved = nodes[normalizePath(path)];
+  const node = saved?.kind === "file" && saved.shortcut ? resolveShortcutNode(nodes, saved) : saved;
 
   if (node?.kind === "file" && getOpenWithOptions(node).length > 0) {
     useShellStore.getState().setOpenWithTarget({ filePath: node.path, node });
