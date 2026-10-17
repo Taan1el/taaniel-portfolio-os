@@ -75,7 +75,9 @@ export function resolveSignalStrength(effectiveType: string | null | undefined):
 /**
  * Desktops without a battery still answer the Battery Status API, with a
  * fixed "full and charging" reading. That reading is treated as no battery,
- * so the tray hides the icon the way Windows does on a desktop PC.
+ * so the tray hides the icon the way Windows does on a desktop PC. Laptops
+ * that are full and plugged in give the same reading; resolveBatteryState
+ * keeps their battery once a real one has been seen.
  */
 export function isLikelyBatteryPresent(reading: BatteryReading | null | undefined): reading is BatteryReading {
   if (!reading || !Number.isFinite(reading.level)) {
@@ -89,6 +91,30 @@ export function isLikelyBatteryPresent(reading: BatteryReading | null | undefine
     !Number.isFinite(reading.dischargingTime);
 
   return !desktopReading;
+}
+
+/**
+ * A laptop that is full and plugged in answers exactly like a desktop, so the
+ * heuristic alone would drop its battery the moment it reaches 100%. Once a
+ * reading only a real battery gives has been seen, `latched` stays true for the
+ * session and full-and-charging readings keep the battery on show, as Windows
+ * does with "Fully charged (plugged in)".
+ */
+export function resolveBatteryState(
+  reading: BatteryReading | null | undefined,
+  latched: boolean
+): { battery: BatteryReading | null; latched: boolean } {
+  if (!reading || !Number.isFinite(reading.level)) {
+    return { battery: null, latched };
+  }
+
+  const copy: BatteryReading = { ...reading };
+
+  if (isLikelyBatteryPresent(copy)) {
+    return { battery: copy, latched: true };
+  }
+
+  return { battery: latched ? copy : null, latched };
 }
 
 export function toBatteryPercent(level: number): number {

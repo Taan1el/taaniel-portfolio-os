@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import {
-  isLikelyBatteryPresent,
   isNetworkBlocked,
+  resolveBatteryState,
   resolveNetworkStatus,
   type BatteryReading,
   type NetworkStatus,
@@ -24,6 +24,8 @@ interface DeviceState {
   batterySupported: boolean;
   /** Latest reading; null while unknown or when the device has no battery. */
   battery: BatteryReading | null;
+  /** True once a reading only a real battery gives has been seen this session; see resolveBatteryState. */
+  batteryLatched: boolean;
   setBrowserOnline: (online: boolean) => void;
   setWifiEnabled: (enabled: boolean) => void;
   toggleWifi: () => void;
@@ -61,6 +63,7 @@ const initialDeviceState = {
   effectiveType: getConnection()?.effectiveType ?? null,
   batterySupported: false,
   battery: null,
+  batteryLatched: false,
 };
 
 export const useDeviceStore = create<DeviceState>()((set) => ({
@@ -81,9 +84,9 @@ export const useDeviceStore = create<DeviceState>()((set) => ({
   toggleAirplaneMode: () => useDeviceStore.getState().setAirplaneMode(!useDeviceStore.getState().airplaneMode),
   setEffectiveType: (effectiveType) => set({ effectiveType }),
   setBatteryReading: (reading) =>
-    set({
-      batterySupported: true,
-      battery: isLikelyBatteryPresent(reading) ? { ...reading } : null,
+    set((state) => {
+      const { battery, latched } = resolveBatteryState(reading, state.batteryLatched);
+      return { batterySupported: true, battery, batteryLatched: latched };
     }),
   resetDevice: () => set({ ...initialDeviceState, browserOnline: readBrowserOnline() }),
 }));
