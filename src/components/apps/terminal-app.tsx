@@ -208,7 +208,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   const openDefaultTab = useCallback(() => openTab(useTerminalSettingsStore.getState().defaultProfile), [openTab]);
 
   const closeTabById = useCallback(
-    (id: string, focus: "terminal" | "tab" = "terminal") => {
+    (id: string, focus: "terminal" | "tab" | null = "terminal") => {
       const next = closeTab(stateRef.current, id);
       if (!next) {
         // Closing the last tab closes the window, as in Windows Terminal.
@@ -239,6 +239,16 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     focusTarget.current = focus;
     setTabsState(update);
   }, []);
+
+  /** Click or Enter on a tab: bring it to the front and start typing in it. */
+  const selectTab = useCallback(
+    (id: string) => {
+      // Already in front: no render will follow, so there is nothing to wait for.
+      if (id === stateRef.current.activeId) focusTerminal();
+      else showTab((state) => activateTab(state, id));
+    },
+    [focusTerminal, showTab]
+  );
 
   // A launch while the terminal is open (a jump list item, "Open in Terminal") arrives as a changed payload.
   const launchSignature = `${payload?.profile ?? ""}|${payload?.directoryPath ?? ""}|${payload?.launchNonce ?? ""}`;
@@ -279,7 +289,8 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   const handleAction = useCallback(
     (tabId: string, action: TerminalAction) => {
       if (action.type === "exit") {
-        closeTabById(tabId);
+        // A shell ending in a tab behind the front one must not pull focus away from what the person is doing.
+        closeTabById(tabId, tabId === stateRef.current.activeId ? "terminal" : null);
       } else if (action.type === "open-path") {
         openFileSystemPath(action.path, fileSystem.getNodes(), launchApp);
       } else if (action.type === "open-tab") {
@@ -438,8 +449,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       case "Enter":
       case " ":
         event.preventDefault();
-        showTab((state) => activateTab(state, tab.id));
-        focusTerminal();
+        selectTab(tab.id);
         break;
       case "Delete":
         event.preventDefault();
@@ -527,10 +537,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
                   tabIndex={isActive ? 0 : -1}
                   className="w11-terminal__tab-button"
                   title={tab.title}
-                  onClick={() => {
-                    showTab((state) => activateTab(state, tab.id));
-                    focusTerminal();
-                  }}
+                  onClick={() => selectTab(tab.id)}
                   onKeyDown={(event) => handleTabKeyDown(event, tab)}
                   onAuxClick={(event) => {
                     // Middle-click closes a tab.
