@@ -85,20 +85,20 @@ function TransferDialogInner({ request, onClose }: { request: TransferRequest; o
   };
 
   return (
-    <div className="open-with-overlay w11-dialog-overlay" onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="open-with-overlay" onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
       <motion.div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w11-dialog transfer-dialog"
+        className="transfer-dialog"
         initial={{ opacity: 0, scale: 0.96, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 6 }}
         transition={{ duration: 0.16, ease: [0, 0, 0, 1] }}
         onKeyDown={handleKeyDown}
       >
-        <h2 id={titleId} className="w11-dialog__title">
+        <h2 id={titleId} className="transfer-dialog__title">
           {verb} {subject} to…
         </h2>
 
@@ -147,7 +147,7 @@ function TransferDialogInner({ request, onClose }: { request: TransferRequest; o
           })}
         </div>
 
-        <div className="w11-dialog__actions">
+        <div className="transfer-dialog__actions">
           <button type="button" className="w11-button w11-button--accent" disabled={!selected} onClick={() => void confirm()}>
             {verb}
           </button>
