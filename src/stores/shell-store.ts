@@ -58,6 +58,7 @@ interface ShellStoreState {
   startMenuSearchFocusNonce: number;
   searchQuery: string;
   calendarOpen: boolean;
+  quickSettingsOpen: boolean;
   contextMenu: ContextMenuState | null;
   openWithTarget: { filePath: string; node: VirtualNode } | null;
   clipboard: ClipboardState | null;
@@ -72,6 +73,8 @@ interface ShellStoreState {
   requestStartMenuSearchFocus: () => void;
   setSearchQuery: (query: string) => void;
   setCalendarOpen: (open: boolean) => void;
+  setQuickSettingsOpen: (open: boolean) => void;
+  toggleQuickSettings: () => void;
   setSelectedIconId: (iconId: string | null) => void;
   setContextMenu: (contextMenu: ContextMenuState | null) => void;
   setOpenWithTarget: (target: { filePath: string; node: VirtualNode } | null) => void;
@@ -101,6 +104,13 @@ interface ShellStoreState {
   resetShell: () => void;
 }
 
+type ShellFlyout = "startMenuOpen" | "calendarOpen" | "quickSettingsOpen";
+
+/** Start, the calendar and Quick Settings share the taskbar edge: only one is open at a time. */
+export function openOnlyFlyout(flyout: ShellFlyout): Record<ShellFlyout, boolean> {
+  return { startMenuOpen: false, calendarOpen: false, quickSettingsOpen: false, [flyout]: true };
+}
+
 const legacyShellSeed = getLegacyShellSeed();
 
 const initialShellState = {
@@ -110,6 +120,7 @@ const initialShellState = {
   startMenuSearchFocusNonce: 0,
   searchQuery: "",
   calendarOpen: false,
+  quickSettingsOpen: false,
   contextMenu: null,
   openWithTarget: null,
   clipboard: null,
@@ -125,15 +136,11 @@ export const useShellStore = create<ShellStoreState>()(
   persist(
     (set, get) => ({
       ...initialShellState,
-      setStartMenuOpen: (open) =>
-        set((state) => ({
-          startMenuOpen: open,
-          calendarOpen: open ? false : state.calendarOpen,
-        })),
+      setStartMenuOpen: (open) => set(open ? openOnlyFlyout("startMenuOpen") : { startMenuOpen: false }),
+      // Opening Start closes the calendar and Quick Settings, as in Windows.
       toggleStartMenu: () =>
         set((state) => ({
-          startMenuOpen: !state.startMenuOpen,
-          calendarOpen: state.startMenuOpen ? false : state.calendarOpen,
+          ...(state.startMenuOpen ? { startMenuOpen: false } : openOnlyFlyout("startMenuOpen")),
           contextMenu: null,
         })),
       requestStartMenuSearchFocus: () =>
@@ -142,10 +149,10 @@ export const useShellStore = create<ShellStoreState>()(
         })),
       setSearchQuery: (searchQuery) => set({ searchQuery }),
       setCalendarOpen: (open) =>
-        set((state) => ({
-          calendarOpen: open,
-          startMenuOpen: open ? false : state.startMenuOpen,
-        })),
+        set(open ? { ...openOnlyFlyout("calendarOpen"), contextMenu: null } : { calendarOpen: false }),
+      setQuickSettingsOpen: (open) =>
+        set(open ? { ...openOnlyFlyout("quickSettingsOpen"), contextMenu: null } : { quickSettingsOpen: false }),
+      toggleQuickSettings: () => get().setQuickSettingsOpen(!get().quickSettingsOpen),
       pinApp: (appId) =>
         set((state) =>
           !isKnownAppId(appId) || state.pinnedAppIds.includes(appId)
@@ -227,6 +234,7 @@ export const useShellStore = create<ShellStoreState>()(
           startMenuOpen: false,
           searchQuery: "",
           calendarOpen: false,
+          quickSettingsOpen: false,
           contextMenu: null,
           openWithTarget: null,
         }),

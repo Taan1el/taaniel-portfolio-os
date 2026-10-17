@@ -28,18 +28,22 @@ import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
 import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
-import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
+import { DisplayFilterOverlay } from "@/components/shell/display-filter-overlay";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
+import { TrayFlyouts } from "@/components/shell/tray-flyouts";
 import { WindowHost } from "@/components/shell/window-host";
 import { useShellAiSearch } from "@/hooks/use-shell-ai-search";
+import { useShellServices } from "@/hooks/use-shell-services";
 import { useShellShortcuts } from "@/hooks/use-shell-shortcuts";
+import { describeOfflineBanner } from "@/lib/device-status";
+import { selectNetworkStatus, useDeviceStore } from "@/stores/device-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
@@ -47,7 +51,8 @@ import { useSystemStore } from "@/stores/system-store";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  useShellServices();
+  const offlineBanner = describeOfflineBanner(useDeviceStore(selectNetworkStatus));
   const { processes } = useProcessStore(
     useShallow((state) => ({
       processes: state.processes,
@@ -274,16 +279,6 @@ export function DesktopShell() {
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
   });
-
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
 
   useEffect(() => {
     const handleCycle = (event: KeyboardEvent) => {
@@ -580,9 +575,9 @@ export function DesktopShell() {
       onClick={() => setContextMenu(null)}
     >
       <OsOnboarding />
-      {!online ? (
+      {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
-          Offline — some previews and embeds may fail to load.
+          {offlineBanner}
         </div>
       ) : null}
       {viewportMode === "mobile" && !windows.some((entry) => !entry.minimized) ? (
@@ -642,7 +637,8 @@ export function DesktopShell() {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>{calendarOpen ? <CalendarPopover /> : null}</AnimatePresence>
+      <TrayFlyouts />
+      <DisplayFilterOverlay />
 
       <AnimatePresence>
         {contextMenu ? <ContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} /> : null}

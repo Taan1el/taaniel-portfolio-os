@@ -278,7 +278,7 @@ const registry: Record<AppId, AppDefinition> = {
   settings: defineApp({
     id: "settings",
     title: "Settings",
-    description: "Theme, wallpaper, and desktop environment preferences.",
+    description: "Display, sound, power, network, accessibility, and personalization preferences.",
     category: "System",
     icon: SettingsIcon,
     accent: "#bfa7ff",
@@ -286,7 +286,11 @@ const registry: Record<AppId, AppDefinition> = {
     defaultSize: { width: 780, height: 560 },
     load: async () => ({ default: (await import("@/components/apps/settings-app")).SettingsApp }),
     jumpList: [
-      { id: "open-settings", label: "Appearance & Wallpaper" },
+      { id: "open-display", label: "Display", payload: { section: "display" } },
+      { id: "open-sound", label: "Sound", payload: { section: "sound" } },
+      { id: "open-network", label: "Network & internet", payload: { section: "network" } },
+      { id: "open-power", label: "Power & battery", payload: { section: "power" } },
+      { id: "open-settings", label: "Appearance & Wallpaper", payload: { section: "personalization" } },
     ],
   }),
   browser: defineApp({

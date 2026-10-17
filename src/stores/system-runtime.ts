@@ -20,6 +20,7 @@ export const LEGACY_SYSTEM_STORAGE_KEY = "taaniel-os-system-v1";
 export const WINDOW_STORAGE_KEY = "taaniel-os-windows-v1";
 export const PROCESS_STORAGE_KEY = "taaniel-os-processes-v1";
 export const SHELL_STORAGE_KEY = "taaniel-os-shell-v1";
+export const SETTINGS_STORAGE_KEY = "taaniel-os-settings-v1";
 
 /** Windows 11 taskbar: a flush 48px bar along the bottom edge. */
 const TASKBAR_HEIGHT = 48;
@@ -410,7 +411,8 @@ export function launchPayloadsMatch(
     currentPayload.directoryPath === nextPayload.directoryPath &&
     currentPayload.projectId === nextPayload.projectId &&
     currentPayload.externalUrl === nextPayload.externalUrl &&
-    currentPayload.title === nextPayload.title
+    currentPayload.title === nextPayload.title &&
+    currentPayload.section === nextPayload.section
   );
 }
 
