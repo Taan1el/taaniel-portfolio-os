@@ -192,6 +192,12 @@ img {
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
+  /* Sized by its text, not by the half of the screen left of its 50% offset, so it stays one line on phones. */
+  width: max-content;
+  max-width: calc(100% - 1.5rem);
+  text-align: center;
+  /* It sits over the title bars, so it must never take their clicks. */
+  pointer-events: none;
   padding: 0.35rem 0.6rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);

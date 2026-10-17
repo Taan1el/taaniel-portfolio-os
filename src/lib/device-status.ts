@@ -187,17 +187,20 @@ export function describeWifiTile(status: NetworkStatus): string {
   }
 }
 
-/** The desktop's offline banner; null while connected. */
+/**
+ * The desktop's offline banner, for a real outage only. Airplane mode and
+ * Wi-Fi switched off are the visitor's own doing and, as in Windows, show in
+ * the tray and Quick Settings alone; a pill over the windows would only get
+ * in the way of what they are doing.
+ */
 export function describeOfflineBanner(status: NetworkStatus): string | null {
   switch (status) {
-    case "connected":
-      return null;
     case "no-internet":
       return "Offline — some previews and embeds may fail to load.";
+    case "connected":
     case "wifi-off":
-      return "Wi-Fi is off — web pages, previews and embeds are unavailable.";
     case "airplane":
-      return "Airplane mode is on — web pages, previews and embeds are unavailable.";
+      return null;
   }
 }
 
