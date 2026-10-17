@@ -627,6 +627,31 @@
   }
 }
 
+/* Windows high contrast: the tab strip and flyouts lean on colour differences that are not there, so draw them. */
+@media (forced-colors: active) {
+  .w11-terminal__tab.is-active {
+    border-bottom: 3px solid Highlight;
+  }
+
+  .w11-terminal__menu,
+  .w11-terminal__find,
+  .w11-terminal__settings,
+  .w11-terminal__dialog,
+  .w11-terminal__notice {
+    border: 1px solid CanvasText;
+  }
+
+  .w11-terminal__menu-item:hover:not(:disabled),
+  .w11-terminal__menu-item:focus-visible,
+  .w11-terminal__icon-button[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+  }
+
+  .w11-terminal__button.is-primary {
+    border: 2px solid ButtonText;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .w11-terminal * {
     scroll-behavior: auto;
