@@ -189,6 +189,8 @@ export interface AppDefinition {
     height: number;
   };
   resizable?: boolean;
+  /** The app draws its own tab strip in the title bar, beside the caption buttons. */
+  titlebarTabs?: boolean;
   multiple?: boolean;
   mobileMaximized?: boolean;
   description: string;

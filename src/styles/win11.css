@@ -1435,23 +1435,35 @@
 
 /* ----------------------------------------------------------------- Browser */
 
-.w11-browser {
+/* The tab strip can be portaled into the window title bar, so it carries the tokens too. */
+.w11-browser,
+.w11-browser__tabs {
   --w11-browser-strip: #202020;
   --w11-browser-surface: #2b2b2b;
   --w11-browser-field: #1c1c1c;
   --w11-browser-line: rgba(255, 255, 255, 0.07);
 
-  display: flex;
-  flex-direction: column;
-  background: var(--w11-browser-surface);
   color: var(--w11-text);
   font-family: var(--w11-font);
   font-size: 13px;
 }
 
-.w11-browser :is(button, input):focus-visible {
+.w11-browser {
+  display: flex;
+  flex-direction: column;
+  background: var(--w11-browser-surface);
+}
+
+.w11-browser :is(button, input):focus-visible,
+.w11-browser__tabs :is([role="tab"], button):focus-visible {
   outline: 2px solid var(--w11-focus-outer);
   outline-offset: -2px;
+}
+
+/* The pill around these fields already shows focus; a second ring inside it looked broken. */
+.w11-browser .w11-browser__address input:focus-visible,
+.w11-browser .w11-newtab__search input:focus-visible {
+  outline: none;
 }
 
 /* Tab strip */
@@ -1465,6 +1477,35 @@
   overflow-x: auto;
   background: var(--w11-browser-strip);
   scrollbar-width: none;
+}
+
+/* Tabs in the title bar: the strip fills the space left of the caption buttons and the bar grows to fit. */
+.w11-titlebar--tabs.window-frame__header {
+  height: 40px;
+  padding-left: 0;
+  gap: 0;
+}
+
+.w11-titlebar__slot {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-self: stretch;
+}
+
+.w11-titlebar__slot .w11-browser__tabs {
+  flex: 1;
+  padding: 6px 8px 0;
+  background: transparent;
+}
+
+.w11-titlebar__hidden-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .w11-browser__tab {
@@ -1586,7 +1627,8 @@
   color: rgba(255, 255, 255, 0.32);
 }
 
-.w11-browser .is-spinning {
+.w11-browser .is-spinning,
+.w11-browser__tabs .is-spinning {
   animation: w11-spin 0.9s linear infinite;
 }
 
@@ -1740,6 +1782,8 @@
   overflow-y: auto;
   background: #1f1f1f;
   color: var(--w11-text);
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  scrollbar-width: thin;
 }
 
 .w11-newtab {
@@ -1781,8 +1825,9 @@
 
 .w11-newtab__links {
   display: grid;
-  width: min(580px, 100%);
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  width: min(640px, 100%);
+  /* auto-fit keeps the six default shortcuts on one row instead of orphaning the last one. */
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 8px;
 }
 
@@ -2055,7 +2100,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .w11-browser .is-spinning {
+  .w11-browser .is-spinning,
+  .w11-browser__tabs .is-spinning {
     animation: none;
   }
 }

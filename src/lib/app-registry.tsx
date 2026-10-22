@@ -307,6 +307,7 @@ const registry: Record<AppId, AppDefinition> = {
     defaultPosition: { x: 188, y: 82 },
     defaultSize: { width: 940, height: 660 },
     multiple: true,
+    titlebarTabs: true,
     load: async () => ({ default: (await import("@/components/apps/browser-app")).BrowserApp }),
     resolveTitle: (payload) => payload?.externalUrl ?? "Browser",
   }),
