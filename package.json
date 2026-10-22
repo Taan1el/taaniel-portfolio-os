@@ -44,7 +44,7 @@
     "gh-pages": "^6.2.0",
     "jsdom": "^29.0.2",
     "typescript": "^6.0.3",
-    "vite": "~8.0.16",
+    "vite": "~8.3.5",
     "vitest": "^4.1.11"
   },
   "overrides": {
