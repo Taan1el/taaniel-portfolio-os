@@ -20,6 +20,7 @@ import {
 } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { getParentPath, listChildren } from "@/lib/filesystem";
+import { useMasterVolume } from "@/hooks/use-master-volume";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -89,15 +90,8 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
     return null;
   }, [currentTrack, nodes, playlist.length]);
 
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    if (!audio) {
-      return;
-    }
-
-    audio.volume = volume;
-  }, [volume]);
+  // The player's own slider, scaled by the master volume from Quick Settings.
+  useMasterVolume(audioRef, volume, currentTrack ? 1 : 0);
 
   useEffect(() => {
     const audio = audioRef.current;

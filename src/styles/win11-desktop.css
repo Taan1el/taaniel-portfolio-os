@@ -1,0 +1,466 @@
+/*
+ * Windows 11 desktop and File Explorer file handling: shortcut icons, desktop
+ * icons, selection, drag ghost, drop targets. Loaded after win11.css, so it
+ * wins over the older desktop rules in global.css and visual-redesign.css.
+ * Colours come from the --w11-* tokens, so light and dark both work.
+ */
+
+/* ------------------------------------------------------------ shortcut icon */
+
+.node-icon {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.node-icon__badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 36%;
+  height: 36%;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------ desktop icons */
+
+/* Windows icons are flat: a label under the picture, a translucent box when selected. */
+.desktop-icon {
+  z-index: 2;
+  width: clamp(72px, calc(var(--desktop-cell-width) - 8px), 92px);
+  gap: 4px;
+  padding: 6px 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  box-shadow: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.desktop-icon:hover {
+  border-color: color-mix(in srgb, #fff 14%, transparent);
+  background: color-mix(in srgb, #fff 12%, transparent);
+  box-shadow: none;
+}
+
+.desktop-icon.is-selected {
+  z-index: 3;
+  border-color: color-mix(in srgb, var(--w11-accent) 62%, transparent);
+  background: color-mix(in srgb, var(--w11-accent) 30%, transparent);
+  box-shadow: none;
+}
+
+.desktop-icon.is-selected:hover {
+  background: color-mix(in srgb, var(--w11-accent) 38%, transparent);
+}
+
+.desktop-icon:focus {
+  outline: none;
+}
+
+.desktop-icon:focus-visible {
+  outline: 1px dotted #fff;
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #000 55%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .desktop-icon:hover .desktop-icon__glyph {
+    transform: none;
+  }
+}
+
+.desktop-icon__glyph {
+  width: 48px;
+  height: 48px;
+}
+
+.desktop-icon__label {
+  color: #fff;
+  font-family: var(--w11-font);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 0 6px rgba(0, 0, 0, 0.55);
+}
+
+/* A selected icon shows its whole name, as in Windows. */
+.desktop-icon.is-selected .desktop-icon__label {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+/* Cut icons fade until pasted; icons being dragged stay behind as a faint copy. */
+.desktop-icon.is-cut .desktop-icon__glyph {
+  opacity: 0.5;
+}
+
+.desktop-icon.is-drag-source {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.desktop-icon.is-renaming {
+  z-index: 6;
+}
+
+.desktop-icon__rename {
+  width: calc(100% + 8px);
+  min-height: 2.9em;
+  margin: -1px -4px -4px;
+  padding: 1px 3px;
+  border: 1px solid var(--w11-accent);
+  border-radius: 2px;
+  background: var(--w11-flyout);
+  box-shadow: none;
+  color: var(--w11-text);
+  font: 400 12px/1.25 var(--w11-font);
+  text-align: center;
+  text-shadow: none;
+  resize: none;
+  overflow: hidden;
+}
+
+.desktop-icon__rename:focus {
+  outline: none;
+}
+
+/* The faint box showing the cell an icon will land on. */
+.desktop-surface__cell-preview {
+  border: 1px solid color-mix(in srgb, var(--w11-accent) 62%, transparent);
+  border-radius: var(--w11-radius-control);
+  background: color-mix(in srgb, var(--w11-accent) 20%, transparent);
+  box-shadow: none;
+}
+
+/* Rubber-band selection, on the desktop and in Explorer. */
+.desktop-surface__marquee,
+.explorer-window__marquee {
+  position: absolute;
+  z-index: 1;
+  border: 1px solid var(--w11-accent);
+  background: color-mix(in srgb, var(--w11-accent) 24%, transparent);
+  pointer-events: none;
+}
+
+/*
+ * The file area is a column so its scroll area takes the height that is left
+ * and scrolls; as a block the scroll area grew to fit every item and the
+ * window clipped what did not fit. The items sit in a box at least as tall as
+ * the view, so a rubber band can start on the empty part below them.
+ */
+.explorer-window__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.explorer-window__content > .explorer-window__scroll-area {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.explorer-window__items {
+  position: relative;
+  min-height: 100%;
+}
+
+/* ------------------------------------------------------------ Explorer items */
+
+.explorer-grid-item,
+.explorer-list-item {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.w11-explorer :is(.explorer-grid-item, .w11-details__row).is-drag-source {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.w11-explorer :is(.explorer-grid-item, .w11-details__row):focus {
+  outline: none;
+}
+
+.w11-explorer .explorer-rename-input {
+  min-height: 0;
+  border: 1px solid var(--w11-accent);
+  border-radius: 2px;
+  background: var(--w11-explorer-chrome);
+  box-shadow: none;
+  color: var(--w11-text);
+  font: 400 12px/1.25 var(--w11-font);
+  resize: none;
+}
+
+.w11-explorer .explorer-grid-item .explorer-rename-input {
+  min-height: 2.9em;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ drop targets */
+
+/* Whatever the pointer is over while dragging, when releasing there would do something. */
+.desktop-icon[data-drop-active="true"] {
+  border-color: var(--w11-accent);
+  background: color-mix(in srgb, var(--w11-accent) 38%, transparent);
+}
+
+.w11-explorer :is(.explorer-grid-item, .w11-details__row)[data-drop-active="true"] {
+  border-color: var(--w11-accent);
+  background: color-mix(in srgb, var(--w11-accent) 26%, transparent);
+}
+
+.w11-explorer .explorer-window__sidebar-item[data-drop-active="true"] {
+  background: color-mix(in srgb, var(--w11-accent) 28%, transparent);
+  box-shadow: inset 0 0 0 1px var(--w11-accent);
+}
+
+.w11-explorer .w11-explorer__crumb[data-drop-active="true"] {
+  background: color-mix(in srgb, var(--w11-accent) 30%, transparent);
+  box-shadow: inset 0 0 0 1px var(--w11-accent);
+}
+
+.w11-explorer .explorer-window__content[data-drop-active="true"] {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--w11-accent) 70%, transparent);
+}
+
+/* A window that a file dropped on it would open in, or move into. */
+[data-drop-window-id][data-drop-active="true"] {
+  outline: 2px solid var(--w11-accent);
+  outline-offset: -2px;
+}
+
+.w11-taskbar__app[data-drop-active="true"] {
+  background: var(--w11-subtle-hover);
+}
+
+/* ------------------------------------------------------------ while dragging */
+
+body.is-file-dragging,
+body.is-marquee-selecting {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* A page inside a window would swallow the pointer, so the drag could never reach what is beyond it. */
+body.is-file-dragging iframe,
+body.is-marquee-selecting iframe {
+  pointer-events: none !important;
+}
+
+body.is-file-dragging[data-drag-effect="blocked"],
+body.is-file-dragging[data-drag-effect="blocked"] * {
+  cursor: not-allowed !important;
+}
+
+body.is-file-dragging[data-drag-effect="copy"],
+body.is-file-dragging[data-drag-effect="copy"] * {
+  cursor: copy !important;
+}
+
+body.is-file-dragging[data-drag-effect="link"],
+body.is-file-dragging[data-drag-effect="link"] * {
+  cursor: alias !important;
+}
+
+/* ------------------------------------------------------------ drag ghost */
+
+.drag-ghost {
+  position: fixed;
+  z-index: 2147483000;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.drag-ghost__stack {
+  position: absolute;
+  top: -24px;
+  left: -24px;
+  width: 48px;
+  height: 48px;
+  opacity: 0.88;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+}
+
+.drag-ghost[data-pointer="touch"] .drag-ghost__stack {
+  top: -84px;
+}
+
+.drag-ghost__icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transform: translate(calc(var(--ghost-index) * -6px), calc(var(--ghost-index) * -6px)) rotate(calc(var(--ghost-index) * -4deg));
+}
+
+.drag-ghost__count {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  z-index: 5;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--w11-accent);
+  color: var(--w11-on-accent);
+  font: 600 11px/20px var(--w11-font);
+  text-align: center;
+}
+
+.drag-ghost__chip {
+  position: absolute;
+  top: 26px;
+  left: 18px;
+  display: flex;
+  max-width: min(300px, 70vw);
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid var(--w11-surface-stroke);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-flyout);
+  box-shadow: var(--w11-shadow-flyout);
+  color: var(--w11-text);
+  font: 400 12px/18px var(--w11-font);
+  white-space: nowrap;
+}
+
+.drag-ghost__chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drag-ghost[data-pointer="touch"] .drag-ghost__chip {
+  top: -26px;
+  left: 34px;
+}
+
+.drag-ghost[data-blocked="true"] .drag-ghost__chip {
+  color: var(--w11-text-2);
+}
+
+/* Read out to screen readers; nothing to see. */
+.drag-ghost__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ Move to / Copy to */
+
+.transfer-dialog {
+  display: flex;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(520px, calc(100dvh - 48px));
+  flex-direction: column;
+  padding: 20px 20px 16px;
+  border: 1px solid var(--w11-surface-stroke);
+  border-radius: var(--w11-radius-overlay);
+  background: var(--w11-flyout);
+  box-shadow: var(--w11-shadow-overlay);
+  -webkit-backdrop-filter: blur(30px) saturate(125%);
+  backdrop-filter: blur(30px) saturate(125%);
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+}
+
+.transfer-dialog__title {
+  margin: 0 0 12px;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-dialog__list {
+  display: flex;
+  min-height: 120px;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--w11-divider);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-control);
+}
+
+.transfer-dialog__folder {
+  display: flex;
+  min-height: 32px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding-block: 0;
+  padding-inline-end: 10px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.transfer-dialog__folder:hover:not(.is-disabled) {
+  background: var(--w11-subtle-hover);
+}
+
+.transfer-dialog__folder.is-selected {
+  background: color-mix(in srgb, var(--w11-accent) 24%, transparent);
+}
+
+.transfer-dialog__folder.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.transfer-dialog__folder:focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: -2px;
+}
+
+.transfer-dialog__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.transfer-dialog__actions .w11-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.transfer-dialog__actions .w11-button:focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .desktop-icon,
+  .w11-explorer :is(.explorer-grid-item, .w11-details__row) {
+    transition: background-color 90ms ease, border-color 90ms ease, opacity 120ms ease;
+  }
+}

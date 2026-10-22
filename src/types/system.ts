@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { SettingsSectionId } from "@/lib/settings-sections";
 
 /**
  * The contract every icon in the shell satisfies.
@@ -52,6 +53,12 @@ export interface WindowPayload {
   title?: string;
   projectId?: string;
   externalUrl?: string;
+  /** Settings page to open on, e.g. "sound". */
+  section?: SettingsSectionId;
+  /** Terminal: which profile a new tab runs (pwsh, cmd, linux). */
+  profile?: string;
+  /** Makes a repeated launch with the same payload distinct, so it opens a new tab. */
+  launchNonce?: string;
 }
 
 export type ProcessState = "focused" | "running" | "minimized";
@@ -119,16 +126,20 @@ export interface DesktopPlacementResult {
   displacedEntryId?: string;
 }
 
-export type DesktopEntryType = "app" | "file" | "folder" | "link";
+/**
+ * "node": a file, folder or shortcut in /Desktop. "recycle-bin": the one
+ * system icon, which (as in Windows) is not a file in the Desktop folder.
+ */
+export type DesktopEntryKind = "node" | "recycle-bin";
 
 export interface DesktopEntry {
+  /** "desktop-node:<path>" for items in /Desktop, "system:recycle-bin" for the Recycle Bin. */
   id: string;
+  kind: DesktopEntryKind;
+  /** The item's filesystem path (the Recycle Bin folder for the Recycle Bin). */
+  path: string;
+  /** What the icon shows: the name, with .lnk hidden. */
   label: string;
-  type: DesktopEntryType;
-  appId?: AppId;
-  filePath?: string;
-  directoryPath?: string;
-  externalUrl?: string;
   defaultGridPosition: DesktopGridPosition;
 }
 
@@ -178,6 +189,8 @@ export interface AppDefinition {
     height: number;
   };
   resizable?: boolean;
+  /** The app draws its own tab strip in the title bar, beside the caption buttons. */
+  titlebarTabs?: boolean;
   multiple?: boolean;
   mobileMaximized?: boolean;
   description: string;
@@ -318,7 +331,18 @@ export interface VirtualNodeBase {
 
 export interface VirtualDirectory extends VirtualNodeBase {
   kind: "directory";
+  /** Set on /Desktop: the version of the default shortcuts already placed there. */
+  desktopSeedVersion?: number;
 }
+
+/** Where a .lnk shortcut points. */
+export type ShortcutTarget =
+  | { type: "app"; appId: AppId }
+  | { type: "path"; path: string }
+  /** A page of this site, such as the quick /portfolio view. */
+  | { type: "route"; route: string }
+  /** An http(s) address, opened in the Browser app. */
+  | { type: "url"; url: string };
 
 export interface VirtualFile extends VirtualNodeBase {
   kind: "file";
@@ -328,6 +352,8 @@ export interface VirtualFile extends VirtualNodeBase {
   source?: string;
   size?: number;
   readonly?: boolean;
+  /** Present on .lnk shortcuts. */
+  shortcut?: ShortcutTarget;
 }
 
 export type FileSystemRecord = Record<string, VirtualNode>;
@@ -346,6 +372,7 @@ export interface FileNode {
   readonly?: boolean;
   originalPath?: string;
   deletedAt?: number;
+  shortcut?: ShortcutTarget;
 }
 
 export type FileAssociationFamily =

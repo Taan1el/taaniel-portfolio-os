@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { getAppDefinition } from "@/lib/app-registry";
 import { getSafeLocalStorage } from "@/lib/safe-storage";
+import { isSettingsSectionId } from "@/lib/settings-sections";
 import {
   PROCESS_STORAGE_KEY,
   createProcessFromApp,
@@ -39,6 +40,14 @@ function sanitizeWindowPayload(value: unknown): WindowPayload | undefined {
   if (typeof payload.title === "string") sanitized.title = payload.title;
   if (typeof payload.projectId === "string") sanitized.projectId = payload.projectId;
   if (typeof payload.externalUrl === "string") sanitized.externalUrl = payload.externalUrl;
+  if (isSettingsSectionId(payload.section)) sanitized.section = payload.section;
+  // Short ids only: these are read by the terminal, never shown or navigated to.
+  if (typeof payload.profile === "string" && /^[a-z][a-z0-9-]{0,31}$/i.test(payload.profile)) {
+    sanitized.profile = payload.profile;
+  }
+  if (typeof payload.launchNonce === "string" && /^[\w:.-]{1,80}$/.test(payload.launchNonce)) {
+    sanitized.launchNonce = payload.launchNonce;
+  }
 
   return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }

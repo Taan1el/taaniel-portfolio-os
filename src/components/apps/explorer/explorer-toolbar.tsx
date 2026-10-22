@@ -43,6 +43,8 @@ interface ExplorerToolbarProps {
   searchPlaceholder: string;
   onSearchChange: (query: string) => void;
   commands: ExplorerCommand[];
+  /** data-drop-* attributes that make a breadcrumb a drop target (see lib/dnd/dom). */
+  getCrumbDropProps?: (path: string) => Record<string, string | undefined>;
 }
 
 export function ExplorerToolbar({
@@ -62,6 +64,7 @@ export function ExplorerToolbar({
   searchPlaceholder,
   onSearchChange,
   commands,
+  getCrumbDropProps,
 }: ExplorerToolbarProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -139,7 +142,12 @@ export function ExplorerToolbar({
                 {breadcrumbs.map((crumb) => (
                   <span key={crumb.path} className="w11-explorer__crumb-group">
                     <ChevronRight size={12} className="w11-explorer__crumb-separator" aria-hidden="true" />
-                    <button type="button" className="w11-explorer__crumb" onClick={() => onNavigate(crumb.path)}>
+                    <button
+                      type="button"
+                      className="w11-explorer__crumb"
+                      onClick={() => onNavigate(crumb.path)}
+                      {...getCrumbDropProps?.(crumb.path)}
+                    >
                       {crumb.label}
                     </button>
                   </span>

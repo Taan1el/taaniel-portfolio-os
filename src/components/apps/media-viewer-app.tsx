@@ -1,6 +1,8 @@
+import { useRef } from "react";
 import { AppContent, AppFooter, AppScaffold, EmptyState } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
 import { openFileSystemPath } from "@/lib/launchers";
+import { useMasterVolume } from "@/hooks/use-master-volume";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -17,6 +19,15 @@ export function MediaViewerApp({ window }: AppComponentProps) {
       isVideoApp ? node.mimeType.startsWith("video/") : node.mimeType.startsWith("audio/")
   );
   const file = nodes[filePath];
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Native controls set each player's own level; the master volume from Quick Settings scales every one.
+  // Keyed on which element exists, so moving to the next file keeps the level set on the controls.
+  const playable = file?.kind === "file" && Boolean(file.source);
+  const showsAudio = playable && file.mimeType.startsWith("audio/");
+  useMasterVolume(audioRef, 1, showsAudio ? 1 : 0);
+  useMasterVolume(videoRef, 1, playable && !showsAudio ? 1 : 0);
 
   if (!file || file.kind !== "file") {
     return (
@@ -55,10 +66,11 @@ export function MediaViewerApp({ window }: AppComponentProps) {
         <div className="media-viewer__canvas">
           {file.mimeType.startsWith("audio/") ? (
             <div className="media-viewer__audio-shell">
-              <audio className="media-viewer__audio" controls preload="metadata" src={file.source} />
+              <audio ref={audioRef} className="media-viewer__audio" controls preload="metadata" src={file.source} />
             </div>
           ) : (
             <video
+              ref={videoRef}
               className="media-viewer__video"
               controls
               preload="metadata"

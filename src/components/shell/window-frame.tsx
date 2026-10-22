@@ -3,7 +3,9 @@ import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { createPortal } from "react-dom";
 import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
+import { windowDropProps } from "@/lib/dnd/dom";
 import { cn } from "@/lib/utils";
+import { TitlebarSlotContext } from "@/components/shell/titlebar-slot";
 import type { AppWindow } from "@/types/system";
 import wfStyles from "@/components/shell/window-frame.module.css";
 
@@ -61,6 +63,8 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
   const [interacting, setInteracting] = useState(false);
   const [snapZone, setSnapZone] = useState<SnapZone | null>(null);
   const snapZoneRef = useRef<SnapZone | null>(null);
+  const titlebarTabs = Boolean(definition.titlebarTabs);
+  const [titlebarSlot, setTitlebarSlot] = useState<HTMLElement | null>(null);
 
   const lockBodyScroll = () => {
     document.body.dataset.windowDragLock = "true";
@@ -96,7 +100,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         disableDragging={window.maximized}
         enableResizing={definition.resizable !== false && !window.maximized}
         dragHandleClassName="window-header"
-        cancel=".window-action-buttons, .window-frame__body button, .window-frame__body input, .window-frame__body textarea, .window-frame__body a"
+        cancel=".window-action-buttons, .w11-titlebar__slot button, .window-frame__body button, .window-frame__body input, .window-frame__body textarea, .window-frame__body a"
         onDragStart={() => {
           setInteracting(true);
           lockBodyScroll();
@@ -169,6 +173,8 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         <motion.section
           ref={ref}
           data-window-preview-id={window.id}
+          // A file dragged onto the window opens in it (or moves into the folder an Explorer window shows).
+          {...windowDropProps(window.id, window.appId)}
           role="dialog"
           aria-labelledby={`window-title-${window.id}`}
           aria-modal="false"
@@ -183,13 +189,27 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           transition={{ duration: 0.22, ease: [0.4, 0, 1, 1] }}
         >
           <header
-            className={cn("window-frame__header window-header w11-titlebar", window.maximized && "is-maximized")}
+            className={cn(
+              "window-frame__header window-header w11-titlebar",
+              titlebarTabs && "w11-titlebar--tabs",
+              window.maximized && "is-maximized"
+            )}
             onDoubleClick={onMaximize}
           >
-            <div className="w11-titlebar__title">
-              <Icon size={16} />
-              <strong id={`window-title-${window.id}`}>{window.title}</strong>
-            </div>
+            {titlebarTabs ? (
+              <>
+                {/* The app's tabs take the title's place; the title stays for screen readers. */}
+                <strong id={`window-title-${window.id}`} className="w11-titlebar__hidden-title">
+                  {window.title}
+                </strong>
+                <div className="w11-titlebar__slot" ref={setTitlebarSlot} />
+              </>
+            ) : (
+              <div className="w11-titlebar__title">
+                <Icon size={16} />
+                <strong id={`window-title-${window.id}`}>{window.title}</strong>
+              </div>
+            )}
 
             <div className="w11-caption window-action-buttons">
               <button type="button" aria-label="Minimize" title="Minimize" className="w11-caption__button" onClick={onMinimize}>
@@ -218,7 +238,9 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
 
           <div className="window-frame__body">
             <Suspense fallback={<div className="app-loading-skeleton" role="status" aria-label="Loading application" />}>
-              <WindowComponent window={window} />
+              <TitlebarSlotContext.Provider value={titlebarTabs ? titlebarSlot : null}>
+                <WindowComponent window={window} />
+              </TitlebarSlotContext.Provider>
             </Suspense>
           </div>
         </motion.section>

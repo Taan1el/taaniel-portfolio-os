@@ -1,7 +1,16 @@
 import { del, get, set } from "idb-keyval";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { inferMimeTypeFromExtension, isTextLikeExtension } from "@/lib/file-registry";
-import type { FileNode, FileSystemRecord, VirtualDirectory, VirtualFile, VirtualNode } from "@/types/system";
+import { createShortcutNode, getShortcutFileName } from "@/lib/shortcuts";
+import { PROTECTED_PATHS } from "@/lib/system-workspace";
+import type {
+  FileNode,
+  FileSystemRecord,
+  ShortcutTarget,
+  VirtualDirectory,
+  VirtualFile,
+  VirtualNode,
+} from "@/types/system";
 
 export const FILESYSTEM_STORAGE_KEY = "taaniel-os-filesystem-v1";
 
@@ -79,6 +88,7 @@ export function toFileNode(node: VirtualNode): FileNode {
     readonly: node.readonly,
     originalPath: node.originalPath,
     deletedAt: node.deletedAt,
+    shortcut: node.shortcut,
   };
 }
 
@@ -144,6 +154,16 @@ export function hasReadonlyContent(nodes: FileSystemRecord, path: string) {
   return listDescendants(nodes, path).some(
     (node) => node.kind === "file" && Boolean(node.readonly)
   );
+}
+
+/** System folders (Desktop, Documents, Recycle Bin, the profile root). */
+export function isProtectedPath(path: string) {
+  return PROTECTED_PATHS.has(normalizePath(path));
+}
+
+/** True when an item can't be moved, renamed or recycled - only copied. */
+export function isLockedNode(nodes: FileSystemRecord, path: string) {
+  return isProtectedPath(path) || hasReadonlyContent(nodes, path);
 }
 
 export function searchNodes(nodes: FileSystemRecord, query: string, limit = 10) {
@@ -498,7 +518,7 @@ export function renameNodeRecord(nodes: FileSystemRecord, path: string, nextName
   const normalized = normalizePath(path);
   const target = nodes[normalized];
 
-  if (!target) {
+  if (!target || isProtectedPath(normalized)) {
     return nodes;
   }
 
@@ -541,7 +561,7 @@ export function renameRecord(nodes: FileSystemRecord, path: string, nextName: st
   const normalizedPath = normalizePath(path);
   const target = nodes[normalizedPath];
 
-  if (!target) {
+  if (!target || isProtectedPath(normalizedPath)) {
     return {
       nodes,
       path: normalizedPath,
@@ -642,7 +662,7 @@ export function pasteNodeRecord(
   }
 
   if (operation === "cut") {
-    if (hasReadonlyContent(nodes, normalizedSourcePath)) {
+    if (isLockedNode(nodes, normalizedSourcePath)) {
       return nodes;
     }
 
@@ -677,13 +697,20 @@ export function pasteNodeRecord(
       return;
     }
 
-    clonedNodes[nextPath] = {
+    const cloned: VirtualFile = {
       ...node,
       path: nextPath,
       name: nextPath.split("/").filter(Boolean).at(-1) ?? node.name,
       createdAt: operation === "copy" ? now : node.createdAt,
       updatedAt: now,
     };
+
+    // A copy belongs to the visitor: it can be deleted even if the bundled original can't.
+    if (operation === "copy") {
+      delete cloned.readonly;
+    }
+
+    clonedNodes[nextPath] = cloned;
   });
 
   if (operation === "copy") {
@@ -697,6 +724,127 @@ export function pasteNodeRecord(
     ...deleteNodeRecord(nodes, normalizedSourcePath),
     ...clonedNodes,
   };
+}
+
+export type TransferOperation = "move" | "copy" | "link";
+export type TransferSkipReason = "missing" | "same-folder" | "into-itself" | "locked" | "not-allowed";
+
+export interface TransferResult {
+  nodes: FileSystemRecord;
+  /** Where each item landed, in source order. */
+  transferred: Array<{ from: string; to: string }>;
+  skipped: Array<{ path: string; reason: TransferSkipReason }>;
+}
+
+interface TransferOptions {
+  /** The Recycle Bin folder: moving there records originalPath/deletedAt. */
+  trashPath?: string;
+  now?: number;
+}
+
+/** Drop sources that sit inside another source: moving a folder already takes its children. */
+function topLevelSources(sources: string[]) {
+  const unique = Array.from(new Set(sources.map(normalizePath)));
+  return unique.filter((path) => !unique.some((other) => other !== path && path.startsWith(`${other}/`)));
+}
+
+function withoutTrashMetadata(node: VirtualNode): VirtualNode {
+  const { originalPath: _originalPath, deletedAt: _deletedAt, ...rest } = node;
+  return rest as VirtualNode;
+}
+
+/**
+ * Move, copy or create shortcuts to several items in one pass, the way a
+ * single drag or paste does in Windows. Items that can't go there are
+ * reported in `skipped` instead of aborting the rest.
+ */
+export function transferNodesRecord(
+  nodes: FileSystemRecord,
+  sources: string[],
+  destinationDirectoryPath: string,
+  operation: TransferOperation,
+  options: TransferOptions = {}
+): TransferResult {
+  const destination = normalizePath(destinationDirectoryPath);
+  const trashPath = options.trashPath ? normalizePath(options.trashPath) : null;
+  const now = options.now ?? Date.now();
+  const transferred: TransferResult["transferred"] = [];
+  const skipped: TransferResult["skipped"] = [];
+  const destinationNode = nodes[destination];
+  const intoTrash = trashPath !== null && destination === trashPath;
+  let next = nodes;
+
+  if (!destinationNode || destinationNode.kind !== "directory") {
+    return {
+      nodes,
+      transferred,
+      skipped: sources.map((path) => ({ path: normalizePath(path), reason: "not-allowed" })),
+    };
+  }
+
+  for (const source of topLevelSources(sources)) {
+    const node = next[source];
+
+    if (!node || source === "/") {
+      skipped.push({ path: source, reason: "missing" });
+      continue;
+    }
+
+    if (operation !== "link" && (source === destination || destination.startsWith(`${source}/`))) {
+      skipped.push({ path: source, reason: "into-itself" });
+      continue;
+    }
+
+    if (intoTrash && operation !== "move") {
+      skipped.push({ path: source, reason: "not-allowed" });
+      continue;
+    }
+
+    if (operation === "link") {
+      const target: ShortcutTarget = node.kind === "file" && node.shortcut ? node.shortcut : { type: "path", path: source };
+      const name = ensureUniqueName(next, destination, getShortcutFileName(node.name, Boolean(node.kind === "file" && node.shortcut)));
+      const path = joinPath(destination, name);
+      next = { ...next, [path]: createShortcutNode(path, target, now) };
+      transferred.push({ from: source, to: path });
+      continue;
+    }
+
+    if (operation === "move" && isLockedNode(next, source)) {
+      skipped.push({ path: source, reason: "locked" });
+      continue;
+    }
+
+    if (operation === "move" && getParentPath(source) === destination) {
+      skipped.push({ path: source, reason: "same-folder" });
+      continue;
+    }
+
+    const isDirectory = node.kind === "directory";
+    const name =
+      operation === "copy" && getParentPath(source) === destination
+        ? ensureCopyName(next, destination, node.name, isDirectory)
+        : ensureUniqueName(next, destination, node.name, isDirectory);
+    const landed = joinPath(destination, name);
+    const pasted = pasteNodeRecord(next, source, destination, operation === "move" ? "cut" : "copy");
+
+    if (pasted === next || !pasted[landed]) {
+      skipped.push({ path: source, reason: "not-allowed" });
+      continue;
+    }
+
+    const leftTrash = trashPath !== null && getParentPath(source) === trashPath && !intoTrash;
+    next = {
+      ...pasted,
+      [landed]: intoTrash
+        ? { ...pasted[landed], originalPath: source, deletedAt: now }
+        : leftTrash || operation === "copy"
+          ? withoutTrashMetadata(pasted[landed])
+          : pasted[landed],
+    };
+    transferred.push({ from: source, to: landed });
+  }
+
+  return { nodes: next, transferred, skipped };
 }
 
 function shouldStoreAsText(mimeType: string, extension: string) {

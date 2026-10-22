@@ -218,8 +218,12 @@ const registry: Record<AppId, AppDefinition> = {
     defaultPosition: { x: 214, y: 126 },
     defaultSize: { width: 820, height: 520 },
     load: async () => ({ default: (await import("@/components/apps/terminal-app")).TerminalApp }),
+    // Windows Terminal's taskbar menu lists its profiles. Each opens a tab (the terminal is single-instance);
+    // the Linux profile hands off to Virtual x86.
     jumpList: [
-      { id: "new-terminal", label: "New Terminal" },
+      { id: "terminal-powershell", label: "PowerShell", payload: { profile: "pwsh" } },
+      { id: "terminal-cmd", label: "Command Prompt", payload: { profile: "cmd" } },
+      { id: "terminal-linux", label: "Linux (Virtual x86)", payload: { profile: "linux" } },
     ],
   }),
   editor: defineApp({
@@ -278,7 +282,7 @@ const registry: Record<AppId, AppDefinition> = {
   settings: defineApp({
     id: "settings",
     title: "Settings",
-    description: "Theme, wallpaper, and desktop environment preferences.",
+    description: "Display, sound, power, network, accessibility, and personalization preferences.",
     category: "System",
     icon: SettingsIcon,
     accent: "#bfa7ff",
@@ -286,7 +290,11 @@ const registry: Record<AppId, AppDefinition> = {
     defaultSize: { width: 780, height: 560 },
     load: async () => ({ default: (await import("@/components/apps/settings-app")).SettingsApp }),
     jumpList: [
-      { id: "open-settings", label: "Appearance & Wallpaper" },
+      { id: "open-display", label: "Display", payload: { section: "display" } },
+      { id: "open-sound", label: "Sound", payload: { section: "sound" } },
+      { id: "open-network", label: "Network & internet", payload: { section: "network" } },
+      { id: "open-power", label: "Power & battery", payload: { section: "power" } },
+      { id: "open-settings", label: "Appearance & Wallpaper", payload: { section: "personalization" } },
     ],
   }),
   browser: defineApp({
@@ -299,6 +307,7 @@ const registry: Record<AppId, AppDefinition> = {
     defaultPosition: { x: 188, y: 82 },
     defaultSize: { width: 940, height: 660 },
     multiple: true,
+    titlebarTabs: true,
     load: async () => ({ default: (await import("@/components/apps/browser-app")).BrowserApp }),
     resolveTitle: (payload) => payload?.externalUrl ?? "Browser",
   }),

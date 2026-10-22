@@ -1,45 +1,50 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Copy,
-  Download,
-  ExternalLink,
-  FilePen,
-  Folder,
+  ClipboardPaste,
+  FilePlus2,
   FolderOpen,
-  FolderSearch,
-  LayoutGrid,
-  MapPin,
+  FolderPlus,
   RefreshCw,
-  Scissors,
   Settings,
   Trash2,
 } from "lucide-react";
+import { getDesktopNodeId, getDesktopNodePath } from "@/data/desktop-seed";
 import { themePresets } from "@/data/portfolio";
 import { resolveDesktopWallpaper } from "@/data/wallpapers";
-import { getOpenWithOptions, resolveEditApp } from "@/lib/file-registry";
+import { getContextMenuPoint } from "@/lib/context-menu-point";
+import { createDesktopFolder, createDesktopTextDocument } from "@/lib/desktop-actions";
+import { placeArrivalsOnDesktop } from "@/lib/dnd/desktop-placement";
+import { pasteIntoFolder } from "@/lib/file-actions";
+import { buildFileMenu } from "@/lib/file-menu";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { prefersStaticWallpaper } from "@/lib/device-capabilities";
-import { downloadFileNode, normalizePath } from "@/lib/filesystem";
 import { cn } from "@/lib/utils";
-import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
+import { openFileSystemPath } from "@/lib/launchers";
+import { registerShellNavigator } from "@/lib/shell-navigation";
 import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
+import { TRASH_PATH } from "@/lib/system-workspace";
 import { OsOnboarding } from "@/components/landing/os-onboarding";
-import { CalendarPopover } from "@/components/system/calendar-popover";
 import { ContextMenu } from "@/components/system/context-menu";
+import { DragLayer } from "@/components/system/drag-layer";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
+import { DisplayFilterOverlay } from "@/components/shell/display-filter-overlay";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { Taskbar } from "@/components/shell/taskbar";
+import { TrayFlyouts } from "@/components/shell/tray-flyouts";
 import { WindowHost } from "@/components/shell/window-host";
 import { useShellAiSearch } from "@/hooks/use-shell-ai-search";
+import { useShellServices } from "@/hooks/use-shell-services";
 import { useShellShortcuts } from "@/hooks/use-shell-shortcuts";
+import { describeOfflineBanner } from "@/lib/device-status";
+import { selectNetworkStatus, useDeviceStore } from "@/stores/device-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
@@ -47,14 +52,14 @@ import { useSystemStore } from "@/stores/system-store";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  useShellServices();
+  const offlineBanner = describeOfflineBanner(useDeviceStore(selectNetworkStatus));
   const { processes } = useProcessStore(
     useShallow((state) => ({
       processes: state.processes,
     }))
   );
   const {
-    selectedIconId,
     startMenuOpen,
     searchQuery,
     calendarOpen,
@@ -67,23 +72,20 @@ export function DesktopShell() {
     setSearchQuery,
     setCalendarOpen,
     setSelectedIconId,
+    setSelectedIconIds,
+    setRenamingIconId,
     setContextMenu,
     setOpenWithTarget,
-    setClipboard,
     clearClipboard,
     themeId,
     wallpaper,
     viewportMode,
-    desktopIconPositions,
     focusedWindowId,
     pinnedAppIds,
-    moveDesktopIcon,
-    reconcileDesktopIconPositions,
     pinApp,
     unpinApp,
   } = useShellStore(
     useShallow((state) => ({
-      selectedIconId: state.selectedIconId,
       startMenuOpen: state.startMenuOpen,
       searchQuery: state.searchQuery,
       calendarOpen: state.calendarOpen,
@@ -92,7 +94,6 @@ export function DesktopShell() {
       themeId: state.themeId,
       wallpaper: state.wallpaper,
       viewportMode: state.viewportMode,
-      desktopIconPositions: state.desktopIconPositions,
       focusedWindowId: state.focusedWindowId,
       pinnedAppIds: state.pinnedAppIds,
       setStartMenuOpen: state.setStartMenuOpen,
@@ -101,13 +102,12 @@ export function DesktopShell() {
       setSearchQuery: state.setSearchQuery,
       setCalendarOpen: state.setCalendarOpen,
       setSelectedIconId: state.setSelectedIconId,
+      setSelectedIconIds: state.setSelectedIconIds,
+      setRenamingIconId: state.setRenamingIconId,
       setContextMenu: state.setContextMenu,
       openWithTarget: state.openWithTarget,
       setOpenWithTarget: state.setOpenWithTarget,
-      setClipboard: state.setClipboard,
       clearClipboard: state.clearClipboard,
-      moveDesktopIcon: state.moveDesktopIcon,
-      reconcileDesktopIconPositions: state.reconcileDesktopIconPositions,
       pinApp: state.pinApp,
       unpinApp: state.unpinApp,
     }))
@@ -137,11 +137,7 @@ export function DesktopShell() {
     nodes,
     initialized,
     initialize,
-    createDirectory,
-    createTextFile,
     importFiles,
-    pasteNode,
-    canCutNode,
     emptyTrash,
     reset: resetFileSystem,
   } = useFileSystemStore(
@@ -149,11 +145,7 @@ export function DesktopShell() {
       nodes: state.nodes,
       initialized: state.initialized,
       initialize: state.initialize,
-      createDirectory: state.createDirectory,
-      createTextFile: state.createTextFile,
       importFiles: state.importFiles,
-      pasteNode: state.pasteNode,
-      canCutNode: state.canCutNode,
       emptyTrash: state.emptyTrash,
       reset: state.reset,
     }))
@@ -235,34 +227,18 @@ export function DesktopShell() {
     openFileSystemPath(path, nodes, launchApp);
   };
 
-  const editPath = (path: string) => {
-    editFileSystemPath(path, nodes, launchApp);
-  };
+  // Files dragged in from the visitor's computer appear on the desktop where they were dropped.
+  const importFilesIntoDesktop = useCallback(
+    async (files: File[], point: { x: number; y: number }) => {
+      const importedPaths = await importFiles("/Desktop", files);
 
-  const pasteIntoDirectory = async (directoryPath: string) => {
-    if (!clipboard) {
-      return;
-    }
-
-    for (const path of clipboard.paths) {
-      // Sequential on purpose: each paste reads the store the previous one wrote.
-      // eslint-disable-next-line no-await-in-loop
-      await pasteNode(path, directoryPath, clipboard.operation);
-    }
-
-    if (clipboard.operation === "cut") {
-      clearClipboard();
-    }
-  };
-
-  const importFilesIntoDesktop = async (files: File[]) => {
-    const importedPaths = await importFiles("/Desktop", files);
-    const latestPath = importedPaths.at(-1);
-
-    if (latestPath) {
-      setSelectedIconId(`desktop-node:${latestPath}`);
-    }
-  };
+      if (importedPaths.length > 0) {
+        placeArrivalsOnDesktop(importedPaths, point);
+        setSelectedIconIds(importedPaths.map(getDesktopNodeId));
+      }
+    },
+    [importFiles, setSelectedIconIds]
+  );
 
   useShellShortcuts({
     activeWindowId: focusedWindowId,
@@ -274,16 +250,6 @@ export function DesktopShell() {
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
   });
-
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
 
   useEffect(() => {
     const handleCycle = (event: KeyboardEvent) => {
@@ -317,6 +283,9 @@ export function DesktopShell() {
     return () => window.removeEventListener("keydown", handleCycle);
   }, [windows, focusWindow]);
 
+  // Shortcuts to pages of this site (the quick portfolio) navigate through the router.
+  useEffect(() => registerShellNavigator(navigate), [navigate]);
+
   useEffect(() => {
     void initialize();
     hydrateForViewport();
@@ -330,38 +299,18 @@ export function DesktopShell() {
     };
   }, [hydrateForViewport, initialize]);
 
-  const activateEntry = (entry: DesktopEntry) => {
-    if (entry.type === "app" && entry.appId) {
-      launchApp({
-        appId: entry.appId,
-        payload: entry.externalUrl ? { externalUrl: entry.externalUrl } : undefined,
-      });
-      return;
-    }
-
-    if (entry.type === "file" && entry.filePath) {
-      openPath(entry.filePath);
-      return;
-    }
-
-    if (entry.type === "folder" && entry.directoryPath) {
-      launchApp({
-        appId: "files",
-        payload: {
-          directoryPath: entry.directoryPath,
-        },
-      });
-      return;
-    }
-
-    if (entry.type === "link" && entry.externalUrl) {
-      if (entry.externalUrl.startsWith("/")) {
-        navigate(entry.externalUrl);
-      } else {
-        openExternal(entry.externalUrl);
+  const activateEntry = useCallback(
+    (entry: DesktopEntry) => {
+      if (entry.kind === "recycle-bin") {
+        launchApp({ appId: "files", payload: { directoryPath: TRASH_PATH } });
+        return;
       }
-    }
-  };
+
+      // Reads the filesystem as it is now, so a shortcut opens what it points at today.
+      openFileSystemPath(entry.path, useFileSystemStore.getState().nodes, launchApp);
+    },
+    [launchApp]
+  );
 
   const resetSession = async () => {
     closeShellOverlays();
@@ -381,37 +330,34 @@ export function DesktopShell() {
       actions: [
         {
           id: "new-folder",
-          label: "New Folder",
-          icon: Folder,
-          onSelect: () => {
-            void createDirectory("/Desktop");
-          },
+          label: "New folder",
+          icon: FolderPlus,
+          shortcut: "Ctrl+Shift+N",
+          onSelect: () => void createDesktopFolder(),
         },
         {
-          id: "new-note",
-          label: "New Note",
-          icon: FilePen,
-          onSelect: () => {
-            void createTextFile("/Desktop");
-          },
+          id: "new-text-document",
+          label: "New text document",
+          icon: FilePlus2,
+          onSelect: () => void createDesktopTextDocument(),
         },
+        { id: "sep-1", label: "", separator: true, onSelect: () => {} },
         {
           id: "paste",
           label: "Paste",
-          icon: LayoutGrid,
+          icon: ClipboardPaste,
+          shortcut: "Ctrl+V",
           disabled: !clipboard,
-          onSelect: () => {
-            void pasteIntoDirectory("/Desktop");
-          },
+          onSelect: () => void pasteIntoFolder("/Desktop"),
         },
-        { id: "sep-1", label: "", separator: true, onSelect: () => {} },
+        { id: "sep-2", label: "", separator: true, onSelect: () => {} },
         {
           id: "personalize",
           label: "Personalize…",
           icon: Settings,
           onSelect: () => launchApp({ appId: "settings" }),
         },
-        { id: "sep-2", label: "", separator: true, onSelect: () => {} },
+        { id: "sep-3", label: "", separator: true, onSelect: () => {} },
         {
           id: "reset-session",
           label: "Reset session",
@@ -425,127 +371,65 @@ export function DesktopShell() {
     });
   };
 
-  const openEntryContextMenu = (event: React.MouseEvent<HTMLButtonElement>, entry: DesktopEntry) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setSelectedIconId(entry.id);
+  const openEntryContextMenu = useCallback(
+    (entry: DesktopEntry, event: React.MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-    const targetPath = entry.filePath ?? entry.directoryPath;
-    const targetNode = targetPath ? nodes[normalizePath(targetPath)] : null;
+      const shell = useShellStore.getState();
+      const fileSystem = useFileSystemStore.getState();
+      const selection = shell.selectedIconIds.includes(entry.id) ? shell.selectedIconIds : [entry.id];
+      const paths = selection.flatMap((id) => {
+        const path = getDesktopNodePath(id);
+        return path ? [path] : [];
+      });
+      const { x, y } = getContextMenuPoint(event);
 
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      title: entry.label,
-      actions: [
-        {
-          id: "open",
-          label: entry.type === "link" ? "Open link" : "Open",
-          icon: entry.type === "link" ? ExternalLink : FolderOpen,
-          onSelect: () => activateEntry(entry),
-        },
-        targetNode?.kind === "file" && getOpenWithOptions(targetNode).length > 1
-          ? {
-              id: "open-with",
-              label: "Open with…",
-              icon: LayoutGrid,
-              onSelect: () => {
-                if (targetPath && targetNode) {
-                  setOpenWithTarget({ filePath: targetPath, node: targetNode });
-                }
-              },
-            }
-          : null,
-        targetPath
-          ? {
-              id: "edit",
-              label: "Edit",
-              icon: FilePen,
-              disabled: !resolveEditApp(targetNode ?? undefined),
-              onSelect: () => editPath(targetPath),
-            }
-          : null,
-        targetPath ? { id: "sep-1", label: "", separator: true, onSelect: () => {} } : null,
-        targetPath
-          ? {
-              id: "copy",
-              label: "Copy",
-              icon: Copy,
-              shortcut: "Ctrl+C",
-              onSelect: () => setClipboard({ paths: [targetPath], operation: "copy" }),
-            }
-          : null,
-        targetPath
-          ? {
-              id: "cut",
-              label: "Cut",
-              icon: Scissors,
-              shortcut: "Ctrl+X",
-              disabled: !canCutNode(targetPath),
-              onSelect: () => setClipboard({ paths: [targetPath], operation: "cut" }),
-            }
-          : null,
-        targetNode?.kind === "file"
-          ? {
-              id: "download",
-              label: "Download",
-              icon: Download,
-              onSelect: () => {
-                void downloadFileNode(targetNode);
-              },
-            }
-          : null,
-        (entry.type !== "app" && (entry.directoryPath || entry.filePath))
-          ? { id: "sep-2", label: "", separator: true, onSelect: () => {} }
-          : null,
-        entry.type !== "app" && entry.directoryPath
-          ? {
-              id: "open-folder",
-              label: "Open in File Explorer",
-              icon: FolderSearch,
-              onSelect: () =>
-                launchApp({
-                  appId: "files",
-                  payload: { directoryPath: entry.directoryPath },
-                }),
-            }
-          : null,
-        entry.type !== "app" && entry.filePath
-          ? {
-              id: "open-location",
-              label: "Reveal location",
-              icon: MapPin,
-              onSelect: () => {
-                const filePath = entry.filePath;
+      if (paths.length === 0) {
+        const trashCount = fileSystem.listDirectory(TRASH_PATH).length;
 
-                if (!filePath) {
-                  return;
-                }
-
-                launchApp({
-                  appId: "files",
-                  payload: {
-                    directoryPath: normalizePath(filePath).split("/").slice(0, -1).join("/") || "/",
-                  },
-                });
-              },
-            }
-          : null,
-        entry.id === "trash"
-          ? { id: "sep-trash", label: "", separator: true, onSelect: () => {} }
-          : null,
-        entry.id === "trash"
-          ? {
+        setContextMenu({
+          x,
+          y,
+          title: entry.label,
+          actions: [
+            { id: "open", label: "Open", icon: FolderOpen, onSelect: () => activateEntry(entry) },
+            { id: "sep-trash", label: "", separator: true, onSelect: () => {} },
+            {
               id: "empty-trash",
-              label: "Empty Trash",
+              label: "Empty Recycle Bin",
               icon: Trash2,
               danger: true,
-              onSelect: () => { void emptyTrash(); },
-            }
-          : null,
-      ].filter(Boolean) as NonNullable<typeof contextMenu>["actions"],
-    });
-  };
+              disabled: trashCount === 0,
+              onSelect: () => {
+                const question = `Are you sure you want to permanently delete ${trashCount === 1 ? "this item" : `these ${trashCount} items`}?`;
+
+                if (globalThis.confirm(question)) {
+                  void emptyTrash();
+                }
+              },
+            },
+          ],
+        });
+        return;
+      }
+
+      setContextMenu({
+        x,
+        y,
+        title: paths.length > 1 ? `${paths.length} items` : entry.label,
+        actions: buildFileMenu({
+          nodes: fileSystem.nodes,
+          paths,
+          clipboard: shell.clipboard,
+          locationForAll: true,
+          onOpen: () => paths.forEach((path) => openFileSystemPath(path, useFileSystemStore.getState().nodes, launchApp)),
+          onRename: () => setRenamingIconId(entry.id),
+        }),
+      });
+    },
+    [activateEntry, emptyTrash, launchApp, setContextMenu, setRenamingIconId]
+  );
 
   if (initialized === false) {
     return (
@@ -580,9 +464,9 @@ export function DesktopShell() {
       onClick={() => setContextMenu(null)}
     >
       <OsOnboarding />
-      {!online ? (
+      {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
-          Offline — some previews and embeds may fail to load.
+          {offlineBanner}
         </div>
       ) : null}
       {viewportMode === "mobile" && !windows.some((entry) => !entry.minimized) ? (
@@ -603,18 +487,14 @@ export function DesktopShell() {
 
       <DesktopManager
         nodes={nodes}
-        selectedIconId={selectedIconId}
-        iconPositions={desktopIconPositions}
-        onSelectIcon={setSelectedIconId}
         onActivateEntry={activateEntry}
-        onMoveIcon={moveDesktopIcon}
-        onReconcileIconPositions={reconcileDesktopIconPositions}
         onDesktopContextMenu={openDesktopContextMenu}
         onEntryContextMenu={openEntryContextMenu}
         onImportFiles={importFilesIntoDesktop}
       />
 
       <WindowHost />
+      <DragLayer />
 
       <AnimatePresence>
         {startMenuOpen ? (
@@ -642,7 +522,8 @@ export function DesktopShell() {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>{calendarOpen ? <CalendarPopover /> : null}</AnimatePresence>
+      <TrayFlyouts />
+      <DisplayFilterOverlay />
 
       <AnimatePresence>
         {contextMenu ? <ContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} /> : null}

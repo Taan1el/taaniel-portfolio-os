@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, Plus, X } from "lucide-react";
 import { AppContent, AppScaffold } from "@/components/apps/app-layout";
+import { useTitlebarSlot } from "@/components/shell/titlebar-slot";
 import { BrowserTab, type BrowserTabMeta } from "@/components/apps/browser/browser-tab";
 import { SiteBadge } from "@/components/apps/browser/site-badge";
 import { NEW_TAB_URL } from "@/lib/browser/urlUtils";
@@ -20,6 +22,7 @@ const createTabId = () => `tab-${(tabSequence += 1)}`;
 export function Browser({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const closeWindow = useSystemStore((state) => state.closeWindow);
+  const titlebarSlot = useTitlebarSlot();
   const requestedAddress = useMemo(
     () => window.payload?.externalUrl?.trim() || window.payload?.filePath?.trim() || NEW_TAB_URL,
     [window.payload?.externalUrl, window.payload?.filePath]
@@ -96,52 +99,66 @@ export function Browser({ window }: AppComponentProps) {
     }
   };
 
-  return (
-    <AppScaffold className="browser-app w11-browser" onKeyDown={handleKeyDown}>
-      <div className="w11-browser__tabs" role="tablist" aria-label="Tabs">
-        {tabs.map((tab) => {
-          const info = meta[tab.id];
-          const isActive = tab.id === activeId;
-          const label = info?.title ?? "New tab";
-          return (
-            <div
-              key={tab.id}
-              role="tab"
-              tabIndex={isActive ? 0 : -1}
-              aria-selected={isActive}
-              className={cn("w11-browser__tab", isActive && "is-active")}
-              title={label}
-              onClick={() => activate(tab.id)}
-              onAuxClick={(event) => {
-                // Middle-click closes a tab.
-                if (event.button === 1) closeTab(tab.id);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") activate(tab.id);
+  const tabStrip = (
+    <div className="w11-browser__tabs" role="tablist" aria-label="Tabs">
+      {tabs.map((tab) => {
+        const info = meta[tab.id];
+        const isActive = tab.id === activeId;
+        const label = info?.title ?? "New tab";
+        return (
+          <div
+            key={tab.id}
+            role="tab"
+            tabIndex={isActive ? 0 : -1}
+            aria-selected={isActive}
+            className={cn("w11-browser__tab", isActive && "is-active")}
+            title={label}
+            onClick={() => activate(tab.id)}
+            // A double-click on a tab shouldn't maximize the window the way the empty title bar does.
+            onDoubleClick={(event) => event.stopPropagation()}
+            onAuxClick={(event) => {
+              // Middle-click closes a tab.
+              if (event.button === 1) closeTab(tab.id);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") activate(tab.id);
+            }}
+          >
+            <span className="w11-browser__tab-icon" aria-hidden="true">
+              {info?.loading ? <Loader2 size={14} className="is-spinning" /> : <SiteBadge url={info?.url ?? NEW_TAB_URL} size={16} />}
+            </span>
+            <span className="w11-browser__tab-title">{label}</span>
+            <button
+              type="button"
+              className="w11-browser__tab-close"
+              aria-label={`Close ${label}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                closeTab(tab.id);
               }}
             >
-              <span className="w11-browser__tab-icon" aria-hidden="true">
-                {info?.loading ? <Loader2 size={14} className="is-spinning" /> : <SiteBadge url={info?.url ?? NEW_TAB_URL} size={16} />}
-              </span>
-              <span className="w11-browser__tab-title">{label}</span>
-              <button
-                type="button"
-                className="w11-browser__tab-close"
-                aria-label={`Close ${label}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  closeTab(tab.id);
-                }}
-              >
-                <X size={12} />
-              </button>
-            </div>
-          );
-        })}
-        <button type="button" className="w11-browser__new-tab" aria-label="New tab" title="New tab" onClick={() => newTab()}>
-          <Plus size={16} />
-        </button>
-      </div>
+              <X size={12} />
+            </button>
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        className="w11-browser__new-tab"
+        aria-label="New tab"
+        title="New tab"
+        onClick={() => newTab()}
+        onDoubleClick={(event) => event.stopPropagation()}
+      >
+        <Plus size={16} />
+      </button>
+    </div>
+  );
+
+  return (
+    <AppScaffold className="browser-app w11-browser" onKeyDown={handleKeyDown}>
+      {/* Inside a window the tabs sit in the title bar, as in Chrome and Edge. */}
+      {titlebarSlot ? createPortal(tabStrip, titlebarSlot) : tabStrip}
 
       <AppContent className="browser-app__content w11-browser__body" padded={false} scrollable={false} stacked={false}>
         {tabs.map((tab) => (

@@ -192,6 +192,12 @@ img {
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
+  /* Sized by its text, not by the half of the screen left of its 50% offset, so it stays one line on phones. */
+  width: max-content;
+  max-width: calc(100% - 1.5rem);
+  text-align: center;
+  /* It sits over the title bars, so it must never take their clicks. */
+  pointer-events: none;
   padding: 0.35rem 0.6rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -929,7 +935,6 @@ img {
 .project-showcase,
 .theme-card,
 .start-menu,
-.calendar-popover,
 .context-menu,
 .taskbar,
 .contact-link-card,
@@ -1912,19 +1917,7 @@ h3 {
   white-space: nowrap;
 }
 
-.terminal-app {
-  background: #071019;
-}
-
-.terminal-app__toolbar,
-.terminal-app__status {
-  gap: 0.7rem;
-}
-
-.terminal-app__meta {
-  align-items: center;
-}
-
+/* The terminal's colours come from its colour scheme (win11-terminal.css); this is just its layout. */
 .terminal-app__content {
   display: flex;
   min-width: 0;
@@ -1936,9 +1929,6 @@ h3 {
   min-width: 0;
   min-height: 0;
   padding: 0.85rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
-    #071019;
 }
 
 .terminal-app__viewport .xterm,
@@ -4105,7 +4095,6 @@ h3 {
 }
 
 .start-menu,
-.calendar-popover,
 .context-menu {
   position: absolute;
   z-index: 70;
@@ -4622,48 +4611,6 @@ h3 {
   padding-block: 0.22rem;
 }
 
-.calendar-popover {
-  right: 18px;
-  bottom: 68px;
-  width: min(300px, calc(100% - 24px));
-  max-width: calc(100% - 24px);
-  padding: 1rem;
-  border-radius: 1.2rem;
-}
-
-.calendar-popover__label {
-  margin-bottom: 0.85rem;
-  font-weight: 700;
-}
-
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.35rem;
-}
-
-.calendar-grid span {
-  display: grid;
-  aspect-ratio: 1;
-  place-items: center;
-  border-radius: 0.75rem;
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.calendar-grid--weekdays span {
-  aspect-ratio: auto;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.calendar-grid .is-today {
-  background: color-mix(in srgb, var(--theme-accent) 26%, rgba(255, 255, 255, 0.08));
-  color: var(--text-strong);
-}
 
 .context-menu {
   min-width: 230px;

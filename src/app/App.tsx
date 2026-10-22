@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppErrorBoundary } from "@/components/system/app-error-boundary";
+import { MotionPreferences } from "@/components/system/motion-preferences";
 
 const RecruiterView = lazy(async () => {
   const module = await import("@/components/recruiter/recruiter-view");
@@ -32,20 +33,22 @@ function RecruiterRouteFallback() {
 
 export function App() {
   return (
-    <BrowserRouter basename={routerBasename}>
-      <AppErrorBoundary>
-        <Routes>
-          <Route
-            path="/portfolio"
-            element={
-              <Suspense fallback={<RecruiterRouteFallback />}>
-                <RecruiterView />
-              </Suspense>
-            }
-          />
-          <Route path="/*" element={<Suspense fallback={<RecruiterRouteFallback />}><DesktopShell /></Suspense>} />
-        </Routes>
-      </AppErrorBoundary>
-    </BrowserRouter>
+    <MotionPreferences>
+      <BrowserRouter basename={routerBasename}>
+        <AppErrorBoundary>
+          <Routes>
+            <Route
+              path="/portfolio"
+              element={
+                <Suspense fallback={<RecruiterRouteFallback />}>
+                  <RecruiterView />
+                </Suspense>
+              }
+            />
+            <Route path="/*" element={<Suspense fallback={<RecruiterRouteFallback />}><DesktopShell /></Suspense>} />
+          </Routes>
+        </AppErrorBoundary>
+      </BrowserRouter>
+    </MotionPreferences>
   );
 }

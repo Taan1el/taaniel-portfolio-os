@@ -19,8 +19,17 @@ declare module "v86" {
     initial_state?: V86ImageLike;
   }
 
+  /** The browser audio output; absent where Web Audio is unavailable or the speaker is disabled. */
+  export interface V86SpeakerAdapter {
+    mixer?: {
+      /** Linear gain; channel 0 is left, 1 right, 2 (default) both. */
+      set_volume(value: number, channel?: number): void;
+    };
+  }
+
   export class V86 {
     constructor(options: V86StarterOptions);
+    speaker_adapter?: V86SpeakerAdapter | null;
     add_listener(event: string, listener: (...args: any[]) => void): void;
     remove_listener(event: string, listener: (...args: any[]) => void): void;
     destroy(): void;
