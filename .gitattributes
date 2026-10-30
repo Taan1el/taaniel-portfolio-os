@@ -17,3 +17,6 @@
 *.woff2 binary
 *.ttf binary
 *.eot binary
+
+# Keep the reviewed standalone game's exact bytes and checksum.
+public/assets/games/next-stop/next-stop.html -text
