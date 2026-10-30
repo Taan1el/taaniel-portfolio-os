@@ -9,6 +9,7 @@ export { FileIcon } from "./file";
 export { FilesIcon } from "./files";
 export { FolderIcon } from "./folder";
 export { GamesIcon } from "./games";
+export { NextStopIcon } from "./next-stop";
 export { HextrisIcon } from "./hextris";
 export { MarkdownIcon } from "./markdown";
 export { MusicIcon } from "./music";
