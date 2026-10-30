@@ -176,7 +176,7 @@ const intentGroups = [
   },
   {
     tag: "games",
-    terms: ["game", "games", "play", "arcade", "snake", "tetris", "dino", "doom", "hextris"],
+    terms: ["game", "games", "play", "arcade", "snake", "tetris", "dino", "doom", "hextris", "next stop", "train", "railway"],
   },
   {
     tag: "browser",
@@ -230,6 +230,7 @@ const appAliases: Partial<Record<AppId, string[]>> = {
   doom: ["freedoom", "fps"],
   files: ["explorer", "folders", "directory", "filesystem"],
   games: ["arcade", "play"],
+  "next-stop": ["train", "steam train", "railway", "glyph", "rural", "minigame"],
   snake: ["arcade", "retro", "classic snake"],
   music: ["songs", "tracks", "playlist", "audio"],
   notes: ["memo", "sticky notes", "to do", "todo list", "notepad"],

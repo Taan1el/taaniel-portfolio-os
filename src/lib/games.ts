@@ -42,6 +42,13 @@ The arcade lineup lives inside the OS and launches through the same window syste
 - Tetris
 - Doom
 
+## By Taaniel
+
+- Next Stop: drive a steam train, explore country stations, restore a fence or fish by the lake.
+- Open Next Stop from Games, Start, Search or /Games/Next Stop.lnk.
+- WASD walks or adjusts power, E boards, Space brakes, J opens the journal and Esc pauses.
+- Progress saves locally. Switching windows pauses the railway; closing releases graphics and sound.
+
 ## Ports under review
 
 - Dino
@@ -54,4 +61,5 @@ The arcade lineup lives inside the OS and launches through the same window syste
 `;
 
 export const primaryGameIds = ["snake", "tetris", "doom"] as const satisfies readonly AppId[];
+export const originalGameIds = ["next-stop"] as const satisfies readonly AppId[];
 export const bonusGameIds = ["dino", "hextris"] as const satisfies readonly AppId[];
