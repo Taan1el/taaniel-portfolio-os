@@ -9,7 +9,7 @@ import {
   StatusBar,
 } from "@/components/apps/app-layout";
 import { getAppDefinition } from "@/lib/app-registry";
-import { bonusGameIds, primaryGameIds } from "@/lib/games";
+import { bonusGameIds, originalGameIds, primaryGameIds } from "@/lib/games";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps, AppDefinition, AppId } from "@/types/system";
 
@@ -21,6 +21,12 @@ interface GameSectionDefinition {
 }
 
 const gameSections: GameSectionDefinition[] = [
+  {
+    id: "original-games",
+    title: "By Taaniel",
+    description: "An original railway world, made of coloured letters.",
+    gameIds: originalGameIds,
+  },
   {
     id: "arcade-classics",
     title: "Arcade classics",
