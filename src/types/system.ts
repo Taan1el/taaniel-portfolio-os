@@ -27,6 +27,7 @@ export type AppId =
   | "notes"
   | "music"
   | "games"
+  | "next-stop"
   | "snake"
   | "tetris"
   | "dino"
