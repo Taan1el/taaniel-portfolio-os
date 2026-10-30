@@ -18,6 +18,7 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 - **Download CV**: https://taan1el.github.io/taaniel-portfolio-os/assets/CV_Taaniel_Vananurm.pdf
 - **Contributing**: `CONTRIBUTING.md`
 - **Release / deploy**: `docs/RELEASE.md`
+- **Next Stop minigame**: open Games or search for Next Stop; [integration and controls](docs/next-stop.md)
 - **Performance notes**: `docs/PERFORMANCE.md`
 
 ## Start here (30 seconds)
