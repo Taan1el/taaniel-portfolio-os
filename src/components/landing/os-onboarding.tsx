@@ -41,9 +41,12 @@ export function OsOnboarding() {
 
   return (
     <div className={styles.bar} role="status">
-      <p>
-        <strong>Tip:</strong> Double-click a desktop icon to open it (tap on a touch screen). Drag icons to rearrange, or
-        into a File Explorer window. Use{" "}
+      <p className={styles.touch}>
+        <strong>Tip:</strong> Tap an icon to open it. Drag one to move it.
+      </p>
+      <p className={styles.desktop}>
+        <strong>Tip:</strong> Double-click a desktop icon to open it. Drag icons to rearrange, or into a File Explorer
+        window. Use{" "}
         <kbd>Alt</kbd> + <kbd>[</kbd> / <kbd>]</kbd> to cycle windows.
         <span>
           {" "}

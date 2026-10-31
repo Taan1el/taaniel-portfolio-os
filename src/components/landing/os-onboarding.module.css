@@ -4,7 +4,7 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 9000;
-  max-width: min(26rem, calc(100vw - 2rem));
+  width: min(26rem, calc(100vw - 2rem));
   padding: 0.65rem 1rem;
   border-radius: var(--radius-lg);
   background: rgba(8, 14, 24, 0.92);
@@ -19,6 +19,20 @@
 
 .bar strong {
   color: var(--text-strong);
+}
+
+.touch {
+  display: none;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .touch {
+    display: block;
+  }
+
+  .desktop {
+    display: none;
+  }
 }
 
 .dismiss {
