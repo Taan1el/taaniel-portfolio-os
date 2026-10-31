@@ -192,6 +192,11 @@
   outline: none;
 }
 
+.w11-explorer :is(.explorer-grid-item, .w11-details__row):focus-visible {
+  outline: 2px solid var(--w11-accent);
+  outline-offset: -2px;
+}
+
 .w11-explorer .explorer-rename-input {
   min-height: 0;
   border: 1px solid var(--w11-accent);

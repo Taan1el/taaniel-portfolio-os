@@ -91,6 +91,7 @@ export const ExplorerGridItem = memo(function ExplorerGridItem({
       role="option"
       aria-selected={selected}
       aria-label={label}
+      aria-description={describeFileType(node)}
       tabIndex={-1}
       title={label}
       {...getItemDropProps(node, windowId, inTrash)}
@@ -103,8 +104,8 @@ export const ExplorerGridItem = memo(function ExplorerGridItem({
       }}
       onContextMenu={(event) => onContextMenu(node, event)}
       onKeyDown={(event) => {
-        if (renaming) return;
-        if (event.key === "Enter" || event.key === " ") {
+        // Enter belongs to the Explorer, which opens the whole selection.
+        if (!renaming && event.key === " ") {
           event.preventDefault();
           onOpen(node);
         }
@@ -141,7 +142,6 @@ export const ExplorerListItem = memo(function ExplorerListItem({
   dragSource,
   recycleBin,
   inTrash,
-  onOpen,
   onPointerDown,
   onContextMenu,
   onDoubleClick,
@@ -163,7 +163,6 @@ export const ExplorerListItem = memo(function ExplorerListItem({
       data-path={node.path}
       role="row"
       aria-selected={selected}
-      aria-label={label}
       tabIndex={-1}
       title={label}
       {...getItemDropProps(node, windowId, inTrash)}
@@ -174,13 +173,6 @@ export const ExplorerListItem = memo(function ExplorerListItem({
         onDoubleClick(node);
       }}
       onContextMenu={(event) => onContextMenu(node, event)}
-      onKeyDown={(event) => {
-        if (renaming) return;
-        if (event.key === "Enter") {
-          event.preventDefault();
-          onOpen(node);
-        }
-      }}
     >
       <span className="w11-details__cell w11-details__name" role="gridcell">
         <span className="w11-details__icon">

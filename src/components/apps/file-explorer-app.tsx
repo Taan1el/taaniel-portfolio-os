@@ -614,12 +614,20 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     },
   });
 
-  const scrollToPath = (path: string) => {
+  /** Focus follows the keyboard onto the item itself, which is what a screen reader reads out. */
+  const focusPath = (path: string) => {
     const items = contentRef.current?.querySelectorAll<HTMLElement>("[data-path]");
-    Array.from(items ?? [])
-      .find((element) => element.dataset.path === path)
-      ?.scrollIntoView({ block: "nearest" });
+    const item = Array.from(items ?? []).find((element) => element.dataset.path === path);
+    item?.focus({ preventScroll: true });
+    item?.scrollIntoView({ block: "nearest" });
   };
+
+  // Deleting, renaming or leaving the focused item takes focus with it: keep the keyboard in this window.
+  useEffect(() => {
+    if (window.focused && !renamingPath && document.activeElement === document.body) {
+      contentRef.current?.focus({ preventScroll: true });
+    }
+  }, [currentDirectoryPath, filteredChildren, renamingPath, window.focused]);
 
   /** Items per row in Large icons view, measured from the laid-out grid. */
   const measureColumns = () => {
@@ -752,7 +760,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       if (event.shiftKey) setSelectedPaths(window.id, selectPathRange(orderedPaths, anchor, path));
       else if (ctrl) return;
       else setSelectedPath(window.id, path);
-      scrollToPath(path);
+      focusPath(path);
       return;
     }
 
@@ -764,7 +772,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       const match = filteredChildren.find((node) => getNodeLabel(node).toLowerCase().startsWith(text.toLowerCase()));
       if (match) {
         setSelectedPath(window.id, match.path);
-        scrollToPath(match.path);
+        focusPath(match.path);
       }
     }
   };
@@ -918,7 +926,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
           ref={contentRef}
           className={cn("explorer-window__content", externalDropActive && "is-drop-target")}
           tabIndex={0}
-          role="presentation"
+          aria-label={`${currentLabel} folder`}
           // The folder this window shows takes drops anywhere there is no item to take them.
           {...dropProps(currentDirectoryPath)}
           onPointerDown={marquee.onPointerDown}
@@ -1060,6 +1068,9 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       </AppContent>
 
       <StatusBar className="explorer-window__statusbar w11-explorer__status">
+        <span className="sr-only" role="status">
+          {selectedPaths.length > 1 ? `${plural(selectedPaths.length)} selected` : `${currentLabel}, ${plural(filteredChildren.length)}`}
+        </span>
         <span>{plural(filteredChildren.length)}</span>
         {hasSelection ? (
           <span>
