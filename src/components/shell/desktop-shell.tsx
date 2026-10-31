@@ -477,6 +477,7 @@ export function DesktopShell() {
       className={cn(
         "os-root",
         theme.id === "windows-bloom" && "is-light-wallpaper",
+        theme.id === "retro-95" && "is-retro",
         wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
       )}
       style={

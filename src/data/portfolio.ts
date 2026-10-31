@@ -151,6 +151,15 @@ export const themePresets: ThemePreset[] = [
     accent: "#0078d4",
   },
   {
+    id: "retro-95",
+    name: "Retro",
+    wallpaper: "#008080",
+    desktopTint: "transparent",
+    glow: "transparent",
+    shell: "rgba(192, 192, 192, 1)",
+    accent: "#000080",
+  },
+  {
     id: "windows-bloom",
     name: "Bloom (light)",
     wallpaper: `url('${resolvePublicAssetUrl("assets/wallpapers/bloom.svg")}') center / cover no-repeat, #b9cfe4`,
