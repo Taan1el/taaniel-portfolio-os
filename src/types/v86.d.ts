@@ -8,6 +8,7 @@ declare module "v86" {
 
   export interface V86StarterOptions {
     autostart?: boolean;
+    wasm_path?: string;
     memory_size?: number;
     vga_memory_size?: number;
     screen_container?: HTMLElement;
@@ -36,6 +37,8 @@ declare module "v86" {
     run(): Promise<void>;
     stop(): Promise<void>;
     restart(): void;
+    keyboard_set_enabled(enabled: boolean): void;
+    mouse_set_enabled?(enabled: boolean): void;
     save_state(): Promise<ArrayBuffer>;
     restore_state(state: ArrayBuffer): Promise<void>;
     screen_set_scale(scaleX: number, scaleY: number): void;

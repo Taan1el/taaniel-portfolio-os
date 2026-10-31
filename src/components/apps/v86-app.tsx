@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cpu, FolderOpen, RotateCcw } from "lucide-react";
 import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { MediaToolbar } from "@/components/apps/media-toolbar";
+import { resolvePublicAssetUrl } from "@/lib/assets";
 import { getBaseName } from "@/lib/utils";
 import { getNodeByPath } from "@/lib/filesystem";
 import { attachV86Volume } from "@/lib/master-volume";
 import {
   V86_BIOS_PATH,
   V86_VGA_BIOS_PATH,
+  V86_WASM_PATH,
   loadV86Runtime,
   resolveVirtualX86Drive,
   sourceToArrayBuffer,
@@ -33,6 +35,20 @@ function loadBiosBuffers() {
   return biosBufferPromise;
 }
 
+/** What boots when no disk image was opened: a small Linux that ships with the site. */
+const BUNDLED_LINUX: VirtualFile = {
+  kind: "file",
+  path: "/linux.iso",
+  name: "Linux",
+  extension: "iso",
+  mimeType: "application/x-iso9660-image",
+  source: resolvePublicAssetUrl("assets/v86/linux.iso"),
+  size: 7_731_200,
+  readonly: true,
+  createdAt: 0,
+  updatedAt: 0,
+} as VirtualFile;
+
 function isDiskImage(node?: VirtualFile | null) {
   return Boolean(node && ["img", "iso"].includes(node.extension.toLowerCase()) && node.source);
 }
@@ -49,10 +65,18 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
 
   const diskFile = useMemo(() => {
     const filePath = appWindow.payload?.filePath;
-    const node = filePath ? getNodeByPath(nodes, filePath) : undefined;
+    if (!filePath) return BUNDLED_LINUX;
+    const node = getNodeByPath(nodes, filePath);
     return node && node.kind === "file" ? node : null;
   }, [appWindow.payload?.filePath, nodes]);
   const hasDiskImage = isDiskImage(diskFile);
+
+  // v86 listens on the whole page, so the guest only gets keys while its window is in front.
+  const focused = appWindow.focused;
+  useEffect(() => {
+    emulatorRef.current?.keyboard_set_enabled(focused);
+    emulatorRef.current?.mouse_set_enabled?.(focused);
+  }, [focused, status]);
 
   useEffect(() => {
     const container = screenRef.current;
@@ -92,6 +116,7 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
         const drive = resolveVirtualX86Drive(diskFile);
         const emulator = new V86({
           autostart: false,
+          wasm_path: V86_WASM_PATH,
           memory_size: EMULATOR_MEMORY_SIZE,
           vga_memory_size: EMULATOR_VGA_MEMORY_SIZE,
           screen_container: screenRef.current,
@@ -167,7 +192,7 @@ export function VirtualX86App({ window: appWindow }: AppComponentProps) {
     <AppScaffold className="v86-app">
       <MediaToolbar
         title={diskFile ? getBaseName(diskFile.path) : "Virtual x86"}
-        subtitle="Experimental x86 boot environment"
+        subtitle="A real x86 PC, emulated in your browser"
         actions={
           <>
             <button
