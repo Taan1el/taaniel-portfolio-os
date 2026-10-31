@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
 import { motion } from "framer-motion";
-import { LogOut, Power, RotateCcw, Search } from "lucide-react";
+import { Lock, LogOut, Power, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useSessionScreenStore } from "@/stores/session-screen-store";
 import { FileIcon, PdfIcon } from "@/components/icons/apps";
 import { profile } from "@/data/portfolio";
 import { getAppRegistry } from "@/lib/app-registry";
@@ -207,6 +208,30 @@ export function StartMenu({
 
           {powerMenu === "open" ? (
             <div className="w11-flyout w11-start__power-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className="w11-flyout__item"
+                onClick={() => {
+                  onRequestClose();
+                  useSessionScreenStore.getState().lock();
+                }}
+              >
+                <Lock size={16} />
+                <span>Lock</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="w11-flyout__item"
+                onClick={() => {
+                  onRequestClose();
+                  useSessionScreenStore.getState().restart();
+                }}
+              >
+                <RefreshCw size={16} />
+                <span>Restart</span>
+              </button>
               <button
                 type="button"
                 role="menuitem"
