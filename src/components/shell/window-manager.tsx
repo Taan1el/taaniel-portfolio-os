@@ -1,9 +1,11 @@
 import { AnimatePresence } from "framer-motion";
 import { WindowFrame } from "@/components/shell/window-frame";
+import { desktopOf } from "@/stores/window-store";
 import type { AppWindow } from "@/types/system";
 
 interface WindowManagerProps {
   windows: AppWindow[];
+  activeDesktop: number;
   onFocusWindow: (windowId: string) => void;
   onCloseWindow: (windowId: string) => void;
   onMinimizeWindow: (windowId: string) => void;
@@ -16,6 +18,7 @@ interface WindowManagerProps {
 
 export function WindowManager({
   windows,
+  activeDesktop,
   onFocusWindow,
   onCloseWindow,
   onMinimizeWindow,
@@ -32,6 +35,8 @@ export function WindowManager({
               key={windowState.id}
               window={windowState}
               active={windowState.focused}
+              // Hidden, not unmounted: apps on another desktop keep running.
+              hidden={desktopOf(windowState) !== activeDesktop}
               onFocus={() => onFocusWindow(windowState.id)}
               onClose={() => onCloseWindow(windowState.id)}
               onMinimize={() => onMinimizeWindow(windowState.id)}

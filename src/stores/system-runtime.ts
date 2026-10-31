@@ -76,6 +76,10 @@ function readLegacySystemState() {
   }
 }
 
+export function getDesktopSize() {
+  return { width: window.innerWidth, height: getDesktopHeight() };
+}
+
 export function getDesktopHeight() {
   if (typeof window === "undefined") {
     return 720 - TASKBAR_HEIGHT;

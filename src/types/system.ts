@@ -82,6 +82,8 @@ export interface WindowRecord extends WindowBounds {
   focused: boolean;
   zIndex: number;
   restoreBounds?: WindowBounds;
+  /** Which virtual desktop it lives on; absent means the first. */
+  desktop?: number;
   createdAt: number;
 }
 
