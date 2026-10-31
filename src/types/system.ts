@@ -45,7 +45,8 @@ export type AppId =
   | "resume"
   | "paint"
   | "calculator"
-  | "achievements";
+  | "achievements"
+  | "tv";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System" | "Lab";
 

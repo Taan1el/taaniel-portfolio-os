@@ -25,6 +25,7 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.4.17",
     "framer-motion": "^12.9.1",
+    "hls.js": "^1.7.4",
     "html-to-image": "^1.11.13",
     "idb-keyval": "^6.2.1",
     "lucide-react": "^1.14.0",

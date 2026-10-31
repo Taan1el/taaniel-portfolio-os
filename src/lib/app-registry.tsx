@@ -24,6 +24,7 @@ import {
   SnakeIcon,
   TerminalIcon,
   TetrisIcon,
+  TvIcon,
   V86Icon,
   VideoIcon,
 } from "@/components/icons/apps";
@@ -357,6 +358,17 @@ const registry: Record<AppId, AppDefinition> = {
     multiple: true,
     load: async () => ({ default: (await import("@/components/apps/pdf-viewer-app")).PdfViewerApp }),
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Resume"),
+  }),
+  tv: defineApp({
+    id: "tv",
+    title: "TV & Radio",
+    description: "Live Estonian television and radio: ETV, ETV2, Vikerraadio and more.",
+    category: "Media",
+    icon: TvIcon,
+    accent: "#3b82f6",
+    defaultPosition: { x: 170, y: 90 },
+    defaultSize: { width: 900, height: 560 },
+    load: async () => ({ default: (await import("@/components/apps/tv-app")).TvApp }),
   }),
   achievements: defineApp({
     id: "achievements",

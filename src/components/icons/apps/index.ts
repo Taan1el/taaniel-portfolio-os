@@ -25,6 +25,7 @@ export { ResumeIcon } from "./resume";
 export { SettingsIcon } from "./settings";
 export { SnakeIcon } from "./snake";
 export { TerminalIcon } from "./terminal";
+export { TvIcon } from "./tv";
 export { TetrisIcon } from "./tetris";
 export { V86Icon } from "./v86";
 export { VideoIcon } from "./video";
