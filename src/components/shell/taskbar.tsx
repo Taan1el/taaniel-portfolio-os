@@ -385,7 +385,26 @@ export function Taskbar({
 
           <TaskViewButton />
 
-          <div className="w11-taskbar__apps" ref={windowsRef} onScroll={() => setPreviewEntry(null)}>
+          <div
+            className="w11-taskbar__apps"
+            ref={windowsRef}
+            onScroll={() => setPreviewEntry(null)}
+            onKeyDown={(event) => {
+              // Arrow keys walk the app buttons, as the Windows taskbar does.
+              const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("button"));
+              const index = buttons.indexOf(document.activeElement as HTMLElement);
+              const target =
+                event.key === "ArrowRight" ? buttons[(index + 1) % buttons.length]
+                : event.key === "ArrowLeft" ? buttons[(index - 1 + buttons.length) % buttons.length]
+                : event.key === "Home" ? buttons[0]
+                : event.key === "End" ? buttons[buttons.length - 1]
+                : null;
+              if (target) {
+                event.preventDefault();
+                target.focus();
+              }
+            }}
+          >
             {slots.map((slot) => {
               if (slot.type === "pinned-closed") {
                 const definition = getAppDefinition(slot.appId);
