@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
+import { useShellStore } from "@/stores/shell-store";
 import styles from "@/components/landing/os-onboarding.module.css";
 
 const ONBOARDING_KEY = "portfolio-onboarding-seen";
 
 export function OsOnboarding() {
   const [visible, setVisible] = useState(false);
+  // The tip is about the desktop, so it steps aside while a window is in use.
+  const windowActive = useShellStore((state) => Boolean(state.focusedWindowId));
 
   useEffect(() => {
     const show = () => {
@@ -32,7 +35,7 @@ export function OsOnboarding() {
     return undefined;
   }, [visible]);
 
-  if (!visible) {
+  if (!visible || windowActive) {
     return null;
   }
 
