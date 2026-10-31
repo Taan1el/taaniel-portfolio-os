@@ -23,7 +23,7 @@ Completed:
 | sprintf-js (transitive) | 1.1.3 | removed |
 | source-map-js (transitive) | 1.2.1 | 1.2.2 |
 
-Vite stays on 8.0.16, the newest 8.0 patch.
+Vite stayed on 8.0.16 at the time; it moved to 8.3 on 2026-10-31 to clear its dev-server advisories.
 
 `npm audit --omit=dev` went from 7 findings to 0. The full audit reports one
 advisory (braces, through gh-pages) as 5 entries; see the backlog.
