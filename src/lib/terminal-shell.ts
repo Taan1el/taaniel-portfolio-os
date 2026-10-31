@@ -1,5 +1,5 @@
 import { featuredProjects, profile, socialLinks } from "@/data/portfolio";
-import { getParentPath, getPathName, normalizePath } from "@/lib/filesystem";
+import { getChangeRefusal, getParentPath, getPathName, normalizePath } from "@/lib/filesystem";
 import {
   applyArithmetic,
   compareOperands,
@@ -18,6 +18,7 @@ import {
   type ExpressionEnv,
   type ShellValue,
 } from "@/lib/terminal-expression";
+import type { SettingsSectionId } from "@/lib/settings-sections";
 import { TRASH_PATH } from "@/lib/system-workspace";
 import {
   ABOUT_TOPICS,
@@ -298,10 +299,10 @@ function isInside(path: string, ancestor: string) {
   return path === ancestor || path.startsWith(ancestor === "/" ? "/" : `${ancestor}/`);
 }
 
-function hasReadonly(nodes: FileSystemRecord, path: string) {
-  return Object.values(nodes).some(
-    (node) => isInside(node.path, path) && node.kind === "file" && node.readonly === true
-  );
+/** True when the file store would refuse to change this item: system folders and read-only content. */
+function isLocked(nodes: FileSystemRecord, path: string) {
+  const refusal = getChangeRefusal(nodes, path);
+  return refusal === "protected" || refusal === "read-only";
 }
 
 /** Expand * and ? in the last path segment. Literal args pass through unchanged. */
@@ -942,7 +943,7 @@ function isUrl(value: string) {
   return /^(https?:\/\/|www\.)/i.test(value);
 }
 
-export type SettingsSection = "display" | "sound" | "network" | "power" | "accessibility" | "personalization" | "system";
+export type SettingsSection = SettingsSectionId;
 
 const SETTINGS_PAGES: Record<string, SettingsSection> = {
   display: "display",
@@ -976,9 +977,7 @@ function openSettingsUri(uri: string, ctx: Ctx): Output {
     ctx.actions.push({ type: "launch-app", appId: "settings" });
     return ok();
   }
-  // WindowPayload gains `section` alongside this change; the intersection keeps this type-safe until then.
-  const payload: WindowPayload & { section: SettingsSection } = { section };
-  ctx.actions.push({ type: "launch-app", appId: "settings", payload });
+  ctx.actions.push({ type: "launch-app", appId: "settings", payload: { section } });
   return ok();
 }
 
@@ -1419,7 +1418,7 @@ const removeItem: CommandFn = async (args, _stdin, ctx, name) => {
       okay = false;
       continue;
     }
-    if (hasReadonly(nodes, path)) {
+    if (isLocked(nodes, path)) {
       fail(ctx, name, `Cannot remove item ${display}: You do not have sufficient access rights to perform this operation.`);
       okay = false;
       continue;
@@ -1489,7 +1488,7 @@ async function transfer(args: string[], ctx: Ctx, name: string, operation: "copy
     }
 
     if (operation === "cut") {
-      if (source === "/" || source === TRASH_PATH || hasReadonly(nodes, source)) {
+      if (source === "/" || source === TRASH_PATH || isLocked(nodes, source)) {
         fail(ctx, name, `Access to the path '${toDisplayPath(source)}' is denied.`);
         okay = false;
         continue;
@@ -1547,7 +1546,7 @@ const renameItem: CommandFn = async (args, _stdin, ctx, name) => {
   const path = resolveShellPath(target, ctx.session.cwd, nodes);
   const node = nodes[path];
   if (!node) return fail(ctx, name, `Cannot rename because item at '${toDisplayPath(path)}' does not exist.`);
-  if (path === "/" || path === TRASH_PATH || hasReadonly(nodes, path)) {
+  if (path === "/" || path === TRASH_PATH || isLocked(nodes, path)) {
     return fail(ctx, name, `Access to the path '${toDisplayPath(path)}' is denied.`);
   }
   const collision = findChild(nodes, getParentPath(path), nextName);
