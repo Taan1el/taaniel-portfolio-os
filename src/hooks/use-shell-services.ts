@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { ACHIEVEMENTS, unlockAchievement } from "@/stores/achievements-store";
 import { startDeviceWatchers } from "@/stores/device-store";
+import { useProcessStore } from "@/stores/process-store";
+import { useShellStore } from "@/stores/shell-store";
+import { useWindowStore } from "@/stores/window-store";
 import { useSystemSettingsStore } from "@/stores/system-settings-store";
 
 /** Set as <html> attributes so plain CSS can react to a setting without a React tree. */
@@ -51,6 +55,26 @@ export function useShellServices() {
       root.removeAttribute("data-contrast");
     };
   }, [moreContrast, textSize]);
+
+  // Achievements that come from using the OS rather than from one place in the code.
+  useEffect(() => {
+    const unwatchApps = useProcessStore.subscribe(({ processes }) => {
+      for (const achievement of ACHIEVEMENTS) {
+        if (achievement.app && processes.some((process) => process.appId === achievement.app)) unlockAchievement(achievement.id);
+      }
+    });
+    const unwatchDesktops = useWindowStore.subscribe(({ desktopCount }) => {
+      if (desktopCount > 1) unlockAchievement("desktops");
+    });
+    const unwatchTheme = useShellStore.subscribe(({ themeId }) => {
+      if (themeId === "retro-95") unlockAchievement("retro");
+    });
+    return () => {
+      unwatchApps();
+      unwatchDesktops();
+      unwatchTheme();
+    };
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;

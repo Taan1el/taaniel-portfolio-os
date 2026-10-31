@@ -1,0 +1,37 @@
+.achievements-app__count {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.achievements-app__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.achievements-app__item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 8px;
+  opacity: 0.65;
+}
+
+.achievements-app__item.is-earned {
+  border-color: #ffc24b;
+  opacity: 1;
+}
+
+.achievements-app__item.is-earned svg {
+  color: #ffc24b;
+}
+
+.achievements-app__item p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}

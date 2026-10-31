@@ -1,5 +1,6 @@
 export { AboutIcon } from "./about";
 export { BrowserIcon } from "./browser";
+export { AchievementsIcon } from "./achievements";
 export { CalculatorIcon } from "./calculator";
 export { ContactIcon } from "./contact";
 export { DinoIcon } from "./dino";

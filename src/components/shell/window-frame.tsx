@@ -1,6 +1,7 @@
 import { Suspense, forwardRef, useEffect, useImperativeHandle, useRef, useState, type MouseEvent } from "react";
 import { SnapFlyout } from "@/components/shell/snap-flyout";
 import { LEFT_HALF, RIGHT_HALF, zoneBounds, type SnapZone } from "@/lib/snap-layouts";
+import { unlockAchievement } from "@/stores/achievements-store";
 import { useShellStore } from "@/stores/shell-store";
 import { getDesktopSize } from "@/stores/system-runtime";
 import { desktopOf, useWindowStore } from "@/stores/window-store";
@@ -110,6 +111,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
     if (snapHoverTimer.current) clearTimeout(snapHoverTimer.current);
     setSnapAnchor(null);
     useWindowStore.getState().snapWindow(window.id, zoneBounds(zone, getDesktopSize()));
+    unlockAchievement("snap");
   };
 
   const openWindowMenu = (event: MouseEvent) => {

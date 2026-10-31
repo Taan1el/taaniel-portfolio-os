@@ -2,6 +2,7 @@ import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 import {
   AboutIcon,
   BrowserIcon,
+  AchievementsIcon,
   CalculatorIcon,
   ContactIcon,
   DinoIcon,
@@ -357,6 +358,17 @@ const registry: Record<AppId, AppDefinition> = {
     multiple: true,
     load: async () => ({ default: (await import("@/components/apps/pdf-viewer-app")).PdfViewerApp }),
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Resume"),
+  }),
+  achievements: defineApp({
+    id: "achievements",
+    title: "Achievements",
+    description: "Everything you have found in this OS so far.",
+    category: "System",
+    icon: AchievementsIcon,
+    accent: "#ffc24b",
+    defaultPosition: { x: 240, y: 110 },
+    defaultSize: { width: 640, height: 520 },
+    load: async () => ({ default: (await import("@/components/apps/achievements-app")).AchievementsApp }),
   }),
   calculator: defineApp({
     id: "calculator",
