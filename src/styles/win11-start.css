@@ -1,0 +1,212 @@
+/* Start: pins, recommended and every app in one scrolling page, with the account along the bottom. */
+
+.w11-start {
+  width: min(680px, calc(100vw - 24px));
+  height: min(760px, calc(100dvh - var(--w11-start-offset) - 24px));
+}
+
+.w11-start__top {
+  padding: 20px 32px 8px;
+}
+
+.w11-start__heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.w11-start__heading-row .w11-start__heading {
+  margin: 0;
+}
+
+.w11-start__more,
+.w11-start__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-control);
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.w11-start__back {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.w11-start__more:hover,
+.w11-start__back:hover,
+.w11-start__row:hover,
+.w11-start__account:hover,
+.w11-start__folder:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-start__view {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--w11-text);
+  font-size: 12px;
+}
+
+.w11-start__view select {
+  padding: 4px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.w11-start__view select:focus-visible {
+  outline: 2px solid var(--w11-focus-outer);
+}
+
+.w11-start__view option {
+  background: var(--w11-flyout);
+  color: var(--w11-text);
+}
+
+.w11-start__folders {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.w11-start__folder {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--w11-control-stroke);
+  border-radius: var(--w11-radius-overlay);
+  background: var(--w11-control);
+  cursor: pointer;
+}
+
+.w11-start__folder-icons {
+  display: grid;
+  grid-template-columns: repeat(2, 44px);
+  gap: 4px;
+}
+
+.w11-start__folder-icons button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  cursor: pointer;
+}
+
+.w11-start__folder-icons button:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.w11-start__folder-label {
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.w11-start__list {
+  display: grid;
+  gap: 4px;
+}
+
+.w11-start__letter {
+  margin: 4px 0;
+  padding: 0 8px;
+  color: var(--w11-text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.w11-start__row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.w11-start__recommended {
+  margin-top: 12px;
+}
+
+.w11-start__footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 32px;
+  border-top: 1px solid var(--w11-divider);
+  background: var(--w11-subtle-press);
+}
+
+.w11-start__account {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 4px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: var(--w11-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.w11-start__account > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w11-start__footer-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.w11-start__power-menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+@media (max-width: 560px) {
+  .w11-start__folders {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .w11-start__footer {
+    padding: 8px 16px;
+  }
+}
