@@ -130,6 +130,8 @@ export type TerminalAction =
   | { type: "set-colors"; foreground: number; background: number }
   /** Back to the colour scheme's own colours (`color` with nothing after it). */
   | { type: "reset-colors" }
+  /** Something worth a badge in the Achievements app. */
+  | { type: "achievement"; id: string }
   | { type: "exit" };
 
 /** The write surface the shell needs. The terminal app backs it with the filesystem store. */
@@ -1011,6 +1013,7 @@ async function runPython(name: string, args: string[], ctx: Ctx): Promise<Output
   if (!python) return fail(ctx, name, "Python is not available here.");
 
   const first = args[0];
+  ctx.actions.push({ type: "achievement", id: "python" });
   if (first === undefined) {
     ctx.actions.push({ type: "enter-shell", profile: "python" });
     return ok();
@@ -2257,6 +2260,37 @@ const invokeExpression: CommandFn = async (args, stdin, ctx, name) => {
   return { out, ok: okay };
 };
 
+const neofetch: CommandFn = () =>
+  ok([
+    "   \\  |  /      taaniel@TAANIEL-OS",
+    "    \\ | /       ------------------",
+    "     \\|/        OS: Taaniel OS 11",
+    "   -------      Shell: PowerShell 7.4.5",
+    "                Terminal: Taaniel Terminal",
+    `                Resolution: ${globalThis.innerWidth ?? 0}x${globalThis.innerHeight ?? 0}`,
+    "                Kernel: your browser",
+    "                Uptime: since you got here",
+  ]);
+
+const cowsay: CommandFn = (args, stdin) => {
+  const text = sanitizeForTerminal((args.length ? args.join(" ") : (stdin ?? []).join(" ")) || "moo").slice(0, 60);
+  return ok([` ${"_".repeat(text.length + 2)}`, `< ${text} >`, ` ${"-".repeat(text.length + 2)}`, "        \\   ^__^", "         \\  (oo)\\_______", "            (__)\\       )\\/\\", "                ||----w |", "                ||     ||"]);
+};
+
+const sudo: CommandFn = (_args, _stdin, ctx) => {
+  ctx.actions.push({ type: "achievement", id: "sudo" });
+  return ok(["taaniel is not in the sudoers file. This incident will be reported."]);
+};
+
+const matrix: CommandFn = (_args, _stdin, ctx) => {
+  ctx.actions.push({ type: "achievement", id: "matrix" });
+  const glyphs = "01アイウエオカキクケコサシスセソタチツテト";
+  const lines = Array.from({ length: 14 }, () =>
+    Array.from({ length: 64 }, () => (Math.random() < 0.35 ? glyphs[Math.floor(Math.random() * glyphs.length)] : " ")).join("")
+  );
+  return ok([...lines.map((line) => `\x1b[32m${line}\x1b[0m`), "Wake up, visitor..."]);
+};
+
 const whoami: CommandFn = () => ok([`${SHELL_HOST.toLowerCase()}\\${SHELL_USER.toLowerCase()}`]);
 const hostname: CommandFn = () => ok([SHELL_HOST]);
 
@@ -3096,6 +3130,10 @@ const COMMANDS: Record<string, CommandSpec> = {
   whoami: { aliases: [], synopsis: "Show the signed-in user.", syntax: "whoami", run: whoami },
   hostname: { aliases: [], synopsis: "Show the computer name.", syntax: "hostname", run: hostname },
   exit: { aliases: [], synopsis: "Close this terminal window.", syntax: "exit", run: exitShell },
+  neofetch: { aliases: [], synopsis: "Show this system, with style.", syntax: "neofetch", run: neofetch },
+  cowsay: { aliases: [], synopsis: "A cow says what you type.", syntax: "cowsay <text>", run: cowsay },
+  sudo: { aliases: [], synopsis: "Ask nicely for more rights.", syntax: "sudo <command>", run: sudo },
+  matrix: { aliases: [], synopsis: "There is no spoon.", syntax: "matrix", run: matrix },
   about: { aliases: [], synopsis: "About Taaniel - opens the About app.", syntax: "about", run: about },
   projects: { aliases: [], synopsis: "List projects, or open one by id.", syntax: "projects [<id>]", run: projects },
   contact: { aliases: [], synopsis: "Contact details - opens the Contact app.", syntax: "contact", run: contact },

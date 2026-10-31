@@ -314,7 +314,7 @@ describe("python", () => {
 
   it("starts a REPL with no arguments and reports missing files", async () => {
     const host = python({ output: "" });
-    expect((await run("python", host)).actions).toEqual([{ type: "enter-shell", profile: "python" }]);
+    expect((await run("python", host)).actions).toContainEqual({ type: "enter-shell", profile: "python" });
     expect((await run("python nope.py", host)).text).toMatch(/No such file/);
   });
 
