@@ -60,6 +60,7 @@ import { TerminalApp } from "@/components/apps/terminal-app";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace } from "@/lib/system-workspace";
 import { MAX_TABS } from "@/lib/terminal-tabs";
+import { useDeviceStore } from "@/stores/device-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -644,13 +645,18 @@ describe("what the shell asks for", () => {
     expect(screen.getByRole("status").textContent).toBe("");
   });
 
-  it("tells the shell about the browser's offline state", () => {
+  it("follows airplane mode, Wi-Fi off and real outages from the tray", () => {
     render(<TerminalApp window={terminalWindow()} />);
     const host = newest().props.host as { isOffline: () => boolean };
-    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
-    expect(host.isOffline()).toBe(true);
-    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const device = useDeviceStore.getState();
+    device.setBrowserOnline(true);
     expect(host.isOffline()).toBe(false);
+    device.setAirplaneMode(true);
+    expect(host.isOffline()).toBe(true);
+    device.setAirplaneMode(false);
+    device.setBrowserOnline(false);
+    expect(host.isOffline()).toBe(true);
+    device.resetDevice();
   });
 });
 

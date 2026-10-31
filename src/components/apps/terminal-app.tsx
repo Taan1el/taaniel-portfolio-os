@@ -10,6 +10,7 @@ import { openFileSystemPath } from "@/lib/launchers";
 import { buildAppearance, prefersReducedMotion, type TerminalAppearance } from "@/lib/terminal-appearance";
 import { classifyTerminalKey, type TerminalCommand } from "@/lib/terminal-keys";
 import { isShellProfileId, resolveLaunchProfile, terminalProfiles, type TerminalProfileId } from "@/lib/terminal-profiles";
+import { getIsNetworkBlocked } from "@/stores/device-store";
 import { LINUX_LAUNCH_MESSAGE, TERMINAL_HOME_PATH, type ShellFileSystem, type ShellHost, type TerminalAction } from "@/lib/terminal-shell";
 import {
   activateTab,
@@ -205,7 +206,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       readClipboard: () => navigator.clipboard.readText(),
       writeClipboard: (text) => navigator.clipboard.writeText(text),
       // The browser's own online state. The system tray's offline switch replaces this when it exists.
-      isOffline: () => typeof navigator !== "undefined" && navigator.onLine === false,
+      isOffline: getIsNetworkBlocked,
     }),
     [closeWindow]
   );
