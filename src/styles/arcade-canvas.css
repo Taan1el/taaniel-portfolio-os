@@ -1,0 +1,45 @@
+.arcade-canvas__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  container-type: size;
+  background: #10141f;
+}
+
+.arcade-canvas__screen {
+  display: block;
+  width: min(100cqw, 300cqh);
+  height: auto;
+  aspect-ratio: 3 / 1;
+  outline: none;
+  touch-action: manipulation;
+}
+
+.arcade-canvas__screen--square {
+  width: min(100cqw, 100cqh);
+  aspect-ratio: 1;
+}
+
+.arcade-canvas__screen:focus-visible {
+  outline: 2px solid #60cdff;
+  outline-offset: -2px;
+}
+
+.arcade-canvas__notice {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 72%);
+  color: #fff;
+}
+
+.arcade-canvas__notice p {
+  margin: 0;
+}
