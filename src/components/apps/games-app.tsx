@@ -9,7 +9,7 @@ import {
   StatusBar,
 } from "@/components/apps/app-layout";
 import { getAppDefinition } from "@/lib/app-registry";
-import { bonusGameIds, originalGameIds, primaryGameIds } from "@/lib/games";
+import { originalGameIds, primaryGameIds } from "@/lib/games";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps, AppDefinition, AppId } from "@/types/system";
 
@@ -32,12 +32,6 @@ const gameSections: GameSectionDefinition[] = [
     title: "Arcade classics",
     description: "Snake and Tetris.",
     gameIds: primaryGameIds,
-  },
-  {
-    id: "reviewed-ports",
-    title: "Ports under review",
-    description: "Hextris and Dino—ports limited or disabled.",
-    gameIds: bonusGameIds,
   },
 ];
 
