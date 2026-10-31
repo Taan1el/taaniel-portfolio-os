@@ -13,12 +13,14 @@ import {
   highlightShellInput,
   predictFromHistory,
   runShellCommand,
+  sanitizeForTerminal,
   type CompletionResult,
   type ShellFileSystem,
   type ShellHost,
   type ShellResult,
   type ShellSession,
 } from "@/lib/terminal-shell";
+import { PythonInterrupted, sendToPython } from "@/lib/python-runtime";
 import type { FileSystemRecord } from "@/types/system";
 
 /**
@@ -27,7 +29,7 @@ import type { FileSystemRecord } from "@/types/system";
  * history is offered inline - so a tab only ever talks to one of these.
  */
 export interface ShellEngine {
-  id: ShellProfileId;
+  id: ShellProfileId | "python";
   /** The tab's title until the shell renames it. */
   title: string;
   /** localStorage key of this shell's command history (PSReadLine has its own, cmd does not share it). */
@@ -40,6 +42,10 @@ export interface ShellEngine {
   highlight: (line: string) => string;
   /** Grey text after the cursor that the right arrow accepts. Empty when the shell has none. */
   predict: (line: string, history: string[]) => string;
+  /** True when an empty line should reach the shell instead of just showing a new prompt. */
+  wantsEmptyLine?: (session: ShellSession) => boolean;
+  /** Ctrl+C at the prompt: forget any half-typed block. */
+  cancelInput?: (session: ShellSession) => void;
 }
 
 const powershell: ShellEngine = {
@@ -66,8 +72,41 @@ const commandPrompt: ShellEngine = {
   predict: () => "",
 };
 
-const ENGINES: Record<ShellProfileId, ShellEngine> = { pwsh: powershell, cmd: commandPrompt };
+/** The REPL's state belongs to the shell it runs in, so two tabs can sit at different prompts. */
+const waitingForMore = new WeakSet<ShellSession>();
 
-export function getShellEngine(id: ShellProfileId): ShellEngine {
+const python: ShellEngine = {
+  id: "python",
+  title: "Python",
+  historyKey: "taaniel-os-terminal-history-python",
+  prompt: (session) => (waitingForMore.has(session) ? "... " : ">>> "),
+  banner: () => ["Python on Taaniel OS (Pyodide). The first line loads about 14 MB; exit() leaves."],
+  run: async (input, session, _fs, host) => {
+    const done = (lines: string[], extra: Partial<ShellResult> = {}): ShellResult => ({ lines, clear: false, actions: [], success: true, ...extra });
+    try {
+      const result = await sendToPython({ type: "push", line: input }, host.signal);
+      if (result.more) waitingForMore.add(session);
+      else waitingForMore.delete(session);
+      const text = sanitizeForTerminal(`${result.output}${result.error ?? ""}`).replace(/\n$/, "");
+      return done(text ? text.split("\n") : [], result.exit ? { actions: [{ type: "exit" }] } : {});
+    } catch (error) {
+      waitingForMore.delete(session);
+      if (error instanceof PythonInterrupted) return done(["\x1b[91mKeyboardInterrupt\x1b[0m (Python restarted, so its variables are gone)"]);
+      return done([error instanceof Error ? error.message : "Python could not start."], { success: false });
+    }
+  },
+  complete: (line, cursor) => ({ line, cursor, candidates: [] }),
+  highlight: (line) => line,
+  predict: () => "",
+  wantsEmptyLine: (session) => waitingForMore.has(session),
+  cancelInput: (session) => {
+    if (!waitingForMore.delete(session)) return;
+    void sendToPython({ type: "reset" }).catch(() => undefined);
+  },
+};
+
+const ENGINES: Record<ShellProfileId | "python", ShellEngine> = { pwsh: powershell, cmd: commandPrompt, python };
+
+export function getShellEngine(id: ShellProfileId | "python"): ShellEngine {
   return ENGINES[id] ?? powershell;
 }

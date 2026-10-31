@@ -10,6 +10,7 @@ import { openFileSystemPath } from "@/lib/launchers";
 import { buildAppearance, prefersReducedMotion, type TerminalAppearance } from "@/lib/terminal-appearance";
 import { classifyTerminalKey, type TerminalCommand } from "@/lib/terminal-keys";
 import { isShellProfileId, resolveLaunchProfile, terminalProfiles, type TerminalProfileId } from "@/lib/terminal-profiles";
+import { sendToPython } from "@/lib/python-runtime";
 import { getIsNetworkBlocked } from "@/stores/device-store";
 import { LINUX_LAUNCH_MESSAGE, TERMINAL_HOME_PATH, type ShellFileSystem, type ShellHost, type TerminalAction } from "@/lib/terminal-shell";
 import {
@@ -207,6 +208,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       writeClipboard: (text) => navigator.clipboard.writeText(text),
       // The browser's own online state. The system tray's offline switch replaces this when it exists.
       isOffline: getIsNetworkBlocked,
+      python: {
+        run: async (code, args, signal) => sendToPython({ type: "run", code, args }, signal),
+        version: async (signal) => (await sendToPython({ type: "version" }, signal)).version ?? "3",
+      },
     }),
     [closeWindow]
   );

@@ -292,3 +292,35 @@ describe("system folders", () => {
     expect(useFileSystemStore.getState().nodes["/Desktop"]).toBeDefined();
   });
 });
+
+describe("python", () => {
+  const python = (result: { output: string; error?: string }) => ({
+    python: { run: vi.fn(async () => result), version: vi.fn(async () => "3.14.2") },
+  });
+
+  it("reports its version and runs -c code", async () => {
+    const host = python({ output: "5050\n" });
+    expect((await run("python --version", host)).text).toBe("Python 3.14.2");
+    expect((await run('python -c "print(1)"', host)).text).toBe("5050");
+    expect(host.python.run).toHaveBeenCalledWith("print(1)", ["-c"], undefined);
+  });
+
+  it("runs a script from the virtual disk with its arguments", async () => {
+    await fileSystem.writeFile("/Desktop/hi.py", "print('hi')");
+    const host = python({ output: "hi\n" });
+    expect((await run("py hi.py one", host)).text).toBe("hi");
+    expect(host.python.run).toHaveBeenCalledWith("print('hi')", ["hi.py", "one"], undefined);
+  });
+
+  it("starts a REPL with no arguments and reports missing files", async () => {
+    const host = python({ output: "" });
+    expect((await run("python", host)).actions).toEqual([{ type: "enter-shell", profile: "python" }]);
+    expect((await run("python nope.py", host)).text).toMatch(/No such file/);
+  });
+
+  it("strips control characters and marks failures", async () => {
+    const result = await run("python -c x", python({ output: "a\u001b[2Jb\n", error: "Traceback" }));
+    expect(result.lines[0]).toBe("a[2Jb");
+    expect(result.success).toBe(false);
+  });
+});
