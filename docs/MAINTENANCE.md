@@ -13,7 +13,7 @@ Completed:
 - Explorer: focus moves onto items so screen readers read them, and it stays in
   the window after the focused item goes away. Taskbar buttons take arrow keys.
 - Start menu rebuilt: pins, Recommended, All by category, grid or list, account bar.
-- Notepad replaces the Markdown viewer. New TV & Radio app (adds hls.js).
+- Notepad replaces the Markdown viewer. New TV & Radio app with 88 channels and ERR radio (adds hls.js, gsap and @gsap/react).
 - Settings grew six pages and a search box.
 - Contact is an inbox, Projects is a briefcase. Popup tips and achievement toasts removed.
 A changed shipped document only reaches returning visitors if the hash of its old

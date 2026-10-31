@@ -58,7 +58,8 @@ sees them, so these need their own keys, such as the existing Ctrl+Alt ones.
 
 - **What's on now.** iptv-org/epg needs a job to build guide data, so a scheduled
   GitHub Action could commit a small JSON file each day. M.
-- **More countries.** Add channels only after checking each one plays over HTTPS. S each.
+- **More countries.** Add channels only after playing each one over HTTPS from a browser. S each.
+- **Recheck the list.** Streams die. A scheduled check could flag channels that stopped playing. S.
 
 ## Suggested order
 
