@@ -81,6 +81,9 @@ export function isShellShortcut(event: KeyLike): boolean {
   if (ctrlOrMeta && !event.altKey && !event.shiftKey && lower === "k") return true;
   if (event.altKey && !ctrlOrMeta && event.key === "F4") return true;
   if (event.key === "F11") return true;
+  // Window snapping, closing and desktop switching.
+  if (event.altKey && event.shiftKey && !ctrlOrMeta && (event.key.startsWith("Arrow") || lower === "w")) return true;
+  if (event.ctrlKey && event.altKey && event.key.startsWith("Arrow")) return true;
   if (event.shiftKey && !ctrlOrMeta && !event.altKey && (event.key === "Escape" || event.key === "F10")) return true;
   // Alt+[ and Alt+] cycle windows; with Ctrl they are AltGr characters on many keyboards.
   if (event.altKey && !ctrlOrMeta && !event.shiftKey && (event.key === "[" || event.key === "]")) return true;

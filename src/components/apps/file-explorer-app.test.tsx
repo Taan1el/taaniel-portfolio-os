@@ -61,6 +61,7 @@ function dragOnto(source: HTMLElement, target: Element, modifiers: PointerEventI
 }
 
 beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
   useFileSystemStore.setState({ nodes: ensureSystemWorkspace(buildSeedFileSystem()), initialized: true });
   useExplorerStore.setState({ sessions: {} });
   useShellStore.setState({ clipboard: null, contextMenu: null });
@@ -88,8 +89,41 @@ describe("File Explorer and the Desktop folder", () => {
     render(<FileExplorerApp window={buildWindow("/Desktop")} />);
     act(() => useExplorerStore.getState().setViewMode(WINDOW_ID, "list"));
 
-    const row = screen.getByRole("row", { name: "Resume.pdf" });
+    const row = screen.getByRole("row", { name: /^Resume\.pdf/ });
     expect(within(row).getByText("Shortcut")).toBeTruthy();
+  });
+
+  it("moves focus to the item the arrow keys land on", () => {
+    render(<FileExplorerApp window={buildWindow("/Desktop")} />);
+    const list = screen.getByRole("listbox");
+
+    fireEvent.keyDown(list, { key: "Home" });
+    fireEvent.keyDown(list, { key: "End" });
+
+    const items = screen.getAllByRole("option");
+    expect(document.activeElement).toBe(items[items.length - 1]);
+    expect(items[items.length - 1].getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("opens a focused folder once and keeps the keyboard in the window", () => {
+    render(<FileExplorerApp window={buildWindow("/")} />);
+    const documents = option("Documents");
+
+    fireEvent.pointerDown(documents, { pointerId: 1, pointerType: "mouse", button: 0 });
+    documents.focus();
+    fireEvent.keyDown(documents, { key: "Enter" });
+
+    expect(useExplorerStore.getState().sessions[WINDOW_ID].history).toHaveLength(2);
+    expect(document.activeElement).toBe(screen.getByRole("region", { name: /Documents folder/ }));
+  });
+
+  it("announces the folder and how much is selected", () => {
+    render(<FileExplorerApp window={buildWindow("/Desktop")} />);
+    const count = screen.getAllByRole("option").length;
+    expect(screen.getByRole("status").textContent).toBe(`Desktop, ${count} items`);
+
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "a", ctrlKey: true });
+    expect(screen.getByRole("status").textContent).toBe(`${count} items selected`);
   });
 
   it("keeps the Recycle Bin out of the profile folder", () => {

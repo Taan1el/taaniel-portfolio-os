@@ -538,7 +538,8 @@ export class TerminalSession {
     this.finishLine();
     this.walk = startHistoryWalk(this.shell.history);
 
-    if (!input.trim()) {
+    // An empty line means nothing to a shell, but it ends a block in Python's REPL.
+    if (!input.trim() && !this.engine.wantsEmptyLine?.(this.shell)) {
       this.newPrompt();
       return;
     }
@@ -567,8 +568,10 @@ export class TerminalSession {
     // is stored now (other tabs may have saved commands meanwhile), and this tab then takes up the result.
     // A command that emptied the list (Clear-History) starts the saved one over.
     const cleared = hadHistory && shell.history.length === 0;
-    const saved = appendHistory(engine.historyKey, input, shell.history, cleared);
-    shell.history.splice(0, shell.history.length, ...saved);
+    if (input.trim()) {
+      const saved = appendHistory(engine.historyKey, input, shell.history, cleared);
+      shell.history.splice(0, shell.history.length, ...saved);
+    }
     this.walk = startHistoryWalk(this.shell.history);
     this.busy = false;
     if (this.disposed) return;
@@ -765,6 +768,7 @@ export class TerminalSession {
         case "\x03":
           this.finishLine();
           this.terminal.write("\x1b[91m^C\x1b[0m\r\n");
+          this.engine.cancelInput?.(this.shell);
           this.walk = startHistoryWalk(this.shell.history);
           this.newPrompt();
           break;

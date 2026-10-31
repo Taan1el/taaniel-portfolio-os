@@ -41,17 +41,21 @@ The arcade lineup lives inside the OS and launches through the same window syste
 - Snake
 - Tetris
 - Doom
-
-## Ports under review
-
 - Dino
 - Hextris
 
+## By Taaniel
+
+- Next Stop: drive a steam train, explore country stations, restore a fence or fish by the lake.
+- Open Next Stop from Games, Start, Search or /Games/Next Stop.lnk.
+- WASD walks or adjusts power, E boards, Space brakes, J opens the journal and Esc pauses.
+- Progress saves locally. Switching windows pauses the railway; closing releases graphics and sound.
+
 ## Notes
 
-- Snake and Tetris are tuned for the compact desktop shell.
-- Third-party ports are still listed in the hub, but they currently open a safe notice while local replacements are prepared.
+- Snake, Tetris, Dino and Hextris are written for this OS.
+- Doom is a WebAssembly build of the GPL engine with the shareware episode.
 `;
 
-export const primaryGameIds = ["snake", "tetris", "doom"] as const satisfies readonly AppId[];
-export const bonusGameIds = ["dino", "hextris"] as const satisfies readonly AppId[];
+export const primaryGameIds = ["snake", "tetris", "doom", "dino", "hextris"] as const satisfies readonly AppId[];
+export const originalGameIds = ["next-stop"] as const satisfies readonly AppId[];

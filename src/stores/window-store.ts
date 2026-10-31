@@ -32,6 +32,8 @@ interface WindowStoreState {
   windows: WindowRecord[];
   activeWindowId: string | null;
   nextZ: number;
+  activeDesktop: number;
+  desktopCount: number;
   openWindow: (options: OpenWindowOptions) => string;
   replaceRuntime: (windows: WindowRecord[], activeWindowId: string | null, nextZ?: number) => void;
   bringToFront: (windowId: string) => void;
@@ -40,6 +42,11 @@ interface WindowStoreState {
   closeWindow: (windowId: string) => void;
   minimizeWindow: (windowId: string) => void;
   maximizeWindow: (windowId: string, fallbackRestoreBounds?: WindowBounds) => void;
+  snapWindow: (windowId: string, bounds: WindowBounds) => void;
+  switchDesktop: (desktop: number) => void;
+  addDesktop: () => void;
+  removeDesktop: (desktop: number) => void;
+  moveWindowToDesktop: (windowId: string, desktop: number) => void;
   updateWindowBounds: (
     windowId: string,
     partial: Partial<Pick<WindowRecord, "x" | "y" | "width" | "height">>
@@ -105,6 +112,7 @@ export function sanitizePersistedWindows(value: unknown): WindowRecord[] {
       {
         id: windowState.id,
         processId: windowState.processId,
+        desktop: sanitizeDesktop(windowState.desktop),
         title: typeof windowState.title === "string" ? windowState.title : "Window",
         minimized: Boolean(windowState.minimized),
         minimizedByShowDesktop: Boolean(windowState.minimizedByShowDesktop),
@@ -130,8 +138,11 @@ function resolveActiveWindowId(windows: WindowRecord[], requestedActiveWindowId:
   return getTopVisibleWindowId(windows);
 }
 
-function syncWindowRuntime(windows: WindowRecord[], requestedActiveWindowId: string | null) {
-  const activeWindowId = resolveActiveWindowId(windows, requestedActiveWindowId);
+function syncWindowRuntime(windows: WindowRecord[], requestedActiveWindowId: string | null, desktop = 1) {
+  const activeWindowId = resolveActiveWindowId(
+    windows.filter((windowState) => desktopOf(windowState) === desktop),
+    requestedActiveWindowId
+  );
 
   return {
     windows: windows.map((windowState) => ({
@@ -142,6 +153,16 @@ function syncWindowRuntime(windows: WindowRecord[], requestedActiveWindowId: str
   };
 }
 
+export const MAX_DESKTOPS = 4;
+
+export function desktopOf(windowState: Pick<WindowRecord, "desktop">) {
+  return windowState.desktop ?? 1;
+}
+
+function sanitizeDesktop(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_DESKTOPS ? value : undefined;
+}
+
 const legacySeed = getLegacyWindowSeed();
 const initialRuntime = syncWindowRuntime(legacySeed.windows, legacySeed.activeWindowId);
 
@@ -149,6 +170,8 @@ const initialWindowState = {
   windows: initialRuntime.windows,
   activeWindowId: initialRuntime.activeWindowId,
   nextZ: legacySeed.nextZ,
+  activeDesktop: 1,
+  desktopCount: 1,
 };
 
 export const useWindowStore = create<WindowStoreState>()(
@@ -181,10 +204,11 @@ export const useWindowStore = create<WindowStoreState>()(
           focused: false,
           zIndex: assignedZ,
           restoreBounds,
+          desktop: get().activeDesktop,
           createdAt: createdAt ?? Date.now(),
           ...clampWindowBoundsToViewport(bounds),
         };
-        const runtime = syncWindowRuntime([...get().windows, nextWindow], nextWindowId);
+        const runtime = syncWindowRuntime([...get().windows, nextWindow], nextWindowId, get().activeDesktop);
 
         set({
           nextZ: nextCounter,
@@ -195,7 +219,7 @@ export const useWindowStore = create<WindowStoreState>()(
       },
       replaceRuntime: (windows, activeWindowId, nextZ) =>
         set({
-          ...syncWindowRuntime(windows, activeWindowId),
+          ...syncWindowRuntime(windows, activeWindowId, get().activeDesktop),
           nextZ:
             nextZ ??
             windows.reduce((highest, windowState) => Math.max(highest, windowState.zIndex), 2),
@@ -213,9 +237,14 @@ export const useWindowStore = create<WindowStoreState>()(
             : windowState
         );
 
+        // A window opened from elsewhere brings its desktop along with it.
+        const target = get().windows.find((windowState) => windowState.id === windowId);
+        const activeDesktop = target ? desktopOf(target) : get().activeDesktop;
+
         set({
           nextZ,
-          ...syncWindowRuntime(windows, windowId),
+          activeDesktop,
+          ...syncWindowRuntime(windows, windowId, activeDesktop),
         });
       },
       focusWindow: (windowId) => get().bringToFront(windowId),
@@ -233,7 +262,7 @@ export const useWindowStore = create<WindowStoreState>()(
       },
       closeWindow: (windowId) => {
         const windows = get().windows.filter((windowState) => windowState.id !== windowId);
-        set(syncWindowRuntime(windows, get().activeWindowId === windowId ? null : get().activeWindowId));
+        set(syncWindowRuntime(windows, get().activeWindowId === windowId ? null : get().activeWindowId, get().activeDesktop));
       },
       minimizeWindow: (windowId) => {
         const windows = get().windows.map((windowState) =>
@@ -249,7 +278,8 @@ export const useWindowStore = create<WindowStoreState>()(
         set(
           syncWindowRuntime(
             windows,
-            get().activeWindowId === windowId ? null : get().activeWindowId
+            get().activeWindowId === windowId ? null : get().activeWindowId,
+            get().activeDesktop
           )
         );
       },
@@ -279,7 +309,47 @@ export const useWindowStore = create<WindowStoreState>()(
           };
         });
 
-        set(syncWindowRuntime(windows, windowId));
+        set(syncWindowRuntime(windows, windowId, get().activeDesktop));
+      },
+      snapWindow: (windowId, bounds) => {
+        const windows = get().windows.map((windowState) =>
+          windowState.id === windowId
+            ? {
+                ...windowState,
+                ...bounds,
+                // Restore returns to the size it had before it was first snapped.
+                restoreBounds: windowState.restoreBounds ?? clampWindowBoundsToViewport(windowState),
+                maximized: false,
+              }
+            : windowState
+        );
+        set(syncWindowRuntime(windows, windowId, get().activeDesktop));
+      },
+      switchDesktop: (desktop) => {
+        if (desktop < 1 || desktop > get().desktopCount || desktop === get().activeDesktop) return;
+        set({ activeDesktop: desktop, ...syncWindowRuntime(get().windows, null, desktop) });
+      },
+      addDesktop: () => {
+        const desktopCount = get().desktopCount;
+        if (desktopCount >= MAX_DESKTOPS) return;
+        const activeDesktop = desktopCount + 1;
+        set({ desktopCount: activeDesktop, activeDesktop, ...syncWindowRuntime(get().windows, null, activeDesktop) });
+      },
+      removeDesktop: (desktop) => {
+        const { desktopCount, activeDesktop } = get();
+        if (desktopCount <= 1 || desktop < 1 || desktop > desktopCount) return;
+        // Like Windows: its windows join the neighbouring desktop and later desktops shift down.
+        const fallback = Math.max(1, desktop - 1);
+        const renumber = (value: number) => (value === desktop ? fallback : value > desktop ? value - 1 : value);
+        const windows = get().windows.map((windowState) => ({ ...windowState, desktop: renumber(desktopOf(windowState)) }));
+        const nextActive = renumber(activeDesktop);
+        set({ desktopCount: desktopCount - 1, activeDesktop: nextActive, ...syncWindowRuntime(windows, get().activeWindowId, nextActive) });
+      },
+      moveWindowToDesktop: (windowId, desktop) => {
+        if (desktop < 1 || desktop > get().desktopCount) return;
+        const windows = get().windows.map((windowState) => (windowState.id === windowId ? { ...windowState, desktop } : windowState));
+        const keep = get().activeWindowId === windowId ? null : get().activeWindowId;
+        set(syncWindowRuntime(windows, keep, get().activeDesktop));
       },
       updateWindowBounds: (windowId, partial) => {
         const windows = get().windows.map((windowState) => {
@@ -293,17 +363,20 @@ export const useWindowStore = create<WindowStoreState>()(
           };
         });
 
-        set(syncWindowRuntime(windows, get().activeWindowId));
+        set(syncWindowRuntime(windows, get().activeWindowId, get().activeDesktop));
       },
       showDesktop: () => {
-        const hasVisibleWindow = get().windows.some((windowState) => !windowState.minimized);
+        const activeDesktop = get().activeDesktop;
+        const hasVisibleWindow = get().windows.some(
+          (windowState) => desktopOf(windowState) === activeDesktop && !windowState.minimized
+        );
 
         if (!hasVisibleWindow) {
           get().restoreDesktop();
           return;
         }
 
-        const windows = get().windows.map((windowState) => ({
+        const windows = get().windows.map((windowState) => desktopOf(windowState) !== activeDesktop ? windowState : ({
           ...windowState,
           minimized: true,
           // Only mark windows that are currently visible so restoreDesktop
@@ -315,11 +388,13 @@ export const useWindowStore = create<WindowStoreState>()(
             : true,
         }));
 
-        set(syncWindowRuntime(windows, null));
+        set(syncWindowRuntime(windows, null, activeDesktop));
       },
       restoreDesktop: () => {
         let nextZ = get().nextZ;
+        const activeDesktop = get().activeDesktop;
         const windows = get().windows.map((windowState) => {
+          if (desktopOf(windowState) !== activeDesktop) return windowState;
           if (!windowState.minimizedByShowDesktop) {
             return {
               ...windowState,
@@ -338,7 +413,7 @@ export const useWindowStore = create<WindowStoreState>()(
 
         set({
           nextZ,
-          ...syncWindowRuntime(windows, getTopVisibleWindowId(windows)),
+          ...syncWindowRuntime(windows, null, activeDesktop),
         });
       },
       resetWindows: () =>
@@ -346,11 +421,13 @@ export const useWindowStore = create<WindowStoreState>()(
           windows: [],
           activeWindowId: null,
           nextZ: 2,
+          activeDesktop: 1,
+          desktopCount: 1,
         }),
     }),
     {
       name: WINDOW_STORAGE_KEY,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(getSafeLocalStorage),
       migrate: (persistedState) => {
         const state = persistedState as
@@ -358,23 +435,30 @@ export const useWindowStore = create<WindowStoreState>()(
               windows?: PersistedWindowV1[];
               activeWindowId?: string | null;
               nextZ?: number;
+              activeDesktop?: number;
+              desktopCount?: number;
             }
           | undefined;
 
         const windows = sanitizePersistedWindows(state?.windows);
-
-        const runtime = syncWindowRuntime(windows, state?.activeWindowId ?? null);
+        const desktopCount = sanitizeDesktop(state?.desktopCount) ?? 1;
+        const activeDesktop = Math.min(sanitizeDesktop(state?.activeDesktop) ?? 1, desktopCount);
+        const runtime = syncWindowRuntime(windows, state?.activeWindowId ?? null, activeDesktop);
 
         return {
           windows: runtime.windows,
           activeWindowId: runtime.activeWindowId,
           nextZ: state?.nextZ ?? 2,
+          activeDesktop,
+          desktopCount,
         };
       },
       partialize: (state) => ({
         windows: state.windows,
         activeWindowId: state.activeWindowId,
         nextZ: state.nextZ,
+        activeDesktop: state.activeDesktop,
+        desktopCount: state.desktopCount,
       }),
     }
   )

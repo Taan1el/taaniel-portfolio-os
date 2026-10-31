@@ -24,7 +24,10 @@ import { useMasterVolume } from "@/hooks/use-master-volume";
 import { useMediaGallery } from "@/hooks/use-media-gallery";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useSystemStore } from "@/stores/system-store";
-import type { AppComponentProps, VirtualFile } from "@/types/system";
+import { TRASH_PATH } from "@/lib/system-workspace";
+import type { AppComponentProps, FileSystemRecord, VirtualFile } from "@/types/system";
+
+const DEFAULT_TRACK = "/Media/Music/Black Star.mp3";
 
 function formatTime(seconds: number) {
   const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
@@ -46,6 +49,28 @@ function normalizeMediaKey(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+function findCover(nodes: FileSystemRecord, track: VirtualFile) {
+  const trackKey = normalizeMediaKey(track.name.replace(/\.[^.]+$/, ""));
+
+  return listChildren(nodes, getParentPath(track.path)).find(
+    (node): node is VirtualFile =>
+      node.kind === "file" && isImageFile(node) && Boolean(node.source) && normalizeMediaKey(node.name).includes(trackKey)
+  );
+}
+
+/** A remembered or mistyped path must not leave the player empty while songs exist. */
+function resolveStartTrack(nodes: FileSystemRecord, requested?: string) {
+  const isTrack = (path?: string) => {
+    const node = path ? nodes[path] : undefined;
+    return node?.kind === "file" && isAudioFile(node);
+  };
+
+  if (isTrack(requested)) return requested as string;
+  if (isTrack(DEFAULT_TRACK)) return DEFAULT_TRACK;
+  const first = Object.values(nodes).find((node) => node.kind === "file" && isAudioFile(node) && !node.path.startsWith(TRASH_PATH));
+  return first?.path ?? DEFAULT_TRACK;
+}
+
 export function MusicPlayerApp({ window }: AppComponentProps) {
   const nodes = useFileSystemStore((state) => state.nodes);
   const launchApp = useSystemStore((state) => state.launchApp);
@@ -53,7 +78,7 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
   const shouldResumePlaybackRef = useRef(false);
   const { filePath, siblings, previous, next } = useMediaGallery(
     nodes,
-    window.payload?.filePath ?? "/Media/Music/Black Star.mp3",
+    resolveStartTrack(nodes, window.payload?.filePath),
     isAudioFile
   );
   const file = nodes[filePath];
@@ -67,28 +92,7 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
     () => siblings.filter((item) => item.kind === "file" && isAudioFile(item)),
     [siblings]
   );
-  const coverArt = useMemo(() => {
-    if (!currentTrack) {
-      return null;
-    }
-
-    const trackKey = normalizeMediaKey(currentTrack.name.replace(/\.[^.]+$/, ""));
-    const imageFiles = listChildren(nodes, getParentPath(currentTrack.path)).filter(
-      (node): node is VirtualFile => node.kind === "file" && isImageFile(node) && Boolean(node.source)
-    );
-
-    const directMatch = imageFiles.find((item) => normalizeMediaKey(item.name).includes(trackKey));
-
-    if (directMatch) {
-      return directMatch;
-    }
-
-    if (playlist.length === 1) {
-      return imageFiles.find((item) => normalizeMediaKey(item.name).includes("cover")) ?? imageFiles[0] ?? null;
-    }
-
-    return null;
-  }, [currentTrack, nodes, playlist.length]);
+  const coverArt = currentTrack ? findCover(nodes, currentTrack) : undefined;
 
   // The player's own slider, scaled by the master volume from Quick Settings.
   useMasterVolume(audioRef, volume, currentTrack ? 1 : 0);
@@ -221,7 +225,7 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
           <div className="section-row">
             <div>
               <p className="eyebrow">Playlist</p>
-              <h2>Folder queue</h2>
+              <h2>Songs</h2>
             </div>
             <small>{playlist.length}</small>
           </div>
@@ -235,12 +239,14 @@ export function MusicPlayerApp({ window }: AppComponentProps) {
                 onClick={() => jumpToTrack(track.path)}
               >
                 <span className="music-player__track-index">{String(index + 1).padStart(2, "0")}</span>
+                <span className="music-player__track-art">
+                  {findCover(nodes, track)?.source ? <img src={findCover(nodes, track)?.source} alt="" /> : <AudioWaveform size={16} />}
+                </span>
                 <span className="music-player__track-copy">
                   <strong>{track.name.replace(/\.[^.]+$/, "")}</strong>
-                  <small title={track.path}>{track.path}</small>
                 </span>
                 {track.path === currentTrack.path ? (
-                  <span className="music-player__track-status">Live</span>
+                  <span className="music-player__track-status">{isPlaying ? "Playing" : "Selected"}</span>
                 ) : null}
               </button>
             ))}

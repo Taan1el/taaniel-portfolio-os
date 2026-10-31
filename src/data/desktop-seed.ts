@@ -15,7 +15,7 @@ import type {
 
 export const DESKTOP_PATH = "/Desktop";
 /** Bump to place newly added default shortcuts on returning visitors' desktops. */
-export const DESKTOP_SEED_VERSION = 1;
+export const DESKTOP_SEED_VERSION = 2;
 export const RECYCLE_BIN_DESKTOP_ID = "system:recycle-bin";
 export const RECYCLE_BIN_DEFAULT_POSITION: DesktopGridPosition = { gridX: 2, gridY: 2 };
 
@@ -49,6 +49,7 @@ export const desktopShortcutSeeds: DesktopShortcutSeed[] = [
   { name: "Photos.lnk", legacyId: "photos-app", target: { type: "app", appId: "photos" }, defaultGridPosition: { gridX: 1, gridY: 1 } },
   { name: "Browser.lnk", legacyId: "browser-app", target: { type: "app", appId: "browser" }, defaultGridPosition: { gridX: 2, gridY: 1 } },
   { name: "Portfolio.lnk", legacyId: "simple-portfolio", target: { type: "route", route: "/portfolio" }, defaultGridPosition: { gridX: 1, gridY: 2 } },
+  { name: "TV & Radio.lnk", since: 2, legacyId: "tv-app", target: { type: "app", appId: "tv" }, defaultGridPosition: { gridX: 0, gridY: 3 } },
 ];
 
 /** Desktop icon ids are the item's path, so a moved or renamed file gets a new icon. */

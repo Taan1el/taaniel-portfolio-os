@@ -21,6 +21,14 @@ describe("portfolio workspace updates", () => {
     const updated = await refreshPortfolioWorkspace({ ...seed, [about.path]: { ...about, content } });
     expect(updated[about.path]).toEqual(about);
   });
+  it("brings an unchanged case study up to date for returning visitors", async () => {
+    const seed = buildSeedFileSystem();
+    const study = seed["/Portfolio/OS-Case-Study.md"];
+    if (study.kind !== "file" || !study.content) throw new Error("Missing case study");
+    const content = study.content.slice(0, study.content.indexOf("\n## What grew out of it"));
+    const updated = await refreshPortfolioWorkspace({ ...seed, [study.path]: { ...study, content } });
+    expect(updated[study.path]).toEqual(study);
+  });
   it("adds current case studies without changing user notes", async () => {
     const seed = buildSeedFileSystem();
     const about = seed["/Portfolio/About.md"];

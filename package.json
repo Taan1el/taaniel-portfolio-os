@@ -15,6 +15,7 @@
     "deploy:gh": "npm run build:gh && npx gh-pages -d dist"
   },
   "dependencies": {
+    "@gsap/react": "^2.1.2",
     "@huggingface/transformers": "^4.3.1",
     "@monaco-editor/react": "^4.7.0",
     "@panzoom/panzoom": "^4.6.2",
@@ -25,6 +26,8 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.4.17",
     "framer-motion": "^12.9.1",
+    "gsap": "^3.15.0",
+    "hls.js": "^1.7.4",
     "html-to-image": "^1.11.13",
     "idb-keyval": "^6.2.1",
     "lucide-react": "^1.14.0",
@@ -46,7 +49,7 @@
     "gh-pages": "^6.2.0",
     "jsdom": "^29.0.2",
     "typescript": "^6.0.3",
-    "vite": "~8.0.16",
+    "vite": "^8.3.5",
     "vitest": "^4.1.11"
   },
   "overrides": {

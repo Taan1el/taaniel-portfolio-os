@@ -3,10 +3,12 @@ import {
   bundledWorkspaceDirectories,
 } from "@/data/bundled-assets";
 import { DESKTOP_PATH, ensureDesktopShortcuts } from "@/data/desktop-seed";
+import { createShortcutNode } from "@/lib/shortcuts";
 import { photographyAssets } from "@/data/portfolio";
 import {
   GAMES_DIRECTORY_PATH,
   GAMES_README_PATH,
+  GAMES_README_CONTENT,
 } from "@/lib/games";
 import { NOTES_DIRECTORY_PATH, ensureNotesWorkspace } from "@/lib/notes";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
@@ -28,10 +30,12 @@ export const PROTECTED_PATHS: ReadonlySet<string> = new Set([
   "/Media",
   "/Media/Music",
   "/Media/Photography",
+  GAMES_DIRECTORY_PATH,
   TRASH_PATH,
 ]);
 
 const REQUIRED_DIRECTORIES = [
+  GAMES_DIRECTORY_PATH,
   "/Media",
   "/Media/Music",
   "/Media/Photography",
@@ -183,16 +187,14 @@ export function ensureSystemWorkspace(nodes: FileSystemRecord) {
     }
   });
 
-  // Portfolio is no longer shipping games by default; remove legacy game surfaces if present.
-  if (nextNodes[GAMES_README_PATH] || nextNodes[GAMES_DIRECTORY_PATH]) {
-    nextNodes = { ...nextNodes };
-    delete nextNodes[GAMES_README_PATH];
-
-    Object.keys(nextNodes).forEach((path) => {
-      if (path === GAMES_DIRECTORY_PATH || path.startsWith(`${GAMES_DIRECTORY_PATH}/`)) {
-        delete nextNodes[path];
-      }
-    });
+  // Add the first-party game without removing visitors' own files or shortcuts.
+  if (!nextNodes[GAMES_README_PATH]) {
+    nextNodes = { ...nextNodes, [GAMES_README_PATH]: createTextFileNode(GAMES_README_PATH, "md", "text/markdown", GAMES_README_CONTENT, timestamp) };
+    changed = true;
+  }
+  const gameShortcut = `${GAMES_DIRECTORY_PATH}/Next Stop.lnk`;
+  if (!nextNodes[gameShortcut]) {
+    nextNodes = { ...nextNodes, [gameShortcut]: createShortcutNode(gameShortcut, { type: "app", appId: "next-stop" }, timestamp) };
     changed = true;
   }
 

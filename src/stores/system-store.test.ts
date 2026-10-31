@@ -52,16 +52,15 @@ describe("openFileInWindow (a file dropped on a window)", () => {
     expect(windowById(id)?.payload?.filePath).toBe(CV);
   });
 
-  it("opens a new window in an editor, so unsaved text is never replaced", async () => {
+  it("adds a tab in Code, so unsaved text is never replaced", async () => {
     await useFileSystemStore.getState().writeFile("/Desktop/a.txt", "first", { mimeType: "text/plain", extension: "txt" });
     await useFileSystemStore.getState().writeFile("/Desktop/b.txt", "second", { mimeType: "text/plain", extension: "txt" });
     const id = useSystemStore.getState().launchApp({ appId: "editor", payload: { filePath: "/Desktop/a.txt" } });
 
     useSystemStore.getState().openFileInWindow(id, "/Desktop/b.txt");
 
-    expect(windows()).toHaveLength(2);
-    expect(windowById(id)?.payload?.filePath).toBe("/Desktop/a.txt");
-    expect(windows().some((entry) => entry.appId === "editor" && entry.payload?.filePath === "/Desktop/b.txt")).toBe(true);
+    expect(windows()).toHaveLength(1);
+    expect(windowById(id)?.payload?.filePath).toBe("/Desktop/b.txt");
   });
 
   it("remembers the file as recent", () => {

@@ -5,17 +5,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { TERMINAL_SHORTCUTS } from "@/lib/terminal-keys";
 
-interface ShortcutEntry {
+export interface ShortcutEntry {
   keys: string[];
   label: string;
 }
 
-interface ShortcutGroup {
+export interface ShortcutGroup {
   title: string;
   shortcuts: ShortcutEntry[];
 }
 
-const SHORTCUT_GROUPS: ShortcutGroup[] = [
+export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: "Shell",
     shortcuts: [
@@ -32,6 +32,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Windows",
     shortcuts: [
       { keys: ["Alt", "Shift", "W"], label: "Close active window" },
+      { keys: ["Alt", "Shift", "Arrows"], label: "Snap, maximize or minimize" },
+      { keys: ["Ctrl", "Alt", "Left/Right"], label: "Switch desktop" },
       { keys: ["Alt", "]"], label: "Focus next window" },
       { keys: ["Alt", "["], label: "Focus previous window" },
     ],

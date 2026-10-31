@@ -7,6 +7,7 @@ import { TaskbarTray } from "@/components/shell/taskbar-tray";
 import { LogoMark } from "@/components/ui/logo-mark";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
+import { TaskViewButton } from "@/components/shell/task-view";
 import { taskbarDropProps } from "@/lib/dnd/dom";
 import { cn } from "@/lib/utils";
 import taskbarMod from "@/components/shell/taskbar.module.css";
@@ -382,7 +383,28 @@ export function Taskbar({
             onKeyDown={handleTaskbarSearchKeyDown}
           />
 
-          <div className="w11-taskbar__apps" ref={windowsRef} onScroll={() => setPreviewEntry(null)}>
+          <TaskViewButton />
+
+          <div
+            className="w11-taskbar__apps"
+            ref={windowsRef}
+            onScroll={() => setPreviewEntry(null)}
+            onKeyDown={(event) => {
+              // Arrow keys walk the app buttons, as the Windows taskbar does.
+              const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("button"));
+              const index = buttons.indexOf(document.activeElement as HTMLElement);
+              const target =
+                event.key === "ArrowRight" ? buttons[(index + 1) % buttons.length]
+                : event.key === "ArrowLeft" ? buttons[(index - 1 + buttons.length) % buttons.length]
+                : event.key === "Home" ? buttons[0]
+                : event.key === "End" ? buttons[buttons.length - 1]
+                : null;
+              if (target) {
+                event.preventDefault();
+                target.focus();
+              }
+            }}
+          >
             {slots.map((slot) => {
               if (slot.type === "pinned-closed") {
                 const definition = getAppDefinition(slot.appId);

@@ -30,6 +30,7 @@ export function SoundPage() {
         />
         <SettingsRow
           icon={<VolumeIcon glyph={resolveVolumeGlyph(volume, muted)} size={18} />}
+          settingId="volume"
           title="Volume"
           description="The master volume. Music, videos and the virtual x86 machine all play at this level."
         >
@@ -40,7 +41,7 @@ export function SoundPage() {
             onChange={setVolume}
           />
         </SettingsRow>
-        <SettingsRow title="Mute" description="Silences every player until you turn it back on." className="is-nested">
+        <SettingsRow settingId="mute" title="Mute" description="Silences every player until you turn it back on." className="is-nested">
           <ToggleSwitch label="Mute" checked={muted} onChange={setMuted} />
         </SettingsRow>
       </SettingsGroup>
@@ -48,6 +49,7 @@ export function SoundPage() {
       <SettingsGroup title="Test">
         <SettingsRow
           icon={<Volume2 size={18} />}
+          settingId="test-speakers"
           title="Test your speakers"
           description={
             testUnavailable

@@ -166,6 +166,10 @@ export const HELP_EXAMPLES: Record<string, HelpExample[]> = {
   whoami: [["whoami", "Shows the signed-in user."]],
   hostname: [["hostname", "Shows the computer name."]],
   exit: [["exit", "Closes this shell (a nested one returns to the shell it was started from)."]],
+  neofetch: [["neofetch", "Shows this system, with style."]],
+  cowsay: [["cowsay hello", "A cow says hello."]],
+  sudo: [["sudo make me a sandwich", "You can always ask."]],
+  matrix: [["matrix", "There is no spoon."]],
   about: [["about", "Opens the About app."]],
   projects: [
     ["projects", "Lists the projects."],

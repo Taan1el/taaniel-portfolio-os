@@ -123,13 +123,15 @@ export type TerminalAction =
    * Start a shell inside this one, in the same tab and folder: typing `cmd` or `pwsh`. `exit` returns to the shell it was
    * started from. With a command (`cmd /c dir`) the command runs and the shell ends; with `keep` (`/k`, -NoExit) it stays.
    */
-  | { type: "enter-shell"; profile: ShellProfileId; command?: string; keep?: boolean }
+  | { type: "enter-shell"; profile: ShellProfileId | "python"; command?: string; keep?: boolean }
   /** Rename this tab (cmd's `title`). */
   | { type: "set-title"; title: string }
   /** Recolour this tab's screen (cmd's `color`). Both are ANSI palette indices 0-15, read from the colour scheme in use. */
   | { type: "set-colors"; foreground: number; background: number }
   /** Back to the colour scheme's own colours (`color` with nothing after it). */
   | { type: "reset-colors" }
+  /** Something worth a badge in the Achievements app. */
+  | { type: "achievement"; id: string }
   | { type: "exit" };
 
 /** The write surface the shell needs. The terminal app backs it with the filesystem store. */
@@ -170,7 +172,14 @@ export interface ShellProcessInfo {
  * supplies real implementations; tests supply fakes; every member is optional
  * so a missing capability fails politely instead of crashing.
  */
+/** What the shell needs from Python, which runs in a worker. */
+export interface ShellPython {
+  run: (code: string, args: string[], signal?: AbortSignal) => Promise<{ output: string; error?: string }>;
+  version: (signal?: AbortSignal) => Promise<string>;
+}
+
 export interface ShellHost {
+  python?: ShellPython;
   listProcesses?: () => ShellProcessInfo[];
   stopProcess?: (id: string) => void;
   readClipboard?: () => Promise<string>;
@@ -983,13 +992,62 @@ function openSettingsUri(uri: string, ctx: Ctx): Output {
 
 /** True for names that launch an app by themselves: notepad, calc, explorer, ms-settings:display... */
 export function isExecutableName(name: string) {
-  return own(EXECUTABLES, name.toLowerCase().replace(/\.exe$/, "")) !== undefined || /^ms-settings:./i.test(name);
+  const program = name.toLowerCase().replace(/\.exe$/, "");
+  return own(EXECUTABLES, program) !== undefined || PYTHON_NAMES.has(program) || /^ms-settings:./i.test(name);
 }
 
 export const LINUX_LAUNCH_MESSAGE = [
-  "Opening Virtual x86: v86, an x86 emulator that runs in your browser.",
-  "No Linux image ships with Taaniel OS - open a .img or .iso disk image from File Explorer to boot one.",
+  "Booting Linux in Virtual x86: a real kernel on v86, an x86 emulator running in your browser.",
+  "Click its window to type. Open a .img or .iso from File Explorer to boot something else.",
 ];
+
+const PYTHON_NAMES = new Set(["python", "python3", "py"]);
+
+function pythonLines(text: string) {
+  return sanitizeForTerminal(text).replace(/\n$/, "").split("\n");
+}
+
+/** python, python file.py [args], python -c "code", python --version. */
+async function runPython(name: string, args: string[], ctx: Ctx): Promise<Output> {
+  const python = ctx.host.python;
+  if (!python) return fail(ctx, name, "Python is not available here.");
+
+  const first = args[0];
+  ctx.actions.push({ type: "achievement", id: "python" });
+  if (first === undefined) {
+    ctx.actions.push({ type: "enter-shell", profile: "python" });
+    return ok();
+  }
+
+  try {
+    if (first === "--version" || first === "-V") return ok([`Python ${await python.version(ctx.host.signal)}`]);
+
+    let code: string;
+    let argv: string[];
+    if (first === "-c") {
+      if (args[1] === undefined) return fail(ctx, name, "Argument expected for the -c option.");
+      code = args[1];
+      argv = ["-c", ...args.slice(2)];
+    } else {
+      const nodes = ctx.fs.getNodes();
+      const path = resolveShellPath(first, ctx.session.cwd, nodes);
+      const file = nodes[path];
+      if (file?.kind !== "file" || file.content === undefined) {
+        return fail(ctx, name, `can't open file '${toDisplayPath(path)}': No such file or directory`);
+      }
+      code = file.content;
+      argv = [first, ...args.slice(1)];
+    }
+
+    const result = await python.run(code, argv, ctx.host.signal);
+    const lines = result.output ? pythonLines(result.output) : [];
+    if (!result.error) return ok(lines);
+    return { out: [...lines, ...pythonLines(result.error).map((line) => `\x1b[91m${line}\x1b[0m`)], ok: false };
+  } catch (error) {
+    if (ctx.host.signal?.aborted) throw new InterruptedError();
+    return fail(ctx, name, error instanceof Error ? error.message : "Python could not start.");
+  }
+}
 
 /** The shells and Windows Terminal itself: each opens a tab here rather than another window. */
 const TERMINAL_EXECUTABLES: Record<string, ShellProfileId | undefined> = {
@@ -1079,6 +1137,8 @@ function openTerminalTab(name: string, args: string[], ctx: Ctx, nested: boolean
 
 /** `nested` is a program typed at the prompt, as against one started with Start-Process, which opens a window of its own. */
 async function launchExecutable(name: string, args: string[], ctx: Ctx, nested = false): Promise<Output> {
+  if (PYTHON_NAMES.has(name)) return runPython(name, args, ctx);
+
   const appId = own(EXECUTABLES, name);
   const target = args.find((arg) => !arg.startsWith("-"));
 
@@ -2200,6 +2260,37 @@ const invokeExpression: CommandFn = async (args, stdin, ctx, name) => {
   return { out, ok: okay };
 };
 
+const neofetch: CommandFn = () =>
+  ok([
+    "   \\  |  /      taaniel@TAANIEL-OS",
+    "    \\ | /       ------------------",
+    "     \\|/        OS: Taaniel OS 11",
+    "   -------      Shell: PowerShell 7.4.5",
+    "                Terminal: Taaniel Terminal",
+    `                Resolution: ${globalThis.innerWidth ?? 0}x${globalThis.innerHeight ?? 0}`,
+    "                Kernel: your browser",
+    "                Uptime: since you got here",
+  ]);
+
+const cowsay: CommandFn = (args, stdin) => {
+  const text = sanitizeForTerminal((args.length ? args.join(" ") : (stdin ?? []).join(" ")) || "moo").slice(0, 60);
+  return ok([` ${"_".repeat(text.length + 2)}`, `< ${text} >`, ` ${"-".repeat(text.length + 2)}`, "        \\   ^__^", "         \\  (oo)\\_______", "            (__)\\       )\\/\\", "                ||----w |", "                ||     ||"]);
+};
+
+const sudo: CommandFn = (_args, _stdin, ctx) => {
+  ctx.actions.push({ type: "achievement", id: "sudo" });
+  return ok(["taaniel is not in the sudoers file. This incident will be reported."]);
+};
+
+const matrix: CommandFn = (_args, _stdin, ctx) => {
+  ctx.actions.push({ type: "achievement", id: "matrix" });
+  const glyphs = "01アイウエオカキクケコサシスセソタチツテト";
+  const lines = Array.from({ length: 14 }, () =>
+    Array.from({ length: 64 }, () => (Math.random() < 0.35 ? glyphs[Math.floor(Math.random() * glyphs.length)] : " ")).join("")
+  );
+  return ok([...lines.map((line) => `\x1b[32m${line}\x1b[0m`), "Wake up, visitor..."]);
+};
+
 const whoami: CommandFn = () => ok([`${SHELL_HOST.toLowerCase()}\\${SHELL_USER.toLowerCase()}`]);
 const hostname: CommandFn = () => ok([SHELL_HOST]);
 
@@ -3039,6 +3130,10 @@ const COMMANDS: Record<string, CommandSpec> = {
   whoami: { aliases: [], synopsis: "Show the signed-in user.", syntax: "whoami", run: whoami },
   hostname: { aliases: [], synopsis: "Show the computer name.", syntax: "hostname", run: hostname },
   exit: { aliases: [], synopsis: "Close this terminal window.", syntax: "exit", run: exitShell },
+  neofetch: { aliases: [], synopsis: "Show this system, with style.", syntax: "neofetch", run: neofetch },
+  cowsay: { aliases: [], synopsis: "A cow says what you type.", syntax: "cowsay <text>", run: cowsay },
+  sudo: { aliases: [], synopsis: "Ask nicely for more rights.", syntax: "sudo <command>", run: sudo },
+  matrix: { aliases: [], synopsis: "There is no spoon.", syntax: "matrix", run: matrix },
   about: { aliases: [], synopsis: "About Taaniel - opens the About app.", syntax: "about", run: about },
   projects: { aliases: [], synopsis: "List projects, or open one by id.", syntax: "projects [<id>]", run: projects },
   contact: { aliases: [], synopsis: "Contact details - opens the Contact app.", syntax: "contact", run: contact },
@@ -3369,7 +3464,7 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx, quoted
   if (/^ms-settings:./.test(key)) return openSettingsUri(rawName, ctx);
 
   const executable = key.replace(/\.exe$/, "");
-  if (own(EXECUTABLES, executable)) return launchExecutable(executable, args, ctx, true);
+  if (own(EXECUTABLES, executable) || PYTHON_NAMES.has(executable)) return launchExecutable(executable, args, ctx, true);
 
   if (/[\\/.]/.test(rawName)) {
     const nodes = ctx.fs.getNodes();

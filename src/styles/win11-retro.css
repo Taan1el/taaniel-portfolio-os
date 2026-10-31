@@ -1,0 +1,53 @@
+/* The Retro theme: square corners, bevels and grey, for anyone who misses 1995. */
+
+.os-root.is-retro {
+  --w11-radius-control: 0;
+  --w11-radius-overlay: 0;
+  --retro-face: #c0c0c0;
+  --retro-light: #fff;
+  --retro-dark: #808080;
+}
+
+.os-root.is-retro .w11-taskbar {
+  border-top: 2px solid var(--retro-light);
+  background: var(--retro-face);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: #000;
+}
+
+.os-root.is-retro .window-frame {
+  border-radius: 0;
+  border: 2px solid;
+  border-color: var(--retro-light) var(--retro-dark) var(--retro-dark) var(--retro-light);
+}
+
+.os-root.is-retro .w11-titlebar {
+  background: linear-gradient(90deg, #000080, #1084d0);
+  color: #fff;
+}
+
+.os-root.is-retro .w11-caption__button {
+  margin: 3px 2px;
+  border: 1px solid;
+  border-color: var(--retro-light) #000 #000 var(--retro-light);
+  border-radius: 0;
+  background: var(--retro-face);
+  color: #000;
+}
+
+.os-root.is-retro .w11-start,
+.os-root.is-retro .w11-flyout,
+.os-root.is-retro .context-menu {
+  border-radius: 0;
+  border: 2px solid;
+  border-color: var(--retro-light) var(--retro-dark) var(--retro-dark) var(--retro-light);
+  background: var(--retro-face);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: #000;
+}
+
+.os-root.is-retro .os-root__wallpaper {
+  background: #008080;
+}

@@ -84,18 +84,18 @@ describe("desktop seeding", () => {
 
     const notes = {
       name: "Notes.lnk",
-      since: 2,
+      since: 3,
       legacyId: "notes-app",
       target: { type: "app" as const, appId: "notes" as const },
       defaultGridPosition: { gridX: 3, gridY: 0 },
     };
-    const next = ensureDesktopShortcuts(store().nodes, 5, [...desktopShortcutSeeds, notes], 2);
+    const next = ensureDesktopShortcuts(store().nodes, 5, [...desktopShortcutSeeds, notes], 3);
 
     expect(next["/Desktop/Notes.lnk"]).toMatchObject({ shortcut: { type: "app", appId: "notes" } });
     // The shortcut the visitor deleted stays deleted, and the folder remembers it is up to date.
     expect(next["/Desktop/About.lnk"]).toBeUndefined();
-    expect((next["/Desktop"] as VirtualDirectory).desktopSeedVersion).toBe(2);
-    expect(ensureDesktopShortcuts(next, 6, [...desktopShortcutSeeds, notes], 2)).toBe(next);
+    expect((next["/Desktop"] as VirtualDirectory).desktopSeedVersion).toBe(3);
+    expect(ensureDesktopShortcuts(next, 6, [...desktopShortcutSeeds, notes], 3)).toBe(next);
   });
 
   it("recreates a missing Desktop folder with its shortcuts", () => {

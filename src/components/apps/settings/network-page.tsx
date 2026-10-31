@@ -28,11 +28,12 @@ export function NetworkPage() {
       </SettingsGroup>
 
       <SettingsGroup title="Wireless">
-        <SettingsRow icon={<Wifi size={18} />} title="Wi-Fi" description="Connect to the internet.">
+        <SettingsRow icon={<Wifi size={18} />} settingId="wifi" title="Wi-Fi" description="Connect to the internet.">
           <ToggleSwitch label="Wi-Fi" checked={wifiEnabled} onChange={setWifiEnabled} />
         </SettingsRow>
         <SettingsRow
           icon={<Plane size={18} />}
+          settingId="airplane-mode"
           title="Airplane mode"
           description="Turns Wi-Fi off. You can switch Wi-Fi back on while airplane mode stays on."
         >

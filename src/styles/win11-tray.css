@@ -511,30 +511,36 @@
  * blur behind every translucent surface is dropped. Surfaces turn opaque so
  * text stays readable without it.
  */
-:root[data-battery-saver] * {
+:root[data-battery-saver] *,
+:root[data-transparency="off"] * {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
 
-:root[data-battery-saver] {
+:root[data-battery-saver],
+:root[data-transparency="off"] {
   --w11-acrylic: rgb(238, 238, 238);
   --w11-flyout: rgb(252, 252, 252);
   --w11-taskbar: rgb(238, 238, 238);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root[data-battery-saver]:not([data-theme="light"]) {
+  :root[data-battery-saver]:not([data-theme="light"]),
+  :root[data-transparency="off"]:not([data-theme="light"]) {
     --w11-acrylic: rgb(36, 36, 36);
     --w11-flyout: rgb(44, 44, 44);
     --w11-taskbar: rgb(28, 28, 28);
   }
 }
 
-:root[data-battery-saver][data-theme="dark"] {
+:root[data-battery-saver][data-theme="dark"],
+:root[data-transparency="off"][data-theme="dark"] {
   --w11-acrylic: rgb(36, 36, 36);
   --w11-flyout: rgb(44, 44, 44);
   --w11-taskbar: rgb(28, 28, 28);
 }
+
+/* Settings > Personalization > Transparency effects off: the same solid surfaces battery saver uses. */
 
 /* ---------------------------------------------------------------- Settings */
 
@@ -891,6 +897,152 @@
   }
 
   .w11-settings__slider {
+    width: 100%;
+  }
+}
+
+/* Settings search, accent swatches, meters and key caps. */
+.w11-settings__search {
+  flex: none;
+  min-width: 0;
+  min-height: 32px;
+  margin: 0 4px 10px;
+  border-color: var(--w11-settings-card-stroke);
+  border-radius: var(--w11-radius-control);
+  background: var(--w11-settings-card);
+}
+
+.w11-settings__search:focus-within {
+  border-color: var(--w11-accent);
+}
+
+.w11-settings .search-input__field:focus-visible {
+  outline: none;
+}
+
+/* WinUI combo box: a dark control with a light border, in place of the browser's white select. */
+.w11-settings select {
+  min-width: 140px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--w11-settings-card-stroke);
+  border-bottom-color: rgba(255, 255, 255, 0.4);
+  border-radius: var(--w11-radius-control);
+  background-color: var(--w11-settings-card-hover);
+  color: #fff;
+  color-scheme: dark;
+  font: inherit;
+  cursor: pointer;
+}
+
+.w11-settings select:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.11);
+}
+
+.w11-settings select:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.w11-settings__search-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 0 6px;
+}
+
+.w11-settings__search-row .search-input {
+  flex: 1;
+}
+
+.w11-settings__count {
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
+
+.w11-settings__row.is-found {
+  animation: w11-settings-found 2s ease-out;
+}
+
+@keyframes w11-settings-found {
+  0%,
+  60% {
+    box-shadow: inset 0 0 0 2px var(--w11-accent);
+  }
+
+  100% {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+
+.w11-settings__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.w11-settings__swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.w11-settings__swatch[aria-checked="true"] {
+  border-color: var(--w11-text);
+  box-shadow: inset 0 0 0 2px #202020;
+}
+
+.w11-settings__meter {
+  display: block;
+  width: 160px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--w11-settings-card-hover);
+}
+
+.w11-settings__meter > span {
+  display: block;
+  height: 100%;
+  background: var(--w11-accent);
+}
+
+.w11-settings__figure {
+  color: var(--w11-text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.w11-settings__keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .w11-settings__row.is-found {
+    animation: none;
+    box-shadow: inset 0 0 0 2px var(--w11-accent);
+  }
+}
+
+@media (max-width: 520px) {
+  .w11-settings__nav {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .w11-settings__search {
+    flex: none;
+    width: 150px;
+    margin: 0 4px 0 0;
+  }
+
+  .w11-settings__meter {
     width: 100%;
   }
 }

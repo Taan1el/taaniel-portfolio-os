@@ -176,7 +176,7 @@ const intentGroups = [
   },
   {
     tag: "games",
-    terms: ["game", "games", "play", "arcade", "snake", "tetris", "dino", "doom", "hextris"],
+    terms: ["game", "games", "play", "arcade", "snake", "tetris", "dino", "doom", "hextris", "next stop", "train", "railway"],
   },
   {
     tag: "browser",
@@ -227,9 +227,11 @@ const appAliases: Partial<Record<AppId, string[]>> = {
   about: ["profile", "bio", "about me", "skills", "availability"],
   browser: ["web", "internet", "links", "github", "website"],
   contact: ["email", "phone", "linkedin", "socials"],
-  doom: ["freedoom", "fps"],
+  doom: ["fps", "shooter"],
+  editor: ["vscode", "vs code", "ide", "editor", "code editor", "programming"],
   files: ["explorer", "folders", "directory", "filesystem"],
   games: ["arcade", "play"],
+  "next-stop": ["train", "steam train", "railway", "glyph", "rural", "minigame"],
   snake: ["arcade", "retro", "classic snake"],
   music: ["songs", "tracks", "playlist", "audio"],
   notes: ["memo", "sticky notes", "to do", "todo list", "notepad"],
@@ -528,7 +530,8 @@ function scoreEntry(entry: ShellSearchEntry, intent: SearchIntent): ShellSearchR
     normalizedTitle === intent.titleQuery ||
     entry.aliases.some((alias) => normalizeSearchValue(alias) === intent.titleQuery)
   ) {
-    score += 920;
+    // On an exact name an app beats a folder or file of the same name, as in Windows.
+    score += entry.section === "apps" ? 1100 : 920;
     matchMode = "exact";
   }
 

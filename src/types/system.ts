@@ -27,6 +27,7 @@ export type AppId =
   | "notes"
   | "music"
   | "games"
+  | "next-stop"
   | "snake"
   | "tetris"
   | "dino"
@@ -43,7 +44,9 @@ export type AppId =
   | "pdf"
   | "resume"
   | "paint"
-  | "calculator";
+  | "calculator"
+  | "achievements"
+  | "tv";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System" | "Lab";
 
@@ -81,6 +84,8 @@ export interface WindowRecord extends WindowBounds {
   focused: boolean;
   zIndex: number;
   restoreBounds?: WindowBounds;
+  /** Which virtual desktop it lives on; absent means the first. */
+  desktop?: number;
   createdAt: number;
 }
 
@@ -203,21 +208,6 @@ export interface AppDefinition {
   };
   resolveTitle?: (payload?: WindowPayload) => string;
   jumpList?: Array<{ id: string; label: string; payload?: WindowPayload }>;
-}
-
-export type StartMenuAction =
-  | { type: "app"; appId: AppId }
-  | { type: "directory"; directoryPath: string }
-  | { type: "file"; filePath: string }
-  | { type: "reset-session" };
-
-export interface StartMenuShortcut {
-  id: string;
-  label: string;
-  icon: AppIcon;
-  description?: string;
-  action: StartMenuAction;
-  danger?: boolean;
 }
 
 export interface StartMenuCategoryDescriptor {

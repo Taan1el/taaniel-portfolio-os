@@ -1,0 +1,653 @@
+/* A dark room with the set on. Amber is the signal colour. */
+.tv {
+  --tv-ink: #0a0c10;
+  --tv-panel: #12151b;
+  --tv-raised: #1c2029;
+  --tv-line: rgba(255, 255, 255, 0.08);
+  --tv-text: #f2f3f5;
+  --tv-text-2: #9aa1ad;
+  --tv-signal: #ffb224;
+  --tv-mono: "Cascadia Code", "Cascadia Mono", Consolas, "Courier New", monospace;
+
+  height: 100%;
+  min-height: 0;
+  outline: none;
+  background: var(--tv-ink);
+  color: var(--tv-text);
+  font-family: var(--w11-font);
+  font-size: 13px;
+  line-height: 18px;
+  container-type: inline-size;
+}
+
+.tv button,
+.tv input {
+  color: inherit;
+  font: inherit;
+}
+
+.tv__frame {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 288px minmax(0, 1fr);
+}
+
+.tv__frame.is-theatre {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tv__guide {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--tv-line);
+  background: var(--tv-panel);
+}
+
+.tv__tabs {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 8px 8px 0;
+}
+
+.tv__tabs button {
+  flex: 1;
+  height: 32px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--tv-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tv__tabs button:hover {
+  color: var(--tv-text);
+}
+
+.tv__tabs button.is-active {
+  border-bottom-color: var(--tv-signal);
+  color: var(--tv-text);
+}
+
+.tv__search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin: 12px 12px 8px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--tv-raised);
+  color: var(--tv-text-2);
+}
+
+.tv__search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+}
+
+.tv__chips {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 0 12px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tv__chips button {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--tv-line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--tv-text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tv__chips button.is-active {
+  border-color: var(--tv-signal);
+  background: rgba(255, 178, 36, 0.14);
+  color: var(--tv-signal);
+}
+
+.tv__list {
+  min-height: 0;
+  flex: 1;
+  margin: 0;
+  padding: 0 4px 8px;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.tv__row {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.tv__row:hover {
+  background: var(--tv-raised);
+}
+
+.tv__row.is-active {
+  background: var(--tv-raised);
+  box-shadow: inset 3px 0 0 var(--tv-signal);
+}
+
+.tv__row.is-down {
+  opacity: 0.55;
+}
+
+.tv__tune {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 4px 0 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tv__number {
+  flex: none;
+  width: 20px;
+  color: var(--tv-text-2);
+  font-family: var(--tv-mono);
+  font-size: 12px;
+}
+
+.tv__row.is-active .tv__number {
+  color: var(--tv-signal);
+}
+
+.tv__logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #232833;
+  color: var(--tv-text);
+  font-family: var(--tv-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tv__logo img {
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+  object-fit: contain;
+}
+
+.tv__row-text {
+  min-width: 0;
+}
+
+.tv__row-text strong,
+.tv__row-text small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv__row-text strong {
+  font-weight: 600;
+}
+
+.tv__row-text small {
+  color: var(--tv-text-2);
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.tv__star {
+  display: grid;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin-right: 4px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tv-text-2);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.tv__row:hover .tv__star,
+.tv__star:focus-visible,
+.tv__star.is-on {
+  opacity: 1;
+}
+
+.tv__star.is-on,
+.tv__controls button.is-on {
+  color: var(--tv-signal);
+}
+
+.tv__none {
+  flex: 1;
+  margin: 0;
+  padding: 32px 16px;
+  color: var(--tv-text-2);
+  text-align: center;
+}
+
+.tv__credit {
+  flex: none;
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--tv-line);
+  color: var(--tv-text-2);
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.tv__stage {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--tv-ink);
+}
+
+/* The glow: 32 by 18 pixels of the current frame, stretched and blurred behind the screen. */
+.tv__ambient {
+  position: absolute;
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  filter: blur(48px) saturate(1.5);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.tv__screen {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  margin: 16px 16px 8px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 10px;
+  background: #000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.tv__stage:fullscreen .tv__screen {
+  margin: 0;
+  border-radius: 0;
+}
+
+.tv__stage:fullscreen .tv__controls {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  border-radius: 10px;
+  background: rgba(10, 12, 16, 0.82);
+}
+
+.tv__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.tv__flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tv__tuning {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--tv-signal);
+  font-family: var(--tv-mono);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.tv__controls {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  margin: 0 16px 8px;
+  transition: opacity 0.25s ease;
+}
+
+.tv__stage.is-quiet .tv__controls {
+  opacity: 0;
+}
+
+.tv__stage.is-quiet {
+  cursor: none;
+}
+
+.tv__controls button {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tv__controls button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tv__volume {
+  width: 88px;
+  flex: none;
+  accent-color: var(--tv-signal);
+}
+
+.tv__now {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.tv__now strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv__live {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--tv-line);
+  border-radius: 3px;
+  color: var(--tv-text-2);
+  font-family: var(--tv-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tv__live.is-on {
+  border-color: #e5484d;
+  background: #e5484d;
+  color: #fff;
+}
+
+.tv__home {
+  display: grid;
+  width: min(100%, 560px);
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.tv__eyebrow {
+  margin: 0;
+  color: var(--tv-signal);
+  font-family: var(--tv-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tv__home h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 36px;
+}
+
+.tv__resume {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--tv-signal);
+  color: #1a1204 !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+}
+
+.tv__tiles {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tv__tile {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 10px;
+  border: 1px solid var(--tv-line);
+  border-radius: 8px;
+  background: var(--tv-panel);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.tv__tile:hover {
+  border-color: var(--tv-signal);
+  transform: translateY(-2px);
+}
+
+.tv__tile > span:last-child {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv__keys {
+  margin: 8px 0 0;
+  color: var(--tv-text-2);
+  font-size: 12px;
+}
+
+.tv__keys kbd {
+  padding: 0 4px;
+  border: 1px solid var(--tv-line);
+  border-radius: 3px;
+  font-family: var(--tv-mono);
+  font-size: 11px;
+}
+
+.tv__radio,
+.tv__offair {
+  display: grid;
+  max-width: 380px;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+
+.tv__radio strong {
+  font-size: 24px;
+  line-height: 30px;
+}
+
+.tv__radio small,
+.tv__offair small {
+  color: var(--tv-text-2);
+}
+
+.tv__dial {
+  display: grid;
+  width: 112px;
+  height: 112px;
+  place-items: center;
+  border: 1px solid rgba(255, 178, 36, 0.4);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 178, 36, 0.26), transparent 70%);
+  color: var(--tv-signal);
+}
+
+.tv__dial.is-on {
+  animation: tv-on-air 1.8s ease-in-out infinite;
+}
+
+@keyframes tv-on-air {
+  50% {
+    box-shadow: 0 0 0 16px rgba(255, 178, 36, 0.1);
+  }
+}
+
+:root[data-reduce-motion] .tv__dial.is-on {
+  animation: none;
+}
+
+.tv__offair {
+  position: absolute;
+}
+
+.tv__offair-mark {
+  color: var(--tv-signal);
+  font-family: var(--tv-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tv__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tv__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tv__action--primary {
+  border-color: var(--tv-signal);
+  background: var(--tv-signal);
+  color: #1a1204 !important;
+  font-weight: 600 !important;
+}
+
+.tv :is(button, a, input):focus-visible {
+  outline: 2px solid var(--tv-signal);
+  outline-offset: -2px;
+}
+
+@container (max-width: 680px) {
+  .tv__frame {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .tv__frame.is-theatre {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .tv__stage {
+    order: -1;
+    height: 52cqw;
+    min-height: 240px;
+  }
+
+  .tv__frame.is-theatre .tv__stage {
+    height: auto;
+  }
+
+  .tv__screen {
+    margin: 8px 8px 4px;
+  }
+
+  .tv__controls {
+    margin: 0 4px 4px;
+  }
+
+  .tv__guide {
+    border-right: 0;
+    border-top: 1px solid var(--tv-line);
+  }
+
+  .tv__volume,
+  .tv__keys {
+    display: none;
+  }
+
+  .tv__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tv__tile:nth-child(n + 5) {
+    display: none;
+  }
+
+  .tv__home {
+    padding: 8px;
+  }
+
+  .tv__home h1 {
+    font-size: 20px;
+    line-height: 24px;
+  }
+}

@@ -1,4 +1,10 @@
-import { Suspense, forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { Suspense, forwardRef, useEffect, useImperativeHandle, useRef, useState, type MouseEvent } from "react";
+import { SnapFlyout } from "@/components/shell/snap-flyout";
+import { LEFT_HALF, RIGHT_HALF, zoneBounds, type SnapZone } from "@/lib/snap-layouts";
+import { unlockAchievement } from "@/stores/achievements-store";
+import { useShellStore } from "@/stores/shell-store";
+import { getDesktopSize } from "@/stores/system-runtime";
+import { desktopOf, useWindowStore } from "@/stores/window-store";
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { createPortal } from "react-dom";
@@ -6,7 +12,7 @@ import { getAppComponent, getAppDefinition } from "@/lib/app-registry";
 import { windowDropProps } from "@/lib/dnd/dom";
 import { cn } from "@/lib/utils";
 import { TitlebarSlotContext } from "@/components/shell/titlebar-slot";
-import type { AppWindow } from "@/types/system";
+import type { AppWindow, ContextMenuAction } from "@/types/system";
 import wfStyles from "@/components/shell/window-frame.module.css";
 
 /**
@@ -31,13 +37,14 @@ function CaptionGlyph({ kind }: { kind: "minimize" | "maximize" | "restore" | "c
   );
 }
 
-type SnapZone = "top" | "left" | "right";
+type DragSnapZone = "top" | "left" | "right";
 
 const SNAP_THRESHOLD = 10; // px from edge to trigger snap zone
 
 interface WindowFrameProps {
   window: AppWindow;
   active: boolean;
+  hidden?: boolean;
   onFocus: () => void;
   onClose: () => void;
   onMinimize: () => void;
@@ -49,6 +56,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
   {
     window,
     active,
+    hidden = false,
     onFocus,
     onClose,
     onMinimize,
@@ -67,13 +75,70 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
   // The active window owns keyboard focus, whichever way it became active.
   // Apps that focus their own control have already done so: child effects run first.
   useEffect(() => {
-    const section = sectionRef.current;
-    if (active && section && !section.contains(document.activeElement)) section.focus({ preventScroll: true });
-  }, [active]);
-  const [snapZone, setSnapZone] = useState<SnapZone | null>(null);
-  const snapZoneRef = useRef<SnapZone | null>(null);
+    if (!active || hidden) return undefined;
+    const focusSection = () => {
+      const section = sectionRef.current;
+      if (section && !section.contains(document.activeElement)) section.focus({ preventScroll: true });
+    };
+    focusSection();
+    // A window coming back from another desktop only becomes focusable once it is painted.
+    const frame = requestAnimationFrame(focusSection);
+    return () => cancelAnimationFrame(frame);
+  }, [active, hidden]);
+  const [snapZone, setSnapZone] = useState<DragSnapZone | null>(null);
+  const snapZoneRef = useRef<DragSnapZone | null>(null);
   const titlebarTabs = Boolean(definition.titlebarTabs);
   const [titlebarSlot, setTitlebarSlot] = useState<HTMLElement | null>(null);
+
+  const [snapAnchor, setSnapAnchor] = useState<DOMRect | null>(null);
+  const snapHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewportMode = useShellStore((state) => state.viewportMode);
+
+  const hoverSnap = (hovering: boolean, anchor?: HTMLElement) => {
+    if (snapHoverTimer.current) clearTimeout(snapHoverTimer.current);
+    if (viewportMode === "mobile") return;
+    snapHoverTimer.current = setTimeout(
+      () => setSnapAnchor(hovering ? (anchor?.getBoundingClientRect() ?? snapAnchor) : null),
+      hovering ? 350 : 180
+    );
+  };
+
+  useEffect(() => () => {
+    if (snapHoverTimer.current) clearTimeout(snapHoverTimer.current);
+  }, []);
+
+  const snapTo = (zone: SnapZone) => {
+    if (snapHoverTimer.current) clearTimeout(snapHoverTimer.current);
+    setSnapAnchor(null);
+    useWindowStore.getState().snapWindow(window.id, zoneBounds(zone, getDesktopSize()));
+    unlockAchievement("snap");
+  };
+
+  const openWindowMenu = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const { desktopCount, moveWindowToDesktop } = useWindowStore.getState();
+    const current = desktopOf(window);
+    const moves: ContextMenuAction[] = [];
+    for (let desktop = 1; desktop <= desktopCount; desktop += 1) {
+      if (desktop !== current) {
+        moves.push({ id: `move-${desktop}`, label: `Move to Desktop ${desktop}`, onSelect: () => moveWindowToDesktop(window.id, desktop) });
+      }
+    }
+    useShellStore.getState().setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      title: window.title,
+      actions: [
+        { id: "snap-left", label: "Snap left", shortcut: "Alt+Shift+Left", onSelect: () => snapTo(LEFT_HALF) },
+        { id: "snap-right", label: "Snap right", shortcut: "Alt+Shift+Right", onSelect: () => snapTo(RIGHT_HALF) },
+        { id: "maximize", label: window.maximized ? "Restore" : "Maximize", shortcut: "Alt+Shift+Up", onSelect: onMaximize },
+        { id: "minimize", label: "Minimize", shortcut: "Alt+Shift+Down", onSelect: onMinimize },
+        ...moves,
+        { id: "close", label: "Close", shortcut: "Alt+Shift+W", danger: true, onSelect: onClose },
+      ],
+    });
+  };
 
   const lockBodyScroll = () => {
     document.body.dataset.windowDragLock = "true";
@@ -119,7 +184,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
           if (!parent) return;
           const parentWidth = parent.getBoundingClientRect().width;
 
-          let zone: SnapZone | null = null;
+          let zone: DragSnapZone | null = null;
           if (data.y <= SNAP_THRESHOLD) {
             zone = "top";
           } else if (data.x <= SNAP_THRESHOLD) {
@@ -176,7 +241,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
             height: ref.offsetHeight,
           });
         }}
-        style={{ zIndex: window.zIndex }}
+        style={{ zIndex: window.zIndex, display: hidden ? "none" : undefined }}
         className={cn("window-frame__rnd", !interacting && "is-animated")}
       >
         <motion.section
@@ -209,6 +274,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
               window.maximized && "is-maximized"
             )}
             onDoubleClick={onMaximize}
+            onContextMenu={openWindowMenu}
           >
             {titlebarTabs ? (
               <>
@@ -235,6 +301,8 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
                 title={window.maximized ? "Restore down" : "Maximize"}
                 className="w11-caption__button"
                 onClick={onMaximize}
+                onMouseEnter={(event) => hoverSnap(true, event.currentTarget)}
+                onMouseLeave={() => hoverSnap(false)}
               >
                 <CaptionGlyph kind={window.maximized ? "restore" : "maximize"} />
               </button>
@@ -261,6 +329,7 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
       </Rnd>
 
       {snapGhost}
+      {snapAnchor ? <SnapFlyout anchor={snapAnchor} onPick={snapTo} onHoverChange={(hovering) => hoverSnap(hovering)} /> : null}
     </>
   );
 });

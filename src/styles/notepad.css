@@ -1,0 +1,123 @@
+.notepad {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: #1f1f1f;
+  color: var(--w11-text);
+  font-family: var(--w11-font);
+  font-size: 13px;
+}
+
+.notepad__menu {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--w11-divider);
+}
+
+.notepad__menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.notepad__menu button:hover {
+  background: var(--w11-subtle-hover);
+}
+
+.notepad__menu button:focus-visible,
+.notepad__document:focus-visible {
+  outline: 2px solid var(--w11-accent);
+  outline-offset: -2px;
+}
+
+.notepad__menu .notepad__mode {
+  margin-left: auto;
+  color: var(--w11-text-2);
+}
+
+.notepad__document,
+.notepad__source {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 16px;
+  overflow: auto;
+  line-height: 1.55;
+}
+
+.notepad__document h1,
+.notepad__document h2,
+.notepad__document h3,
+.notepad__document h4 {
+  margin: 1em 0 0.35em;
+  line-height: 1.3;
+}
+
+.notepad__document h1 {
+  margin-top: 0;
+  font-size: 1.6em;
+}
+
+.notepad__document h2 {
+  font-size: 1.3em;
+}
+
+.notepad__document h3,
+.notepad__document h4 {
+  font-size: 1.1em;
+}
+
+.notepad__document p,
+.notepad__document ul,
+.notepad__document ol {
+  margin: 0 0 0.75em;
+}
+
+.notepad__document ul,
+.notepad__document ol {
+  padding-left: 1.5em;
+}
+
+.notepad__document code {
+  font-family: "Cascadia Code", Consolas, monospace;
+}
+
+.notepad__document a {
+  color: var(--w11-accent);
+}
+
+.notepad__source {
+  width: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  font-family: "Cascadia Code", Consolas, monospace;
+}
+
+.notepad__status {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--w11-divider);
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
+
+.notepad__status-spacer {
+  flex: 1;
+}

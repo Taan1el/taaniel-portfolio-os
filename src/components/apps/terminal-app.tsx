@@ -10,6 +10,8 @@ import { openFileSystemPath } from "@/lib/launchers";
 import { buildAppearance, prefersReducedMotion, type TerminalAppearance } from "@/lib/terminal-appearance";
 import { classifyTerminalKey, type TerminalCommand } from "@/lib/terminal-keys";
 import { isShellProfileId, resolveLaunchProfile, terminalProfiles, type TerminalProfileId } from "@/lib/terminal-profiles";
+import { sendToPython } from "@/lib/python-runtime";
+import { unlockAchievement } from "@/stores/achievements-store";
 import { getIsNetworkBlocked } from "@/stores/device-store";
 import { LINUX_LAUNCH_MESSAGE, TERMINAL_HOME_PATH, type ShellFileSystem, type ShellHost, type TerminalAction } from "@/lib/terminal-shell";
 import {
@@ -207,6 +209,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       writeClipboard: (text) => navigator.clipboard.writeText(text),
       // The browser's own online state. The system tray's offline switch replaces this when it exists.
       isOffline: getIsNetworkBlocked,
+      python: {
+        run: async (code, args, signal) => sendToPython({ type: "run", code, args }, signal),
+        version: async (signal) => (await sendToPython({ type: "version" }, signal)).version ?? "3",
+      },
     }),
     [closeWindow]
   );
@@ -342,7 +348,9 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
   const handleAction = useCallback(
     (tabId: string, action: TerminalAction) => {
-      if (action.type === "exit") {
+      if (action.type === "achievement") {
+        unlockAchievement(action.id);
+      } else if (action.type === "exit") {
         // A shell ending in a tab behind the front one must not pull focus away from what the person is doing.
         closeTabById(tabId, tabId === stateRef.current.activeId ? "terminal" : null);
       } else if (action.type === "open-path") {

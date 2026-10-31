@@ -13,10 +13,12 @@ import {
 } from "lucide-react";
 import { BatteryIcon, NetworkGlyph, VolumeIcon } from "@/components/shell/tray-glyphs";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
+import { useSecondClock } from "@/hooks/use-second-clock";
+import { formatShortDate, formatTime, useClockPrefs } from "@/lib/clock-format";
 import { useTrayReadings } from "@/hooks/use-tray-readings";
 import type { SettingsSectionId } from "@/lib/settings-sections";
 import { consumeWheel } from "@/lib/tray-wheel";
-import { cn, formatClock } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useDeviceStore } from "@/stores/device-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useSystemSettingsStore, VOLUME_WHEEL_STEP } from "@/stores/system-settings-store";
@@ -24,7 +26,45 @@ import type { AppId, ContextMenuAction, WindowPayload } from "@/types/system";
 
 /** Tray date the way Windows prints it: numeric, in the visitor's locale (6.10.2026, 10/6/2026, ...). */
 export function formatTrayDate(date: Date) {
-  return new Intl.DateTimeFormat([], { day: "numeric", month: "numeric", year: "numeric" }).format(date);
+  return formatShortDate(date);
+}
+
+interface TrayClockProps {
+  now: Date;
+  open: boolean;
+  onToggle: () => void;
+  onContextMenu: (event: MouseEvent) => void;
+}
+
+/** The clock button. The seconds setting decides how often it draws; the minute clock is far cheaper. */
+function TrayClock({ now, open, onToggle, onContextMenu }: TrayClockProps) {
+  const prefs = useClockPrefs();
+  const time = formatTime(now, prefs, { seconds: prefs.clockSeconds });
+  const date = formatShortDate(now, prefs);
+
+  return (
+    <button
+      className={cn("w11-taskbar__tray-button w11-taskbar__clock", open && "is-active")}
+      type="button"
+      aria-label={`${time}, ${date} - open calendar`}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      data-flyout-trigger="clock"
+      onClick={onToggle}
+      onContextMenu={onContextMenu}
+    >
+      <span>{time}</span>
+      <span>{date}</span>
+    </button>
+  );
+}
+
+function MinuteTrayClock(props: Omit<TrayClockProps, "now">) {
+  return <TrayClock now={useMinuteClock()} {...props} />;
+}
+
+function SecondTrayClock(props: Omit<TrayClockProps, "now">) {
+  return <TrayClock now={useSecondClock()} {...props} />;
 }
 
 interface TaskbarTrayProps {
@@ -41,7 +81,7 @@ interface TaskbarTrayProps {
  */
 export function TaskbarTray({ calendarOpen, onToggleCalendar, onShowDesktop, onLaunchApp }: TaskbarTrayProps) {
   const readings = useTrayReadings();
-  const now = useMinuteClock();
+  const clockSeconds = useSystemSettingsStore((state) => state.clockSeconds);
   const quickSettingsOpen = useShellStore((state) => state.quickSettingsOpen);
   const toggleQuickSettings = useShellStore((state) => state.toggleQuickSettings);
   const setContextMenu = useShellStore((state) => state.setContextMenu);
@@ -204,19 +244,11 @@ export function TaskbarTray({ calendarOpen, onToggleCalendar, onShowDesktop, onL
         ) : null}
       </button>
 
-      <button
-        className={cn("w11-taskbar__tray-button w11-taskbar__clock", calendarOpen && "is-active")}
-        type="button"
-        aria-label={`${formatClock(now)}, ${formatTrayDate(now)} - open calendar`}
-        aria-haspopup="dialog"
-        aria-expanded={calendarOpen}
-        data-flyout-trigger="clock"
-        onClick={onToggleCalendar}
-        onContextMenu={clockMenu}
-      >
-        <span>{formatClock(now)}</span>
-        <span>{formatTrayDate(now)}</span>
-      </button>
+      {clockSeconds ? (
+        <SecondTrayClock open={calendarOpen} onToggle={onToggleCalendar} onContextMenu={clockMenu} />
+      ) : (
+        <MinuteTrayClock open={calendarOpen} onToggle={onToggleCalendar} onContextMenu={clockMenu} />
+      )}
 
       <button
         className="w11-taskbar__show-desktop"

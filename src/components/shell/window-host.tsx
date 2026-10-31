@@ -7,9 +7,10 @@ import { useSystemStore } from "@/stores/system-store";
 import { useWindowStore } from "@/stores/window-store";
 
 export function WindowHost() {
-  const { rawWindows } = useWindowStore(
+  const { rawWindows, activeDesktop } = useWindowStore(
     useShallow((state) => ({
       rawWindows: state.windows,
+      activeDesktop: state.activeDesktop,
     }))
   );
   const { processes } = useProcessStore(
@@ -38,6 +39,7 @@ export function WindowHost() {
   return (
     <WindowManager
       windows={windows}
+      activeDesktop={activeDesktop}
       onFocusWindow={focusWindow}
       onCloseWindow={closeWindow}
       onMinimizeWindow={toggleMinimize}

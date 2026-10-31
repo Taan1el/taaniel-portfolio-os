@@ -1,5 +1,31 @@
 # Portfolio maintenance
 
+## 2026-10-31
+
+Completed:
+- Code app: Monaco with tabs, quick open, search, a command palette and a live
+  preview in a sandbox with no network access.
+- Snap Layouts, virtual desktops and Task View.
+- Bundled a Linux image for Virtual x86, and a self-hosted Pyodide in a worker
+  behind the terminal's `python` command.
+- Own canvas Dino and Hextris replace the paused ports. Next Stop is an app.
+- Achievements, terminal extras, a Retro theme, and text size and contrast settings.
+- Explorer: focus moves onto items so screen readers read them, and it stays in
+  the window after the focused item goes away. Taskbar buttons take arrow keys.
+- Start menu rebuilt: pins, Recommended, All by category, grid or list, account bar.
+- Notepad replaces the Markdown viewer. New TV & Radio app with 88 channels and ERR radio (adds hls.js, gsap and @gsap/react).
+- Settings grew six pages and a search box.
+- Contact is an inbox, Projects is a briefcase. Popup tips and achievement toasts removed.
+A changed shipped document only reaches returning visitors if the hash of its old
+text is listed in `src/lib/portfolio-workspace.ts`. Add one whenever seed text changes.
+
+### Validation
+
+- `tsc`, 124 test files (1432 tests) and `build:gh` pass.
+- Real-input Chromium runs pass for the desktop, windows, Code, the extras and
+  the About, Projects, CV, Contact and case study path, plus a 390px phone.
+- Not tested on a physical phone, or with a real screen reader.
+
 ## 2026-10-07
 
 Completed:
@@ -23,7 +49,7 @@ Completed:
 | sprintf-js (transitive) | 1.1.3 | removed |
 | source-map-js (transitive) | 1.2.1 | 1.2.2 |
 
-Vite stays on 8.0.16, the newest 8.0 patch.
+Vite stayed on 8.0.16 at the time; it moved to 8.3 on 2026-10-31 to clear its dev-server advisories.
 
 `npm audit --omit=dev` went from 7 findings to 0. The full audit reports one
 advisory (braces, through gh-pages) as 5 entries; see the backlog.

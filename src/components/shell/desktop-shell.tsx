@@ -27,7 +27,6 @@ import { registerShellNavigator } from "@/lib/shell-navigation";
 import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { TRASH_PATH } from "@/lib/system-workspace";
-import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { ContextMenu } from "@/components/system/context-menu";
 import { DragLayer } from "@/components/system/drag-layer";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
@@ -49,7 +48,10 @@ import { selectNetworkStatus, useDeviceStore } from "@/stores/device-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
+import { getDesktopSize } from "@/stores/system-runtime";
 import { useSystemStore } from "@/stores/system-store";
+import { desktopOf, useWindowStore } from "@/stores/window-store";
+import { LEFT_HALF, RIGHT_HALF, zoneBounds } from "@/lib/snap-layouts";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
@@ -158,9 +160,10 @@ export function DesktopShell() {
     () => resolveDesktopWallpaper(theme, wallpaper),
     [theme, wallpaper]
   );
+  const activeDesktop = useWindowStore((state) => state.activeDesktop);
   const taskbarEntries = useMemo(
-    () => buildTaskbarWindowEntries(processes, windows),
-    [processes, windows]
+    () => buildTaskbarWindowEntries(processes, windows.filter((entry) => desktopOf(entry) === activeDesktop)),
+    [activeDesktop, processes, windows]
   );
   const searchIndex = useMemo(() => buildShellSearchIndex(nodes), [nodes]);
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -266,6 +269,17 @@ export function DesktopShell() {
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
+    onSnapActiveWindow: (direction) => {
+      if (!focusedWindowId) return;
+      const system = useSystemStore.getState();
+      if (direction === "up") system.toggleMaximize(focusedWindowId);
+      else if (direction === "down") system.toggleMinimize(focusedWindowId);
+      else useWindowStore.getState().snapWindow(focusedWindowId, zoneBounds(direction === "left" ? LEFT_HALF : RIGHT_HALF, getDesktopSize()));
+    },
+    onSwitchDesktop: (step) => {
+      const { activeDesktop, switchDesktop } = useWindowStore.getState();
+      switchDesktop(activeDesktop + step);
+    },
   });
 
   useEffect(() => {
@@ -462,6 +476,7 @@ export function DesktopShell() {
       className={cn(
         "os-root",
         theme.id === "windows-bloom" && "is-light-wallpaper",
+        theme.id === "retro-95" && "is-retro",
         wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
       )}
       style={
@@ -487,22 +502,9 @@ export function DesktopShell() {
       </a>
       <h1 className="sr-only">Taaniel OS desktop</h1>
       <SessionScreen />
-      <OsOnboarding />
       {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
           {offlineBanner}
-        </div>
-      ) : null}
-      {viewportMode === "mobile" && !windows.some((entry) => !entry.minimized) ? (
-        <div className="os-mobile-banner" role="status" aria-live="polite">
-          <span>Tip: use the quick recruiter view on mobile.</span>
-          <button
-            type="button"
-            className="os-mobile-banner__button"
-            onClick={() => navigate("/portfolio")}
-          >
-            Open portfolio
-          </button>
         </div>
       ) : null}
       <div className="os-root__wallpaper" />

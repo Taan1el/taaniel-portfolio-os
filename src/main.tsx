@@ -5,9 +5,12 @@ import "@/styles/global.css";
 import "@/styles/visual-redesign.css";
 import "@/styles/win11.css";
 import "@/styles/win11-desktop.css";
+import "@/styles/win11-start.css";
 import "@/styles/win11-tray.css";
 import "@/styles/win11-a11y.css";
 import "@/styles/win11-session.css";
+import "@/styles/win11-windows.css";
+import "@/styles/win11-retro.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

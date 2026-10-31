@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { LogoMark } from "@/components/ui/logo-mark";
 import { useDialogFocus } from "@/hooks/use-dialog-focus";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
+import { formatTime, useClockPrefs } from "@/lib/clock-format";
 import { profile } from "@/data/portfolio";
 import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
 import { useSessionScreenStore } from "@/stores/session-screen-store";
@@ -44,6 +45,7 @@ function LockScreen() {
   const signIn = useSessionScreenStore((state) => state.signIn);
   const navigate = useNavigate();
   const now = useMinuteClock();
+  const prefs = useClockPrefs();
   const panelRef = useRef<HTMLDivElement>(null);
   useDialogFocus(panelRef);
 
@@ -84,7 +86,7 @@ function LockScreen() {
     >
       <div className="os-lock__clock">
         <time dateTime={now.toISOString()}>
-          {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {formatTime(now, prefs)}
         </time>
         <p>{now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</p>
       </div>

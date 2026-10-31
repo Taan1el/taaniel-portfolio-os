@@ -63,3 +63,11 @@ The filesystem is a virtual tree stored in memory and persisted to IndexedDB.
 - Browser app is iframe-based; some sites block embedding via CSP/X-Frame-Options.
 - Everything is static + client-side for GitHub Pages compatibility.
 
+## Browser design
+
+The Browser app is intentionally an iframe-based web viewer, not a full browser engine.
+
+- **Why iframe is used**: it keeps the app lightweight, GitHub Pages-safe, and aligned with the rest of the OS window system. It also lets the Browser show local filesystem content through `srcDoc` without adding a server runtime.
+- **Why some sites fail**: many third-party sites send `X-Frame-Options` or `Content-Security-Policy` headers that forbid embedding. Auth-heavy pages and complex web apps also tend to break inside iframe sandboxes. When that happens, the Browser shows a fallback panel instead of pretending the page loaded.
+- **What the proxy does**: `Direct` loads the page as-is. `AllOrigins` and `Wayback` wrap the URL through external services that can sometimes return a frameable copy or archived snapshot. They are viewing aids, not a guarantee.
+- **Tradeoffs**: this approach is honest and predictable, but it is not a replacement for Chrome. Some pages will render, some will need a proxy, and some should always be opened in a new tab.

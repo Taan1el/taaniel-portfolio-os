@@ -6,11 +6,17 @@ export const SETTINGS_SECTION_IDS = [
   "system",
   "display",
   "sound",
+  "notifications",
   "power",
+  "storage",
   "network",
   "personalization",
+  "apps",
   "accessibility",
+  "privacy",
   "time",
+  "input",
+  "about",
 ] as const;
 
 export type SettingsSectionId = (typeof SETTINGS_SECTION_IDS)[number];
@@ -46,10 +52,22 @@ export const SETTINGS_SECTIONS: SettingsSectionInfo[] = [
     keywords: ["sound", "volume", "speakers", "audio", "mute"],
   },
   {
+    id: "notifications",
+    title: "Notifications",
+    description: "Do not disturb, history",
+    keywords: ["notifications", "do not disturb", "focus", "toast", "alerts", "history"],
+  },
+  {
     id: "power",
     title: "Power & battery",
     description: "Battery usage, battery saver",
     keywords: ["power", "battery", "battery saver", "energy", "charging"],
+  },
+  {
+    id: "storage",
+    title: "Storage",
+    description: "Disk space, files, Recycle Bin",
+    keywords: ["storage", "disk", "space", "quota", "recycle bin", "empty", "files", "usage"],
   },
   {
     id: "network",
@@ -65,16 +83,40 @@ export const SETTINGS_SECTIONS: SettingsSectionInfo[] = [
     keywords: ["personalization", "personalize", "theme", "wallpaper", "background", "colors"],
   },
   {
+    id: "apps",
+    title: "Apps",
+    description: "Installed apps, default apps",
+    keywords: ["apps", "applications", "default apps", "open with", "file types", "installed"],
+  },
+  {
     id: "accessibility",
     title: "Accessibility",
     description: "Visual effects, animation",
     keywords: ["accessibility", "animation effects", "reduce motion", "motion", "visual effects"],
   },
   {
+    id: "privacy",
+    title: "Privacy",
+    description: "Local data, history, export",
+    keywords: ["privacy", "local data", "clear history", "recent files", "localstorage", "indexeddb", "export", "import", "backup"],
+  },
+  {
     id: "time",
     title: "Time & language",
     description: "Date, time zone, region",
     keywords: ["time", "date", "clock", "time zone", "language", "region"],
+  },
+  {
+    id: "input",
+    title: "Keyboard & input",
+    description: "Keyboard shortcuts, pointer",
+    keywords: ["keyboard", "shortcuts", "hotkeys", "mouse", "pointer", "touch", "input"],
+  },
+  {
+    id: "about",
+    title: "About",
+    description: "This device, Taaniel OS",
+    keywords: ["about", "version", "device", "specs", "system info", "processor", "memory", "reset"],
   },
 ];
 

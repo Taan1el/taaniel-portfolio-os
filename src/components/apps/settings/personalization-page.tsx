@@ -1,5 +1,14 @@
-import { Image as ImageIcon, Paintbrush, RotateCcw, Sparkles, Waves } from "lucide-react";
+import { AlignHorizontalJustifyStart, Image as ImageIcon, Layers, MonitorUp, Paintbrush, Palette, RotateCcw, Sparkles, Waves } from "lucide-react";
 import { Button } from "@/components/apps/app-layout";
+import { SettingsGroup, SettingsRow, ToggleSwitch } from "@/components/apps/settings/settings-controls";
+import { ACCENT_SWATCHES } from "@/lib/accents";
+import {
+  ACCENT_IDS,
+  sanitizeDesktopIconSize,
+  sanitizeTaskbarAlignment,
+  sanitizeWallpaperFit,
+  useSystemSettingsStore,
+} from "@/stores/system-settings-store";
 import { themePresets } from "@/data/portfolio";
 import {
   animatedWallpaperPresets,
@@ -17,6 +26,7 @@ export function PersonalizationPage() {
   const setWallpaperImage = useSystemStore((state) => state.setWallpaperImage);
   const resetWallpaper = useSystemStore((state) => state.resetWallpaper);
   const resetLayout = useSystemStore((state) => state.resetLayout);
+  const settings = useSystemSettingsStore();
 
   return (
     <>
@@ -28,7 +38,103 @@ export function PersonalizationPage() {
         </div>
       </section>
 
-      <div className="theme-grid">
+      <SettingsGroup title="Colors">
+        <SettingsRow
+          icon={<Palette size={18} />}
+          settingId="accent"
+          title="Accent colour"
+          description="Switches, selections, focus marks and the current-page marker."
+        >
+          <span className="w11-settings__swatches" role="radiogroup" aria-label="Accent colour">
+            {ACCENT_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={settings.accent === id}
+                aria-label={ACCENT_SWATCHES[id].label}
+                title={ACCENT_SWATCHES[id].label}
+                className="w11-settings__swatch"
+                style={{ background: ACCENT_SWATCHES[id].color }}
+                onClick={() => settings.setAccent(id)}
+              />
+            ))}
+          </span>
+        </SettingsRow>
+        <SettingsRow
+          icon={<Layers size={18} />}
+          settingId="transparency"
+          title="Transparency effects"
+          description="Frosted glass on the taskbar, Start, flyouts and windows. Off makes them solid."
+        >
+          <ToggleSwitch label="Transparency effects" checked={settings.transparency} onChange={settings.setTransparency} />
+        </SettingsRow>
+      </SettingsGroup>
+
+      <SettingsGroup title="Taskbar">
+        <SettingsRow
+          icon={<AlignHorizontalJustifyStart size={18} />}
+          settingId="taskbar-alignment"
+          title="Taskbar alignment"
+          description="Where the Start button and apps sit on the taskbar."
+        >
+          <select
+            aria-label="Taskbar alignment"
+            value={settings.taskbarAlignment}
+            onChange={(event) => settings.setTaskbarAlignment(sanitizeTaskbarAlignment(event.target.value))}
+          >
+            <option value="center">Center</option>
+            <option value="left">Left</option>
+          </select>
+        </SettingsRow>
+      </SettingsGroup>
+
+      <SettingsGroup title="Desktop">
+        <SettingsRow
+          icon={<MonitorUp size={18} />}
+          settingId="show-desktop-icons"
+          title="Show desktop icons"
+          description="Hides or shows the icons on the desktop. Nothing is deleted."
+        >
+          <ToggleSwitch label="Show desktop icons" checked={settings.showDesktopIcons} onChange={settings.setShowDesktopIcons} />
+        </SettingsRow>
+        <SettingsRow settingId="desktop-icon-size" title="Desktop icon size" className="is-nested">
+          <select
+            aria-label="Desktop icon size"
+            value={settings.desktopIconSize}
+            onChange={(event) => settings.setDesktopIconSize(sanitizeDesktopIconSize(event.target.value))}
+          >
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </SettingsRow>
+        <SettingsRow
+          settingId="wallpaper-fit"
+          title="Wallpaper fit"
+          description={
+            wallpaper.mode === "image"
+              ? "How your picture fills the screen."
+              : "Applies to picture wallpapers. Pick one below to use it."
+          }
+          className="is-nested"
+        >
+          <select
+            aria-label="Wallpaper fit"
+            value={settings.wallpaperFit}
+            disabled={wallpaper.mode !== "image"}
+            onChange={(event) => settings.setWallpaperFit(sanitizeWallpaperFit(event.target.value))}
+          >
+            <option value="fill">Fill</option>
+            <option value="fit">Fit</option>
+            <option value="stretch">Stretch</option>
+            <option value="center">Center</option>
+            <option value="tile">Tile</option>
+          </select>
+        </SettingsRow>
+      </SettingsGroup>
+
+      <div className="theme-grid" data-setting-id="theme">
         {themePresets.map((preset) => (
           <button
             key={preset.id}

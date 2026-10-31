@@ -3,6 +3,7 @@ import type { VirtualFile } from "@/types/system";
 
 export const V86_BIOS_PATH = resolvePublicAssetUrl("assets/v86/seabios.bin");
 export const V86_VGA_BIOS_PATH = resolvePublicAssetUrl("assets/v86/vgabios.bin");
+export const V86_WASM_PATH = resolvePublicAssetUrl("assets/v86/v86.wasm");
 const FLOPPY_IMAGE_LIMIT_BYTES = 2_949_120;
 let v86RuntimePromise: Promise<typeof import("v86")> | null = null;
 

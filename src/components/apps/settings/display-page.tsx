@@ -26,6 +26,7 @@ export function DisplayPage() {
       <SettingsGroup title="Brightness & color">
         <SettingsRow
           icon={<Sun size={18} />}
+          settingId="brightness"
           title="Brightness"
           description="Dims this page. It does not change your screen's own backlight."
         >
@@ -33,6 +34,7 @@ export function DisplayPage() {
         </SettingsRow>
         <SettingsRow
           icon={<MoonStar size={18} />}
+          settingId="night-light"
           title="Night light"
           description="Warms the colors to ease your eyes in the evening."
         >

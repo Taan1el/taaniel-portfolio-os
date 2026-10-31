@@ -416,6 +416,10 @@ register(["title"], (rest, ctx) => {
   if (title) ctx.actions.push({ type: "set-title", title: title.slice(0, 60) });
   return OK;
 });
+register(["python", "python3", "py"], async (rest, ctx) => {
+  await viaPowerShell(`python ${rest}`.trim(), ctx);
+  return OK;
+});
 register(["whoami"], (_rest, ctx) => {
   say(ctx, `${SHELL_HOST.toLowerCase()}\\${SHELL_USER.toLowerCase()}`);
   return OK;
