@@ -214,7 +214,24 @@ export function DesktopShell() {
     setSearchQuery("");
     setCalendarOpen(false);
     setContextMenu(null);
+    setOpenWithTarget(null);
+    setCheatsheetOpen(false);
   };
+
+  // With no window left to take it, focus returns to the desktop instead of being lost.
+  useEffect(() => {
+    if (focusedWindowId) return;
+    // Focus stays inside a closing window until its exit animation removes it, so wait for that.
+    let checks = 0;
+    const timer = setInterval(() => {
+      const current = document.activeElement;
+      if (current?.closest(".window-frame") && ++checks < 20) return;
+      clearInterval(timer);
+      if (current && current !== document.body) return;
+      document.querySelector<HTMLElement>('.desktop-icon[tabindex="0"], .w11-taskbar__start')?.focus({ preventScroll: true });
+    }, 100);
+    return () => clearInterval(timer);
+  }, [focusedWindowId]);
 
   const openLauncherSearch = () => {
     requestStartMenuSearchFocus();
@@ -440,9 +457,10 @@ export function DesktopShell() {
   }
 
   return (
-    <main
+    <div
       className={cn(
         "os-root",
+        theme.id === "windows-bloom" && "is-light-wallpaper",
         wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
       )}
       style={
@@ -456,6 +474,17 @@ export function DesktopShell() {
       }
       onClick={() => setContextMenu(null)}
     >
+      <a
+        className="os-skip-link"
+        href={`${import.meta.env.BASE_URL}portfolio`}
+        onClick={(event) => {
+          event.preventDefault();
+          navigate("/portfolio");
+        }}
+      >
+        Skip to the accessible portfolio
+      </a>
+      <h1 className="sr-only">Taaniel OS desktop</h1>
       <OsOnboarding />
       {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
@@ -477,6 +506,7 @@ export function DesktopShell() {
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
 
+      <main className="os-root__main">
 
       <DesktopManager
         nodes={nodes}
@@ -534,6 +564,7 @@ export function DesktopShell() {
         }}
         onClose={() => setOpenWithTarget(null)}
       />
+      </main>
 
       <Taskbar
         entries={taskbarEntries}
@@ -553,6 +584,6 @@ export function DesktopShell() {
         onUnpinApp={unpinApp}
         onShowDesktop={showDesktop}
       />
-    </main>
+    </div>
   );
 }
