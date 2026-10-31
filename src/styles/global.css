@@ -97,10 +97,6 @@ body.recruiter-scroll {
   animation: icon-launch 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-body.os-onboarding-visible .desktop-icon-button {
-  animation: desktop-icon-onboarding-hint 2.4s ease-in-out infinite;
-}
-
 button,
 input,
 textarea,
@@ -205,38 +201,6 @@ img {
   color: var(--text-muted);
   font-size: 0.78rem;
   backdrop-filter: blur(8px);
-}
-
-.os-mobile-banner {
-  position: absolute;
-  top: 2.9rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(10, 14, 20, 0.72);
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  backdrop-filter: blur(8px);
-}
-
-.os-mobile-banner__button {
-  border: 0;
-  border-radius: 999px;
-  padding: 0.22rem 0.5rem;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-}
-
-.os-mobile-banner__button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--theme-accent), white 25%);
-  outline-offset: 2px;
 }
 
 .os-root.is-animated-wallpaper .os-root__wallpaper {
@@ -2852,7 +2816,7 @@ h3 {
 
 .music-player__track {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto 40px minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.65rem;
   padding: 0.64rem 0.7rem;
@@ -2860,6 +2824,22 @@ h3 {
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.03);
   text-align: left;
+}
+
+.music-player__track-art {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.music-player__track-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .music-player__track.is-active {
@@ -3279,31 +3259,6 @@ h3 {
   left: 0;
   height: 2px;
   background: rgba(255, 255, 255, 0.16);
-}
-
-.markdown-viewer {
-  height: 100%;
-  overflow: auto;
-  padding: 1.5rem;
-}
-
-.markdown-viewer__header {
-  margin-bottom: 1rem;
-}
-
-.markdown-viewer h1,
-.markdown-viewer h2,
-.markdown-viewer h3 {
-  margin: 1.1rem 0 0.6rem;
-}
-
-.markdown-viewer p,
-.markdown-viewer li {
-  color: var(--text);
-}
-
-.markdown-viewer ul {
-  padding-left: 1.3rem;
 }
 
 .theme-grid {

@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { getSafeLocalStorage } from "@/lib/safe-storage";
-import { toast } from "@/stores/toast-store";
 import type { AppId } from "@/types/system";
 
 export interface Achievement {
@@ -43,8 +42,6 @@ export const useAchievementsStore = create<AchievementsState>()(
       unlock: (id) => {
         if (!KNOWN.has(id) || get().unlocked.includes(id)) return;
         set({ unlocked: [...get().unlocked, id] });
-        const achievement = ACHIEVEMENTS.find((entry) => entry.id === id);
-        if (achievement) toast(`Achievement: ${achievement.title}`, "success");
       },
     }),
     {

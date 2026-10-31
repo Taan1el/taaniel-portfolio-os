@@ -540,15 +540,6 @@
     bottom: 120px;
   }
 
-  .os-mobile-banner {
-    top: 0.6rem;
-    left: 0.6rem;
-    right: 0.6rem;
-    transform: none;
-    justify-content: space-between;
-    border-radius: 12px;
-  }
-
   .taskbar__item-indicator {
     left: 0.62rem;
     right: 0.62rem;

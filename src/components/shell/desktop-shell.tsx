@@ -27,7 +27,6 @@ import { registerShellNavigator } from "@/lib/shell-navigation";
 import { buildShellSearchIndex, queryShellSearch, type ShellSearchAction } from "@/lib/shell-search";
 import { buildTaskbarWindowEntries } from "@/lib/taskbar-system";
 import { TRASH_PATH } from "@/lib/system-workspace";
-import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { ContextMenu } from "@/components/system/context-menu";
 import { DragLayer } from "@/components/system/drag-layer";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
@@ -503,22 +502,9 @@ export function DesktopShell() {
       </a>
       <h1 className="sr-only">Taaniel OS desktop</h1>
       <SessionScreen />
-      <OsOnboarding />
       {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
           {offlineBanner}
-        </div>
-      ) : null}
-      {viewportMode === "mobile" && !windows.some((entry) => !entry.minimized) ? (
-        <div className="os-mobile-banner" role="status" aria-live="polite">
-          <span>Tip: use the quick recruiter view on mobile.</span>
-          <button
-            type="button"
-            className="os-mobile-banner__button"
-            onClick={() => navigate("/portfolio")}
-          >
-            Open portfolio
-          </button>
         </div>
       ) : null}
       <div className="os-root__wallpaper" />
