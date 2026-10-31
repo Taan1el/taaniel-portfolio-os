@@ -275,8 +275,8 @@ const registry: Record<AppId, AppDefinition> = {
   }),
   markdown: defineApp({
     id: "markdown",
-    title: "Markdown Viewer",
-    description: "Reader for portfolio notes, docs, and case studies.",
+    title: "Notepad",
+    description: "Read and edit text and Markdown files.",
     category: "Workspace",
     icon: MarkdownIcon,
     accent: "#ffcf8f",
@@ -284,8 +284,7 @@ const registry: Record<AppId, AppDefinition> = {
     defaultSize: { width: 820, height: 600 },
     multiple: true,
     load: async () => ({ default: (await import("@/components/apps/markdown-viewer-app")).MarkdownViewerApp }),
-    resolveTitle: (payload) =>
-      payload?.filePath ? `Document - ${getBaseName(payload.filePath)}` : "Markdown Viewer",
+    resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Untitled - Notepad"),
   }),
   settings: defineApp({
     id: "settings",
