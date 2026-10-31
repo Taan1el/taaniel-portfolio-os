@@ -1,5 +1,28 @@
 # Portfolio maintenance
 
+## 2026-10-31
+
+Completed:
+- Code app: Monaco with tabs, quick open, search, a command palette and a live
+  preview in a sandbox with no network access.
+- Snap Layouts, virtual desktops and Task View.
+- Bundled a Linux image for Virtual x86, and a self-hosted Pyodide in a worker
+  behind the terminal's `python` command.
+- Own canvas Dino and Hextris replace the paused ports. Next Stop is an app.
+- Achievements, terminal extras, a Retro theme, and text size and contrast settings.
+- Explorer: focus moves onto items so screen readers read them, and it stays in
+  the window after the focused item goes away. Taskbar buttons take arrow keys.
+
+A changed shipped document only reaches returning visitors if the hash of its old
+text is listed in `src/lib/portfolio-workspace.ts`. Add one whenever seed text changes.
+
+### Validation
+
+- `tsc`, 121 test files (1399 tests) and `build:gh` pass.
+- Real-input Chromium runs pass for the desktop, windows, Code, the extras and
+  the About, Projects, CV, Contact and case study path, plus a 390px phone.
+- Not tested on a physical phone, or with a real screen reader.
+
 ## 2026-10-07
 
 Completed:
