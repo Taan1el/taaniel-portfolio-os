@@ -115,3 +115,79 @@ body:has(.w11-calendar) .toast-container {
     display: none;
   }
 }
+
+/* Settings > Personalization > Taskbar alignment. The centre is the default; this moves apps and Start to the left edge. */
+:root[data-taskbar-align="left"] .w11-taskbar__center {
+  grid-column: 1;
+  justify-self: start;
+  padding-left: 4px;
+}
+
+:root[data-taskbar-align="left"] .w11-start {
+  margin-inline: 12px auto;
+}
+
+/* Settings > Personalization > Accent colour. Each name maps to a fixed colour here, never to a value from storage. */
+:root[data-accent="sky"] { --os-accent: #7fb4ff; }
+:root[data-accent="mint"] { --os-accent: #5fe3b4; }
+:root[data-accent="lime"] { --os-accent: #b5e35a; }
+:root[data-accent="amber"] { --os-accent: #ffc95c; }
+:root[data-accent="coral"] { --os-accent: #ff9a7a; }
+:root[data-accent="rose"] { --os-accent: #ff8fb8; }
+:root[data-accent="violet"] { --os-accent: #b99cff; }
+
+:root[data-accent],
+:root[data-accent] .w11-settings {
+  --w11-accent: var(--os-accent);
+  --w11-on-accent: #000000;
+}
+
+/* Settings > Personalization > Desktop icons. */
+:root[data-desktop-icons="hidden"] .desktop-icon {
+  display: none;
+}
+
+:root[data-icon-size="small"] { --os-icon-px: 36px; }
+:root[data-icon-size="large"] { --os-icon-px: 56px; }
+
+/* The icon components size themselves inline, so the override has to be important. */
+:root[data-icon-size] .desktop-icon__glyph,
+:root[data-icon-size] .desktop-icon__glyph .node-icon {
+  width: var(--os-icon-px) !important;
+  height: var(--os-icon-px) !important;
+}
+
+:root[data-icon-size] .desktop-icon__glyph > svg,
+:root[data-icon-size] .desktop-icon__glyph .node-icon > svg:not(.node-icon__badge) {
+  width: 100%;
+  height: 100%;
+}
+
+:root[data-icon-size="small"] .desktop-icon__label {
+  font-size: 11px;
+}
+
+/* Settings > Personalization > Wallpaper fit. Only set while a picture is the wallpaper; its dimming layer stays full size. */
+:root[data-wallpaper-fit] .os-root__wallpaper {
+  background-color: #000;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+:root[data-wallpaper-fit="fit"] .os-root__wallpaper {
+  background-size: 100% 100%, contain;
+}
+
+:root[data-wallpaper-fit="stretch"] .os-root__wallpaper {
+  background-size: 100% 100%, 100% 100%;
+}
+
+:root[data-wallpaper-fit="center"] .os-root__wallpaper {
+  background-size: 100% 100%, auto;
+}
+
+:root[data-wallpaper-fit="tile"] .os-root__wallpaper {
+  background-size: 100% 100%, auto;
+  background-repeat: no-repeat, repeat;
+  background-position: 0 0, 0 0;
+}

@@ -4,11 +4,11 @@ import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from "lucide-reac
 import { useFlyout } from "@/hooks/use-flyout";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
 import { useSecondClock } from "@/hooks/use-second-clock";
+import { formatTime, resolveFirstDayOfWeek, useClockPrefs } from "@/lib/clock-format";
 import {
   addDays,
   addMonths,
   buildMonthGrid,
-  getFirstDayOfWeek,
   getWeekdayLabels,
   isSameDay,
   shiftMonth,
@@ -25,7 +25,6 @@ interface ClockFlyoutProps {
   onOpenSettings: (section: SettingsSectionId) => void;
 }
 
-const timeFormat = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const dateFormat = new Intl.DateTimeFormat([], { weekday: "long", month: "long", day: "numeric" });
 const monthFormat = new Intl.DateTimeFormat([], { month: "long", year: "numeric" });
 const dayLabelFormat = new Intl.DateTimeFormat([], { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -37,11 +36,12 @@ function toMonth(date: Date): CalendarMonth {
 /** The big clock and date. Its own component, so the calendar below does not re-render every second. */
 function FlyoutClock() {
   const now = useSecondClock();
+  const prefs = useClockPrefs();
 
   return (
     <header className="w11-clock__header">
       <time className="w11-clock__time" dateTime={now.toISOString()}>
-        {timeFormat.format(now)}
+        {formatTime(now, prefs, { seconds: true })}
       </time>
       <span className="w11-clock__date">{dateFormat.format(now)}</span>
     </header>
@@ -61,7 +61,8 @@ export function ClockFlyout({ onOpenSettings }: ClockFlyoutProps) {
   useFlyout({ open: true, triggerId: "clock", panelRef, onClose: close, initialFocusRef: focusedDayRef });
 
   const now = useMinuteClock();
-  const weekStart = useMemo(() => getFirstDayOfWeek(), []);
+  const prefs = useClockPrefs();
+  const weekStart = useMemo(() => resolveFirstDayOfWeek(prefs), [prefs]);
   const weekdays = useMemo(() => getWeekdayLabels(weekStart), [weekStart]);
   const [visible, setVisible] = useState<CalendarMonth>(() => toMonth(new Date()));
   const [focused, setFocused] = useState(() => startOfDay(new Date()));
