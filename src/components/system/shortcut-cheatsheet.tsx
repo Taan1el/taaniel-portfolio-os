@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { createPortal } from "react-dom";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { TERMINAL_SHORTCUTS } from "@/lib/terminal-keys";
@@ -29,7 +31,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: "Windows",
     shortcuts: [
-      { keys: ["Alt", "F4"], label: "Close active window" },
+      { keys: ["Alt", "Shift", "W"], label: "Close active window" },
       { keys: ["Alt", "]"], label: "Focus next window" },
       { keys: ["Alt", "["], label: "Focus previous window" },
     ],
@@ -69,12 +71,16 @@ interface ShortcutCheatsheetProps {
 }
 
 function CheatsheetInner({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef);
+
   return (
     <div
       className="cheatsheet-overlay"
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div
+        ref={dialogRef}
         className="cheatsheet"
         role="dialog"
         aria-modal="true"
