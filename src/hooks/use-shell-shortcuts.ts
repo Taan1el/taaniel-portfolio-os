@@ -54,7 +54,8 @@ export function useShellShortcuts({
         return;
       }
 
-      if (event.shiftKey && event.key === "F10") {
+      // AltGr reports as Ctrl+Alt on Windows, so it must not count here.
+      if (event.ctrlKey && event.altKey && event.code === "KeyT" && !event.getModifierState?.("AltGraph")) {
         event.preventDefault();
         onOpenTerminal();
         return;
