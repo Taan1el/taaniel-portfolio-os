@@ -280,3 +280,15 @@ describe("expressions at the prompt", () => {
     expect(text).toContain("too long");
   });
 });
+
+describe("system folders", () => {
+  it("reports an error instead of claiming to change them", async () => {
+    const paths = Object.keys(useFileSystemStore.getState().nodes).length;
+    const removed = await run("rm C:\\Users\\Taaniel\\Documents\\Notes -Recurse");
+    expect(removed.text).toMatch(/sufficient access rights/);
+    const moved = await run("mv C:\\Users\\Taaniel\\Documents\\Notes C:\\Users\\Taaniel\\Desktop");
+    expect(moved.text).toMatch(/denied/);
+    expect(Object.keys(useFileSystemStore.getState().nodes).length).toBe(paths);
+    expect(useFileSystemStore.getState().nodes["/Desktop"]).toBeDefined();
+  });
+});

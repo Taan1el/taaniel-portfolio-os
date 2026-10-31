@@ -139,6 +139,9 @@ export function StartMenu({
         return;
       }
 
+      // Peel one layer at a time; the shell's own Escape handler stands down.
+      event.preventDefault();
+
       if (powerMenu !== "closed") {
         setPowerMenu("closed");
         return;
@@ -152,8 +155,8 @@ export function StartMenu({
       onRequestClose();
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [onRequestClose, onSearchQueryChange, powerMenu, searching]);
 
   return (
@@ -176,6 +179,7 @@ export function StartMenu({
             value={searchQuery}
             readOnly={!onSearchQueryChange}
             onChange={(event) => onSearchQueryChange?.(event.target.value)}
+            onKeyDown={(event) => searchBrowseRef.current?.handleSearchKeyDown(event)}
             aria-label="Search"
           />
         </label>

@@ -1,13 +1,15 @@
 import { getOpenWithOptions } from "@/lib/file-registry";
 import { getParentPath, isLockedNode, normalizePath, type TransferOperation } from "@/lib/filesystem";
 import { editFileSystemPath, openFileSystemPath } from "@/lib/launchers";
-import { resolveShortcut } from "@/lib/shortcuts";
+import { getDisplayName, resolveShortcut, resolveShortcutNode } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import { confirmInOs } from "@/stores/confirm-dialog-store";
 import { useExplorerStore } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useSystemStore } from "@/stores/system-store";
 import { toast } from "@/stores/toast-store";
+import type { FileSystemRecord } from "@/types/system";
 
 /*
  * The things you can do to files and folders, whichever surface you do them
@@ -67,9 +69,25 @@ export async function transferItems(paths: string[], destination: string, operat
   return fileSystem().transferNodes(paths, destination, operation);
 }
 
+/** The question Windows asks before deleting for good: its title and its words. */
+function describeDeletion(nodes: FileSystemRecord, paths: string[]) {
+  if (paths.length === 1) {
+    const node = nodes[paths[0]];
+    const kind = node?.kind === "directory" ? "Folder" : node?.kind === "file" && node.shortcut ? "Shortcut" : "File";
+
+    return {
+      title: `Delete ${kind}`,
+      message: `Are you sure you want to permanently delete "${node ? getDisplayName(node) : "this item"}"?`,
+    };
+  }
+
+  return { title: "Delete Multiple Items", message: `Are you sure you want to permanently delete these ${paths.length} items?` };
+}
+
 /**
  * Delete items: into the Recycle Bin, or for good (Shift+Delete, or anything
- * already in the bin) after asking, as Windows does.
+ * already in the bin) after asking, as Windows does. The question is asked in
+ * the OS's own dialog; it is answered "no" by Cancel, Escape or a click outside.
  */
 export async function deleteItems(paths: string[], options: { permanent?: boolean } = {}) {
   const targets = Array.from(new Set(paths.map(normalizePath)));
@@ -85,14 +103,9 @@ export async function deleteItems(paths: string[], options: { permanent?: boolea
     return result.transferred.length;
   }
 
-  const nodes = fileSystem().nodes;
-  const name = nodes[targets[0]]?.name ?? "this item";
-  const question =
-    targets.length === 1
-      ? `Are you sure you want to permanently delete "${name}"?`
-      : `Are you sure you want to permanently delete these ${targets.length} items?`;
+  const confirmed = await confirmInOs({ ...describeDeletion(fileSystem().nodes, targets), confirmLabel: "Delete" });
 
-  if (!globalThis.confirm(question)) {
+  if (!confirmed) {
     return 0;
   }
 
@@ -103,6 +116,24 @@ export async function deleteItems(paths: string[], options: { permanent?: boolea
   }
 
   return targets.length;
+}
+
+/** Empty the Recycle Bin after asking. Resolves to whether it was emptied. */
+export async function emptyRecycleBin() {
+  const inBin = fileSystem().listDirectory(TRASH_PATH).map((node) => node.path);
+
+  if (inBin.length === 0) {
+    return false;
+  }
+
+  const confirmed = await confirmInOs({ ...describeDeletion(fileSystem().nodes, inBin), confirmLabel: "Delete" });
+
+  if (!confirmed) {
+    return false;
+  }
+
+  await fileSystem().emptyTrash();
+  return true;
 }
 
 /** Put Recycle Bin items back where they were deleted from. Resolves to the restored paths. */
@@ -155,9 +186,11 @@ export function editItem(path: string) {
   editFileSystemPath(path, fileSystem().nodes, useSystemStore.getState().launchApp);
 }
 
-/** The "Open with..." dialog for a file. */
+/** The "Open with..." dialog for a file. A shortcut offers the apps that can open what it points at. */
 export function chooseAppFor(path: string) {
-  const node = fileSystem().nodes[normalizePath(path)];
+  const nodes = fileSystem().nodes;
+  const saved = nodes[normalizePath(path)];
+  const node = saved?.kind === "file" && saved.shortcut ? resolveShortcutNode(nodes, saved) : saved;
 
   if (node?.kind === "file" && getOpenWithOptions(node).length > 0) {
     useShellStore.getState().setOpenWithTarget({ filePath: node.path, node });

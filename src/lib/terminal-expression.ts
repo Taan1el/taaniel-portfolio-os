@@ -5,6 +5,7 @@ import {
   isShellObject,
   itemText,
   type PipelineItem,
+  type ShellObject,
 } from "@/lib/terminal-objects";
 
 /*
@@ -153,6 +154,13 @@ function lexExpression(text: string): ExprToken[] | null {
       if (text[i] !== '"') return null;
       i += 1;
       tokens.push({ t: "str", v: value, interpolate: true });
+      continue;
+    }
+
+    // $? is the success of the last command.
+    if (rest.startsWith("$?")) {
+      tokens.push({ t: "var", v: "?", members: [] });
+      i += 2;
       continue;
     }
 
@@ -312,8 +320,8 @@ export function parseExpression(text: string): ParseResult {
 // ----------------------------------------------------------------- evaluation
 
 export interface ExpressionEnv {
-  /** Look up $name, $env:NAME and the session's variables. */
-  readVariable: (name: string) => ShellValue | undefined;
+  /** Look up $name, $env:NAME and the session's variables. Automatic ones ($PSVersionTable, $PWD, $Host) are objects. */
+  readVariable: (name: string) => ShellValue | ShellObject | undefined;
   /** Shared by every evaluation one command makes, so no pipeline can run away. */
   budget: { steps: number };
 }
@@ -538,12 +546,16 @@ function findClosingParen(text: string, openIndex: number) {
 }
 
 function expandPlain(segment: string, env: ExpressionEnv, scope?: ExpressionScope) {
-  return segment.replace(/\$(env:)?([A-Za-z_][A-Za-z0-9_]*)/gi, (_match, envPrefix: string | undefined, name: string) => {
-    if (!envPrefix && scope && isItemVariable(name)) return itemText(scope.item);
-    const value = env.readVariable(`${envPrefix ?? ""}${name}`);
-    if (value === undefined) return "";
-    return Array.isArray(value) ? value.join(" ") : typeof value === "boolean" ? (value ? "True" : "False") : String(value);
-  });
+  return segment.replace(
+    /\$(?:(\?)|(env:)?([A-Za-z_][A-Za-z0-9_]*))/gi,
+    (_match, question: string | undefined, envPrefix: string | undefined, name: string | undefined) => {
+      if (!question && !envPrefix && scope && name && isItemVariable(name)) return itemText(scope.item);
+      const value = env.readVariable(question ? "?" : `${envPrefix ?? ""}${name}`);
+      if (value === undefined) return "";
+      if (isShellObject(value)) return value.text;
+      return Array.isArray(value) ? value.join(" ") : typeof value === "boolean" ? (value ? "True" : "False") : String(value);
+    }
+  );
 }
 
 /**

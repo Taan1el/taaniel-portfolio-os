@@ -89,7 +89,8 @@ function readZone(element: Element): DropZone | null {
 
 /**
  * Shell surfaces that sit over the desktop without being drop targets: the
- * taskbar, Start and the flyouts. A pointer over one of them is over nothing,
+ * taskbar, Start and the flyouts (the tray's quick settings, calendar and the
+ * rest all carry `w11-flyout`). A pointer over one of them is over nothing,
  * not over the desktop behind it. Add `data-dnd-barrier` to any other overlay.
  */
 const BARRIER_SELECTOR = "[data-dnd-barrier], .taskbar, .w11-start, .w11-flyout, .context-menu, .open-with-overlay";
@@ -106,13 +107,16 @@ export function findDropZone(elements: Element[]): FoundDropZone | null {
     }
 
     const tagged = element.closest(DROP_ZONE_SELECTOR);
+    const barrier = element.closest(BARRIER_SELECTOR);
+
+    // Something solid with nothing to drop on: stop here rather than reach through to the desktop. A barrier
+    // inside a zone (a flyout mounted in a window or on the desktop surface) shuts that zone out too, while a
+    // zone inside a barrier (a taskbar button) is still a zone.
+    if (barrier && (!tagged || (barrier !== tagged && tagged.contains(barrier)))) {
+      return null;
+    }
 
     if (!tagged) {
-      // Something solid with nothing to drop on: stop here rather than reach through to the desktop.
-      if (element.closest(BARRIER_SELECTOR)) {
-        return null;
-      }
-
       continue;
     }
 

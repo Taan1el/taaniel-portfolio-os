@@ -1,5 +1,5 @@
 import { featuredProjects, profile, socialLinks } from "@/data/portfolio";
-import { getParentPath, getPathName, normalizePath } from "@/lib/filesystem";
+import { getChangeRefusal, getParentPath, getPathName, normalizePath } from "@/lib/filesystem";
 import {
   applyArithmetic,
   compareOperands,
@@ -18,7 +18,18 @@ import {
   type ExpressionEnv,
   type ShellValue,
 } from "@/lib/terminal-expression";
+import type { SettingsSectionId } from "@/lib/settings-sections";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import {
+  ABOUT_TOPICS,
+  findAboutTopic,
+  HELP_EXAMPLES,
+  READLINE_KEY_HANDLERS,
+  syntaxParameters,
+  type AboutTopic,
+} from "@/lib/terminal-help";
+import { DEFAULT_JSON_DEPTH, itemsToJson, jsonToItems, MAX_JSON_DEPTH } from "@/lib/terminal-json";
+import { isAbsolutePath, joinPath, splitPath, type SplitPart } from "@/lib/terminal-paths";
 import { resolveLaunchProfile, type ShellProfileId } from "@/lib/terminal-profiles";
 import {
   compareValues as compareProperties,
@@ -79,9 +90,18 @@ export function stripAnsi(text: string) {
   return text.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
 }
 
+/**
+ * A virtual path as it prints: Windows style, with control characters removed. A
+ * folder name is data, never terminal commands - and names imported from a disk
+ * can hold anything - so every path that reaches the screen goes through here.
+ */
+export function toDisplayPath(path: string) {
+  return sanitizeForTerminal(toWindowsPath(path)).replace(/[\t\n]/g, "");
+}
+
 export function formatPrompt(cwd: string) {
-  // A folder name is data, never terminal commands: the prompt is printed on every line.
-  return `PS ${sanitizeForTerminal(toWindowsPath(cwd))}> `;
+  // The prompt is printed on every line.
+  return `PS ${toDisplayPath(cwd)}> `;
 }
 
 /** The two lines PowerShell greets a new session with, then a pointer to the keys that matter here. */
@@ -97,10 +117,19 @@ export function getPowerShellBanner(): string[] {
 export type TerminalAction =
   | { type: "launch-app"; appId: AppId; payload?: WindowPayload; title?: string }
   | { type: "open-path"; path: string }
-  /** Open a tab in this terminal window: `wt`, `pwsh` and `cmd` do it. No profile means the default one. */
+  /** Open a tab in this terminal window: `wt` does it, and so does Start-Process pwsh. No profile means the default one. */
   | { type: "open-tab"; profile?: ShellProfileId; directoryPath?: string }
+  /**
+   * Start a shell inside this one, in the same tab and folder: typing `cmd` or `pwsh`. `exit` returns to the shell it was
+   * started from. With a command (`cmd /c dir`) the command runs and the shell ends; with `keep` (`/k`, -NoExit) it stays.
+   */
+  | { type: "enter-shell"; profile: ShellProfileId; command?: string; keep?: boolean }
   /** Rename this tab (cmd's `title`). */
   | { type: "set-title"; title: string }
+  /** Recolour this tab's screen (cmd's `color`). Both are ANSI palette indices 0-15, read from the colour scheme in use. */
+  | { type: "set-colors"; foreground: number; background: number }
+  /** Back to the colour scheme's own colours (`color` with nothing after it). */
+  | { type: "reset-colors" }
   | { type: "exit" };
 
 /** The write surface the shell needs. The terminal app backs it with the filesystem store. */
@@ -123,6 +152,10 @@ export interface ShellSession {
   variables: Record<string, ShellValue>;
   /** Push-Location / Pop-Location stack. */
   locationStack: string[];
+  /** $? : whether the last statement worked. Absent until something has run. */
+  lastSuccess?: boolean;
+  /** $LASTEXITCODE: 0 after a statement that worked, 1 after one that failed. */
+  lastExitCode?: number;
 }
 
 export interface ShellProcessInfo {
@@ -217,6 +250,12 @@ export function sanitizeForTerminal(text: string) {
   return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
 }
 
+/** True when `text` holds a control character: C0, DEL or C1. */
+export function hasControlCharacters(text: string) {
+  // eslint-disable-next-line no-control-regex
+  return /[\u0000-\u001F\u007F-\u009F]/.test(text);
+}
+
 function fail(ctx: Ctx, command: string, message: string): Output {
   sanitizeForTerminal(message)
     .split("\n")
@@ -253,17 +292,17 @@ function joinVirtual(directory: string, name: string) {
 
 function displayRelative(path: string, cwd: string) {
   const prefix = cwd === "/" ? "/" : `${cwd}/`;
-  return path.startsWith(prefix) ? path.slice(prefix.length).replace(/\//g, "\\") : toWindowsPath(path);
+  return path.startsWith(prefix) ? sanitizeForTerminal(path.slice(prefix.length).replace(/\//g, "\\")).replace(/[\t\n]/g, "") : toDisplayPath(path);
 }
 
 function isInside(path: string, ancestor: string) {
   return path === ancestor || path.startsWith(ancestor === "/" ? "/" : `${ancestor}/`);
 }
 
-function hasReadonly(nodes: FileSystemRecord, path: string) {
-  return Object.values(nodes).some(
-    (node) => isInside(node.path, path) && node.kind === "file" && node.readonly === true
-  );
+/** True when the file store would refuse to change this item: system folders and read-only content. */
+function isLocked(nodes: FileSystemRecord, path: string) {
+  const refusal = getChangeRefusal(nodes, path);
+  return refusal === "protected" || refusal === "read-only";
 }
 
 /** Expand * and ? in the last path segment. Literal args pass through unchanged. */
@@ -297,7 +336,7 @@ function expandPaths(args: string[], ctx: Ctx) {
 
 // ------------------------------------------------------------- tokenization
 
-type Token = { kind: "word"; value: string; literal: boolean } | { kind: "op"; value: "|" | ";" | ">" | ">>" };
+type Token = { kind: "word"; value: string; literal: boolean; quoted: boolean } | { kind: "op"; value: "|" | ";" | ">" | ">>" | "&&" | "||" };
 
 /** Index of the } that closes the { at `open`, skipping quoted text; -1 when it never closes. */
 function findBlockEnd(input: string, open: number) {
@@ -329,13 +368,15 @@ function tokenize(input: string): Token[] {
   let current = "";
   let inWord = false;
   let literal = false;
+  let quoted = false;
   let i = 0;
 
   const flush = () => {
-    if (inWord) tokens.push({ kind: "word", value: current, literal });
+    if (inWord) tokens.push({ kind: "word", value: current, literal, quoted });
     current = "";
     inWord = false;
     literal = false;
+    quoted = false;
   };
 
   while (i < input.length) {
@@ -345,7 +386,7 @@ function tokenize(input: string): Token[] {
     if (char === "{" && !inWord) {
       const end = findBlockEnd(input, i);
       if (end !== -1) {
-        tokens.push({ kind: "word", value: input.slice(i, end + 1), literal: true });
+        tokens.push({ kind: "word", value: input.slice(i, end + 1), literal: true, quoted: false });
         i = end + 1;
         continue;
       }
@@ -354,6 +395,7 @@ function tokenize(input: string): Token[] {
     if (char === "'") {
       inWord = true;
       literal = true;
+      quoted = true;
       i += 1;
       while (i < input.length) {
         if (input[i] === "'") {
@@ -373,6 +415,7 @@ function tokenize(input: string): Token[] {
 
     if (char === '"') {
       inWord = true;
+      quoted = true;
       i += 1;
       while (i < input.length && input[i] !== '"') {
         if (input[i] === "`" && i + 1 < input.length) {
@@ -397,6 +440,14 @@ function tokenize(input: string): Token[] {
     if (/\s/.test(char)) {
       flush();
       i += 1;
+      continue;
+    }
+
+    // PowerShell 7's pipeline chain operators: && runs the next only after success, || only after failure.
+    if ((char === "|" || char === "&") && input[i + 1] === char) {
+      flush();
+      tokens.push({ kind: "op", value: char === "|" ? "||" : "&&" });
+      i += 2;
       continue;
     }
 
@@ -437,19 +488,83 @@ function environment(ctx: Ctx): Record<string, string> {
     homepath: `\\Users\\${SHELL_USER}`,
     os: "Taaniel_OS",
     temp: `${PROFILE_ROOT}\\AppData\\Local\\Temp`,
-    pwd: toWindowsPath(ctx.session.cwd),
+    pwd: toDisplayPath(ctx.session.cwd),
   };
 }
 
+// ----------------------------------------------------- automatic variables
+
+/** $PSVersionTable.PSVersion: Major, Minor and Patch read off POWERSHELL_VERSION. */
+function psVersionObject(): ShellObject {
+  const [major, minor, patch] = POWERSHELL_VERSION.split(".").map(Number);
+  return createObject(
+    "System.Management.Automation.SemanticVersion",
+    { Major: major, Minor: minor, Patch: patch, PreReleaseLabel: "", BuildLabel: "" },
+    POWERSHELL_VERSION,
+    { view: "table" }
+  );
+}
+
+const OS_ROW = "Taaniel OS 11.0";
+
+/** The rows of $PSVersionTable, in the order PowerShell lists them. */
+function psVersionRows(): Array<[string, PropertyValue]> {
+  return [
+    ["PSVersion", psVersionObject()],
+    ["PSEdition", "Core"],
+    ["GitCommitId", POWERSHELL_VERSION],
+    ["OS", OS_ROW],
+    ["Platform", "Win32NT"],
+    ["PSCompatibleVersions", "{1.0, 2.0, 3.0, 4.0…}"],
+    ["PSRemotingProtocolVersion", "2.3"],
+    ["SerializationVersion", "1.1.0.1"],
+    ["WSManStackVersion", "3.0"],
+  ];
+}
+
+function psVersionTable(): ShellObject {
+  return createObject("System.Collections.Hashtable", Object.fromEntries(psVersionRows()), "System.Collections.Hashtable");
+}
+
+function pathInfoObject(virtualPath: string): ShellObject {
+  const shown = toDisplayPath(virtualPath);
+  return createObject(
+    "System.Management.Automation.PathInfo",
+    { Drive: "C", Provider: "FileSystem", ProviderPath: shown, Path: shown },
+    shown,
+    { view: "scalar" }
+  );
+}
+
+/** One id for this page's lifetime, as a host has one per session. */
+const HOST_INSTANCE_ID = globalThis.crypto?.randomUUID?.() ?? "5d0bd2a7-3f1c-4b6e-9a58-7c2e1d4f8b03";
+
+function hostObject(): ShellObject {
+  const language = typeof navigator === "undefined" ? "en-US" : navigator.language || "en-US";
+  return createObject(
+    "System.Management.Automation.Internal.Host.InternalHost",
+    {
+      Name: "ConsoleHost",
+      Version: POWERSHELL_VERSION,
+      InstanceId: HOST_INSTANCE_ID,
+      CurrentCulture: language,
+      CurrentUICulture: language,
+      DebuggerEnabled: true,
+      IsRunspacePushed: false,
+    },
+    `Taaniel OS terminal (PowerShell ${POWERSHELL_VERSION})`
+  );
+}
+
 /** Look up $name: environment, automatic variables, then the session's own. */
-function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
+function readVariable(rawName: string, ctx: Ctx): ShellValue | ShellObject | undefined {
   const name = rawName.toLowerCase();
   if (name.startsWith("env:")) return own(environment(ctx), name.slice(4));
   switch (name) {
     case "home":
       return PROFILE_ROOT;
     case "pwd":
-      return toWindowsPath(ctx.session.cwd);
+      return pathInfoObject(ctx.session.cwd);
     case "true":
       return true;
     case "false":
@@ -457,7 +572,13 @@ function readVariable(rawName: string, ctx: Ctx): ShellValue | undefined {
     case "null":
       return "";
     case "host":
-      return `Taaniel OS terminal (PowerShell ${POWERSHELL_VERSION})`;
+      return hostObject();
+    case "psversiontable":
+      return psVersionTable();
+    case "?":
+      return ctx.session.lastSuccess ?? true;
+    case "lastexitcode":
+      return own(ctx.session.variables, name) ?? ctx.session.lastExitCode ?? 0;
     default:
       return own(ctx.session.variables, name);
   }
@@ -473,33 +594,46 @@ function expandVariables(word: string, ctx: Ctx) {
   }
 }
 
-interface Statement {
-  stages: string[][];
-  redirect?: { append: boolean; target: string };
+/** A word as typed. It is expanded just before its statement runs, so `$?` sees the statement before it. */
+interface Word {
+  value: string;
+  literal: boolean;
+  /** Typed inside quotes: at the head of a pipeline stage it is a value, not a command name. */
+  quoted: boolean;
 }
 
-function parseStatements(tokens: Token[], ctx: Ctx): Statement[] | string {
-  const statements: Statement[] = [];
-  let stages: string[][] = [[]];
-  let redirect: Statement["redirect"];
+interface Statement {
+  stages: Word[][];
+  redirect?: { append: boolean; target: Word };
+  /** How this statement hangs on the one before it: && after success only, || after failure only. */
+  chain?: "&&" | "||";
+}
 
+function parseStatements(tokens: Token[]): Statement[] | string {
+  const statements: Statement[] = [];
+  let stages: Word[][] = [[]];
+  let redirect: Statement["redirect"];
+  let chain: Statement["chain"];
+
+  const hasWords = () => stages.some((stage) => stage.length > 0);
   const closeStatement = () => {
-    const meaningful = stages.some((stage) => stage.length > 0);
-    if (meaningful) statements.push({ stages, redirect });
+    if (hasWords()) statements.push({ stages, redirect, chain });
     stages = [[]];
     redirect = undefined;
+    chain = undefined;
   };
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
 
     if (token.kind === "word") {
-      stages[stages.length - 1].push(token.literal ? token.value : expandVariables(token.value, ctx));
+      stages[stages.length - 1].push({ value: token.value, literal: token.literal, quoted: token.quoted });
       continue;
     }
 
     if (token.value === ";") {
       if (stages.some((stage) => stage.length === 0) && stages.length > 1) return "An empty pipe element is not allowed.";
+      if (chain && !hasWords()) return `Missing statement after '${chain}'.`;
       closeStatement();
       continue;
     }
@@ -510,15 +644,34 @@ function parseStatements(tokens: Token[], ctx: Ctx): Statement[] | string {
       continue;
     }
 
+    if (token.value === "&&" || token.value === "||") {
+      if (!hasWords()) return `Unexpected token '${token.value}' in expression or statement.`;
+      if (stages.some((stage) => stage.length === 0)) return "An empty pipe element is not allowed.";
+      const operator = token.value;
+      closeStatement();
+      chain = operator;
+      continue;
+    }
+
     const target = tokens[index + 1];
     if (!target || target.kind !== "word") return "Missing file specification after redirection operator.";
-    redirect = { append: token.value === ">>", target: target.literal ? target.value : expandVariables(target.value, ctx) };
+    redirect = { append: token.value === ">>", target: { value: target.value, literal: target.literal, quoted: target.quoted } };
     index += 1;
   }
 
   if (stages.length > 1 && stages[stages.length - 1].length === 0) return "An empty pipe element is not allowed.";
+  if (chain && !hasWords()) return `Missing statement after '${chain}'.`;
   closeStatement();
   return statements;
+}
+
+/** Expand $variables and $( expressions ) in a statement's words, now that the statements before it have run. */
+function expandStatement(statement: Statement, ctx: Ctx): { stages: string[][]; redirect?: { append: boolean; target: string } } {
+  const expand = (word: Word) => (word.literal ? word.value : expandVariables(word.value, ctx));
+  return {
+    stages: statement.stages.map((stage) => stage.map(expand)),
+    redirect: statement.redirect ? { append: statement.redirect.append, target: expand(statement.redirect.target) } : undefined,
+  };
 }
 
 // ------------------------------------------------------------ argument parsing
@@ -609,7 +762,7 @@ function fileTableRow(mode: string, updatedAt: number, length: string, name: str
 }
 
 function fileTableBlock(directoryPath: string, rows: string[]) {
-  return ["", `    Directory: ${toWindowsPath(directoryPath)}`, "", `${TABLE}${FILE_TABLE_HEADER}${RESET}`, `${TABLE}${FILE_TABLE_RULE}${RESET}`, ...rows, ""];
+  return ["", `    Directory: ${toDisplayPath(directoryPath)}`, "", `${TABLE}${FILE_TABLE_HEADER}${RESET}`, `${TABLE}${FILE_TABLE_RULE}${RESET}`, ...rows, ""];
 }
 
 function formatTable(directoryPath: string, entries: VirtualNode[], nameOnly = false) {
@@ -634,9 +787,9 @@ function fileObject(node: VirtualNode): ShellObject {
     {
       Name: sanitizeForTerminal(node.name),
       Length: isDirectory || length === "" ? null : Number(length),
-      DirectoryName: toWindowsPath(getParentPath(node.path)),
+      DirectoryName: toDisplayPath(getParentPath(node.path)),
       IsReadOnly: node.kind === "file" && node.readonly === true,
-      FullName: toWindowsPath(node.path),
+      FullName: toDisplayPath(node.path),
       Extension: node.kind === "file" && node.extension ? `.${node.extension}` : "",
       BaseName: sanitizeForTerminal(baseName),
       CreationTime: { kind: "date", time: node.createdAt },
@@ -719,6 +872,8 @@ function renderItems(items: PipelineItem[], layout: "default" | "table" | "list"
       if (layout === "list") lines.push(...formatListView(objects));
       else if (objects[0].view === "filesystem") lines.push(...formatFileObjects(objects));
       else if (objects[0].view === "process") lines.push(...formatProcessObjects(objects));
+      else if (objects[0].view === "table") lines.push(...formatTableView(objects));
+      else if (objects[0].view === "scalar") lines.push(...formatTableView(objects, [Object.keys(objects[0].properties).at(-1) ?? ""]));
       else lines.push(...(layout === "table" ? formatTableView(objects) : formatGenericView(objects)));
     }
     start = end;
@@ -788,7 +943,7 @@ function isUrl(value: string) {
   return /^(https?:\/\/|www\.)/i.test(value);
 }
 
-export type SettingsSection = "display" | "sound" | "network" | "power" | "accessibility" | "personalization" | "system";
+export type SettingsSection = SettingsSectionId;
 
 const SETTINGS_PAGES: Record<string, SettingsSection> = {
   display: "display",
@@ -822,9 +977,7 @@ function openSettingsUri(uri: string, ctx: Ctx): Output {
     ctx.actions.push({ type: "launch-app", appId: "settings" });
     return ok();
   }
-  // WindowPayload gains `section` alongside this change; the intersection keeps this type-safe until then.
-  const payload: WindowPayload & { section: SettingsSection } = { section };
-  ctx.actions.push({ type: "launch-app", appId: "settings", payload });
+  ctx.actions.push({ type: "launch-app", appId: "settings", payload: { section } });
   return ok();
 }
 
@@ -846,8 +999,52 @@ const TERMINAL_EXECUTABLES: Record<string, ShellProfileId | undefined> = {
   cmd: "cmd",
 };
 
+/** Options of pwsh that take a value after them, so the value is not mistaken for the next option. */
+const POWERSHELL_VALUE_OPTIONS = new Set(["-executionpolicy", "-ep", "-windowstyle", "-workingdirectory", "-wd", "-configurationname", "-inputformat", "-outputformat", "-version"]);
+
+const quoteArgument = (value: string) => `'${value.replace(/'/g, "''")}'`;
+
+/**
+ * What typing `cmd` or `pwsh` asks for: a shell inside this one. `cmd /c <command>` and `pwsh -Command <command>` run the
+ * command and return; `/k` and -NoExit run it and stay. Other options (-NoLogo, -NoProfile, /q...) change nothing here.
+ */
+function enterShell(name: string, args: string[], ctx: Ctx): Output {
+  const profile = own(TERMINAL_EXECUTABLES, name) ?? "pwsh";
+  let command: string | undefined;
+  let keep = false;
+
+  if (profile === "cmd") {
+    const index = args.findIndex((arg) => /^\/[ck]$/i.test(arg));
+    if (index >= 0) {
+      command = args.slice(index + 1).join(" ");
+      keep = args[index].toLowerCase() === "/k";
+    }
+  } else {
+    for (let index = 0; index < args.length; index += 1) {
+      const option = args[index].toLowerCase();
+      if (option === "-c" || option === "-command") {
+        command = args.slice(index + 1).join(" ");
+        break;
+      }
+      if (option === "-f" || option === "-file") {
+        command = [`& ${quoteArgument(args[index + 1] ?? "")}`, ...args.slice(index + 2).map(quoteArgument)].join(" ");
+        break;
+      }
+      if (option === "-noexit") keep = true;
+      else if (POWERSHELL_VALUE_OPTIONS.has(option)) index += 1;
+    }
+  }
+
+  // A command that is empty (cmd /c with nothing after it) is just a shell.
+  if (command !== undefined && !command.trim()) command = undefined;
+  ctx.actions.push({ type: "enter-shell", profile, ...(command !== undefined ? { command, keep } : {}) });
+  return ok();
+}
+
 /** wt [-p <profile>] [-d <folder>]: the options of Windows Terminal that mean something here. */
-function openTerminalTab(name: string, args: string[], ctx: Ctx): Output {
+function openTerminalTab(name: string, args: string[], ctx: Ctx, nested: boolean): Output {
+  // Typing a shell's name starts it inside this one; `wt`, and Start-Process (a new window), open a tab.
+  if (nested && name !== "wt") return enterShell(name, args, ctx);
   let profile = own(TERMINAL_EXECUTABLES, name);
   let directory: string | undefined;
 
@@ -872,7 +1069,7 @@ function openTerminalTab(name: string, args: string[], ctx: Ctx): Output {
   if (directory !== undefined) {
     const nodes = ctx.fs.getNodes();
     const path = resolveShellPath(directory, ctx.session.cwd, nodes);
-    if (nodes[path]?.kind !== "directory") return fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+    if (nodes[path]?.kind !== "directory") return fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
     directoryPath = path;
   }
 
@@ -880,11 +1077,12 @@ function openTerminalTab(name: string, args: string[], ctx: Ctx): Output {
   return ok();
 }
 
-async function launchExecutable(name: string, args: string[], ctx: Ctx): Promise<Output> {
+/** `nested` is a program typed at the prompt, as against one started with Start-Process, which opens a window of its own. */
+async function launchExecutable(name: string, args: string[], ctx: Ctx, nested = false): Promise<Output> {
   const appId = own(EXECUTABLES, name);
   const target = args.find((arg) => !arg.startsWith("-"));
 
-  if (own(TERMINAL_EXECUTABLES, name) !== undefined || name === "wt") return openTerminalTab(name, args, ctx);
+  if (own(TERMINAL_EXECUTABLES, name) !== undefined || name === "wt") return openTerminalTab(name, args, ctx, nested);
   if (!appId) return fail(ctx, name, "This command cannot be run due to the error: The system cannot find the file specified.");
 
   if (appId === "v86") {
@@ -913,7 +1111,7 @@ async function launchExecutable(name: string, args: string[], ctx: Ctx): Promise
     }
 
     if (!node) {
-      return fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      return fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
     }
 
     if (node.kind === "directory") {
@@ -946,6 +1144,14 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
   const nameOnly = parsed.switches.has("Name");
   let okay = true;
 
+  // -Depth <levels below the folder> implies -Recurse, as in PowerShell 5 and later.
+  const depthText = parsed.params.Depth;
+  const maxDepth = depthText === undefined ? undefined : Number(depthText);
+  if (depthText !== undefined && (!Number.isInteger(maxDepth) || (maxDepth as number) < 0)) {
+    return fail(ctx, name, `Cannot bind parameter 'Depth'. Cannot convert value "${depthText}" to type "System.UInt32". Error: "Input string was not in a correct format."`);
+  }
+  const recurse = parsed.switches.has("Recurse") || maxDepth !== undefined;
+
   const filterEntries = (entries: VirtualNode[]) =>
     entries.filter((node) => {
       if (!parsed.switches.has("Force") && node.path === TRASH_PATH) return false;
@@ -958,14 +1164,14 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
       return true;
     });
 
-  const listDirectory = (directoryPath: string) => {
+  const listDirectory = (directoryPath: string, level = 0) => {
     const entries = filterEntries(childrenOf(nodes, directoryPath));
     if (entries.length) out.push(...formatTable(directoryPath, entries, nameOnly));
     entries.forEach((entry) => objects.push(fileObject(entry)));
-    if (parsed.switches.has("Recurse")) {
+    if (recurse && (maxDepth === undefined || level < maxDepth)) {
       childrenOf(nodes, directoryPath)
         .filter((node) => node.kind === "directory" && node.path !== TRASH_PATH)
-        .forEach((node) => listDirectory(node.path));
+        .forEach((node) => listDirectory(node.path, level + 1));
     }
   };
 
@@ -974,7 +1180,7 @@ const getChildItem: CommandFn = (args, _stdin, ctx, name) => {
   for (const { path } of resolved) {
     const node = nodes[path];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -1007,7 +1213,7 @@ const setLocation: CommandFn = (args, _stdin, ctx, name) => {
   const node = nodes[path];
 
   if (!node || node.kind !== "directory") {
-    return fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+    return fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
   }
 
   if (path !== ctx.session.cwd) {
@@ -1018,7 +1224,7 @@ const setLocation: CommandFn = (args, _stdin, ctx, name) => {
 };
 
 const getLocation: CommandFn = (_args, _stdin, ctx) =>
-  ok(["", `${TABLE}Path${RESET}`, `${TABLE}----${RESET}`, toWindowsPath(ctx.session.cwd), ""]);
+  ok(["", `${TABLE}Path${RESET}`, `${TABLE}----${RESET}`, toDisplayPath(ctx.session.cwd), ""]);
 
 const getContent: CommandFn = (args, _stdin, ctx, name) => {
   const parsed = parseArgs(args, { params: ["Path", "TotalCount", "Head", "First", "Tail", "Last"] });
@@ -1035,12 +1241,12 @@ const getContent: CommandFn = (args, _stdin, ctx, name) => {
   for (const { path } of expandPaths(targets, ctx)) {
     const node = nodes[path];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
     if (node.kind === "directory") {
-      fail(ctx, name, `Unable to get content because it is a directory: '${toWindowsPath(path)}'. Please use 'Get-ChildItem' instead.`);
+      fail(ctx, name, `Unable to get content because it is a directory: '${toDisplayPath(path)}'. Please use 'Get-ChildItem' instead.`);
       okay = false;
       continue;
     }
@@ -1086,7 +1292,7 @@ async function newItemCore(
 ): Promise<Output> {
   const nodes = ctx.fs.getNodes();
   const existing = nodes[path];
-  const display = toWindowsPath(path);
+  const display = toDisplayPath(path);
 
   if (path === "/") return fail(ctx, name, `An item with the specified name ${display} already exists.`);
 
@@ -1096,7 +1302,7 @@ async function newItemCore(
 
   if (kind === "directory") {
     if (!(await ensureDirectory(ctx, path))) {
-      return fail(ctx, name, `An item with the specified name ${toWindowsPath(getParentPath(path))} already exists.`);
+      return fail(ctx, name, `An item with the specified name ${toDisplayPath(getParentPath(path))} already exists.`);
     }
     return ok(createItemListing(path, ctx));
   }
@@ -1190,7 +1396,7 @@ const removeItem: CommandFn = async (args, _stdin, ctx, name) => {
   for (const { path } of expandPaths(targets, ctx)) {
     const nodes = ctx.fs.getNodes();
     const node = nodes[path];
-    const display = toWindowsPath(path);
+    const display = toDisplayPath(path);
 
     if (!node) {
       fail(ctx, name, `Cannot find path '${display}' because it does not exist.`);
@@ -1212,7 +1418,7 @@ const removeItem: CommandFn = async (args, _stdin, ctx, name) => {
       okay = false;
       continue;
     }
-    if (hasReadonly(nodes, path)) {
+    if (isLocked(nodes, path)) {
       fail(ctx, name, `Cannot remove item ${display}: You do not have sufficient access rights to perform this operation.`);
       okay = false;
       continue;
@@ -1243,7 +1449,7 @@ async function transfer(args: string[], ctx: Ctx, name: string, operation: "copy
     const nodes = ctx.fs.getNodes();
     const node = nodes[source];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(source)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(source)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -1269,26 +1475,26 @@ async function transfer(args: string[], ctx: Ctx, name: string, operation: "copy
       targetDirectory = getParentPath(destination);
       targetName = baseName(destination);
       if (nodes[targetDirectory]?.kind !== "directory") {
-        fail(ctx, name, `Could not find a part of the path '${toWindowsPath(destination)}'.`);
+        fail(ctx, name, `Could not find a part of the path '${toDisplayPath(destination)}'.`);
         okay = false;
         continue;
       }
     }
 
     if (node.kind === "directory" && isInside(targetDirectory, source)) {
-      fail(ctx, name, `Destination path cannot be a subdirectory of the source: ${toWindowsPath(joinVirtual(targetDirectory, targetName))}.`);
+      fail(ctx, name, `Destination path cannot be a subdirectory of the source: ${toDisplayPath(joinVirtual(targetDirectory, targetName))}.`);
       okay = false;
       continue;
     }
 
     if (operation === "cut") {
-      if (source === "/" || source === TRASH_PATH || hasReadonly(nodes, source)) {
-        fail(ctx, name, `Access to the path '${toWindowsPath(source)}' is denied.`);
+      if (source === "/" || source === TRASH_PATH || isLocked(nodes, source)) {
+        fail(ctx, name, `Access to the path '${toDisplayPath(source)}' is denied.`);
         okay = false;
         continue;
       }
       if (isInside(ctx.session.cwd, source)) {
-        fail(ctx, name, `Cannot move item because the item at '${toWindowsPath(source)}' is in use.`);
+        fail(ctx, name, `Cannot move item because the item at '${toDisplayPath(source)}' is in use.`);
         okay = false;
         continue;
       }
@@ -1313,7 +1519,7 @@ async function transfer(args: string[], ctx: Ctx, name: string, operation: "copy
     );
 
     if (!landed) {
-      fail(ctx, name, `Access to the path '${toWindowsPath(source)}' is denied.`);
+      fail(ctx, name, `Access to the path '${toDisplayPath(source)}' is denied.`);
       okay = false;
       continue;
     }
@@ -1339,9 +1545,9 @@ const renameItem: CommandFn = async (args, _stdin, ctx, name) => {
   const nodes = ctx.fs.getNodes();
   const path = resolveShellPath(target, ctx.session.cwd, nodes);
   const node = nodes[path];
-  if (!node) return fail(ctx, name, `Cannot rename because item at '${toWindowsPath(path)}' does not exist.`);
-  if (path === "/" || path === TRASH_PATH || hasReadonly(nodes, path)) {
-    return fail(ctx, name, `Access to the path '${toWindowsPath(path)}' is denied.`);
+  if (!node) return fail(ctx, name, `Cannot rename because item at '${toDisplayPath(path)}' does not exist.`);
+  if (path === "/" || path === TRASH_PATH || isLocked(nodes, path)) {
+    return fail(ctx, name, `Access to the path '${toDisplayPath(path)}' is denied.`);
   }
   const collision = findChild(nodes, getParentPath(path), nextName);
   if (collision && collision.path !== path) return fail(ctx, name, "Cannot create a file when that file already exists.");
@@ -1354,7 +1560,7 @@ const renameItem: CommandFn = async (args, _stdin, ctx, name) => {
 async function writeContent(ctx: Ctx, name: string, target: string, lines: string[], append: boolean): Promise<Output> {
   const nodes = ctx.fs.getNodes();
   const path = resolveShellPath(target, ctx.session.cwd, nodes);
-  const display = toWindowsPath(path);
+  const display = toDisplayPath(path);
   const node = nodes[path];
 
   if (node?.kind === "directory" || (node?.kind === "file" && node.readonly)) {
@@ -1476,14 +1682,14 @@ const tree: CommandFn = (args, _stdin, ctx, name) => {
   const nodes = ctx.fs.getNodes();
   const path = target ? resolveShellPath(target, ctx.session.cwd, nodes) : ctx.session.cwd;
   const node = nodes[path];
-  if (!node || node.kind !== "directory") return fail(ctx, name, `Invalid path - ${toWindowsPath(path).toUpperCase()}`);
+  if (!node || node.kind !== "directory") return fail(ctx, name, `Invalid path - ${toDisplayPath(path).toUpperCase()}`);
 
   const body = treeLines(nodes, path, "", switches.includes("/F"), switches.includes("/A"));
   const hasFolders = childrenOf(nodes, path).some((child) => child.kind === "directory" && child.path !== TRASH_PATH);
   return ok([
     "Folder PATH listing for volume Taaniel OS",
     "Volume serial number is 7A1C-3E5D",
-    toWindowsPath(path).toUpperCase(),
+    toDisplayPath(path).toUpperCase(),
     ...body,
     ...(hasFolders ? [] : ["No subfolders exist", ""]),
   ]);
@@ -1518,7 +1724,7 @@ const selectString: CommandFn = (args, stdin, ctx, name) => {
     for (const { path } of expandPaths(paths, ctx)) {
       const node = nodes[path];
       if (!node) {
-        fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+        fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
         continue;
       }
       const files = node.kind === "directory" ? childrenOf(nodes, path).filter((child) => child.kind === "file") : [node];
@@ -1779,7 +1985,8 @@ const selectObject: CommandFn = (args, stdin, ctx) => {
     const values: PipelineItem[] = [];
     for (const item of items) {
       const value = getProperty(item, expand);
-      if (value !== null && value !== undefined) values.push(typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : formatPropertyValue(value));
+      if (value === null || value === undefined) continue;
+      values.push(typeof value === "string" || typeof value === "number" || typeof value === "boolean" || isShellObject(value) ? value : formatPropertyValue(value));
     }
     return emitItems(values);
   }
@@ -1848,8 +2055,150 @@ function formatCmdlet(layout: "table" | "list"): CommandFn {
 const formatTableCmdlet = formatCmdlet("table");
 const formatListCmdlet = formatCmdlet("list");
 
+/** Text given as an argument, or else the piped lines, for the cmdlets that take an InputObject. */
+function inputText(parsed: ParsedArgs, stdin: string[] | null) {
+  const given = parsed.params.InputObject !== undefined ? [parsed.params.InputObject, ...parsed.positional] : parsed.positional;
+  return given.length ? given.join(" ") : (stdin ?? []).join("\n");
+}
+
+const convertToJson: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Compress", "AsArray", "EnumsAsStrings"], params: ["Depth", "InputObject"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const depth = parsed.params.Depth === undefined ? DEFAULT_JSON_DEPTH : Number(parsed.params.Depth);
+  if (!Number.isInteger(depth) || depth < 0 || depth > MAX_JSON_DEPTH) {
+    return fail(ctx, name, `Cannot validate argument on parameter 'Depth'. The ${parsed.params.Depth} argument is not in the valid range of 0 to ${MAX_JSON_DEPTH}.`);
+  }
+  const given = parsed.params.InputObject !== undefined ? [parsed.params.InputObject, ...parsed.positional] : parsed.positional;
+  const items: PipelineItem[] = given.length ? given : pipelineItems(stdin, ctx);
+  if (!items.length) return fail(ctx, name, "Cannot bind argument to parameter 'InputObject' because it is null.");
+  return ok(itemsToJson(items, { depth, compress: parsed.switches.has("Compress"), asArray: parsed.switches.has("AsArray") }).split("\n"));
+};
+
+const convertFromJson: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["AsHashtable", "NoEnumerate"], params: ["InputObject", "Depth"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const text = inputText(parsed, stdin).trim();
+  if (!text) return fail(ctx, name, "Cannot bind argument to parameter 'InputObject' because it is an empty string.");
+  const result = jsonToItems(text);
+  if ("error" in result) return fail(ctx, name, result.error);
+  return emitItems(result.items);
+};
+
 const getDate: CommandFn = () =>
   ok(["", new Intl.DateTimeFormat([], { dateStyle: "full", timeStyle: "medium" }).format(new Date()), ""]);
+
+const EMPTY_GUID = "00000000-0000-0000-0000-000000000000";
+
+const newGuid: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Empty"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const guid = parsed.switches.has("Empty") ? EMPTY_GUID : globalThis.crypto?.randomUUID?.();
+  if (!guid) return fail(ctx, name, "Cryptography is not available in this browser.");
+  // Printed as a one-column table; a variable (and a string) gets just the value.
+  return emitItems([createObject("System.Guid", { Guid: guid }, guid, { view: "scalar" })]);
+};
+
+/** A .NET TimeSpan as it prints: [d.]hh:mm:ss.fffffff */
+function timeSpanText(milliseconds: number) {
+  const ticks = Math.round(milliseconds * 10_000);
+  const pad = (value: number, width = 2) => String(value).padStart(width, "0");
+  const days = Math.floor(ticks / 864_000_000_000);
+  const hours = Math.floor(ticks / 36_000_000_000) % 24;
+  const minutes = Math.floor(ticks / 600_000_000) % 60;
+  const seconds = Math.floor(ticks / 10_000_000) % 60;
+  return `${days > 0 ? `${days}.` : ""}${pad(hours)}:${pad(minutes)}:${pad(seconds)}.${pad(ticks % 10_000_000, 7)}`;
+}
+
+/** The time this page has been open, as a TimeSpan object: a browser has no boot time to report. */
+function uptimeObject(milliseconds: number): ShellObject {
+  const total = (divisor: number) => Number((milliseconds / divisor).toPrecision(15));
+  return createObject(
+    "System.TimeSpan",
+    {
+      Days: Math.floor(milliseconds / 86_400_000),
+      Hours: Math.floor(milliseconds / 3_600_000) % 24,
+      Minutes: Math.floor(milliseconds / 60_000) % 60,
+      Seconds: Math.floor(milliseconds / 1000) % 60,
+      Milliseconds: Math.floor(milliseconds) % 1000,
+      Ticks: Math.round(milliseconds * 10_000),
+      TotalDays: total(86_400_000),
+      TotalHours: total(3_600_000),
+      TotalMinutes: total(60_000),
+      TotalSeconds: total(1000),
+      TotalMilliseconds: Number(milliseconds.toFixed(4)),
+    },
+    timeSpanText(milliseconds)
+  );
+}
+
+const getUptime: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Since"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const elapsed = Math.max(0, globalThis.performance?.now?.() ?? 0);
+  if (parsed.switches.has("Since")) {
+    return ok(["", new Intl.DateTimeFormat([], { dateStyle: "full", timeStyle: "medium" }).format(new Date(Date.now() - elapsed)), ""]);
+  }
+  return emitItems([uptimeObject(elapsed)]);
+};
+
+const getHost: CommandFn = () => emitItems([hostObject()]);
+
+/** Get-PSReadLineKeyHandler: the keys the line editor answers to, in PSReadLine's grouped layout. */
+const getKeyHandler: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Bound", "Unbound"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  // Everything the editor can do is bound to a key.
+  if (parsed.switches.has("Unbound") && !parsed.switches.has("Bound")) return ok();
+
+  const out: string[] = [];
+  for (const group of READLINE_KEY_HANDLERS) {
+    const keyWidth = Math.max(3, ...group.handlers.map((handler) => handler.key.length)) + 1;
+    const functionWidth = Math.max(8, ...group.handlers.map((handler) => handler.function.length)) + 1;
+    out.push(
+      "",
+      `${TABLE}${group.title}${RESET}`,
+      `${TABLE}${"=".repeat(group.title.length)}${RESET}`,
+      "",
+      `${TABLE}${"Key".padEnd(keyWidth)}${"Function".padEnd(functionWidth)}Description${RESET}`,
+      `${TABLE}${"---".padEnd(keyWidth)}${"--------".padEnd(functionWidth)}-----------${RESET}`,
+      ...group.handlers.map((handler) => `${handler.key.padEnd(keyWidth)}${handler.function.padEnd(functionWidth)}${handler.description}`)
+    );
+  }
+  out.push("");
+  return ok(out);
+};
+
+/**
+ * Invoke-Expression runs text as a command line through this same interpreter, one
+ * level deeper, never through JavaScript. The script depth limit stops `iex` from
+ * calling itself for ever.
+ */
+const invokeExpression: CommandFn = async (args, stdin, ctx, name) => {
+  if (ctx.depth >= MAX_SCRIPT_DEPTH) return fail(ctx, name, "The script failed due to call depth overflow.");
+  const parsed = parseArgs(args, { params: ["Command"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+
+  const typed = (parsed.params.Command !== undefined ? [parsed.params.Command, ...parsed.positional] : parsed.positional).join(" ");
+  const sources = typed.trim() ? [typed] : (stdin ?? []).filter((line) => line.trim() !== "");
+  if (!sources.length) return fail(ctx, name, "Cannot bind argument to parameter 'Command' because it is an empty string.");
+
+  const out: string[] = [];
+  let okay = true;
+  for (const source of sources) {
+    checkInterrupt(ctx);
+    // eslint-disable-next-line no-await-in-loop
+    const result = await runShellCommand(source, ctx.session, ctx.fs, ctx.host, ctx.depth + 1);
+    if (result.interrupted) throw new InterruptedError("The command was interrupted.");
+    if (result.clear) {
+      ctx.clear = true;
+      out.length = 0;
+    }
+    out.push(...result.lines);
+    ctx.actions.push(...result.actions);
+    okay &&= result.success;
+  }
+  return { out, ok: okay };
+};
 
 const whoami: CommandFn = () => ok([`${SHELL_HOST.toLowerCase()}\\${SHELL_USER.toLowerCase()}`]);
 const hostname: CommandFn = () => ok([SHELL_HOST]);
@@ -1948,26 +2297,30 @@ function formatValue(value: ShellValue): string[] {
   return [toText(value)];
 }
 
-const PS_VERSION_TABLE = (): string[] => {
-  const rows: Array<[string, string]> = [
-    ["PSVersion", POWERSHELL_VERSION],
-    ["PSEdition", "Core"],
-    ["GitCommitId", POWERSHELL_VERSION],
-    ["OS", `Taaniel OS (${typeof navigator === "undefined" ? "browser" : navigator.userAgent.split(" ")[0]})`],
-    ["Platform", "Win32NT"],
-    ["PSCompatibleVersions", "{1.0, 2.0, 3.0, 4.0…}"],
-    ["PSRemotingProtocolVersion", "2.3"],
-    ["SerializationVersion", "1.1.0.1"],
-    ["WSManStackVersion", "3.0"],
-  ];
-  return [
-    "",
-    `${TABLE}${"Name".padEnd(31)}Value${RESET}`,
-    `${TABLE}${"----".padEnd(31)}-----${RESET}`,
-    ...rows.map(([name, value]) => `${name.padEnd(31)}${value}`),
-    "",
-  ];
-};
+const PS_VERSION_TABLE = (): string[] => [
+  "",
+  `${TABLE}${"Name".padEnd(31)}Value${RESET}`,
+  `${TABLE}${"----".padEnd(31)}-----${RESET}`,
+  ...psVersionRows().map(([name, value]) => `${name.padEnd(31)}${formatPropertyValue(value)}`),
+  "",
+];
+
+/**
+ * `$PSVersionTable.PSVersion`: an object reached through member access prints
+ * the way PowerShell shows it. Other member chains ($PWD.Path, $Host.Version,
+ * $PSVersionTable.PSEdition) are plain values and take the expression path.
+ */
+const VARIABLE_MEMBERS = /^\$((?:env:)?[A-Za-z_][A-Za-z0-9_]*)((?:\.[A-Za-z_][A-Za-z0-9_]*)+)$/i;
+
+function memberObject(text: string, ctx: Ctx): ShellObject | null {
+  const match = VARIABLE_MEMBERS.exec(text);
+  if (!match) return null;
+  let value: unknown = readVariable(match[1], ctx);
+  for (const member of match[2].split(".").filter(Boolean)) {
+    value = isShellObject(value) ? getProperty(value, member) : undefined;
+  }
+  return isShellObject(value) ? value : null;
+}
 
 // ---------------------------------------------------------- host commands
 
@@ -2362,7 +2715,7 @@ const getFileHash: CommandFn = async (args, _stdin, ctx, name) => {
     const node = nodes[path];
     const bytes = node ? fileBytes(node) : null;
     if (!node || node.kind !== "file" || !bytes) {
-      fail(ctx, name, node ? `Unable to read the file '${toWindowsPath(path)}'.` : `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, node ? `Unable to read the file '${toDisplayPath(path)}'.` : `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -2378,7 +2731,7 @@ const getFileHash: CommandFn = async (args, _stdin, ctx, name) => {
       "",
       `${TABLE}${"Algorithm".padEnd(16)}${"Hash".padEnd(width)}Path${RESET}`,
       `${TABLE}${"---------".padEnd(16)}${"----".padEnd(width)}----${RESET}`,
-      ...hashes.map((entry) => `${algorithm.padEnd(16)}${entry.hex.padEnd(width)}${toWindowsPath(entry.path)}`),
+      ...hashes.map((entry) => `${algorithm.padEnd(16)}${entry.hex.padEnd(width)}${toDisplayPath(entry.path)}`),
       "",
     ],
     ok: okay,
@@ -2470,7 +2823,7 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
   for (const { path } of expandPaths(targets, ctx)) {
     const node = nodes[path];
     if (!node) {
-      fail(ctx, name, `Cannot find path '${toWindowsPath(path)}' because it does not exist.`);
+      fail(ctx, name, `Cannot find path '${toDisplayPath(path)}' because it does not exist.`);
       okay = false;
       continue;
     }
@@ -2478,7 +2831,7 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
     out.push(
       "",
       `Name          : ${sanitizeForTerminal(node.name)}`,
-      `FullName      : ${toWindowsPath(path)}`,
+      `FullName      : ${toDisplayPath(path)}`,
       `Mode          : ${modeOf(node, path === TRASH_PATH)}`,
       ...(node.kind === "file" ? [`Length        : ${fileLength(node) || 0}`, `Extension     : .${node.extension}`] : []),
       `CreationTime  : ${new Date(node.createdAt).toLocaleString()}`,
@@ -2488,6 +2841,103 @@ const getItem: CommandFn = (args, _stdin, ctx, name) => {
   }
   if (out.length) out.push("");
   return { out, ok: okay, objects };
+};
+
+/** Path arguments: -Path and the positional ones, or else the piped lines. */
+function pathArguments(parsed: ParsedArgs, stdin: string[] | null): string[] {
+  const given = [parsed.params.Path, parsed.params.LiteralPath, ...parsed.positional].filter((value): value is string => value !== undefined);
+  return given.length ? given : (stdin ?? []).filter((line) => line !== "");
+}
+
+const joinPathCmd: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Resolve"], params: ["Path", "ChildPath", "AdditionalChildPath"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+
+  const positional = [...parsed.positional];
+  const parent = parsed.params.Path ?? positional.shift();
+  const child = parsed.params.ChildPath ?? positional.shift();
+  const extra = parsed.params.AdditionalChildPath !== undefined ? [parsed.params.AdditionalChildPath, ...positional] : positional;
+  const parents = parent !== undefined ? [parent] : (stdin ?? []).filter((line) => line !== "");
+
+  if (!parents.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+  if (parents.includes("")) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is an empty string.");
+  if (child === undefined) return fail(ctx, name, "Cannot bind argument to parameter 'ChildPath' because it is null.");
+
+  const joined = parents.map((entry) => joinPath(entry, child, ...extra));
+  if (parsed.switches.has("Resolve")) {
+    const nodes = ctx.fs.getNodes();
+    const missing = joined.find((entry) => !nodes[resolveShellPath(entry, ctx.session.cwd, nodes)]);
+    if (missing !== undefined) return fail(ctx, name, `Cannot find path '${missing}' because it does not exist.`);
+  }
+  return ok(joined.map(sanitizeForTerminal));
+};
+
+const SPLIT_PARTS: Array<[string, SplitPart]> = [
+  ["Qualifier", "qualifier"],
+  ["NoQualifier", "noqualifier"],
+  ["LeafBase", "leafbase"],
+  ["Extension", "extension"],
+  ["Leaf", "leaf"],
+  ["Parent", "parent"],
+];
+
+const splitPathCmd: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, {
+    switches: [...SPLIT_PARTS.map(([flag]) => flag), "IsAbsolute", "Resolve"],
+    params: ["Path", "LiteralPath"],
+  });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+
+  const chosen = SPLIT_PARTS.filter(([flag]) => parsed.switches.has(flag));
+  const absolute = parsed.switches.has("IsAbsolute");
+  if (chosen.length + (absolute ? 1 : 0) > 1) return fail(ctx, name, "Parameter set cannot be resolved using the specified named parameters.");
+
+  const targets = pathArguments(parsed, stdin);
+  if (!targets.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+
+  const out: string[] = [];
+  let okay = true;
+  for (const target of targets) {
+    if (absolute) {
+      out.push(isAbsolutePath(target) ? "True" : "False");
+      continue;
+    }
+    const part = splitPath(target, chosen[0]?.[1] ?? "parent");
+    if (part === null) {
+      fail(ctx, name, `Cannot parse path because path '${target}' does not have a qualifier specified.`);
+      okay = false;
+    } else {
+      out.push(sanitizeForTerminal(part));
+    }
+  }
+  return { out, ok: okay };
+};
+
+const resolvePathCmd: CommandFn = (args, stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Relative"], params: ["Path", "LiteralPath"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const targets = pathArguments(parsed, stdin);
+  if (!targets.length) return fail(ctx, name, "Cannot bind argument to parameter 'Path' because it is null.");
+
+  const nodes = ctx.fs.getNodes();
+  const found: string[] = [];
+  let okay = true;
+  for (const target of targets) {
+    const hits = expandPaths([target], ctx).filter((hit) => nodes[hit.path]);
+    if (!hits.length) {
+      fail(ctx, name, `Cannot find path '${toDisplayPath(resolveShellPath(target, ctx.session.cwd, nodes))}' because it does not exist.`);
+      okay = false;
+    }
+    hits.forEach((hit) => found.push(hit.path));
+  }
+  if (!found.length) return { out: [], ok: okay };
+
+  if (parsed.switches.has("Relative")) {
+    const lines = found.map((path) => (path === ctx.session.cwd ? "." : path.startsWith(ctx.session.cwd === "/" ? "/" : `${ctx.session.cwd}/`) ? `.\\${displayRelative(path, ctx.session.cwd)}` : toDisplayPath(path)));
+    return { out: lines, ok: okay };
+  }
+  const result = emitItems(found.map(pathInfoObject));
+  return { ...result, ok: okay };
 };
 
 const pushLocation: CommandFn = (args, stdin, ctx) => {
@@ -2543,12 +2993,22 @@ const EXTRA_COMMANDS: Record<string, CommandSpec> = {
   "Pop-Location": { aliases: ["popd"], synopsis: "Return to the folder saved by Push-Location.", syntax: "Pop-Location", run: popLocation },
   "Clear-History": { aliases: ["clhy"], synopsis: "Forget this terminal's command history.", syntax: "Clear-History", run: clearHistory },
   "Get-Variable": { aliases: ["gv"], synopsis: "List variables set in this session.", syntax: "Get-Variable [<name>]", run: getVariable },
+  "Join-Path": { aliases: [], synopsis: "Join folder and file names into one path: Join-Path $HOME Documents.", syntax: "Join-Path [-Path] <string> [-ChildPath] <string> [[-AdditionalChildPath] <string[]>] [-Resolve]", run: joinPathCmd },
+  "Split-Path": { aliases: [], synopsis: "Take a path apart: -Parent (the default), -Leaf, -LeafBase, -Extension, -Qualifier.", syntax: "Split-Path [-Path] <string[]> [-Parent] [-Leaf] [-LeafBase] [-Extension] [-Qualifier] [-NoQualifier] [-IsAbsolute]", run: splitPathCmd },
+  "Resolve-Path": { aliases: ["rvpa"], synopsis: "Turn a relative path or wildcard into full paths: Resolve-Path ..\\*.", syntax: "Resolve-Path [-Path] <string[]> [-Relative]", run: resolvePathCmd },
+  "Invoke-Expression": { aliases: ["iex"], synopsis: "Run text as a command: iex 'Get-Date' (it goes through this shell, never through JavaScript).", syntax: "Invoke-Expression [-Command] <string>", run: invokeExpression },
+  "Get-PSReadLineKeyHandler": { aliases: [], synopsis: "List the keys the line editor answers to: editing, history, completion and the terminal's own.", syntax: "Get-PSReadLineKeyHandler [-Bound] [-Unbound]", run: getKeyHandler },
+  "New-Guid": { aliases: [], synopsis: "Make a new random GUID: $id = New-Guid.", syntax: "New-Guid [-Empty]", run: newGuid },
+  "Get-Uptime": { aliases: [], synopsis: "How long this desktop session has been running.", syntax: "Get-Uptime [-Since]", run: getUptime },
+  "Get-Host": { aliases: [], synopsis: "Show the shell host: its name, version and culture.", syntax: "Get-Host", run: getHost },
+  "ConvertTo-Json": { aliases: [], synopsis: "Write piped objects as JSON text: ls | select Name, Length | ConvertTo-Json.", syntax: "<command> | ConvertTo-Json [-Depth <int>] [-Compress] [-AsArray]", run: convertToJson },
+  "ConvertFrom-Json": { aliases: [], synopsis: "Turn JSON text into objects: '{\"a\": 1}' | ConvertFrom-Json.", syntax: "<command> | ConvertFrom-Json [-InputObject <string>] [-AsHashtable]", run: convertFromJson },
 };
 
 // ------------------------------------------------------------------ registry
 
 const COMMANDS: Record<string, CommandSpec> = {
-  "Get-ChildItem": { aliases: ["ls", "dir", "gci"], synopsis: "List the items in a folder.", syntax: "Get-ChildItem [[-Path] <string>] [-Recurse] [-Force] [-Name] [-Directory] [-File] [-Filter <string>]", run: getChildItem },
+  "Get-ChildItem": { aliases: ["ls", "dir", "gci"], synopsis: "List the items in a folder.", syntax: "Get-ChildItem [[-Path] <string>] [-Recurse] [-Depth <uint>] [-Force] [-Name] [-Directory] [-File] [-Filter <string>]", run: getChildItem },
   "Set-Location": { aliases: ["cd", "chdir", "sl"], synopsis: "Change the current folder. 'cd -' goes back.", syntax: "Set-Location [[-Path] <string>]", run: setLocation },
   "Get-Location": { aliases: ["pwd", "gl"], synopsis: "Show the current folder.", syntax: "Get-Location", run: getLocation },
   "Get-Content": { aliases: ["cat", "type", "gc"], synopsis: "Print the contents of a text file.", syntax: "Get-Content [-Path] <string[]> [-TotalCount <int>] [-Tail <int>]", run: getContent },
@@ -2591,16 +3051,78 @@ Object.entries(COMMANDS).forEach(([canonical, spec]) => {
   spec.aliases.forEach((alias) => COMMAND_LOOKUP.set(alias.toLowerCase(), canonical));
 });
 
-const getCommand: CommandFn = (args) => {
-  const filter = args[0] ? new RegExp(`^${args[0].replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`, "i") : null;
-  const names = Object.keys(COMMANDS)
-    .filter((name) => !filter || filter.test(name))
+/** Where the apps that launch from the prompt notionally live. A neutral place: this is the owner's own OS. */
+const APPLICATION_FOLDER = "C:\\Program Files\\Taaniel OS";
+const APPLICATION_VERSION = "11.0.0.0";
+const MODULE_NAME = "Taaniel.Shell";
+
+/** notepad.exe, calc.exe...: the names in EXECUTABLES that are programs rather than ms-settings: addresses. */
+function applicationNames() {
+  return Object.keys(EXECUTABLES)
+    .filter((entry) => !entry.includes(":"))
+    .map((entry) => `${entry}.exe`)
     .sort((a, b) => a.localeCompare(b));
+}
+
+const COMMAND_TYPES = ["alias", "cmdlet", "function", "application", "all"];
+
+const getCommand: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { params: ["Name", "CommandType"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const pattern = parsed.params.Name ?? parsed.positional[0];
+  const type = (parsed.params.CommandType ?? "all").toLowerCase();
+  if (!COMMAND_TYPES.includes(type)) {
+    return fail(ctx, name, `Cannot bind parameter 'CommandType'. Cannot convert value "${parsed.params.CommandType}" to type "System.Management.Automation.CommandTypes". Specify one of: Alias, Cmdlet, Function, Application, All.`);
+  }
+  const wants = (kind: string) => type === "all" || type === kind;
+
+  // A name with no wildcard asks what that one name is, and gets Version and Source too.
+  if (pattern && !/[*?]/.test(pattern)) {
+    const key = pattern.toLowerCase();
+    const canonical = COMMAND_LOOKUP.get(key);
+    const application = applicationNames().find((entry) => entry.toLowerCase() === key || entry.toLowerCase() === `${key}.exe`);
+    const rows: Array<[string, string, string, string]> = [];
+
+    if (canonical && key !== canonical.toLowerCase()) {
+      if (wants("alias")) rows.push(["Alias", `${pattern} -> ${canonical}`, "", ""]);
+    } else if (canonical && (type === "all" || type === (canonical.includes("-") ? "cmdlet" : "function"))) {
+      rows.push([canonical.includes("-") ? "Cmdlet" : "Function", canonical, POWERSHELL_VERSION, MODULE_NAME]);
+    }
+    if (application && wants("application")) rows.push(["Application", application, APPLICATION_VERSION, `${APPLICATION_FOLDER}\\${application}`]);
+
+    if (!rows.length) {
+      return fail(
+        ctx,
+        name,
+        `The term '${pattern}' is not recognized as a name of a cmdlet, function, script file, or executable program.\nCheck the spelling of the name, or if a path was included, verify that the path is correct and try again.`
+      );
+    }
+    const nameWidth = Math.max(4, ...rows.map((row) => row[1].length)) + 2;
+    return ok([
+      "",
+      `${TABLE}${"CommandType".padEnd(16)}${"Name".padEnd(nameWidth)}${"Version".padEnd(12)}Source${RESET}`,
+      `${TABLE}${"-----------".padEnd(16)}${"----".padEnd(nameWidth)}${"-------".padEnd(12)}------${RESET}`,
+      ...rows.map((row) => `${row[0].padEnd(16)}${sanitizeForTerminal(row[1]).padEnd(nameWidth)}${row[2].padEnd(12)}${row[3]}`),
+      "",
+    ]);
+  }
+
+  const filter = pattern ? wildcardRegex(pattern) : null;
+  const rows = [
+    ...Object.keys(COMMANDS)
+      .filter((entry) => !filter || filter.test(entry))
+      .sort((a, b) => a.localeCompare(b))
+      .filter((entry) => wants(entry.includes("-") ? "cmdlet" : "function"))
+      .map((entry) => [entry.includes("-") ? "Cmdlet" : "Function", entry]),
+    ...(wants("application") ? applicationNames().filter((entry) => !filter || filter.test(entry)).map((entry) => ["Application", entry]) : []),
+  ];
+  // A wildcard that matches nothing prints nothing, as in PowerShell.
+  if (pattern && !rows.length) return ok();
   return ok([
     "",
     `${TABLE}${"CommandType".padEnd(16)}Name${RESET}`,
     `${TABLE}${"-----------".padEnd(16)}----${RESET}`,
-    ...names.map((name) => `${(name.includes("-") ? "Cmdlet" : "Function").padEnd(16)}${name}`),
+    ...rows.map(([kind, entry]) => `${kind.padEnd(16)}${entry}`),
     "",
   ]);
 };
@@ -2652,38 +3174,140 @@ const HELP_OVERVIEW = [
   "  .\\script.ps1     Run a script from this drive     echo 'Write-Host hi -ForegroundColor Cyan' > a.ps1",
   "  Write-Host       Coloured output                  Write-Host hi -ForegroundColor Green",
   "  Test-Path, gi    Check or inspect a path          Test-Path Documents",
+  "  &&, ||           Run the next command only after   mkdir Demo && cd Demo",
+  "                   success (&&) or failure (||)      Get-Content x.txt || echo none",
+  "  iex              Run text as a command             iex 'Get-Date'",
+  "  Join-Path, Split-Path, Resolve-Path               Join-Path $HOME Documents",
+  "  ConvertTo-Json, ConvertFrom-Json, New-Guid        ls | select Name | ConvertTo-Json",
   "",
   `${TABLE}Shell${RESET}`,
   "  cls, history, Get-Date, whoami, Get-Command, Get-Alias, help <command>, exit",
-  "  wt, pwsh, cmd    Open another tab here            wt -p cmd, cmd",
+  "  help <command> -Examples, <command> -?, help about_*   More help, and help topics",
+  "  wt               Open another tab here            wt -p cmd, wt -d ..\\Documents",
+  "  cmd, pwsh        Start a shell inside this one    cmd, then exit comes back here",
   "  Tab completes commands and paths. Up/Down recalls history. Ctrl+C cancels, Ctrl+L clears.",
   "  F6 moves focus out of the terminal (Tab and Esc belong to the shell). Ctrl+, opens settings.",
   "",
 ];
 
-const getHelp: CommandFn = (args, _stdin, ctx, name) => {
-  if (!args.length) return ok(HELP_OVERVIEW);
-  const canonical = COMMAND_LOOKUP.get(args[0].toLowerCase());
-  if (!canonical) return fail(ctx, name, `Get-Help could not find ${args[0]} in a help file in this session.`);
-  const spec = COMMANDS[canonical];
-  return ok([
+type HelpDetail = "default" | "examples" | "detailed" | "full";
+
+const heading = (title: string) => `${TABLE}${title}${RESET}`;
+
+function exampleLines(canonical: string): string[] {
+  const examples = own(HELP_EXAMPLES, canonical) ?? [];
+  if (!examples.length) return [`    There are no examples for ${canonical}.`, ""];
+  return examples.flatMap(([code, remarks], index) => [
+    `    ${`-------------------------- EXAMPLE ${index + 1} --------------------------`}`,
     "",
-    `${TABLE}NAME${RESET}`,
-    `    ${canonical}`,
+    `    PS C:\\> ${code}`,
     "",
-    `${TABLE}SYNOPSIS${RESET}`,
-    `    ${spec.synopsis}`,
-    "",
-    `${TABLE}SYNTAX${RESET}`,
-    `    ${spec.syntax}`,
-    ...(spec.aliases.length ? ["", `${TABLE}ALIASES${RESET}`, `    ${spec.aliases.join(", ")}`] : []),
+    `    ${remarks}`,
     "",
   ]);
+}
+
+function parameterLines(spec: CommandSpec): string[] {
+  const parameters = syntaxParameters(spec.syntax);
+  if (!parameters.length) return ["    This command has no named parameters.", ""];
+  return parameters.flatMap((parameter) => [`    -${parameter.name} ${parameter.type ? (parameter.type.startsWith("<") ? parameter.type : `<${parameter.type}>`) : "[<SwitchParameter>]"}`, ""]);
+}
+
+/** One command's help. The default view is the long-standing NAME, SYNOPSIS, SYNTAX and ALIASES. */
+function commandHelp(canonical: string, detail: HelpDetail): string[] {
+  const spec = COMMANDS[canonical];
+  const nameAndSynopsis = ["", heading("NAME"), `    ${canonical}`, "", heading("SYNOPSIS"), `    ${spec.synopsis}`, ""];
+  const syntax = [heading("SYNTAX"), `    ${spec.syntax}`];
+  const aliases = spec.aliases.length ? ["", heading("ALIASES"), `    ${spec.aliases.join(", ")}`] : [];
+
+  if (detail === "examples") return [...nameAndSynopsis, heading("EXAMPLES"), ...exampleLines(canonical)];
+  if (detail === "default") return [...nameAndSynopsis, ...syntax, ...aliases, ""];
+
+  return [
+    ...nameAndSynopsis,
+    ...syntax,
+    ...aliases,
+    "",
+    heading("PARAMETERS"),
+    ...parameterLines(spec),
+    heading("EXAMPLES"),
+    ...exampleLines(canonical),
+    ...(detail === "full"
+      ? [
+          heading("NOTES"),
+          "    Commands here work on the portfolio's own drive; nothing leaves your browser except",
+          "    the web requests you ask for. Output is text, and also live objects for the next",
+          "    command in a pipeline.",
+          "",
+        ]
+      : []),
+  ];
+}
+
+/** What `command -?` prints: the default help, and where to read more. */
+function helpForQuestionMark(canonical: string): string[] {
+  return [
+    ...commandHelp(canonical, "default"),
+    heading("REMARKS"),
+    `    To see the examples, type: "Get-Help ${canonical} -Examples".`,
+    `    For more information, type: "Get-Help ${canonical} -Detailed".`,
+    `    For technical information, type: "Get-Help ${canonical} -Full".`,
+    "",
+  ];
+}
+
+function topicHelp(topic: AboutTopic): string[] {
+  return [
+    "",
+    heading("TOPIC"),
+    `    ${topic.name}`,
+    "",
+    heading("SHORT DESCRIPTION"),
+    `    ${topic.synopsis}`,
+    "",
+    heading("LONG DESCRIPTION"),
+    ...topic.body.map((line) => (line ? `    ${line}` : "")),
+    "",
+  ];
+}
+
+const getHelp: CommandFn = (args, _stdin, ctx, name) => {
+  const parsed = parseArgs(args, { switches: ["Examples", "Detailed", "Full", "Online", "ShowWindow"], params: ["Name"] });
+  if (parsed.unknown.length) return unknownParameter(ctx, name, parsed);
+  const topic = parsed.params.Name ?? parsed.positional[0];
+  if (!topic) return ok(HELP_OVERVIEW);
+  if (parsed.switches.has("Online")) {
+    return fail(ctx, name, `Online help is not available in this terminal. Try: Get-Help ${topic} -Examples`);
+  }
+  const detail: HelpDetail = parsed.switches.has("Full") ? "full" : parsed.switches.has("Detailed") ? "detailed" : parsed.switches.has("Examples") ? "examples" : "default";
+  const notFound = () => fail(ctx, name, `Get-Help could not find ${topic} in a help file in this session.`);
+
+  const show = (matchName: string): Output => {
+    const aboutTopic = findAboutTopic(matchName);
+    return ok(aboutTopic ? topicHelp(aboutTopic) : commandHelp(matchName, detail));
+  };
+
+  if (/[*?]/.test(topic)) {
+    const pattern = wildcardRegex(topic);
+    const matches = [
+      ...Object.keys(COMMANDS).filter((entry) => pattern.test(entry)).map((entry) => ({ entry, category: entry.includes("-") ? "Cmdlet" : "Function", synopsis: COMMANDS[entry].synopsis })),
+      ...ABOUT_TOPICS.filter((entry) => pattern.test(entry.name)).map((entry) => ({ entry: entry.name, category: "HelpFile", synopsis: entry.synopsis })),
+    ].sort((a, b) => a.entry.localeCompare(b.entry));
+    if (!matches.length) return notFound();
+    if (matches.length === 1) return show(matches[0].entry);
+    const objects = matches.map((match) => createObject("HelpInfo", { Name: match.entry, Category: match.category, Synopsis: match.synopsis }, match.entry));
+    return { out: formatTableView(objects), ok: true, objects };
+  }
+
+  const aboutTopic = findAboutTopic(topic);
+  if (aboutTopic) return ok(topicHelp(aboutTopic));
+  const canonical = COMMAND_LOOKUP.get(topic.toLowerCase());
+  return canonical ? show(canonical) : notFound();
 };
 
-COMMANDS["Get-Command"] = { aliases: ["gcm"], synopsis: "List available commands.", syntax: "Get-Command [<name>]", run: getCommand };
+COMMANDS["Get-Command"] = { aliases: ["gcm"], synopsis: "List available commands.", syntax: "Get-Command [[-Name] <string>] [-CommandType Alias|Cmdlet|Function|Application|All]", run: getCommand };
 COMMANDS["Get-Alias"] = { aliases: ["gal", "alias"], synopsis: "List command aliases.", syntax: "Get-Alias", run: getAlias };
-COMMANDS["Get-Help"] = { aliases: ["help", "man"], synopsis: "Show help for the shell or a command.", syntax: "Get-Help [<command>]", run: getHelp };
+COMMANDS["Get-Help"] = { aliases: ["help", "man"], synopsis: "Show help for the shell or a command.", syntax: "Get-Help [[-Name] <string>] [-Examples] [-Detailed] [-Full]", run: getHelp };
 ["Get-Command", "Get-Alias", "Get-Help"].forEach((canonical) => {
   COMMAND_LOOKUP.set(canonical.toLowerCase(), canonical);
   COMMANDS[canonical].aliases.forEach((alias) => COMMAND_LOOKUP.set(alias.toLowerCase(), canonical));
@@ -2705,7 +3329,7 @@ async function runScript(path: string, ctx: Ctx): Promise<Output> {
   if (ctx.depth >= MAX_SCRIPT_DEPTH) return fail(ctx, getPathName(path), "The script failed due to call depth overflow.");
   const node = ctx.fs.getNodes()[path];
   const text = node ? textContent(node) : null;
-  if (text === null) return fail(ctx, getPathName(path), `Cannot read the script '${toWindowsPath(path)}'.`);
+  if (text === null) return fail(ctx, getPathName(path), `Cannot read the script '${toDisplayPath(path)}'.`);
 
   let okay = true;
   const lines = text.split(/\r?\n/).slice(0, MAX_SCRIPT_LINES);
@@ -2726,7 +3350,7 @@ async function runScript(path: string, ctx: Ctx): Promise<Output> {
   return { out: [], ok: okay };
 }
 
-async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promise<Output> {
+async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx, quotedHead = false): Promise<Output> {
   // The call (&) and dot-source (.) operators just run what follows.
   const words = (argv[0] === "&" || argv[0] === ".") && argv.length > 1 ? argv.slice(1) : argv;
   const [rawName, ...args] = words;
@@ -2738,12 +3362,14 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
   }
 
   const canonical = COMMAND_LOOKUP.get(key);
+  // `ls -?` asks for help, as `Get-Help ls` does.
+  if (canonical && args.length === 1 && args[0] === "-?") return ok(helpForQuestionMark(canonical));
   if (canonical) return COMMANDS[canonical].run(args, stdin, ctx, canonical);
 
   if (/^ms-settings:./.test(key)) return openSettingsUri(rawName, ctx);
 
   const executable = key.replace(/\.exe$/, "");
-  if (own(EXECUTABLES, executable)) return launchExecutable(executable, args, ctx);
+  if (own(EXECUTABLES, executable)) return launchExecutable(executable, args, ctx, true);
 
   if (/[\\/.]/.test(rawName)) {
     const nodes = ctx.fs.getNodes();
@@ -2756,6 +3382,9 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
     }
   }
 
+  // 'some text' | ConvertFrom-Json: a quoted word that names nothing is a value, not a misspelt command.
+  if (quotedHead && words.length === 1) return ok([rawName]);
+
   return fail(
     ctx,
     rawName,
@@ -2763,8 +3392,8 @@ async function runStage(argv: string[], stdin: string[] | null, ctx: Ctx): Promi
   );
 }
 
-async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok: boolean }> {
-  const parsed = parseStatements(tokenize(input), ctx);
+async function runPipeline(input: string, ctx: Ctx, capture = false): Promise<{ out: string[]; ok: boolean; objects?: PipelineItem[] }> {
+  const parsed = parseStatements(tokenize(input));
 
   if (typeof parsed === "string") {
     fail(ctx, "ParserError", parsed);
@@ -2772,31 +3401,51 @@ async function runPipeline(input: string, ctx: Ctx): Promise<{ out: string[]; ok
   }
 
   const collected: string[] = [];
+  let lastObjects: PipelineItem[] | undefined;
+  // `;` separates statements that each must work; && and || chain statements into a group
+  // whose outcome is that of the last one that ran, as in PowerShell 7.
   let success = true;
+  let groupOk = true;
+
   for (const statement of parsed) {
+    if (!statement.chain) {
+      success &&= groupOk;
+      groupOk = true;
+    } else if ((statement.chain === "&&" && !groupOk) || (statement.chain === "||" && groupOk)) {
+      continue;
+    }
+
+    const expanded = expandStatement(statement, ctx);
     let stdin: string[] | null = null;
     let output: Output = ok();
 
-    for (let index = 0; index < statement.stages.length; index += 1) {
+    for (let index = 0; index < expanded.stages.length; index += 1) {
       checkInterrupt(ctx);
       // Object-aware stages read what the previous one produced as live objects; the rest read its text.
       ctx.input = index > 0 ? (output.objects ?? null) : null;
       // eslint-disable-next-line no-await-in-loop
-      output = await runStage(statement.stages[index], stdin, ctx);
-      if (index < statement.stages.length - 1) stdin = output.out.map(stripAnsi);
+      output = await runStage(expanded.stages[index], stdin, ctx, statement.stages[index][0]?.quoted === true);
+      if (index < expanded.stages.length - 1) stdin = output.out.map(stripAnsi);
     }
     ctx.input = null;
 
-    if (statement.redirect) {
+    if (expanded.redirect) {
       // eslint-disable-next-line no-await-in-loop
-      const written = await writeContent(ctx, "Out-File", statement.redirect.target, output.out, statement.redirect.append);
-      success &&= output.ok && written.ok;
+      const written = await writeContent(ctx, "Out-File", expanded.redirect.target, output.out, expanded.redirect.append);
+      groupOk = output.ok && written.ok;
+      lastObjects = undefined;
     } else {
       collected.push(...output.out);
-      success &&= output.ok;
+      groupOk = output.ok;
+      lastObjects = output.objects;
     }
+    // Recorded as each statement ends, so the next one (and $?) sees it.
+    ctx.session.lastSuccess = groupOk;
+    ctx.session.lastExitCode = groupOk ? 0 : 1;
+    // Output and errors appear in the order the statements ran, unless a caller is capturing the output.
+    if (!capture) ctx.lines.push(...collected.splice(0));
   }
-  return { out: collected, ok: success };
+  return { out: collected, ok: success && groupOk, objects: lastObjects };
 }
 
 const ASSIGNMENT = /^\$([A-Za-z_][A-Za-z0-9_]*)\s*(\+=|-=|=)\s*(.*)$/;
@@ -2813,6 +3462,7 @@ export async function runShellCommand(
 
   try {
     const result = await runLine(input, ctx);
+    session.lastSuccess = result.success;
     if (result.lines.length <= MAX_OUTPUT_LINES) return result;
     return { ...result, lines: [...result.lines.slice(0, MAX_OUTPUT_LINES), `${RED}Output stopped after ${MAX_OUTPUT_LINES} lines.${RESET}`] };
   } catch (error) {
@@ -2831,7 +3481,7 @@ async function runLine(input: string, ctx: Ctx): Promise<ShellResult> {
   if (assignment && !assignment[3].startsWith("=")) {
     const [, rawName, operator, rhs] = assignment;
     const name = rawName.toLowerCase();
-    if (["true", "false", "null", "home", "pwd", "host"].includes(name)) {
+    if (["true", "false", "null", "home", "pwd", "host", "psversiontable"].includes(name)) {
       fail(ctx, "SessionStateUnauthorizedAccessException", `Cannot overwrite variable ${rawName} because it is read-only or constant.`);
       return { lines: ctx.lines, clear: false, actions: [], success: false };
     }
@@ -2844,8 +3494,12 @@ async function runLine(input: string, ctx: Ctx): Promise<ShellResult> {
     } else if (evaluated) {
       value = evaluated.value;
     } else {
-      const piped = await runPipeline(rhs, ctx);
-      const lines = piped.out.map(stripAnsi).filter((line) => line.trim() !== "");
+      const piped = await runPipeline(rhs, ctx, true);
+      // New-Guid and Resolve-Path print a table but hand a variable just their value.
+      const scalars = piped.objects?.filter((item): item is ShellObject => isShellObject(item) && item.view === "scalar");
+      const lines = scalars?.length && scalars.length === piped.objects?.length
+        ? scalars.map((item) => item.text)
+        : piped.out.map(stripAnsi).filter((line) => line.trim() !== "");
       value = lines.length === 1 ? lines[0] : lines;
     }
 
@@ -2864,6 +3518,10 @@ async function runLine(input: string, ctx: Ctx): Promise<ShellResult> {
   if (/^\$psversiontable$/i.test(trimmed)) {
     return { lines: PS_VERSION_TABLE(), clear: false, actions: [], success: true };
   }
+
+  // $PSVersionTable.PSVersion and other objects reached by member access.
+  const reached = memberObject(trimmed, ctx);
+  if (reached) return { lines: renderItems([reached]), clear: false, actions: [], success: true };
 
   // A line that is an expression (2 + 2, "Hello $name", $x * 3, 5 -gt 3) is evaluated and printed.
   if (/^[\d("'$.-]/.test(trimmed) && !/^-[A-Za-z]/.test(trimmed)) {
@@ -2911,9 +3569,27 @@ export interface CompletionOptions {
   commands?: string[];
   /** Characters that start a new command on the line. */
   separators?: string;
+  /** The quote characters the shell knows, and the first is what a name with spaces is wrapped in. PowerShell: '" with '. */
+  quotes?: string;
+  /** Complete -Parameter names from the command's syntax. Off for a shell whose options look different. */
+  parameters?: boolean;
 }
 
-/** Tab completion for the word at the cursor: command names first, then paths. */
+/** The parameter names of the command the stage at `stageText` starts with, in the syntax's own spelling. */
+function stageParameters(stageText: string): { used: string[]; names: string[] } | null {
+  const words = stageText.trim().split(/\s+/).filter(Boolean);
+  // The call (&) and dot-source (.) operators come before the command's name.
+  while (words.length && (words[0] === "&" || words[0] === ".")) words.shift();
+  if (!words.length) return null;
+  const canonical = COMMAND_LOOKUP.get(words[0].toLowerCase());
+  if (!canonical) return null;
+  return {
+    used: words.slice(1).map((word) => word.toLowerCase().split(":")[0]),
+    names: syntaxParameters(COMMANDS[canonical].syntax).map((parameter) => parameter.name),
+  };
+}
+
+/** Tab completion for the word at the cursor: command names first, then parameters and paths. */
 export function completeShellInput(
   line: string,
   cursor: number,
@@ -2921,9 +3597,11 @@ export function completeShellInput(
   nodes: FileSystemRecord,
   options: CompletionOptions = {}
 ): CompletionResult {
-  const separators = options.separators ?? "|;";
+  const separators = options.separators ?? "|;&";
+  const quotes = options.quotes ?? "'\"";
   const before = line.slice(0, cursor);
   let start = 0;
+  let stageStart = 0;
   let quote: string | null = null;
 
   for (let index = 0; index < before.length; index += 1) {
@@ -2932,23 +3610,34 @@ export function completeShellInput(
       if (char === quote) quote = null;
       continue;
     }
-    if (char === "'" || char === '"') {
+    if (quotes.includes(char)) {
       quote = char;
       continue;
     }
     if (/\s/.test(char) || separators.includes(char)) start = index + 1;
+    if (separators.includes(char)) stageStart = index + 1;
   }
 
   const rawToken = before.slice(start);
-  const quoted = rawToken.startsWith("'") || rawToken.startsWith('"');
+  const quoted = quotes.includes(rawToken[0] ?? "\0");
   const token = quoted ? rawToken.slice(1) : rawToken;
   const head = before.slice(0, start).trimEnd();
   const commandPosition = head === "" || [...separators].some((separator) => head.endsWith(separator));
 
   let matches: Array<{ text: string; display: string }>;
   let isCommand = false;
+  let isParameter = false;
 
-  if (commandPosition && token !== "" && !/[\\/]/.test(token) && !token.startsWith(".") && !quoted) {
+  const parameters = options.parameters !== false && !quoted && !commandPosition && token.startsWith("-") ? stageParameters(before.slice(stageStart, start)) : null;
+
+  if (parameters) {
+    isParameter = true;
+    const lower = token.toLowerCase();
+    matches = parameters.names
+      .filter((entry) => `-${entry}`.toLowerCase().startsWith(lower) && !parameters.used.includes(`-${entry}`.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b))
+      .map((entry) => ({ text: `-${entry}`, display: `-${entry}` }));
+  } else if (commandPosition && token !== "" && !/[\\/]/.test(token) && !token.startsWith(".") && !quoted) {
     isCommand = true;
     const lower = token.toLowerCase();
     matches = (options.commands ?? COMPLETABLE_COMMANDS())
@@ -2962,7 +3651,8 @@ export function completeShellInput(
     const prefix = (separator >= 0 ? normalized.slice(separator + 1) : normalized).toLowerCase();
     const directory = resolveShellPath(directoryPart || ".", session.cwd, nodes);
     matches = childrenOf(nodes, directory)
-      .filter((node) => node.path !== TRASH_PATH && node.name.toLowerCase().startsWith(prefix))
+      // A name with control characters in it is never offered: it would put them in the line being typed.
+      .filter((node) => node.path !== TRASH_PATH && !hasControlCharacters(node.name) && node.name.toLowerCase().startsWith(prefix))
       .map((node) => {
         const suffix = node.kind === "directory" ? "\\" : "";
         return { text: `${directoryPart}${node.name}${suffix}`, display: `${node.name}${suffix}` };
@@ -2971,10 +3661,12 @@ export function completeShellInput(
 
   if (!matches.length) return { line, cursor, candidates: [] };
 
+  // A name with a space is wrapped in the shell's own quote; one the person already opened keeps its quote.
+  const quoteChar = quoted ? rawToken[0] : quotes[0];
   const replace = (value: string, close: boolean) => {
     const needsQuotes = quoted || /\s/.test(value);
-    const replacement = needsQuotes ? `'${value}${close ? "'" : ""}` : value;
-    const trailing = isCommand && close ? " " : "";
+    const replacement = needsQuotes ? `${quoteChar}${value}${close ? quoteChar : ""}` : value;
+    const trailing = (isCommand || isParameter) && close ? " " : "";
     const nextLine = `${line.slice(0, start)}${replacement}${trailing}${line.slice(cursor)}`;
     return { line: nextLine, cursor: start + replacement.length + trailing.length, candidates: [] };
   };
@@ -3040,6 +3732,13 @@ export function highlightShellInput(line: string) {
       continue;
     }
 
+    if (char === "&" && line[index + 1] === "&") {
+      out += `${SYNTAX.operator}&&${RESET}`;
+      index += 2;
+      expectCommand = true;
+      continue;
+    }
+
     if (char === ">") {
       const end = line[index + 1] === ">" ? index + 2 : index + 1;
       out += `${SYNTAX.operator}${line.slice(index, end)}${RESET}`;
@@ -3048,7 +3747,7 @@ export function highlightShellInput(line: string) {
     }
 
     let end = index;
-    while (end < line.length && !/[\s|;>'"]/.test(line[end])) end += 1;
+    while (end < line.length && !/[\s|;>'"]/.test(line[end]) && !(line[end] === "&" && line[end + 1] === "&")) end += 1;
     const word = line.slice(index, end);
     let colour = "";
     if (word.startsWith("$")) colour = SYNTAX.variable;

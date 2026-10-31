@@ -8,8 +8,8 @@ vi.mock("idb-keyval", () => ({
 
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace, TRASH_PATH } from "@/lib/system-workspace";
-import { completeCmdInput, formatCmdPrompt, getCmdBanner, highlightCmdInput, runCmdCommand } from "@/lib/terminal-cmd";
-import { createShellSession, stripAnsi, type ShellFileSystem, type ShellHost, type ShellSession } from "@/lib/terminal-shell";
+import { completeCmdInput, formatCmdPrompt, getCmdBanner, getCmdPrompt, highlightCmdInput, MAX_COMMAND_STEPS, runCmdCommand } from "@/lib/terminal-cmd";
+import { createShellSession, MAX_OUTPUT_LINES, stripAnsi, type ShellFileSystem, type ShellHost, type ShellSession } from "@/lib/terminal-shell";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 
 const fileSystem: ShellFileSystem = {
@@ -50,6 +50,99 @@ describe("the prompt and the banner", () => {
     expect(text).toContain("Taaniel OS [Version");
     expect(text).not.toMatch(/Windows|Microsoft/);
     expect((await run("help")).text).not.toMatch(/Windows|Microsoft/);
+  });
+});
+
+describe("PROMPT", () => {
+  it("expands a template for the folder, in the shell's own prompt", async () => {
+    expect(getCmdPrompt(session)).toBe("C:\\Users\\Taaniel\\Desktop>");
+    expect((await run("prompt $P$_$G")).success).toBe(true);
+    expect(getCmdPrompt(session)).toBe("C:\\Users\\Taaniel\\Desktop\n>");
+    await run("prompt [$N]$S$G$S");
+    expect(getCmdPrompt(session)).toBe("[C] > ");
+    expect(formatCmdPrompt("/Documents", "$P$G")).toBe("C:\\Users\\Taaniel\\Documents>");
+  });
+
+  it("puts the default back when given nothing", async () => {
+    await run("prompt $G");
+    expect(getCmdPrompt(session)).toBe(">");
+    await run("prompt");
+    expect(getCmdPrompt(session)).toBe("C:\\Users\\Taaniel\\Desktop>");
+    expect((await run("echo %PROMPT%")).text).toBe("$P$G");
+  });
+
+  it("is the same thing as setting the PROMPT variable", async () => {
+    await run("set PROMPT=$T$G");
+    expect(getCmdPrompt(session)).toMatch(/^\d\d:\d\d:\d\d\.\d\d>$/);
+    expect((await run("echo %PROMPT%")).text).toBe("$T$G");
+    await run("prompt $G");
+    expect((await run("set PROMPT")).text).toContain("$G");
+  });
+
+  it("is kept for the tab, not shared with another one", async () => {
+    await run("prompt $G");
+    const other = createShellSession("/Desktop");
+    expect(getCmdPrompt(other)).toBe("C:\\Users\\Taaniel\\Desktop>");
+  });
+
+  it("cleans what it keeps: no escape sequences but colours, and a length cap", async () => {
+    await run("prompt $E[2J$E]0;pwned$G");
+    const cleaned = getCmdPrompt(session);
+    expect(cleaned).not.toContain("\x1b");
+    expect(cleaned).toBe("[2J]0;pwned>");
+    await run(`prompt ${"x".repeat(5000)}`);
+    expect(getCmdPrompt(session).length).toBeLessThanOrEqual(300);
+    expect(String(session.variables.prompt).length).toBeLessThanOrEqual(256);
+  });
+
+  it("lets a colour through, and turns it off again for what is typed", async () => {
+    await run("prompt $E[32m$P$E[0m$G");
+    expect(getCmdPrompt(session)).toBe("\x1b[32mC:\\Users\\Taaniel\\Desktop\x1b[0m>");
+    await run("prompt $E[31m$G");
+    expect(getCmdPrompt(session)).toBe("\x1b[31m>\x1b[0m");
+  });
+
+  it("explains itself with /? and in HELP, without the Windows or Microsoft name", async () => {
+    const help = await run("prompt /?");
+    expect(help.text).toContain("$P   Current drive and path");
+    expect(help.text).not.toMatch(/Windows|Microsoft/);
+    expect((await run("help prompt")).text).toContain("PROMPT");
+    expect((await run("help")).text).toMatch(/PROMPT\s+Changes the command prompt/);
+  });
+});
+
+describe("COLOR", () => {
+  it("asks for the foreground and background it was given, as palette colours", async () => {
+    // cmd: background first, then foreground. 0 black, A light green; ANSI 0 and 10.
+    expect((await run("color 0a")).actions).toEqual([{ type: "set-colors", foreground: 10, background: 0 }]);
+    // F bright white (15) behind C light red (9).
+    expect((await run("color FC")).actions).toEqual([{ type: "set-colors", foreground: 9, background: 15 }]);
+    // 1 is blue in cmd and ANSI 4; 6 is yellow in cmd and ANSI 3.
+    expect((await run("color 16")).actions).toEqual([{ type: "set-colors", foreground: 3, background: 4 }]);
+  });
+
+  it("takes a single digit as the foreground on black", async () => {
+    expect((await run("color a")).actions).toEqual([{ type: "set-colors", foreground: 10, background: 0 }]);
+  });
+
+  it("restores the scheme's colours when given nothing", async () => {
+    expect((await run("color")).actions).toEqual([{ type: "reset-colors" }]);
+  });
+
+  it("refuses a foreground the same as the background, as cmd does, and sets the errorlevel", async () => {
+    const result = await run("color 44");
+    expect(result.actions).toEqual([]);
+    expect(result.success).toBe(false);
+    expect((await run("echo %ERRORLEVEL%")).text).toBe("1");
+  });
+
+  it("explains itself for a bad argument or /?", async () => {
+    const bad = await run("color zz");
+    expect(bad.success).toBe(false);
+    expect(bad.actions).toEqual([]);
+    expect(bad.text).toContain("COLOR [attr]");
+    expect((await run("color /?")).text).toContain("0 = Black");
+    expect((await run("color /?")).text).not.toMatch(/Windows|Microsoft/);
   });
 });
 
@@ -347,9 +440,11 @@ describe("launching", () => {
     expect((await run("ms-settings:display")).actions[0]).toMatchObject({ appId: "settings", payload: { section: "display" } });
   });
 
-  it("opens a new tab for powershell and for a bare start", async () => {
-    expect((await run("powershell")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
+  it("starts PowerShell inside this prompt, and opens a tab for a bare start", async () => {
+    expect((await run("powershell")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+    expect((await run("cmd")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
     expect((await run("start")).actions[0]).toMatchObject({ type: "open-tab", profile: "cmd" });
+    expect((await run("start powershell")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
   });
 
   it("opens a document when its path is typed", async () => {
@@ -427,6 +522,60 @@ describe("the system", () => {
   });
 });
 
+describe("loops cannot run away", () => {
+  it("still runs an ordinary loop to the end", async () => {
+    const { lines, success } = await run("for /l %a in (1,1,1000) do echo %a");
+    expect(success).toBe(true);
+    expect(lines).toHaveLength(1000);
+    expect(lines.at(-1)).toBe("1000");
+  });
+
+  it("stops nested loops after a fixed number of commands, keeping what they printed", async () => {
+    const started = Date.now();
+    const { lines, success, interrupted } = await run("for /l %a in (1,1,1000) do for /l %b in (1,1,1000) do echo x");
+    expect(interrupted).toBeUndefined();
+    expect(success).toBe(false);
+    expect(lines.at(-1)).toBe(`The command was stopped after ${MAX_COMMAND_STEPS} steps.`);
+    expect(lines.length).toBeGreaterThan(1000);
+    expect(lines.length).toBeLessThanOrEqual(MAX_COMMAND_STEPS + 1);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it("counts a loop three deep the same way, instead of running a billion commands", async () => {
+    const { text, success } = await run("for /l %a in (1,1,1000) do for /l %b in (1,1,1000) do for /l %c in (1,1,1000) do echo x");
+    expect(success).toBe(false);
+    expect(text).toContain("stopped after");
+  });
+
+  it("caps the output of a loop at the output limit", async () => {
+    await fileSystem.writeFile("/Desktop/big.txt", Array.from({ length: 1000 }, (_, index) => `line ${index}`).join("\n"));
+    const { lines, success } = await run("for /l %a in (1,1,100) do type big.txt");
+    expect(success).toBe(false);
+    expect(lines).toHaveLength(MAX_OUTPUT_LINES + 1);
+    expect(lines.at(-1)).toBe(`Output stopped after ${MAX_OUTPUT_LINES} lines.`);
+  });
+
+  it("caps what a single command prints too", async () => {
+    await fileSystem.writeFile("/Desktop/huge.txt", Array.from({ length: MAX_OUTPUT_LINES + 500 }, (_, index) => `l${index}`).join("\n"));
+    const { lines } = await run("type huge.txt");
+    expect(lines).toHaveLength(MAX_OUTPUT_LINES + 1);
+  });
+
+  it("listens for Ctrl+C while a loop runs", async () => {
+    const controller = new AbortController();
+    const pending = run("for /l %a in (1,1,1000) do for /l %b in (1,1,1000) do echo x", { signal: controller.signal });
+    setTimeout(() => controller.abort(), 10);
+    const result = await pending;
+    expect(result.interrupted).toBe(true);
+    expect(result.lines).toEqual([]);
+  });
+
+  it("gives a plain line a step budget of its own each time", async () => {
+    await run("for /l %a in (1,1,9000) do rem");
+    expect((await run("echo again")).text).toBe("again");
+  });
+});
+
 describe("completion and highlighting", () => {
   it("completes command names and paths with & as a separator", () => {
     const nodes = useFileSystemStore.getState().nodes;
@@ -436,6 +585,36 @@ describe("completion and highlighting", () => {
     session.cwd = "/";
     expect(completeCmdInput("cd Doc", 6, session, nodes).line).toBe("cd Documents\\");
     expect(completeCmdInput("Get-Chi", 7, session, nodes).candidates).toEqual([]);
+  });
+
+  it("quotes a name with spaces in double quotes, which cmd can read back", async () => {
+    const nodes = () => useFileSystemStore.getState().nodes;
+    session.cwd = "/Portfolio";
+    const folder = completeCmdInput("cd Ca", 5, session, nodes());
+    expect(folder.line).toBe('cd "Case Studies\\"');
+    // The completed line has to run: this is what the single quotes of PowerShell broke.
+    expect((await run(folder.line)).success).toBe(true);
+    expect(session.cwd).toBe("/Portfolio/Case Studies");
+
+    session.cwd = "/Desktop";
+    await fileSystem.writeFile("/Desktop/My file.txt", "hello there");
+    const file = completeCmdInput("type My", 7, session, nodes());
+    expect(file.line).toBe('type "My file.txt"');
+    expect((await run(file.line)).text).toBe("hello there");
+  });
+
+  it("treats a leading double quote as the start of a quoted name, and keeps it", async () => {
+    await fileSystem.writeFile("/Desktop/My file.txt", "x");
+    const nodes = useFileSystemStore.getState().nodes;
+    expect(completeCmdInput('type "My f', 10, session, nodes).line).toBe('type "My file.txt"');
+    expect(completeCmdInput('type "My', 8, session, nodes).line).toBe('type "My file.txt"');
+  });
+
+  it("does not take a single quote for a quote, or offer PowerShell parameter names", async () => {
+    await fileSystem.writeFile("/Desktop/My file.txt", "x");
+    const nodes = useFileSystemStore.getState().nodes;
+    expect(completeCmdInput("type 'My", 8, session, nodes)).toMatchObject({ line: "type 'My", candidates: [] });
+    expect(completeCmdInput("dir -Rec", 8, session, nodes)).toMatchObject({ line: "dir -Rec", candidates: [] });
   });
 
   it("leaves typed text uncoloured", () => {

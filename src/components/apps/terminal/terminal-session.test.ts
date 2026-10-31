@@ -7,7 +7,7 @@ vi.mock("idb-keyval", () => ({
   del: vi.fn(async () => {}),
 }));
 
-import { TerminalSession, type TerminalSessionCallbacks } from "@/components/apps/terminal/terminal-session";
+import { MAX_NESTED_SHELLS, TerminalSession, type TerminalSessionCallbacks } from "@/components/apps/terminal/terminal-session";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { buildAppearance } from "@/lib/terminal-appearance";
 import { getShellEngine } from "@/lib/terminal-engines";
@@ -28,7 +28,9 @@ const fileSystem: ShellFileSystem = {
 let sessions: TerminalSession[] = [];
 let callbacks: { [K in keyof TerminalSessionCallbacks]: ReturnType<typeof vi.fn> };
 
-function create(options: { engine?: "pwsh" | "cmd"; host?: ShellHost; behaviour?: { copyOnSelect: boolean; multiLinePasteWarning: boolean } } = {}) {
+function create(
+  options: { engine?: "pwsh" | "cmd"; host?: ShellHost; behaviour?: { copyOnSelect: boolean; multiLinePasteWarning: boolean }; screenReader?: boolean } = {}
+) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const session = new TerminalSession({
@@ -36,7 +38,7 @@ function create(options: { engine?: "pwsh" | "cmd"; host?: ShellHost; behaviour?
     startPath: "/Documents",
     fileSystem,
     host: options.host ?? {},
-    appearance: buildAppearance(DEFAULT_TERMINAL_SETTINGS, false),
+    appearance: buildAppearance({ ...DEFAULT_TERMINAL_SETTINGS, screenReaderMode: options.screenReader ?? false }, false),
     ariaLabel: "PowerShell terminal input",
     getBehaviour: () => options.behaviour ?? { copyOnSelect: false, multiLinePasteWarning: true },
     callbacks: callbacks as unknown as TerminalSessionCallbacks,
@@ -97,6 +99,10 @@ afterEach(() => {
 });
 
 describe("a PowerShell tab", () => {
+  it("keeps as much history on screen as Windows Terminal does", () => {
+    expect(create().terminal.options.scrollback).toBe(9001);
+  });
+
   it("greets with the banner, the focus hint and a prompt", async () => {
     const text = await screen(create());
     expect(text).toContain("PowerShell 7.4.5 on Taaniel OS");
@@ -134,6 +140,26 @@ describe("a PowerShell tab", () => {
     expect(text.split("\n").at(-1)).toMatch(/> echo one$/);
     expect(JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history") ?? "[]")).toEqual(["echo one", "echo two"]);
     expect(window.localStorage.getItem("taaniel-os-terminal-history-cmd")).toBeNull();
+  });
+
+  it("saves history on top of what other tabs saved while a command was running", async () => {
+    const first = create();
+    const second = create();
+    first.terminal.input("Start-Sleep -Milliseconds 150\r", true);
+    await vi.waitFor(() => expect(first.isBusy()).toBe(true));
+    await type(second, "echo from second\r");
+    await vi.waitFor(() => expect(first.isBusy()).toBe(false), { timeout: 3000 });
+    const stored = JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history") ?? "[]");
+    expect(stored).toEqual(["echo from second", "Start-Sleep -Milliseconds 150"]);
+    // The tab that was waiting takes up the merged list, so the up arrow finds the other tab's command too.
+    expect(first.shell.history).toEqual(stored);
+  });
+
+  it("lets Clear-History empty the saved list as well", async () => {
+    const session = create();
+    await type(session, "echo a\r");
+    await type(session, "Clear-History\r");
+    expect(JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history") ?? "[]")).toEqual(["Clear-History"]);
   });
 
   it("completes a command with Tab", async () => {
@@ -269,6 +295,315 @@ describe("a Command Prompt tab", () => {
     expect(text).toContain("hi there");
     expect(window.localStorage.getItem("taaniel-os-terminal-history-cmd")).toContain("echo hi there");
     expect(window.localStorage.getItem("taaniel-os-terminal-history")).toBeNull();
+  });
+});
+
+describe("screen reader mode", () => {
+  /** Everything written to the screen from now on, without colours. */
+  const watchWrites = (session: TerminalSession) => {
+    const write = vi.spyOn(session.terminal, "write");
+    return () => write.mock.calls.map((call) => String(call[0]).replace(/\x1b\[[0-9;]*m/g, ""));
+  };
+
+  it("writes only the typed character for a keystroke, not the prompt and the line again", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    const written = watchWrites(session);
+    session.terminal.input("l", true);
+    session.terminal.input("s", true);
+    expect(written()).toEqual(["l", "s"]);
+  });
+
+  it("erases a backspaced character with back, blank, back", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    session.terminal.input("lsx", true);
+    const written = watchWrites(session);
+    session.terminal.input("\x7f", true);
+    expect(written()).toEqual(["\b \b"]);
+    expect((await screen(session)).split("\n").at(-1)).toMatch(/> ls$/);
+  });
+
+  it("only moves the cursor for the arrow keys, and edits from the first changed column", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    session.terminal.input("echo hlo", true);
+    const written = watchWrites(session);
+    session.terminal.input("\x1b[D", true);
+    session.terminal.input("\x1b[D", true);
+    expect(written().filter((entry) => !/^\x1b\[\d+G$/.test(entry))).toEqual([]);
+    session.terminal.input("e", true);
+    session.terminal.input("l", true);
+    expect(written().join("")).not.toContain("PS ");
+    expect(written().join("")).not.toContain("echo");
+    expect((await screen(session)).split("\n").at(-1)).toMatch(/> echo hello$/);
+  });
+
+  it("repaints the prompt for every keystroke without it, as before", async () => {
+    const session = create();
+    await screen(session);
+    const written = watchWrites(session);
+    session.terminal.input("l", true);
+    expect(written().join("")).toContain("PS C:\\Users\\Taaniel\\Documents> l");
+  });
+
+  it("recalls history without writing the prompt, and runs the line as usual", async () => {
+    const session = create({ screenReader: true });
+    await type(session, "echo one\r");
+    const written = watchWrites(session);
+    session.terminal.input("\x1b[A", true);
+    expect(written().join("")).toContain("echo one");
+    expect(written().join("")).not.toContain("PS ");
+    expect(await type(session, "\r")).toMatch(/^one$/m);
+  });
+
+  it("shows no grey suggestion, so the right arrow has nothing to accept", async () => {
+    const session = create({ screenReader: true });
+    await type(session, "echo remembered\r");
+    session.terminal.input("echo rem", true);
+    session.terminal.input("\x1b[C", true);
+    expect((await screen(session)).split("\n").at(-1)).toMatch(/> echo rem$/);
+  });
+
+  it("does not repaint for a resize that changes no column", async () => {
+    const session = create({ screenReader: true });
+    await screen(session);
+    session.terminal.input("ls", true);
+    const written = watchWrites(session);
+    session.activate();
+    expect(written()).toEqual([]);
+  });
+
+  it("draws the line once more, plainly, when the mode is switched on", async () => {
+    const session = create();
+    await screen(session);
+    session.terminal.input("echo rem", true);
+    session.setAppearance(buildAppearance({ ...DEFAULT_TERMINAL_SETTINGS, screenReaderMode: true }, false));
+    session.terminal.input("x", true);
+    const text = (await screen(session)).split("\n").at(-1);
+    expect(text).toMatch(/> echo remx$/);
+  });
+});
+
+describe("links", () => {
+  const range = { start: { x: 1, y: 1 }, end: { x: 2, y: 1 } };
+
+  it("sends escape-sequence hyperlinks through the same address check as plain links", () => {
+    const session = create();
+    const handler = session.terminal.options.linkHandler;
+    expect(handler).toBeTruthy();
+    const ctrl = new MouseEvent("click", { ctrlKey: true });
+
+    // xterm's own handler would confirm and window.open anything, javascript: included.
+    handler?.activate(ctrl, "javascript:alert(1)", range);
+    handler?.activate(ctrl, "data:text/html,<script>1</script>", range);
+    handler?.activate(ctrl, "https://user:secret@example.com/", range);
+    expect(callbacks.onOpenLink).not.toHaveBeenCalled();
+
+    handler?.activate(ctrl, "https://example.com/page", range);
+    expect(callbacks.onOpenLink).toHaveBeenCalledWith("https://example.com/page");
+  });
+
+  it("needs Ctrl for a mouse, like Windows Terminal", () => {
+    const session = create();
+    session.terminal.options.linkHandler?.activate(new MouseEvent("click"), "https://example.com/", range);
+    expect(callbacks.onOpenLink).not.toHaveBeenCalled();
+  });
+});
+
+describe("shells inside shells", () => {
+  const lastLine = (text: string) => text.split("\n").at(-1);
+
+  it("starts a Command Prompt inside PowerShell in the same tab and folder, and exit returns to PowerShell", async () => {
+    const session = create();
+    let text = await type(session, "cmd\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+    expect(text).toContain("Taaniel OS [Version");
+    // A shell inside the tab, not another tab or a closed window.
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+    expect(session.shellDepth).toBe(2);
+
+    text = await type(session, "echo from cmd\r");
+    expect(text).toMatch(/^from cmd$/m);
+    text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(session.shellDepth).toBe(1);
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+  });
+
+  it("gives the inner shell the folder the outer one is in, and keeps the two apart", async () => {
+    const session = create();
+    await type(session, "cd ..\r");
+    let text = await type(session, "cmd\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel>");
+
+    text = await type(session, "cd Desktop\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Desktop>");
+    expect(session.getCwd()).toBe("/Desktop");
+    text = await type(session, "exit\r");
+    // Leaving a shell leaves its folder behind, as it does in a real terminal.
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel>");
+    expect(session.getCwd()).toBe("/");
+  });
+
+  it("starts PowerShell inside the Command Prompt", async () => {
+    const session = create({ engine: "cmd" });
+    let text = await type(session, "powershell\r");
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(text).toContain("PowerShell 7.4.5 on Taaniel OS");
+    text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+  });
+
+  it("nests more than once, and exit goes back one shell at a time", async () => {
+    const session = create();
+    await type(session, "cmd\r");
+    await type(session, "powershell\r");
+    expect(session.shellDepth).toBe(3);
+    let text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+    text = await type(session, "exit\r");
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+  });
+
+  it("closes the tab for exit in the first shell", async () => {
+    const session = create();
+    await type(session, "exit\r");
+    expect(callbacks.onAction).toHaveBeenCalledWith({ type: "exit" });
+  });
+
+  it("closes the tab for exit once every shell inside it has ended", async () => {
+    const session = create();
+    await type(session, "cmd\r");
+    await type(session, "exit\r");
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+    await type(session, "exit\r");
+    expect(callbacks.onAction).toHaveBeenCalledWith({ type: "exit" });
+  });
+
+  it("gives each shell its own history, its own commands, and its own prompt", async () => {
+    const session = create();
+    await type(session, "echo ps-line\r");
+    await type(session, "cmd\r");
+    await type(session, "echo cmd-line\r");
+    // The up arrow in cmd recalls cmd's commands, not PowerShell's.
+    const recalled = await type(session, "\x1b[A");
+    expect(lastLine(recalled)).toMatch(/>echo cmd-line$/);
+    expect(JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history-cmd") ?? "[]")).toContain("echo cmd-line");
+    expect(JSON.parse(window.localStorage.getItem("taaniel-os-terminal-history") ?? "[]")).not.toContain("echo cmd-line");
+  });
+
+  it("runs cmd /c once and stays in PowerShell, and an exit in it does not close the tab", async () => {
+    const session = create();
+    let text = await type(session, "cmd /c echo one-shot\r");
+    expect(text).toMatch(/^one-shot$/m);
+    expect(lastLine(text)).toBe("PS C:\\Users\\Taaniel\\Documents>");
+    expect(session.shellDepth).toBe(1);
+
+    await type(session, "cmd /c exit\r");
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+    text = await type(session, "pwsh -Command echo second\r");
+    expect(text).toMatch(/^second$/m);
+    expect(session.shellDepth).toBe(1);
+  });
+
+  it("runs cmd /k and stays inside it", async () => {
+    const session = create();
+    const text = await type(session, "cmd /k echo kept\r");
+    expect(text).toMatch(/^kept$/m);
+    expect(lastLine(text)).toBe("C:\\Users\\Taaniel\\Documents>");
+    expect(session.shellDepth).toBe(2);
+  });
+
+  it("still opens a tab for wt, which is Windows Terminal itself", async () => {
+    const session = create();
+    await type(session, "wt -p cmd\r");
+    expect(callbacks.onAction).toHaveBeenCalledWith({ type: "open-tab", profile: "cmd", directoryPath: undefined });
+    expect(session.shellDepth).toBe(1);
+  });
+
+  it("stops at a fixed depth, and says so", async () => {
+    const session = create();
+    for (let index = 1; index < MAX_NESTED_SHELLS; index += 1) await type(session, "cmd\r");
+    expect(session.shellDepth).toBe(MAX_NESTED_SHELLS);
+    const text = await type(session, "cmd\r");
+    expect(text).toContain(`already has ${MAX_NESTED_SHELLS} shells inside each other`);
+    expect(session.shellDepth).toBe(MAX_NESTED_SHELLS);
+  });
+
+  it("keeps the inner shell's screen-reader and colour behaviour: colours still reach the screen", async () => {
+    const session = create();
+    await type(session, "cmd\r");
+    await type(session, "color 0a\r");
+    expect(session.terminal.options.theme?.black).toBeTruthy();
+    expect(session.terminal.options.theme?.foreground).toBe(session.terminal.options.theme?.brightGreen);
+  });
+});
+
+describe("a Command Prompt tab's own prompt and colours", () => {
+  it("draws a prompt of several lines, and edits the input on the last one", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "prompt $P$_$G$S\r");
+    let text = await screen(session);
+    expect(text.split("\n").slice(-2)).toEqual(["C:\\Users\\Taaniel\\Documents", ">"]);
+
+    // The cursor maths use the last line only: a character inserted in the middle lands where it should.
+    text = await type(session, "echo abc", "\x1b[D", "\x1b[D", "X");
+    expect(text.split("\n").slice(-2)).toEqual(["C:\\Users\\Taaniel\\Documents", "> echo aXbc"]);
+
+    text = await type(session, "\r");
+    expect(text.split("\n").slice(-3)).toEqual(["aXbc", "C:\\Users\\Taaniel\\Documents", ">"]);
+  });
+
+  it("puts the earlier lines of the prompt back after the screen is cleared", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "prompt $P$_$G$S\r");
+    await type(session, "echo hello\r");
+    const text = await type(session, "\x0c");
+    expect(text).not.toContain("hello");
+    expect(text.split("\n").slice(-2)).toEqual(["C:\\Users\\Taaniel\\Documents", ">"]);
+  });
+
+  it("measures a coloured prompt without its colour codes", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "prompt $E[32m$P$E[0m$G\r");
+    const text = await type(session, "echo ab", "\x1b[D", "X");
+    expect(text.split("\n").at(-1)).toBe("C:\\Users\\Taaniel\\Documents>echo aXb");
+  });
+
+  it("recolours the screen for COLOR, and brings the scheme back for COLOR alone", async () => {
+    const session = create({ engine: "cmd" });
+    const scheme = buildAppearance(DEFAULT_TERMINAL_SETTINGS, false).theme;
+    const container = session.terminal.element?.parentElement as HTMLElement;
+
+    // Light green on black: ANSI 10 on ANSI 0.
+    await type(session, "color 0a\r");
+    expect(session.terminal.options.theme?.foreground).toBe(scheme.brightGreen);
+    expect(session.terminal.options.theme?.background).toBe(scheme.black);
+    expect(container.style.background).not.toBe("");
+    // Nothing of this goes to the app: the screen applies it itself.
+    expect(callbacks.onAction).not.toHaveBeenCalled();
+
+    await type(session, "color\r");
+    expect(session.terminal.options.theme?.foreground).toBe(scheme.foreground);
+    expect(session.terminal.options.theme?.background).toBe(scheme.background);
+  });
+
+  it("keeps the chosen colours when the colour scheme changes, taking them from the new palette", async () => {
+    const session = create({ engine: "cmd" });
+    await type(session, "color 0a\r");
+    const light = buildAppearance({ ...DEFAULT_TERMINAL_SETTINGS, schemeId: "one-half-light" }, false);
+    session.setAppearance(light);
+    expect(session.terminal.options.theme?.foreground).toBe(light.theme.brightGreen);
+    expect(session.terminal.options.theme?.background).toBe(light.theme.black);
+  });
+
+  it("recolours only its own tab", async () => {
+    const first = create({ engine: "cmd" });
+    const second = create({ engine: "cmd" });
+    await type(first, "color 1f\r");
+    expect(first.terminal.options.theme?.background).not.toBe(second.terminal.options.theme?.background);
   });
 });
 

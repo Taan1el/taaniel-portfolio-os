@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardPaste,
+  SquareTerminal,
   Copy,
   FilePlus2,
   FolderPlus,
@@ -51,7 +52,16 @@ import { DND_SCROLL_ATTRIBUTE, folderDropProps } from "@/lib/dnd/dom";
 import { armFileDrag } from "@/lib/dnd/controller";
 import { useDragStore } from "@/lib/dnd/drag-store";
 import { hasExternalFiles } from "@/lib/drag-payload";
-import { copyItems, cutItems, deleteItems, pasteIntoFolder, restoreItems, transferItems } from "@/lib/file-actions";
+import {
+  copyItems,
+  cutItems,
+  deleteItems,
+  emptyRecycleBin as emptyRecycleBinAction,
+  isInTrash,
+  pasteIntoFolder,
+  restoreItems,
+  transferItems,
+} from "@/lib/file-actions";
 import { buildFileMenu } from "@/lib/file-menu";
 import { openFileSystemPath } from "@/lib/launchers";
 import { resolveShortcutNode, toStoredName } from "@/lib/shortcuts";
@@ -63,6 +73,7 @@ import { useRecentFilesStore } from "@/stores/recent-files-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useSystemStore } from "@/stores/system-store";
 import { toast } from "@/stores/toast-store";
+import { createLaunchNonce } from "@/lib/terminal-profiles";
 import type { AppComponentProps, ContextMenuAction, FileNode, VirtualFile } from "@/types/system";
 
 const explorerLocations: ExplorerSidebarLocation[] = [
@@ -84,7 +95,6 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const writeFile = useFileSystemStore((state) => state.writeFile);
   const importFiles = useFileSystemStore((state) => state.importFiles);
   const rename = useFileSystemStore((state) => state.rename);
-  const emptyTrash = useFileSystemStore((state) => state.emptyTrash);
   const launchApp = useSystemStore((state) => state.launchApp);
   const recentPaths = useRecentFilesStore((state) => state.recentPaths);
   const clearRecent = useRecentFilesStore((state) => state.clearRecent);
@@ -302,11 +312,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   };
 
   const emptyRecycleBin = () => {
-    const count = listDirectory(TRASH_PATH).length;
-    if (count === 0) return;
-    if (globalThis.confirm(`Are you sure you want to permanently delete ${count === 1 ? "this item" : `these ${count} items`}?`)) {
-      void emptyTrash();
-    }
+    void emptyRecycleBinAction();
   };
 
   const goUp = () => {
@@ -343,7 +349,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   /* ------------------------------------------------------------------ */
 
   /** Everything here is a drop target for the pointer drag controller; the tags are all it needs. */
-  const dropProps = (path: string) => folderDropProps(path, { windowId: window.id });
+  const dropProps = (path: string) => folderDropProps(isInTrash(path) ? TRASH_PATH : path, { windowId: window.id });
 
   /** Files dragged in from the visitor's computer go through the browser's own drag events. */
   const clearExternalHighlight = () => {
@@ -426,6 +432,14 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       shortcut: "Ctrl+V",
       disabled: !clipboard || isTrashView,
       onSelect: pasteIntoCurrentDirectory,
+    });
+
+    actions.push({
+      id: "open-terminal",
+      label: "Open in Terminal",
+      icon: SquareTerminal,
+      disabled: isTrashView,
+      onSelect: () => launchApp({ appId: "terminal", payload: { directoryPath: currentDirectoryPath, launchNonce: createLaunchNonce() } }),
     });
 
     actions.push({ id: "sep-empty-2", label: "", separator: true, onSelect: () => {} });
@@ -977,6 +991,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
                         renaming={renamingPath === node.path}
                         cut={cutPaths.has(node.path)}
                         dragSource={dragSourcePaths.has(node.path)}
+                        inTrash={isTrashView}
                         {...itemHandlers}
                       />
                     ))}
@@ -1012,6 +1027,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
                         cut={cutPaths.has(node.path)}
                         dragSource={dragSourcePaths.has(node.path)}
                         recycleBin={isRecycleBinRoot}
+                        inTrash={isTrashView}
                         {...itemHandlers}
                       />
                     ))}

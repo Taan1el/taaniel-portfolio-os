@@ -14,6 +14,7 @@ vi.mock("@/lib/system-workspace", async (importOriginal) => {
 });
 
 import { subscribeFileSystemMoves, useFileSystemStore } from "@/stores/filesystem-store";
+import { useToastStore } from "@/stores/toast-store";
 
 const dir = (path: string, name: string): VirtualDirectory => ({
   kind: "directory",
@@ -189,6 +190,106 @@ describe("filesystem-store", () => {
       const moved = useFileSystemStore.getState().readFile("/Media/notes.txt");
       expect(moved).not.toBeNull();
       expect(moved!.content).toBe("hello");
+    });
+  });
+
+  describe("refused changes", () => {
+    const toasts = () => useToastStore.getState().toasts.map((entry) => [entry.message, entry.type]);
+    const nodes = () => useFileSystemStore.getState().nodes;
+
+    beforeEach(() => {
+      useToastStore.setState({ toasts: [] });
+      useFileSystemStore.setState({
+        nodes: {
+          ...SEED,
+          "/Media": dir("/Media", "Media"),
+          "/Documents/locked.txt": { ...txt("/Documents/locked.txt", "locked.txt", "bundled"), readonly: true },
+          "/Trash/old.txt": txt("/Trash/old.txt", "old.txt", "gone"),
+        },
+        initialized: true,
+      });
+    });
+
+    it("never deletes the Recycle Bin, even for good, and leaves what is in it", async () => {
+      const before = nodes();
+
+      await expect(useFileSystemStore.getState().tryDeleteNode("/Trash")).resolves.toEqual({ ok: false, reason: "protected" });
+      await useFileSystemStore.getState().deleteNode("/Trash");
+
+      expect(nodes()).toBe(before);
+      expect(nodes()["/Trash/old.txt"]).toBeTruthy();
+      expect(toasts().every(([, type]) => type === "error")).toBe(true);
+      expect(toasts()[0][0]).toMatch(/system/);
+    });
+
+    it("refuses the other system folders the same way", async () => {
+      for (const path of ["/", "/Documents"]) {
+        // eslint-disable-next-line no-await-in-loop
+        await expect(useFileSystemStore.getState().tryDeleteNode(path, { quiet: true })).resolves.toEqual({
+          ok: false,
+          reason: "protected",
+        });
+      }
+
+      expect(nodes()["/Documents"]).toBeTruthy();
+      expect(toasts()).toEqual([]);
+    });
+
+    it("says why a read-only or missing item wasn't deleted, without announcing a delete", async () => {
+      await expect(useFileSystemStore.getState().tryDeleteNode("/Documents/locked.txt")).resolves.toEqual({
+        ok: false,
+        reason: "read-only",
+      });
+      expect(toasts()).toEqual([["This item is read-only and can't be deleted", "error"]]);
+
+      useToastStore.setState({ toasts: [] });
+      await expect(useFileSystemStore.getState().tryDeleteNode("/Documents/ghost.txt")).resolves.toEqual({
+        ok: false,
+        reason: "missing",
+      });
+      expect(toasts()).toEqual([]);
+      expect(nodes()["/Documents/locked.txt"]).toBeTruthy();
+    });
+
+    it("reports the deletes that went through", async () => {
+      await expect(useFileSystemStore.getState().tryDeleteNode("/Documents/notes.txt")).resolves.toEqual({ ok: true });
+      expect(nodes()["/Trash/notes.txt"]).toMatchObject({ originalPath: "/Documents/notes.txt" });
+      expect(toasts()).toEqual([["Moved to Recycle Bin", "success"]]);
+
+      await expect(useFileSystemStore.getState().tryDeleteNode("/Trash/old.txt")).resolves.toEqual({ ok: true });
+      expect(nodes()["/Trash/old.txt"]).toBeUndefined();
+    });
+
+    it("only announces a paste that changed something", async () => {
+      // Moving a system folder, a read-only file or a folder into itself changes nothing, so nothing is said.
+      const refusals = [
+        await useFileSystemStore.getState().tryPasteNode("/Documents", "/Media", "cut"),
+        await useFileSystemStore.getState().tryPasteNode("/Documents/locked.txt", "/Media", "cut"),
+        await useFileSystemStore.getState().tryPasteNode("/Documents", "/Documents", "copy"),
+        await useFileSystemStore.getState().tryPasteNode("/Documents/ghost.txt", "/Media", "copy"),
+        await useFileSystemStore.getState().tryPasteNode("/Documents/notes.txt", "/Documents/notes.txt", "copy"),
+      ];
+
+      expect(refusals).toEqual([
+        { ok: false, reason: "protected" },
+        { ok: false, reason: "read-only" },
+        { ok: false, reason: "invalid" },
+        { ok: false, reason: "missing" },
+        { ok: false, reason: "invalid" },
+      ]);
+      expect(toasts()).toEqual([]);
+      expect(nodes()["/Documents"]).toBeTruthy();
+      expect(nodes()["/Media/Documents"]).toBeUndefined();
+
+      await useFileSystemStore.getState().pasteNode("/Documents/notes.txt", "/Media", "cut");
+      expect(toasts()).toEqual([["Moved", "success"]]);
+    });
+
+    it("lets a system folder be copied, which is not a change to it", async () => {
+      await expect(useFileSystemStore.getState().tryPasteNode("/Documents", "/Media", "copy", { quiet: true })).resolves.toEqual({
+        ok: true,
+      });
+      expect(nodes()["/Media/Documents/notes.txt"]).toBeTruthy();
     });
   });
 

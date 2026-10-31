@@ -1,8 +1,8 @@
 import type { ShellProfileId } from "@/lib/terminal-profiles";
 import {
   completeCmdInput,
-  formatCmdPrompt,
   getCmdBanner,
+  getCmdPrompt,
   highlightCmdInput,
   runCmdCommand,
 } from "@/lib/terminal-cmd";
@@ -58,7 +58,7 @@ const commandPrompt: ShellEngine = {
   id: "cmd",
   title: "Command Prompt",
   historyKey: "taaniel-os-terminal-history-cmd",
-  prompt: (session) => formatCmdPrompt(session.cwd),
+  prompt: getCmdPrompt,
   banner: getCmdBanner,
   run: (input, session, fs, host) => runCmdCommand(input, session, fs, host),
   complete: completeCmdInput,

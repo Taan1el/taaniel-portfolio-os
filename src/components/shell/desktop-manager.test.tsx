@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DesktopManager } from "@/components/shell/desktop-manager";
 import { desktopShortcutSeeds, initialDesktopIconPositions } from "@/data/desktop-seed";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
@@ -23,7 +23,13 @@ class FakeResizeObserver {
   disconnect() {}
 }
 
-function Desktop({ onActivateEntry }: { onActivateEntry: (entry: DesktopEntry) => void }) {
+function Desktop({
+  onActivateEntry,
+  onImportFiles = vi.fn(async () => {}),
+}: {
+  onActivateEntry: (entry: DesktopEntry) => void;
+  onImportFiles?: (files: File[], point: { x: number; y: number }, folder?: string) => Promise<void>;
+}) {
   const nodes = useFileSystemStore((state) => state.nodes);
 
   return (
@@ -32,7 +38,7 @@ function Desktop({ onActivateEntry }: { onActivateEntry: (entry: DesktopEntry) =
       onActivateEntry={onActivateEntry}
       onDesktopContextMenu={vi.fn()}
       onEntryContextMenu={vi.fn()}
-      onImportFiles={vi.fn(async () => {})}
+      onImportFiles={onImportFiles}
     />
   );
 }
@@ -206,5 +212,72 @@ describe("the desktop", () => {
 
     fireEvent.keyDown(desktop, { key: "v", ctrlKey: true });
     await waitFor(() => expect(screen.getByRole("option", { name: "About - Copy" })).toBeTruthy());
+  });
+});
+
+describe("files dragged in from the visitor's computer", () => {
+  const files = [new File(["hi"], "photo.png", { type: "image/png" })];
+  const outsideFiles = () => ({ types: ["Files"], files, dropEffect: "none" });
+  /** jsdom has no DragEvent, so the pointer position is put on the event by hand. */
+  const dropAt = (target: Element, transfer: ReturnType<typeof outsideFiles>, x: number, y: number) => {
+    const event = createEvent.drop(target, { dataTransfer: transfer });
+    Object.defineProperties(event, { clientX: { value: x }, clientY: { value: y } });
+    fireEvent(target, event);
+  };
+
+  it("go onto the desktop at the pointer when dropped on the bare desktop", () => {
+    const onImportFiles = vi.fn(async () => {});
+    render(<Desktop onActivateEntry={vi.fn()} onImportFiles={onImportFiles} />);
+
+    dropAt(screen.getByRole("listbox", { name: "Desktop" }), outsideFiles(), 300, 200);
+
+    expect(onImportFiles).toHaveBeenCalledWith(files, { x: 300, y: 200 }, undefined);
+  });
+
+  it("go into the folder icon they are dropped on, which lights up while they hover it", async () => {
+    await useFileSystemStore.getState().mkdir("/Desktop/Stuff");
+    const onImportFiles = vi.fn(async () => {});
+    render(<Desktop onActivateEntry={vi.fn()} onImportFiles={onImportFiles} />);
+    const folder = icon("Stuff");
+    const transfer = outsideFiles();
+
+    fireEvent.dragEnter(folder, { dataTransfer: transfer });
+    fireEvent.dragOver(folder, { dataTransfer: transfer });
+
+    expect(folder.getAttribute("data-drop-active")).toBe("true");
+    expect(transfer.dropEffect).toBe("copy");
+    // The "add to the desktop" banner would say the wrong thing over a folder.
+    expect(screen.queryByText("Drop files to add them to the desktop")).toBeNull();
+
+    dropAt(folder, transfer, 30, 40);
+
+    expect(onImportFiles).toHaveBeenCalledWith(files, { x: 30, y: 40 }, "/Desktop/Stuff");
+    expect(folder.hasAttribute("data-drop-active")).toBe(false);
+  });
+
+  it("are refused by the Recycle Bin", () => {
+    const onImportFiles = vi.fn(async () => {});
+    render(<Desktop onActivateEntry={vi.fn()} onImportFiles={onImportFiles} />);
+    const bin = icon("Recycle Bin");
+    const transfer = outsideFiles();
+
+    fireEvent.dragEnter(bin, { dataTransfer: transfer });
+    fireEvent.dragOver(bin, { dataTransfer: transfer });
+
+    expect(transfer.dropEffect).toBe("none");
+    expect(bin.hasAttribute("data-drop-active")).toBe(false);
+
+    dropAt(bin, transfer, 30, 40);
+
+    expect(onImportFiles).not.toHaveBeenCalled();
+  });
+
+  it("are not taken by an icon that is not a folder", () => {
+    const onImportFiles = vi.fn(async () => {});
+    render(<Desktop onActivateEntry={vi.fn()} onImportFiles={onImportFiles} />);
+
+    dropAt(icon("About"), outsideFiles(), 50, 60);
+
+    expect(onImportFiles).toHaveBeenCalledWith(files, { x: 50, y: 60 }, undefined);
   });
 });

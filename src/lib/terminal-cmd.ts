@@ -10,10 +10,12 @@ import {
 import {
   completeShellInput,
   isExecutableName,
+  MAX_OUTPUT_LINES,
   processNumber,
   runShellCommand,
   sanitizeForTerminal,
   stripAnsi,
+  toDisplayPath,
   type CompletionResult,
   type ShellFileSystem,
   type ShellHost,
@@ -21,6 +23,7 @@ import {
   type ShellSession,
   type TerminalAction,
 } from "@/lib/terminal-shell";
+import { DEFAULT_PROMPT_TEMPLATE, expandPromptTemplate, sanitizePromptTemplate } from "@/lib/terminal-prompt";
 import { childrenOf, findChild, PROFILE_ROOT, resolveShellPath, SHELL_HOST, SHELL_USER, toWindowsPath } from "@/lib/windows-path";
 import type { FileSystemRecord, VirtualNode } from "@/types/system";
 
@@ -40,14 +43,35 @@ const FREE_BYTES = 128_849_018_880;
 
 const MAX_LOOP_ITERATIONS = 1000;
 const MAX_LINE_LENGTH = 8191;
+/** Commands one line may run in total, loops inside loops included: a runaway cannot freeze the page. */
+export const MAX_COMMAND_STEPS = 10_000;
+/** Every this many steps the line lets the page breathe, which is when Ctrl+C can be heard. */
+const YIELD_EVERY_STEPS = 250;
 
 /** Errorlevels: 0 worked, 1 failed, 9009 is "not recognized". */
 const OK = 0;
 const FAILED = 1;
 const NOT_RECOGNIZED = 9009;
 
-export function formatCmdPrompt(cwd: string) {
-  return `${sanitizeForTerminal(toWindowsPath(cwd))}>`;
+/** The template PROMPT set for this tab (as `set PROMPT=...` does), or the default $P$G. */
+function promptTemplateOf(session: ShellSession) {
+  const stored = own(session.variables, "prompt");
+  return typeof stored === "string" ? stored : DEFAULT_PROMPT_TEMPLATE;
+}
+
+/** The prompt for a folder: the PROMPT template expanded, `C:\Users\Taaniel>` by default. */
+export function formatCmdPrompt(cwd: string, template: string = DEFAULT_PROMPT_TEMPLATE, now: Date = new Date()) {
+  return expandPromptTemplate(template, {
+    path: toDisplayPath(cwd),
+    date: dateStamp(now),
+    time: timeStamp(now),
+    version: `Taaniel OS [Version ${CMD_VERSION}]`,
+  });
+}
+
+/** What the engine prints before each line, from this tab's own PROMPT. */
+export function getCmdPrompt(session: ShellSession) {
+  return formatCmdPrompt(session.cwd, promptTemplateOf(session));
 }
 
 /** What a new Command Prompt tab prints first. */
@@ -69,6 +93,8 @@ interface CmdCtx {
   stdin: string[] | null;
   /** Whether `echo` with no text reports the command echo as on. */
   echo: boolean;
+  /** Commands run so far by this line, against MAX_COMMAND_STEPS. */
+  steps: number;
 }
 
 type Builtin = (rest: string, ctx: CmdCtx) => Promise<number> | number;
@@ -93,6 +119,10 @@ const pad2 = (value: number) => String(value).padStart(2, "0");
 const dateText = (date: Date) => `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
 const timeText = (date: Date) => `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** %DATE% and $D: Fri 17/10/2026 */
+const dateStamp = (date: Date) => `${WEEKDAYS[date.getDay()]} ${dateText(date)}`;
+/** %TIME% and $T: 09:05:30.12 */
+const timeStamp = (date: Date) => `${timeText(date)}:${pad2(date.getSeconds())}.${pad2(Math.floor(date.getMilliseconds() / 10))}`;
 
 function randomNumber() {
   const buffer = new Uint16Array(1);
@@ -113,9 +143,9 @@ function builtinEnvironment(ctx: CmdCtx): Record<string, string> {
     TEMP: `${PROFILE_ROOT}\\AppData\\Local\\Temp`,
     TMP: `${PROFILE_ROOT}\\AppData\\Local\\Temp`,
     PROMPT: "$P$G",
-    CD: toWindowsPath(ctx.session.cwd),
-    DATE: `${WEEKDAYS[now.getDay()]} ${dateText(now)}`,
-    TIME: `${timeText(now)}:${pad2(now.getSeconds())}.${pad2(Math.floor(now.getMilliseconds() / 10))}`,
+    CD: toDisplayPath(ctx.session.cwd),
+    DATE: dateStamp(now),
+    TIME: timeStamp(now),
     RANDOM: String(randomNumber()),
   };
 }
@@ -305,13 +335,30 @@ const psQuote = (value: string) => `'${value.replace(/'/g, "''")}'`;
 async function viaPowerShell(command: string, ctx: CmdCtx, quiet = false): Promise<boolean> {
   const result = await runShellCommand(command, ctx.session, ctx.fs, ctx.host, ctx.depth + 1);
   if (result.interrupted) throw new InterruptedCmd();
-  if (!quiet || result.success) result.lines.forEach((line) => ctx.lines.push(stripAnsi(line)));
+  // stripAnsi only knows CSI colours; sanitizing removes what is left, OSC sequences included.
+  if (!quiet || result.success) result.lines.forEach((line) => ctx.lines.push(sanitizeForTerminal(stripAnsi(line))));
   ctx.actions.push(...result.actions);
   if (result.clear) ctx.clear = true;
   return result.success;
 }
 
 class InterruptedCmd extends Error {}
+
+/** A line that ran too long or printed too much is stopped; what it printed so far is kept. */
+class LimitReached extends Error {}
+
+/**
+ * Counted before every command a line runs. Past the step budget, or past the output
+ * limit, the line stops. Every so often it waits a moment so the page can answer a
+ * Ctrl+C - without that the whole loop would run before anything could cancel it.
+ */
+async function tick(ctx: CmdCtx) {
+  ctx.steps += 1;
+  if (ctx.steps > MAX_COMMAND_STEPS) throw new LimitReached(`The command was stopped after ${MAX_COMMAND_STEPS} steps.`);
+  if (ctx.lines.length >= MAX_OUTPUT_LINES) throw new LimitReached(`Output stopped after ${MAX_OUTPUT_LINES} lines.`);
+  if (ctx.steps % YIELD_EVERY_STEPS === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  if (ctx.host.signal?.aborted) throw new InterruptedCmd();
+}
 
 /** Commands the PowerShell engine answers as cmd would. */
 const DELEGATED = new Set(["systeminfo", "ping", "curl", "tree"]);
@@ -378,13 +425,107 @@ register(["hostname"], (_rest, ctx) => {
   return OK;
 });
 // Accepted so scripts written for the real thing carry on; they change nothing here.
-register(["rem", "setlocal", "endlocal", "prompt", "mode", "chcp"], () => OK);
+register(["rem", "setlocal", "endlocal", "mode", "chcp"], () => OK);
+
+const PROMPT_HELP = [
+  "Changes the cmd.exe command prompt.",
+  "",
+  "PROMPT [text]",
+  "",
+  "  text    Specifies a new command prompt. With no text, the prompt goes back to $P$G.",
+  "",
+  "Prompt can be made up of normal characters and the following special codes:",
+  "",
+  "  $A   & (Ampersand)",
+  "  $B   | (pipe)",
+  "  $C   ( (Left parenthesis)",
+  "  $D   Current date",
+  "  $E   Escape code (use $E[32m for colour)",
+  "  $F   ) (Right parenthesis)",
+  "  $G   > (greater-than sign)",
+  "  $H   Backspace (erases previous character)",
+  "  $L   < (less-than sign)",
+  "  $N   Current drive",
+  "  $P   Current drive and path",
+  "  $Q   = (equal sign)",
+  "  $S     (space)",
+  "  $T   Current time",
+  "  $V   Version",
+  "  $_   Carriage return and linefeed",
+  "  $$   $ (dollar sign)",
+];
+
+register(["prompt"], (rest, ctx) => {
+  const text = rest.trim();
+  if (text === "/?") {
+    say(ctx, ...PROMPT_HELP);
+    return OK;
+  }
+  // No text puts the default back; anything else is kept (cleaned and capped) for this tab, as PROMPT does.
+  if (!text) delete ctx.session.variables.prompt;
+  else ctx.session.variables.prompt = sanitizePromptTemplate(text);
+  return OK;
+});
 register(["pause"], (_rest, ctx) => {
   say(ctx, "Press any key to continue . . .");
   return OK;
 });
-register(["color"], (_rest, ctx) => {
-  say(ctx, "Colours come from the terminal's colour scheme here. Press Ctrl+, to change it.");
+const COLOR_HELP = [
+  "Sets the default console foreground and background colors.",
+  "",
+  "COLOR [attr]",
+  "",
+  "  attr        Specifies color attribute of console output",
+  "",
+  "Color attributes are specified by TWO hex digits -- the first",
+  "corresponds to the background; the second the foreground.  Each digit",
+  "can be any of the following values:",
+  "",
+  "    0 = Black       8 = Gray",
+  "    1 = Blue        9 = Light Blue",
+  "    2 = Green       A = Light Green",
+  "    3 = Aqua        B = Light Aqua",
+  "    4 = Red         C = Light Red",
+  "    5 = Purple      D = Light Purple",
+  "    6 = Yellow      E = Light Yellow",
+  "    7 = White       F = Bright White",
+  "",
+  "If no argument is given, this command restores the color to what it was",
+  "before. One digit sets the foreground on a black background.",
+  "",
+  "The COLOR command sets ERRORLEVEL to 1 if an attempt is made to execute",
+  "the COLOR command with a foreground and background color that are the",
+  "same.",
+  "",
+  "Example: COLOR fc   produces light red on bright white",
+];
+
+/** cmd names its 16 colours 0-F in a different order from the ANSI palette: this is where each one is drawn. */
+const CMD_COLOR_TO_ANSI = [0, 4, 2, 6, 1, 5, 3, 7, 8, 12, 10, 14, 9, 13, 11, 15];
+
+register(["color"], (rest, ctx) => {
+  const text = rest.trim();
+  if (text === "/?") {
+    say(ctx, ...COLOR_HELP);
+    return OK;
+  }
+  if (!text) {
+    ctx.actions.push({ type: "reset-colors" });
+    return OK;
+  }
+  const match = /^([0-9a-f])([0-9a-f])?$/i.exec(text);
+  if (!match) {
+    say(ctx, ...COLOR_HELP);
+    return FAILED;
+  }
+  const [background, foreground] = match[2] ? [match[1], match[2]] : ["0", match[1]];
+  // The same colour for both would make the text vanish: cmd refuses and sets the errorlevel.
+  if (background.toLowerCase() === foreground.toLowerCase()) return FAILED;
+  ctx.actions.push({
+    type: "set-colors",
+    foreground: CMD_COLOR_TO_ANSI[parseInt(foreground, 16)],
+    background: CMD_COLOR_TO_ANSI[parseInt(background, 16)],
+  });
   return OK;
 });
 
@@ -954,6 +1095,7 @@ register(["ipconfig"], (_rest, ctx) => {
 const HELP: Record<string, string> = {
   cd: "Displays the name of or changes the current directory.",
   cls: "Clears the screen.",
+  color: "Sets the text and background colours: COLOR 0A. COLOR alone restores them.",
   copy: "Copies files to another location. Add /y to overwrite.",
   date: "Displays the date: DATE /T.",
   del: "Deletes files (they go to the Recycle Bin).",
@@ -969,6 +1111,7 @@ const HELP: Record<string, string> = {
   more: "Displays the contents of a file or piped output.",
   move: "Moves files or directories.",
   popd: "Returns to the directory saved by PUSHD.",
+  prompt: "Changes the command prompt: PROMPT $P$G. PROMPT /? lists the codes.",
   pushd: "Saves the current directory, then changes it.",
   ren: "Renames a file or directory.",
   rmdir: "Removes a directory. RMDIR /S /Q removes it and what it holds.",
@@ -1088,6 +1231,7 @@ register(["for"], async (rest, ctx) => {
 
 /** One command: a built-in, something the PowerShell engine answers, a script, a document, or nothing. */
 async function runSimple(text: string, stdin: string[] | null, ctx: CmdCtx): Promise<{ code: number; lines: string[] }> {
+  await tick(ctx);
   const { command, redirects } = extractRedirects(text.replace(/^\s*@/, ""));
   const firstWord = command.split(/\s+/)[0] ?? "";
   const before = ctx.lines.length;
@@ -1205,15 +1349,22 @@ export async function runCmdCommand(
   host: ShellHost = {},
   depth = 0
 ): Promise<ShellResult> {
-  const ctx: CmdCtx = { session, fs, host, depth, lines: [], actions: [], clear: false, stdin: null, echo: true };
+  const ctx: CmdCtx = { session, fs, host, depth, lines: [], actions: [], clear: false, stdin: null, echo: true, steps: 0 };
   const line = input.trim().slice(0, MAX_LINE_LENGTH);
+
+  // A single command (type on a huge file) can print more than the limit at once.
+  const capped = (lines: string[]) =>
+    lines.length <= MAX_OUTPUT_LINES ? lines : [...lines.slice(0, MAX_OUTPUT_LINES), `Output stopped after ${MAX_OUTPUT_LINES} lines.`];
 
   try {
     if (host.signal?.aborted) throw new InterruptedCmd();
     const code = line ? await executeLine(line, ctx) : OK;
-    return { lines: ctx.lines, clear: ctx.clear, actions: ctx.actions, success: code === OK };
+    return { lines: capped(ctx.lines), clear: ctx.clear, actions: ctx.actions, success: code === OK };
   } catch (error) {
     if (error instanceof InterruptedCmd) return { lines: [], clear: false, actions: [], success: false, interrupted: true };
+    if (error instanceof LimitReached) {
+      return { lines: [...capped(ctx.lines), error.message], clear: ctx.clear, actions: ctx.actions, success: false };
+    }
     throw error;
   }
 }
@@ -1225,7 +1376,8 @@ const COMMAND_NAMES = () =>
 
 /** Tab completion: command names first, then paths. Commands are separated by & and |. */
 export function completeCmdInput(line: string, cursor: number, session: ShellSession, nodes: FileSystemRecord): CompletionResult {
-  return completeShellInput(line, cursor, session, nodes, { commands: COMMAND_NAMES(), separators: "|&" });
+  // cmd quotes with " only (a ' is just a character), and its options look like /s, not -Name.
+  return completeShellInput(line, cursor, session, nodes, { commands: COMMAND_NAMES(), separators: "|&", quotes: '"', parameters: false });
 }
 
 /** The Command Prompt does not colour what is typed. */

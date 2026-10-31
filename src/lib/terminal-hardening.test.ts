@@ -16,10 +16,12 @@ import {
   MAX_OUTPUT_LINES,
   runShellCommand,
   stripAnsi,
+  toDisplayPath,
   type ShellFileSystem,
   type ShellHost,
   type ShellSession,
 } from "@/lib/terminal-shell";
+import { formatCmdPrompt, runCmdCommand } from "@/lib/terminal-cmd";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 
 const fileSystem: ShellFileSystem = {
@@ -139,12 +141,96 @@ describe("output and prompt", () => {
   });
 });
 
+/** A folder named like a terminal command: legal on Linux and macOS disks, so imports can bring it in. */
+const EVIL = "evil\x1b[2J\x1b]8;;javascript:alert(1)\x07link\x1b]8;;\x07";
+
+function plantEvilFolder() {
+  const nodes = { ...useFileSystemStore.getState().nodes };
+  const path = `/Desktop/${EVIL}`;
+  nodes[path] = { kind: "directory", path, name: EVIL, createdAt: 1, updatedAt: 1 };
+  const file = `${path}/note.txt`;
+  nodes[file] = { kind: "file", path: file, name: "note.txt", createdAt: 1, updatedAt: 1, mimeType: "text/plain", extension: "txt", content: "hi there" };
+  useFileSystemStore.setState({ nodes });
+  return path;
+}
+
+/** What the screen would receive, minus the shell's own colours: no escape sequence from a name may survive. */
+function expectNoInjectedSequences(lines: string[]) {
+  const raw = lines.join("\n");
+  expect(raw).not.toContain("\x1b[2J");
+  expect(raw).not.toContain("\x1b]");
+  expect(raw).not.toContain("\x07");
+  expect(raw).not.toContain("javascript:alert(1)\x07");
+}
+
+describe("every printed path is sanitized", () => {
+  it("keeps control characters out of toDisplayPath", () => {
+    expect(toDisplayPath("/a\x1b[2Jb/c\td\ne")).toBe("C:\\Users\\Taaniel\\a[2Jb\\cde");
+  });
+
+  it("covers the directory header, pwd, tree, Get-Item, Get-FileHash and sls", async () => {
+    const path = plantEvilFolder();
+    session.cwd = path;
+    for (const command of ["ls", "ls .", "pwd", "Get-Location", "tree /F", "gi note.txt", "Get-Item .", "Get-FileHash note.txt", "ls | fl", "$PWD", "$env:PWD"]) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await runShellCommand(command, session, fileSystem, {});
+      expectNoInjectedSequences(result.lines);
+    }
+    session.cwd = "/Desktop";
+    for (const command of [`sls hi -Path '${EVIL}'`, "ls -Recurse", "ls -Recurse | ft FullName", "ls | select FullName"]) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await runShellCommand(command, session, fileSystem, {});
+      expectNoInjectedSequences(result.lines);
+    }
+  });
+
+  it("keeps the prompt of the Command Prompt clean, and what it borrows from PowerShell", async () => {
+    const path = plantEvilFolder();
+    session.cwd = path;
+    expectNoInjectedSequences([formatCmdPrompt(path)]);
+    for (const command of ["dir", "cd", "tree /f", "echo %CD%", "type note.txt"]) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await runCmdCommand(command, session, fileSystem, {});
+      expectNoInjectedSequences(result.lines);
+    }
+  });
+
+  it("never offers a name with control characters to tab completion", () => {
+    const path = plantEvilFolder();
+    const nodes = useFileSystemStore.getState().nodes;
+    expect(path in nodes).toBe(true);
+    expect(completeShellInput("cd evi", 6, session, nodes)).toMatchObject({ line: "cd evi", candidates: [] });
+  });
+});
+
 describe("tabs", () => {
-  it("opens a PowerShell or Command Prompt tab for pwsh, powershell and cmd", async () => {
-    expect((await run("pwsh")).actions).toEqual([{ type: "open-tab", profile: "pwsh", directoryPath: undefined }]);
-    expect((await run("powershell.exe")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
-    expect((await run("cmd")).actions[0]).toMatchObject({ type: "open-tab", profile: "cmd" });
+  it("starts a shell inside this one for pwsh, powershell and cmd, and a tab for Start-Process", async () => {
+    expect((await run("pwsh")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+    expect((await run("powershell.exe")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+    expect((await run("cmd")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+    expect((await run("& cmd")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+    // A new window, as Start-Process always makes, is a new tab here.
     expect((await run("Start-Process cmd")).actions[0]).toMatchObject({ type: "open-tab", profile: "cmd" });
+    expect((await run("start pwsh")).actions[0]).toMatchObject({ type: "open-tab", profile: "pwsh" });
+  });
+
+  it("runs the command of cmd /c and pwsh -Command, and stays for /k and -NoExit", async () => {
+    expect((await run("cmd /c dir")).actions).toEqual([{ type: "enter-shell", profile: "cmd", command: "dir", keep: false }]);
+    expect((await run("cmd /C echo hi there")).actions[0]).toMatchObject({ command: "echo hi there", keep: false });
+    expect((await run("cmd /k echo hi")).actions).toEqual([{ type: "enter-shell", profile: "cmd", command: "echo hi", keep: true }]);
+    expect((await run("cmd /q /d")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+    expect((await run("cmd /c")).actions).toEqual([{ type: "enter-shell", profile: "cmd" }]);
+
+    expect((await run("pwsh -Command Get-Date")).actions).toEqual([{ type: "enter-shell", profile: "pwsh", command: "Get-Date", keep: false }]);
+    expect((await run("pwsh -NoLogo -NoProfile -c 'echo hi'")).actions[0]).toMatchObject({ command: "echo hi", keep: false });
+    expect((await run("powershell -ExecutionPolicy Bypass -Command ls")).actions[0]).toMatchObject({ command: "ls" });
+    expect((await run("pwsh -NoExit -Command echo hi")).actions[0]).toMatchObject({ command: "echo hi", keep: true });
+    expect((await run("pwsh -NoLogo")).actions).toEqual([{ type: "enter-shell", profile: "pwsh" }]);
+  });
+
+  it("runs a script file for pwsh -File, quoting what it is given", async () => {
+    expect((await run("pwsh -File build.ps1 'a b'")).actions[0]).toMatchObject({ command: "& 'build.ps1' 'a b'", keep: false });
+    expect((await run(`pwsh -File "it's.ps1"`)).actions[0]).toMatchObject({ command: "& 'it''s.ps1'" });
   });
 
   it("reads Windows Terminal's -p and -d options", async () => {

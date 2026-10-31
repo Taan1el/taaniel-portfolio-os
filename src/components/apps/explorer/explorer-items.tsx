@@ -36,10 +36,19 @@ export interface ExplorerItemProps extends ExplorerItemHandlers {
   dragSource: boolean;
   /** Showing the Recycle Bin: Details shows original location and date deleted. */
   recycleBin?: boolean;
+  /** Showing the Recycle Bin or a folder in it: deleted items take no drops of their own. */
+  inTrash?: boolean;
 }
 
-/** Folders take drops, and so do shortcuts that run an app (the file opens in that app). */
-function getItemDropProps(node: FileNode, windowId: string) {
+/**
+ * Folders take drops, and so do shortcuts that run an app (the file opens in that app).
+ * Nothing in the Recycle Bin does: a drop there is a delete, and a deleted folder is no place to spring open.
+ */
+function getItemDropProps(node: FileNode, windowId: string, inTrash?: boolean) {
+  if (inTrash) {
+    return {};
+  }
+
   if (node.type === "folder") {
     return folderDropProps(node.path, { windowId, spring: true });
   }
@@ -54,6 +63,7 @@ export const ExplorerGridItem = memo(function ExplorerGridItem({
   renaming,
   cut,
   dragSource,
+  inTrash,
   onOpen,
   onPointerDown,
   onContextMenu,
@@ -83,7 +93,7 @@ export const ExplorerGridItem = memo(function ExplorerGridItem({
       aria-label={label}
       tabIndex={-1}
       title={label}
-      {...getItemDropProps(node, windowId)}
+      {...getItemDropProps(node, windowId, inTrash)}
       onPointerDown={(event) => onPointerDown(node, event)}
       // The press already did the selecting; this only keeps the click from reaching the background.
       onClick={(event) => event.stopPropagation()}
@@ -130,6 +140,7 @@ export const ExplorerListItem = memo(function ExplorerListItem({
   cut,
   dragSource,
   recycleBin,
+  inTrash,
   onOpen,
   onPointerDown,
   onContextMenu,
@@ -155,7 +166,7 @@ export const ExplorerListItem = memo(function ExplorerListItem({
       aria-label={label}
       tabIndex={-1}
       title={label}
-      {...getItemDropProps(node, windowId)}
+      {...getItemDropProps(node, windowId, inTrash)}
       onPointerDown={(event) => onPointerDown(node, event)}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => {

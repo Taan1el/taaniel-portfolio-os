@@ -4,13 +4,13 @@ import { AppContent, AppScaffold } from "@/components/apps/app-layout";
 import { TerminalFindBar } from "@/components/apps/terminal/terminal-find-bar";
 import { TerminalMenu, type TerminalMenuItem } from "@/components/apps/terminal/terminal-menu";
 import { TerminalPasteDialog } from "@/components/apps/terminal/terminal-paste-dialog";
-import { TerminalPane, type TerminalPaneEvents, type TerminalPaneHandle } from "@/components/apps/terminal/terminal-pane";
-import type { PasteRequest } from "@/components/apps/terminal/terminal-session";
+import { TerminalPane, type TabPasteRequest, type TerminalPaneEvents, type TerminalPaneHandle } from "@/components/apps/terminal/terminal-pane";
 import { TerminalSettingsPanel } from "@/components/apps/terminal/terminal-settings-panel";
 import { openFileSystemPath } from "@/lib/launchers";
-import { buildAppearance, prefersReducedMotion } from "@/lib/terminal-appearance";
+import { buildAppearance, prefersReducedMotion, type TerminalAppearance } from "@/lib/terminal-appearance";
 import { classifyTerminalKey, type TerminalCommand } from "@/lib/terminal-keys";
 import { isShellProfileId, resolveLaunchProfile, terminalProfiles, type TerminalProfileId } from "@/lib/terminal-profiles";
+import { getIsNetworkBlocked } from "@/stores/device-store";
 import { LINUX_LAUNCH_MESSAGE, TERMINAL_HOME_PATH, type ShellFileSystem, type ShellHost, type TerminalAction } from "@/lib/terminal-shell";
 import {
   activateTab,
@@ -26,14 +26,17 @@ import {
   MAX_TABS,
   neighbourTabId,
   renameTab,
+  tabFontSize,
+  zoomTab,
   type TabsState,
   type TerminalTab,
 } from "@/lib/terminal-tabs";
 import { cn } from "@/lib/utils";
+import "@/styles/win11-terminal.css";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
-import { DEFAULT_TERMINAL_SETTINGS, useTerminalSettingsStore } from "@/stores/terminal-settings-store";
+import { useTerminalSettingsStore } from "@/stores/terminal-settings-store";
 import { useWindowStore } from "@/stores/window-store";
 import type { AppComponentProps, WindowPayload } from "@/types/system";
 
@@ -114,7 +117,9 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   const idPrefix = useId();
   const launchApp = useSystemStore((state) => state.launchApp);
   const closeWindow = useSystemStore((state) => state.closeWindow);
+  const focusWindow = useSystemStore((state) => state.focusWindow);
   const windowId = appWindow.id;
+  const processId = appWindow.processId;
   const payload = appWindow.payload;
 
   const [{ tabs, activeId }, setTabsState] = useState<TabsState>(() => initialTabs(payload));
@@ -127,7 +132,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
   const [findFocus, setFindFocus] = useState(0);
   const [searchResult, setSearchResult] = useState<{ index: number; count: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [pasteRequest, setPasteRequest] = useState<PasteRequest | null>(null);
+  const [pasteRequest, setPasteRequest] = useState<TabPasteRequest | null>(null);
+  /** The paste dialog is modal: while it is open the app's own shortcuts do nothing. */
+  const pasteOpen = useRef(false);
+  pasteOpen.current = pasteRequest !== null;
   const [notice, setNotice] = useState("");
 
   const settings = useTerminalSettingsStore();
@@ -139,12 +147,29 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     [settings.schemeId, settings.fontSize, settings.cursorShape, settings.cursorBlink, settings.screenReaderMode, settings.improveContrast, reducedMotion]
   );
 
+  // Each tab's text size is the configured one moved by that tab's own zoom, so one appearance object per size:
+  // a screen is restyled only when its size or the settings really change.
+  const appearanceFor = useMemo(() => {
+    const bySize = new Map<number, TerminalAppearance>();
+    return (tab: TerminalTab) => {
+      const size = tabFontSize(appearance.fontSize, tab);
+      if (size === appearance.fontSize) return appearance;
+      const known = bySize.get(size);
+      if (known) return known;
+      const created = { ...appearance, fontSize: size };
+      bySize.set(size, created);
+      return created;
+    };
+  }, [appearance]);
+
   const handles = useRef<Record<string, TerminalPaneHandle | null>>({});
   /** Where focus goes once the next render has put the right tab in front. */
   const focusTarget = useRef<"terminal" | "tab" | null>("terminal");
   /** Brings focus back to whatever opened a menu, the find box or the settings. */
   const restoreFocus = useRef<(() => void) | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
+  /** The last thing inside the app that had focus, for when the window is brought back to the front. */
+  const lastFocus = useRef<HTMLElement | null>(null);
 
   const panelId = (id: string) => `${idPrefix}-panel-${id}`;
   const tabDomId = (id: string) => `${idPrefix}-tab-${id}`;
@@ -181,18 +206,30 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       readClipboard: () => navigator.clipboard.readText(),
       writeClipboard: (text) => navigator.clipboard.writeText(text),
       // The browser's own online state. The system tray's offline switch replaces this when it exists.
-      isOffline: () => typeof navigator !== "undefined" && navigator.onLine === false,
+      isOffline: getIsNetworkBlocked,
     }),
     [closeWindow]
   );
 
   // ----------------------------------------------------------------------- tabs
 
+  /** One Virtual x86 window is enough: asking again brings the open one to the front. */
+  const openLinux = useCallback(
+    (say = true) => {
+      const processes = useProcessStore.getState().processes;
+      const open = useWindowStore.getState().windows.find((entry) => processes.some((process) => process.id === entry.processId && process.appId === "v86"));
+      if (open) focusWindow(open.id);
+      else launchApp({ appId: "v86" });
+      // The shell prints this itself when `wsl` was typed; a menu or jump list has nowhere else to say it.
+      if (say) announce(LINUX_LAUNCH_MESSAGE.join(" "));
+    },
+    [announce, focusWindow, launchApp]
+  );
+
   const openTab = useCallback(
     (profileId: TerminalProfileId, startPath?: string) => {
       if (profileId === "linux") {
-        launchApp({ appId: "v86" });
-        announce(LINUX_LAUNCH_MESSAGE.join(" "));
+        openLinux();
         return;
       }
       if (!canAddTab(stateRef.current)) {
@@ -202,7 +239,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       focusTarget.current = "terminal";
       setTabsState((state) => addTab(state, createTab(createTabId(), profileId, startPath ?? TERMINAL_HOME_PATH)));
     },
-    [announce, launchApp]
+    [announce, openLinux]
   );
 
   const openDefaultTab = useCallback(() => openTab(useTerminalSettingsStore.getState().defaultProfile), [openTab]);
@@ -250,28 +287,40 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     [focusTerminal, showTab]
   );
 
-  // A launch while the terminal is open (a jump list item, "Open in Terminal") arrives as a changed payload.
+  // A launch request arrives as the window's payload: the one it was opened with, and later a changed one
+  // (a jump list item, "Open in Terminal"). Each request is acted on once and then spent: the payload is
+  // cleared, so a reload - which restores the payload - cannot act on it again (it would open another
+  // Virtual x86 window each time), and asking for the same thing twice is a change both times.
   const launchSignature = `${payload?.profile ?? ""}|${payload?.directoryPath ?? ""}|${payload?.launchNonce ?? ""}`;
-  const handledLaunch = useRef(launchSignature);
-  const startedLinux = useRef(false);
+  const handledLaunch = useRef<string | null>(null);
   useEffect(() => {
-    // The first payload built the first tab; a request for Linux on top of that still opens the emulator, once.
-    if (!startedLinux.current && resolveLaunchProfile(payload?.profile) === "linux") {
-      startedLinux.current = true;
-      openTab("linux");
-    }
     if (handledLaunch.current === launchSignature) return;
+    const isFirst = handledLaunch.current === null;
     handledLaunch.current = launchSignature;
     if (launchSignature === "||") return;
 
     const requested = resolveLaunchProfile(payload?.profile);
-    if (requested === "linux") {
-      openTab("linux");
-      return;
-    }
-    openTab(requested ?? useTerminalSettingsStore.getState().defaultProfile, validDirectory(payload?.directoryPath));
+    if (requested === "linux") openTab("linux");
+    // The first request already made the first tab, in its profile and folder.
+    else if (!isFirst) openTab(requested ?? useTerminalSettingsStore.getState().defaultProfile, validDirectory(payload?.directoryPath));
+    useProcessStore.getState().updateProcess(processId, { launchPayload: {} });
     // The payload is read through the signature: only a real change in it opens a tab.
   }, [launchSignature]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Bringing the window to the front (Alt+], the taskbar) or restoring it from minimized would leave focus on the
+  // taskbar or the window before it, and typing would go nowhere. Put it back where it was in here - the find box,
+  // the settings - or in the terminal, unless focus is already somewhere inside the app.
+  useEffect(() => {
+    if (!appWindow.focused || appWindow.minimized) return;
+    const root = rootRef.current;
+    if (!root || root.contains(document.activeElement)) return;
+    const remembered = lastFocus.current;
+    // A screen is never "remembered": the active one is found again, as a hidden tab's screen cannot take focus.
+    if (remembered?.isConnected && root.contains(remembered) && !remembered.closest(".terminal-pane")) {
+      remembered.focus();
+      if (document.activeElement === remembered) return;
+    }
+    focusTerminal();
+  }, [appWindow.focused, appWindow.minimized, focusTerminal]);
 
   // After a render that changed the active tab, put focus where the person's action meant it to go.
   useEffect(() => {
@@ -283,6 +332,11 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
     else document.getElementById(tabDomId(activeId))?.focus();
     // tabDomId only depends on idPrefix, which never changes.
   }, [activeId, tabs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A paste waiting for confirmation belongs to a tab: if that tab closes, there is nothing to paste into.
+  useEffect(() => {
+    if (pasteRequest && !tabs.some((tab) => tab.id === pasteRequest.tabId)) setPasteRequest(null);
+  }, [pasteRequest, tabs]);
 
   // ----------------------------------------------------------------------- actions
 
@@ -299,11 +353,14 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
         openTab(action.profile ?? useTerminalSettingsStore.getState().defaultProfile, from);
       } else if (action.type === "set-title") {
         setTabsState((state) => renameTab(state, tabId, action.title));
-      } else {
-        launchApp({ appId: action.appId, payload: action.payload, title: action.title });
+      } else if (action.type === "launch-app") {
+        // `wsl` and `bash` too: the emulator is opened once, and asking again brings it forward.
+        if (action.appId === "v86" && !action.payload) openLinux(false);
+        else launchApp({ appId: action.appId, payload: action.payload, title: action.title });
       }
+      // set-colors and reset-colors are the screen's own business: the tab's session applies them.
     },
-    [closeTabById, launchApp, openTab]
+    [closeTabById, launchApp, openLinux, openTab]
   );
 
   const openMenu = useCallback(
@@ -350,6 +407,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
   const runCommand = useCallback(
     (command: TerminalCommand) => {
+      if (pasteOpen.current) return;
       switch (command.type) {
         case "new-tab":
           openDefaultTab();
@@ -386,12 +444,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
         case "settings":
           openSettings();
           break;
-        case "zoom": {
-          const store = useTerminalSettingsStore.getState();
-          if (command.delta === 0) store.update({ fontSize: DEFAULT_TERMINAL_SETTINGS.fontSize });
-          else store.changeFontSize(command.delta);
+        case "zoom":
+          // This tab only, and not saved: the configured size changes in Settings, and Ctrl+0 returns to it.
+          setTabsState((state) => zoomTab(state, state.activeId, command.delta, useTerminalSettingsStore.getState().fontSize));
           break;
-        }
         case "move-focus":
           moveFocus();
           break;
@@ -405,7 +461,8 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
   // Keys pressed while focus is on the tab strip or a button rather than in a screen.
   const handleRootKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.defaultPrevented) return;
+    // Under a modal dialog a tab switch or a new tab would happen behind it, with focus pulled out of it.
+    if (event.defaultPrevented || pasteRequest) return;
     const decision = classifyTerminalKey(event.nativeEvent, { hasSelection: false });
     if (decision?.kind !== "command" || !APP_COMMANDS.has(decision.command.type)) return;
     event.preventDefault();
@@ -514,6 +571,9 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
       ref={rootRef}
       style={{ "--terminal-bg": appearance.theme.background, "--terminal-fg": appearance.theme.foreground } as CSSProperties}
       onKeyDown={handleRootKeyDown}
+      onFocus={(event) => {
+        lastFocus.current = event.target instanceof HTMLElement ? event.target : null;
+      }}
     >
       <div className="w11-terminal__chrome">
         <div
@@ -609,7 +669,7 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
             profileId={tab.profileId}
             startPath={tab.startPath}
             active={tab.id === activeId}
-            appearance={appearance}
+            appearance={appearanceFor(tab)}
             ariaLabel={`${tab.title} terminal input`}
             fileSystem={fileSystem}
             host={host}
@@ -634,11 +694,10 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
 
         {settingsOpen ? <TerminalSettingsPanel reducedMotion={reducedMotion} onClose={closeSettings} /> : null}
 
-        {notice ? (
-          <div role="status" className="w11-terminal__notice">
-            {notice}
-          </div>
-        ) : null}
+        {/* Always in the page, so a screen reader is already watching it when a message arrives in it. */}
+        <div role="status" className="w11-terminal__notice">
+          {notice}
+        </div>
       </AppContent>
 
       {menu ? (
@@ -649,7 +708,8 @@ export function TerminalApp({ window: appWindow }: AppComponentProps) {
         <TerminalPasteDialog
           request={pasteRequest}
           onConfirm={() => {
-            handles.current[activeId]?.pasteText(pasteRequest.text);
+            // Into the tab that asked, which may be gone by now.
+            handles.current[pasteRequest.tabId]?.pasteText(pasteRequest.text);
             setPasteRequest(null);
           }}
           onCancel={() => {

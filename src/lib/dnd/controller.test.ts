@@ -120,11 +120,31 @@ describe("mouse drags", () => {
     expect(useDragStore.getState().session?.plan).toMatchObject({ kind: "transfer", label: "Move to Documents" });
 
     pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0 });
-    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", { x: 40, y: 40 });
+    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", { x: 40, y: 40 }, undefined);
     expect(target.hasAttribute("data-drop-active")).toBe(false);
     expect(isFileDragActive()).toBe(false);
     expect(useDragStore.getState().session).toBeNull();
     expect(document.body.classList.contains("is-file-dragging")).toBe(false);
+  });
+
+  it("tells the environment whether the drop landed on the desktop itself", () => {
+    nodes["/Documents/a.txt"] = file("/Documents/a.txt");
+    const drop = (props: Record<string, string | undefined>) => {
+      env.transfer.mockClear();
+      underPointer = [zone(props)];
+      press({ items: ["/Documents/a.txt"] });
+      pointer("pointermove", { clientX: 40, clientY: 40 });
+      pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0 });
+    };
+
+    drop(folderDropProps("/Desktop", { surface: "desktop" }));
+    expect(env.transfer).toHaveBeenCalledWith(["/Documents/a.txt"], "/Desktop", "move", { x: 40, y: 40 }, "desktop");
+
+    // Explorer's sidebar, a breadcrumb or a window showing the Desktop folder are not the desktop surface.
+    drop(folderDropProps("/Desktop", { windowId: "files-1" }));
+    expect(env.transfer).toHaveBeenCalledWith(["/Documents/a.txt"], "/Desktop", "move", { x: 40, y: 40 }, undefined);
+
+    delete nodes["/Documents/a.txt"];
   });
 
   it("copies when Ctrl is held on release", () => {
@@ -134,7 +154,7 @@ describe("mouse drags", () => {
     pointer("pointermove", { clientX: 40, clientY: 40 });
     pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0, ctrlKey: true });
 
-    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "copy", expect.anything());
+    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "copy", expect.anything(), undefined);
   });
 
   it("switches to creating links when Alt goes down mid-drag", () => {
@@ -145,6 +165,29 @@ describe("mouse drags", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true, bubbles: true }));
 
     expect(useDragStore.getState().session?.plan).toMatchObject({ operation: "link", label: "Create link in Documents" });
+  });
+
+  it("drops nothing on a flyout or an element marked data-dnd-barrier, even over the desktop", () => {
+    const desktop = zone(folderDropProps("/Desktop", { surface: "desktop" }));
+    nodes["/Documents/b.txt"] = file("/Documents/b.txt");
+    const flyout = document.createElement("div");
+    flyout.className = "w11-flyout";
+    const marked = zone({ "data-dnd-barrier": "true" });
+    document.body.append(flyout);
+
+    for (const barrier of [flyout, marked]) {
+      underPointer = [barrier, desktop];
+      press({ items: ["/Documents/b.txt"] });
+      pointer("pointermove", { clientX: 40, clientY: 40 });
+
+      expect(useDragStore.getState().session).toMatchObject({ plan: { kind: "none" }, overZone: false });
+      expect(desktop.hasAttribute("data-drop-active")).toBe(false);
+
+      pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0 });
+      expect(env.transfer).not.toHaveBeenCalled();
+    }
+
+    delete nodes["/Documents/b.txt"];
   });
 
   it("does nothing on release over empty space", () => {
@@ -194,12 +237,85 @@ describe("right-button drags", () => {
     pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0, button: 2 });
 
     expect(env.transfer).not.toHaveBeenCalled();
-    expect(env.chooseOperation).toHaveBeenCalledWith({
+    expect(env.chooseOperation).toHaveBeenCalledTimes(1);
+    expect(env.chooseOperation.mock.calls[0][0]).toMatchObject({
       x: 40,
       y: 40,
-      destination: "/Documents",
-      paths: ["/Desktop/todo.txt"],
+      choices: [
+        { id: "move", label: "Move here", disabled: false },
+        { id: "copy", label: "Copy here", disabled: false },
+        { id: "link", label: "Create shortcuts here", disabled: false },
+      ],
     });
+  });
+
+  it("carries out the entry that gets picked, as released", () => {
+    underPointer = [zone(folderDropProps("/Documents"))];
+
+    press({ button: 2 });
+    pointer("pointermove", { clientX: 40, clientY: 40, buttons: 2 });
+    pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0, button: 2 });
+
+    const { choices } = env.chooseOperation.mock.calls[0][0] as { choices: Array<{ id: string; run: () => void }> };
+    choices.find((choice) => choice.id === "copy")?.run();
+
+    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "copy", { x: 40, y: 40 }, undefined);
+  });
+
+  it("dims the entries that can't be chosen and runs nothing for them", () => {
+    underPointer = [zone(folderDropProps("/Desktop"))];
+
+    press({ button: 2 });
+    pointer("pointermove", { clientX: 40, clientY: 40, buttons: 2 });
+    pointer("pointerup", { clientX: 40, clientY: 40, buttons: 0, button: 2 });
+
+    const { choices } = env.chooseOperation.mock.calls[0][0] as { choices: Array<{ id: string; disabled: boolean; run: () => void }> };
+    const move = choices.find((choice) => choice.id === "move");
+
+    // todo.txt already lives in /Desktop, so moving it there is not on offer.
+    expect(move?.disabled).toBe(true);
+    move?.run();
+    expect(env.transfer).not.toHaveBeenCalled();
+  });
+
+  it("asks about repositioning on the desktop too, and does it when Move here is picked", () => {
+    underPointer = [zone(folderDropProps("/Desktop", { surface: "desktop" }))];
+
+    armFileDrag({
+      event: { clientX: 10, clientY: 10, pointerId: 1, pointerType: "mouse", button: 2, ctrlKey: false, shiftKey: false, altKey: false },
+      items: [{ id: "desktop-node:/Desktop/todo.txt", path: "/Desktop/todo.txt" }],
+      origin: "desktop",
+      grab: { x: 4, y: 6 },
+    });
+    pointer("pointermove", { clientX: 200, clientY: 120, buttons: 2 });
+    pointer("pointerup", { clientX: 200, clientY: 120, buttons: 0, button: 2 });
+
+    expect(env.reposition).not.toHaveBeenCalled();
+    const { choices } = env.chooseOperation.mock.calls[0][0] as { choices: Array<{ id: string; run: () => void }> };
+    choices.find((choice) => choice.id === "move")?.run();
+
+    expect(env.reposition).toHaveBeenCalledWith({
+      items: [{ id: "desktop-node:/Desktop/todo.txt", path: "/Desktop/todo.txt" }],
+      x: 200,
+      y: 120,
+      grab: { x: 4, y: 6 },
+    });
+  });
+
+  it("does not light up the desktop for a right-button drag that only moves icons about", () => {
+    const surface = zone(folderDropProps("/Desktop", { surface: "desktop" }));
+    underPointer = [surface];
+
+    // Only the Recycle Bin icon (no path): the one thing it can do on the desktop is move.
+    armFileDrag({
+      event: { clientX: 10, clientY: 10, pointerId: 1, pointerType: "mouse", button: 2, ctrlKey: false, shiftKey: false, altKey: false },
+      items: [{ id: "system:recycle-bin" }],
+      origin: "desktop",
+    });
+    pointer("pointermove", { clientX: 200, clientY: 120, buttons: 2 });
+
+    expect(useDragStore.getState().session?.plan.kind).toBe("choose");
+    expect(surface.hasAttribute("data-drop-active")).toBe(false);
   });
 
   it("swallows the context menu the browser opens on release", () => {
@@ -236,7 +352,7 @@ describe("touch drags", () => {
 
     pointer("pointermove", { pointerType: "touch", clientX: 60, clientY: 60 });
     pointer("pointerup", { pointerType: "touch", clientX: 60, clientY: 60, buttons: 0 });
-    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", expect.anything());
+    expect(env.transfer).toHaveBeenCalledWith(["/Desktop/todo.txt"], "/Documents", "move", expect.anything(), undefined);
   });
 
   it("open the context menu when held and lifted without moving", () => {

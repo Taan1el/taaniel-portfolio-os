@@ -11,13 +11,13 @@ import {
   Settings,
   Trash2,
 } from "lucide-react";
-import { getDesktopNodeId, getDesktopNodePath } from "@/data/desktop-seed";
+import { DESKTOP_PATH, getDesktopNodeId, getDesktopNodePath } from "@/data/desktop-seed";
 import { themePresets } from "@/data/portfolio";
 import { resolveDesktopWallpaper } from "@/data/wallpapers";
 import { getContextMenuPoint } from "@/lib/context-menu-point";
 import { createDesktopFolder, createDesktopTextDocument } from "@/lib/desktop-actions";
 import { placeArrivalsOnDesktop } from "@/lib/dnd/desktop-placement";
-import { pasteIntoFolder } from "@/lib/file-actions";
+import { emptyRecycleBin, pasteIntoFolder } from "@/lib/file-actions";
 import { buildFileMenu } from "@/lib/file-menu";
 import { toggleDocumentFullscreen } from "@/lib/fullscreen";
 import { prefersStaticWallpaper } from "@/lib/device-capabilities";
@@ -138,7 +138,6 @@ export function DesktopShell() {
     initialized,
     initialize,
     importFiles,
-    emptyTrash,
     reset: resetFileSystem,
   } = useFileSystemStore(
     useShallow((state) => ({
@@ -146,7 +145,6 @@ export function DesktopShell() {
       initialized: state.initialized,
       initialize: state.initialize,
       importFiles: state.importFiles,
-      emptyTrash: state.emptyTrash,
       reset: state.reset,
     }))
   );
@@ -216,7 +214,24 @@ export function DesktopShell() {
     setSearchQuery("");
     setCalendarOpen(false);
     setContextMenu(null);
+    setOpenWithTarget(null);
+    setCheatsheetOpen(false);
   };
+
+  // With no window left to take it, focus returns to the desktop instead of being lost.
+  useEffect(() => {
+    if (focusedWindowId) return;
+    // Focus stays inside a closing window until its exit animation removes it, so wait for that.
+    let checks = 0;
+    const timer = setInterval(() => {
+      const current = document.activeElement;
+      if (current?.closest(".window-frame") && ++checks < 20) return;
+      clearInterval(timer);
+      if (current && current !== document.body) return;
+      document.querySelector<HTMLElement>('.desktop-icon[tabindex="0"], .w11-taskbar__start')?.focus({ preventScroll: true });
+    }, 100);
+    return () => clearInterval(timer);
+  }, [focusedWindowId]);
 
   const openLauncherSearch = () => {
     requestStartMenuSearchFocus();
@@ -227,12 +242,13 @@ export function DesktopShell() {
     openFileSystemPath(path, nodes, launchApp);
   };
 
-  // Files dragged in from the visitor's computer appear on the desktop where they were dropped.
+  // Files dragged in from the visitor's computer appear on the desktop where they were dropped, or go
+  // into the desktop folder they were dropped on.
   const importFilesIntoDesktop = useCallback(
-    async (files: File[], point: { x: number; y: number }) => {
-      const importedPaths = await importFiles("/Desktop", files);
+    async (files: File[], point: { x: number; y: number }, folder?: string) => {
+      const importedPaths = await importFiles(folder ?? DESKTOP_PATH, files);
 
-      if (importedPaths.length > 0) {
+      if (!folder && importedPaths.length > 0) {
         placeArrivalsOnDesktop(importedPaths, point);
         setSelectedIconIds(importedPaths.map(getDesktopNodeId));
       }
@@ -401,13 +417,7 @@ export function DesktopShell() {
               icon: Trash2,
               danger: true,
               disabled: trashCount === 0,
-              onSelect: () => {
-                const question = `Are you sure you want to permanently delete ${trashCount === 1 ? "this item" : `these ${trashCount} items`}?`;
-
-                if (globalThis.confirm(question)) {
-                  void emptyTrash();
-                }
-              },
+              onSelect: () => void emptyRecycleBin(),
             },
           ],
         });
@@ -428,7 +438,7 @@ export function DesktopShell() {
         }),
       });
     },
-    [activateEntry, emptyTrash, launchApp, setContextMenu, setRenamingIconId]
+    [activateEntry, launchApp, setContextMenu, setRenamingIconId]
   );
 
   if (initialized === false) {
@@ -447,9 +457,10 @@ export function DesktopShell() {
   }
 
   return (
-    <main
+    <div
       className={cn(
         "os-root",
+        theme.id === "windows-bloom" && "is-light-wallpaper",
         wallpaperPresentation.animated && !prefersStaticWallpaper() && "is-animated-wallpaper"
       )}
       style={
@@ -463,6 +474,17 @@ export function DesktopShell() {
       }
       onClick={() => setContextMenu(null)}
     >
+      <a
+        className="os-skip-link"
+        href={`${import.meta.env.BASE_URL}portfolio`}
+        onClick={(event) => {
+          event.preventDefault();
+          navigate("/portfolio");
+        }}
+      >
+        Skip to the accessible portfolio
+      </a>
+      <h1 className="sr-only">Taaniel OS desktop</h1>
       <OsOnboarding />
       {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">
@@ -484,6 +506,7 @@ export function DesktopShell() {
       <div className="os-root__wallpaper" />
       <div className="os-root__noise" />
 
+      <main className="os-root__main">
 
       <DesktopManager
         nodes={nodes}
@@ -541,6 +564,7 @@ export function DesktopShell() {
         }}
         onClose={() => setOpenWithTarget(null)}
       />
+      </main>
 
       <Taskbar
         entries={taskbarEntries}
@@ -560,6 +584,6 @@ export function DesktopShell() {
         onUnpinApp={unpinApp}
         onShowDesktop={showDesktop}
       />
-    </main>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AA_CONTRAST_RATIO, buildAppearance, prefersReducedMotion } from "@/lib/terminal-appearance";
+import { AA_CONTRAST_RATIO, buildAppearance, prefersReducedMotion, withColors } from "@/lib/terminal-appearance";
+import { getTerminalScheme } from "@/lib/terminal-schemes";
 import { safeLinkTarget } from "@/lib/terminal-links";
 import { DEFAULT_TERMINAL_SETTINGS } from "@/stores/terminal-settings-store";
 
@@ -41,6 +42,41 @@ describe("terminal appearance", () => {
     expect(prefersReducedMotion()).toBe(true);
     vi.stubGlobal("matchMedia", undefined);
     expect(prefersReducedMotion()).toBe(false);
+  });
+});
+
+describe("colours a shell chose for its tab", () => {
+  const theme = getTerminalScheme("campbell").theme;
+
+  it("takes the text and background from the scheme's own palette", () => {
+    // ANSI 2 is green and 0 is black; 15 is bright white.
+    const recoloured = withColors(theme, { foreground: 2, background: 0 });
+    expect(recoloured.foreground).toBe(theme.green);
+    expect(recoloured.background).toBe(theme.black);
+    expect(withColors(theme, { foreground: 15, background: 4 }).foreground).toBe(theme.brightWhite);
+    expect(withColors(theme, { foreground: 15, background: 4 }).background).toBe(theme.blue);
+  });
+
+  it("keeps the caret visible against the new background", () => {
+    expect(withColors(theme, { foreground: 14, background: 0 }).cursor).toBe(theme.brightCyan);
+  });
+
+  it("leaves the rest of the scheme alone, and the scheme itself unchanged", () => {
+    const before = { ...theme };
+    const recoloured = withColors(theme, { foreground: 2, background: 0 });
+    expect(recoloured.red).toBe(theme.red);
+    expect(recoloured.selectionBackground).toBe(theme.selectionBackground);
+    expect(theme).toEqual(before);
+  });
+
+  it("returns the scheme as it is when nothing was chosen", () => {
+    expect(withColors(theme, null)).toBe(theme);
+  });
+
+  it("follows a change of scheme, because it reads the palette of the one in use", () => {
+    const light = getTerminalScheme("one-half-light").theme;
+    expect(withColors(light, { foreground: 2, background: 0 }).foreground).toBe(light.green);
+    expect(withColors(light, { foreground: 2, background: 0 }).foreground).not.toBe(theme.green);
   });
 });
 

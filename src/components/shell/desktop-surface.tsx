@@ -9,12 +9,18 @@ import { registerDesktopPlacement } from "@/lib/dnd/desktop-placement";
 import { folderDropProps } from "@/lib/dnd/dom";
 import { useDragStore } from "@/lib/dnd/drag-store";
 import { hasExternalFiles } from "@/lib/drag-payload";
+import { TRASH_PATH } from "@/lib/system-workspace";
 import type {
   DesktopEntry,
   DesktopGridMetrics,
   DesktopGridPosition,
   FileSystemRecord,
 } from "@/types/system";
+
+/** The desktop icon that files from outside are held over, when it is a folder or the Recycle Bin. */
+function getExternalDropIcon(target: EventTarget | null) {
+  return target instanceof Element ? target.closest<HTMLElement>("[data-desktop-icon-id][data-drop-folder]") : null;
+}
 
 interface DesktopSurfaceProps {
   entries: DesktopEntry[];
@@ -37,7 +43,8 @@ interface DesktopSurfaceProps {
   onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
   onCommitRename: (entry: DesktopEntry, name: string) => void;
   onCancelRename: () => void;
-  onImportFiles: (files: File[], point: { x: number; y: number }) => Promise<void>;
+  /** `folder` is the desktop folder icon the files were dropped on; without it they go onto the desktop at `point`. */
+  onImportFiles: (files: File[], point: { x: number; y: number }, folder?: string) => Promise<void>;
 }
 
 export function DesktopSurface({
@@ -64,6 +71,9 @@ export function DesktopSurface({
   onImportFiles,
 }: DesktopSurfaceProps) {
   const [dragActive, setDragActive] = useState(false);
+  /** Files from outside are held over a folder icon or the Recycle Bin, not the bare desktop. */
+  const [overIcon, setOverIcon] = useState(false);
+  const externalHighlightRef = useRef<HTMLElement | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const dragSession = useDragStore((state) => state.session);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -146,6 +156,17 @@ export function DesktopSurface({
 
   const dragSourceIds = useMemo(() => new Set(dragSession?.items.map((item) => item.id) ?? []), [dragSession?.items]);
 
+  const clearExternalHighlight = () => {
+    externalHighlightRef.current?.removeAttribute("data-drop-active");
+    externalHighlightRef.current = null;
+  };
+
+  const endExternalDrag = () => {
+    clearExternalHighlight();
+    setDragActive(false);
+    setOverIcon(false);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -202,7 +223,7 @@ export function DesktopSurface({
         }
 
         event.preventDefault();
-        setDragActive(false);
+        endExternalDrag();
       }}
       onDragOver={(event) => {
         if (!hasExternalFiles(event.dataTransfer)) {
@@ -210,7 +231,20 @@ export function DesktopSurface({
         }
 
         event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
+
+        // Files held over a folder icon go into that folder, so it lights up; the Recycle Bin takes none.
+        const icon = getExternalDropIcon(event.target);
+        const folder = icon && icon.dataset.dropFolder !== TRASH_PATH ? icon : null;
+
+        event.dataTransfer.dropEffect = icon && !folder ? "none" : "copy";
+
+        if (folder !== externalHighlightRef.current) {
+          clearExternalHighlight();
+          folder?.setAttribute("data-drop-active", "true");
+          externalHighlightRef.current = folder;
+        }
+
+        setOverIcon(icon !== null);
       }}
       onDrop={(event) => {
         if (!hasExternalFiles(event.dataTransfer)) {
@@ -218,8 +252,15 @@ export function DesktopSurface({
         }
 
         event.preventDefault();
-        setDragActive(false);
-        void onImportFiles(Array.from(event.dataTransfer.files), { x: event.clientX, y: event.clientY });
+        const icon = getExternalDropIcon(event.target);
+        endExternalDrag();
+
+        // Nothing from outside can be dropped into the Recycle Bin.
+        if (icon?.dataset.dropFolder === TRASH_PATH) {
+          return;
+        }
+
+        void onImportFiles(Array.from(event.dataTransfer.files), { x: event.clientX, y: event.clientY }, icon?.dataset.dropFolder);
       }}
     >
       <div ref={gridRef} className="desktop-surface__grid">
@@ -273,7 +314,7 @@ export function DesktopSurface({
         ) : null}
       </div>
 
-      {dragActive ? (
+      {dragActive && !overIcon ? (
         <div className="desktop-surface__dropzone">
           <strong>Drop files to add them to the desktop</strong>
           <small>Uploads are saved into the virtual file system and snap into the desktop grid.</small>

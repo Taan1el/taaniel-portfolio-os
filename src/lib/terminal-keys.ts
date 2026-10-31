@@ -156,7 +156,7 @@ export const TERMINAL_SHORTCUTS: Array<{ keys: string[]; label: string }> = [
   { keys: ["Ctrl", "Shift", "D"], label: "Duplicate tab" },
   { keys: ["Ctrl", "Shift", "F"], label: "Find in terminal" },
   { keys: ["Ctrl", ","], label: "Terminal settings" },
-  { keys: ["Ctrl", "+ / −"], label: "Zoom text in or out (Ctrl+0 resets)" },
+  { keys: ["Ctrl", "+ / −"], label: "Zoom this tab's text in or out (Ctrl+0 resets)" },
   { keys: ["Ctrl", "Shift", "C"], label: "Copy (Ctrl+C also copies a selection)" },
   { keys: ["Ctrl", "V"], label: "Paste" },
   { keys: ["F6"], label: "Move focus out of the terminal (Shift+F6 goes back)" },

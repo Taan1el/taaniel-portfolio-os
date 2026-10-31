@@ -12,7 +12,8 @@ export interface ShellDate {
   time: number;
 }
 
-export type PropertyValue = string | number | boolean | null | ShellDate;
+/** A property can hold another object ($PSVersionTable.PSVersion.Major), so members chain. */
+export type PropertyValue = string | number | boolean | null | ShellDate | ShellObject;
 
 export interface ShellObject {
   kind: "object";
@@ -22,8 +23,12 @@ export interface ShellObject {
   properties: Record<string, PropertyValue>;
   /** What the object reads as inside a string ("$_"). */
   text: string;
-  /** Objects with a dedicated default view: drawn by the shell that made them. */
-  view?: "filesystem" | "process";
+  /**
+   * Objects with a dedicated default view: drawn by the shell that made them.
+   * "table" always prints as a table; "scalar" prints its last property as a
+   * one-column table and is what a variable captures (New-Guid, Resolve-Path).
+   */
+  view?: "filesystem" | "process" | "table" | "scalar";
   /** filesystem view: the item's virtual path. */
   path?: string;
 }
@@ -64,8 +69,9 @@ export function formatPropertyValue(value: PropertyValue | undefined): string {
   if (typeof value === "boolean") return value ? "True" : "False";
   if (typeof value === "number") return formatNumberValue(value);
   if (isShellDate(value)) return new Date(value.time).toLocaleString();
+  const text = isShellObject(value) ? value.text : value;
   // eslint-disable-next-line no-control-regex
-  return value.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
+  return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
 }
 
 /** A value on one table row: line breaks and tabs would tear the row apart. */

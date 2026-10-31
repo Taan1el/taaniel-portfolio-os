@@ -15,6 +15,8 @@ import {
   neighbourTabId,
   renameTab,
   sanitizeTitle,
+  tabFontSize,
+  zoomTab,
   type TabsState,
 } from "@/lib/terminal-tabs";
 
@@ -112,5 +114,53 @@ describe("terminal tabs", () => {
     expect(neighbourTabId(state, "b", "ArrowRight")).toBe("c");
     expect(neighbourTabId(state, "b", "Home")).toBe("a");
     expect(neighbourTabId(state, "b", "End")).toBe("c");
+  });
+});
+
+describe("zoom", () => {
+  it("starts every tab at the configured size, and a duplicate does not inherit the zoom", () => {
+    expect(createTab("a", "pwsh", "/").zoomDelta).toBe(0);
+    const zoomed = zoomTab(three(), "b", 1, 14);
+    expect(duplicateTab(zoomed, "b", "d").tabs[3].zoomDelta).toBe(0);
+  });
+
+  it("zooms one tab by a point at a time and leaves the others alone", () => {
+    let state = zoomTab(three(), "b", 1, 14);
+    state = zoomTab(state, "b", 1, 14);
+    expect(state.tabs.map((tab) => tab.zoomDelta)).toEqual([0, 2, 0]);
+    expect(state.tabs.map((tab) => tabFontSize(14, tab))).toEqual([14, 16, 14]);
+    state = zoomTab(state, "b", -1, 14);
+    expect(state.tabs[1].zoomDelta).toBe(1);
+  });
+
+  it("returns to the configured size with 0", () => {
+    const state = zoomTab(zoomTab(three(), "a", -1, 14), "a", 0, 14);
+    expect(state.tabs[0].zoomDelta).toBe(0);
+    const untouched = three();
+    expect(zoomTab(untouched, "a", 0, 14).tabs[0]).toBe(untouched.tabs[0]);
+  });
+
+  it("stops at the largest and smallest size, so one press back always changes the text", () => {
+    let state = three();
+    for (let index = 0; index < 40; index += 1) state = zoomTab(state, "a", 1, 14);
+    expect(tabFontSize(14, state.tabs[0])).toBe(32);
+    state = zoomTab(state, "a", -1, 14);
+    expect(tabFontSize(14, state.tabs[0])).toBe(31);
+
+    state = three();
+    for (let index = 0; index < 40; index += 1) state = zoomTab(state, "a", -1, 14);
+    expect(tabFontSize(14, state.tabs[0])).toBe(8);
+    expect(tabFontSize(14, zoomTab(state, "a", 1, 14).tabs[0])).toBe(9);
+  });
+
+  it("steps from the size shown when the configured size moved under a zoomed tab", () => {
+    // Zoomed up by 10 at 14, then the saved size is raised to 30: the tab shows 32 (clamped), and one press down must shrink it.
+    const zoomed = { ...three(), tabs: three().tabs.map((tab) => (tab.id === "a" ? { ...tab, zoomDelta: 10 } : tab)) };
+    expect(tabFontSize(30, zoomed.tabs[0])).toBe(32);
+    expect(tabFontSize(30, zoomTab(zoomed, "a", -1, 30).tabs[0])).toBe(31);
+  });
+
+  it("ignores a tab that does not exist", () => {
+    expect(zoomTab(three(), "zzz", 1, 14).tabs.map((tab) => tab.zoomDelta)).toEqual([0, 0, 0]);
   });
 });

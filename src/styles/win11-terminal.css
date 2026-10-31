@@ -303,6 +303,19 @@
   font-size: 12px;
 }
 
+/* The message area is always in the page so that a screen reader is already watching it; empty, it shows and takes nothing. */
+.w11-terminal__notice:empty {
+  right: auto;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* -------------------------------------------------------------- settings */
 
 .w11-terminal__settings {

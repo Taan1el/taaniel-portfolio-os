@@ -3,9 +3,10 @@ import { createPortal } from "react-dom";
 import { ArrowRight, Ban, ExternalLink, Link2, Plus } from "lucide-react";
 import { RecycleBinEmptyIcon } from "@/components/icons/apps";
 import { NodeIcon } from "@/components/icons/node-icon";
+import { ConfirmDialog } from "@/components/system/confirm-dialog";
 import { TransferDialog } from "@/components/system/transfer-dialog";
 import { DESKTOP_PATH, getDesktopNodeId } from "@/data/desktop-seed";
-import { configureDragEnvironment } from "@/lib/dnd/controller";
+import { configureDragEnvironment, type DropMenuChoice } from "@/lib/dnd/controller";
 import { placeArrivalsOnDesktop } from "@/lib/dnd/desktop-placement";
 import { useDragStore, type DragSession } from "@/lib/dnd/drag-store";
 import type { DragOperation } from "@/lib/dnd/types";
@@ -24,14 +25,16 @@ async function transferAndPlace(
   paths: string[],
   destination: string,
   operation: DragOperation,
-  point: { x: number; y: number }
+  point: { x: number; y: number },
+  surface?: "desktop"
 ) {
   const result = await useFileSystemStore.getState().transferNodes(paths, destination, operation);
 
-  if (normalizePath(destination) === DESKTOP_PATH && result.transferred.length > 0) {
+  // Only a drop on the desktop itself puts the icons where the pointer let go, selected. Dropped on
+  // Explorer's Desktop folder, sidebar or breadcrumb they take the first free cell, as Windows arranges them.
+  if (surface === "desktop" && normalizePath(destination) === DESKTOP_PATH && result.transferred.length > 0) {
     const landed = result.transferred.map((entry) => entry.to);
 
-    // Dropped icons appear where the pointer let go, selected, like Explorer's drop on the desktop.
     placeArrivalsOnDesktop(landed, point);
     useShellStore.getState().setSelectedIconIds(landed.map(getDesktopNodeId));
   }
@@ -58,13 +61,23 @@ function openDroppedFile(request: { appId: AppId; windowId?: string; paths: stri
   launchApp({ appId: request.appId, payload: { filePath: target.path } });
 }
 
-function buildDropMenu(destination: string, paths: string[], point: { x: number; y: number }): ContextMenuAction[] {
-  const run = (operation: DragOperation) => () => void transferAndPlace(paths, destination, operation, point);
+const CHOICE_ICONS: Record<DropMenuChoice["id"], ContextMenuAction["icon"]> = {
+  move: ArrowRight,
+  copy: Plus,
+  link: Link2,
+  open: ExternalLink,
+};
 
+/** What a right-button drag offers when released: each choice runs the drop, then Cancel. */
+function buildDropMenu(choices: DropMenuChoice[]): ContextMenuAction[] {
   return [
-    { id: "move-here", label: "Move here", icon: ArrowRight, onSelect: run("move") },
-    { id: "copy-here", label: "Copy here", icon: Plus, onSelect: run("copy") },
-    { id: "link-here", label: "Create shortcuts here", icon: Link2, onSelect: run("link") },
+    ...choices.map<ContextMenuAction>((choice) => ({
+      id: `${choice.id}-here`,
+      label: choice.label,
+      icon: CHOICE_ICONS[choice.id],
+      disabled: choice.disabled,
+      onSelect: choice.run,
+    })),
     { id: "sep-cancel", label: "", separator: true, onSelect: () => {} },
     { id: "cancel-drop", label: "Cancel", onSelect: () => {} },
   ];
@@ -161,7 +174,8 @@ function DragGhost({ session }: { session: DragSession }) {
 
 /**
  * Wires the drag controller into the shell (what a drop does) and draws the
- * drag ghost. Mounted once, next to the window host.
+ * drag ghost, along with the dialogs that file actions open ("Move to...",
+ * "Are you sure?"). Mounted once, next to the window host.
  */
 export function DragLayer() {
   const session = useDragStore((state) => state.session);
@@ -186,8 +200,8 @@ export function DragLayer() {
         openWith: openDroppedFile,
         springOpen: (windowId, path) => useExplorerStore.getState().navigate(windowId, path),
         activateWindow: (windowId) => useSystemStore.getState().focusWindow(windowId),
-        chooseOperation: ({ x, y, destination, paths }) =>
-          useShellStore.getState().setContextMenu({ x, y, title: "Drop", actions: buildDropMenu(destination, paths, { x, y }) }),
+        chooseOperation: ({ x, y, choices }) =>
+          useShellStore.getState().setContextMenu({ x, y, title: "Drop", actions: buildDropMenu(choices) }),
       }),
     []
   );
@@ -196,6 +210,7 @@ export function DragLayer() {
     <>
       {session ? <DragGhost session={session} /> : null}
       <TransferDialog />
+      <ConfirmDialog />
     </>
   );
 }

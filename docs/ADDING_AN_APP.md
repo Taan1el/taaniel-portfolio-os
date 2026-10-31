@@ -62,3 +62,10 @@ Add extensions/mime-types to the file association map so a file opens in your ap
 - `npm run dev` and launch the app from the Start menu.
 - If the app uses filesystem nodes, verify it behaves in a persisted session and after “Reset session”.
 
+## 6) Overlays, drag and drop and questions
+
+- Files are dragged with pointer events (`src/lib/dnd`), and what is under the pointer decides where a drop lands. A panel that floats over the desktop (a flyout, a popover, a dialog) must carry the `w11-flyout` class or a `data-dnd-barrier` attribute, or a file dropped on it would fall through to the desktop behind it.
+- To make something a drop target, spread `folderDropProps(path)` (a folder), `windowDropProps` (an app window) or `appDropProps` (an icon that runs an app) onto it.
+- Ask "Are you sure?" with `confirmInOs` from `src/stores/confirm-dialog-store.ts`, not `window.confirm`: the shell shows its own dialog, and the browser's is silently answered "no" where dialogs are blocked.
+- Code that deletes or moves files and reports errors itself (the terminal) should ask `getChangeRefusal(nodes, path)` from `src/lib/filesystem.ts` first, or call `tryDeleteNode` / `tryPasteNode` on the file system store, which say why nothing happened.
+

@@ -26,7 +26,7 @@ interface DesktopManagerProps {
   onActivateEntry: (entry: DesktopEntry) => void;
   onDesktopContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
   onEntryContextMenu: (entry: DesktopEntry, event: React.MouseEvent<HTMLElement>) => void;
-  onImportFiles: (files: File[], point: { x: number; y: number }) => Promise<void>;
+  onImportFiles: (files: File[], point: { x: number; y: number }, folder?: string) => Promise<void>;
 }
 
 const ARROW_DIRECTIONS: Record<string, DesktopDirection> = {

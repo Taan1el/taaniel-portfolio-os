@@ -60,13 +60,17 @@ import { TerminalApp } from "@/components/apps/terminal-app";
 import { buildSeedFileSystem } from "@/data/seedFileSystem";
 import { ensureSystemWorkspace } from "@/lib/system-workspace";
 import { MAX_TABS } from "@/lib/terminal-tabs";
+import { useDeviceStore } from "@/stores/device-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { useProcessStore } from "@/stores/process-store";
 import { useSystemStore } from "@/stores/system-store";
 import { useTerminalSettingsStore } from "@/stores/terminal-settings-store";
+import { useWindowStore } from "@/stores/window-store";
 import type { AppWindow, WindowPayload } from "@/types/system";
 
 const launchApp = vi.fn();
 const closeWindow = vi.fn();
+const focusWindow = vi.fn();
 
 function terminalWindow(payload?: WindowPayload): AppWindow {
   return {
@@ -102,7 +106,9 @@ beforeEach(() => {
   window.localStorage.clear();
   useTerminalSettingsStore.getState().reset();
   useFileSystemStore.setState({ nodes: ensureSystemWorkspace(buildSeedFileSystem()), initialized: true });
-  useSystemStore.setState({ launchApp, closeWindow } as never);
+  useProcessStore.setState({ processes: [] });
+  useWindowStore.setState({ windows: [] } as never);
+  useSystemStore.setState({ launchApp, closeWindow, focusWindow } as never);
 });
 
 afterEach(() => {
@@ -229,6 +235,16 @@ describe("the tab strip", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(1);
   });
 
+  it("keeps its message area in the page even when there is nothing to say, so a screen reader is already watching it", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const area = screen.getByRole("status");
+    expect(area.textContent).toBe("");
+    // The same element receives the message, rather than a new one appearing already filled in.
+    for (let index = 0; index < MAX_TABS + 1; index += 1) fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    expect(screen.getByRole("status")).toBe(area);
+    expect(area.textContent).toContain("tabs");
+  });
+
   it("stops at the tab limit and says so", () => {
     render(<TerminalApp window={terminalWindow()} />);
     for (let index = 0; index < MAX_TABS + 2; index += 1) fireEvent.click(screen.getByRole("button", { name: "New tab" }));
@@ -352,13 +368,65 @@ describe("keyboard", () => {
     expect(tabNames()).toHaveLength(1);
   });
 
-  it("zooms the text through the settings, within bounds, and resets it", () => {
+  /** The text size the screen of the tab at this position was given. */
+  const sizeOf = (index: number) => [...mocks.panes.values()][index].props.appearance.fontSize as number;
+
+  it("zooms the active tab only, and does not touch the saved size", () => {
+    useTerminalSettingsStore.getState().update({ fontSize: 18 });
+    render(<TerminalApp window={terminalWindow()} />);
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    expect([sizeOf(0), sizeOf(1)]).toEqual([18, 18]);
+
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    expect([sizeOf(0), sizeOf(1)]).toEqual([18, 20]);
+    expect(useTerminalSettingsStore.getState().fontSize).toBe(18);
+    expect(window.localStorage.getItem("taaniel-os-terminal-settings")).not.toContain('"fontSize":20');
+
+    // The other tab keeps its own zoom.
+    fireEvent.click(screen.getAllByRole("tab")[0]);
+    act(() => events().onCommand({ type: "zoom", delta: -1 }));
+    expect([sizeOf(0), sizeOf(1)]).toEqual([17, 20]);
+  });
+
+  it("returns to the configured size with Ctrl+0, not to the factory size", () => {
+    useTerminalSettingsStore.getState().update({ fontSize: 18 });
     render(<TerminalApp window={terminalWindow()} />);
     act(() => events().onCommand({ type: "zoom", delta: 1 }));
-    act(() => events().onCommand({ type: "zoom", delta: 1 }));
-    expect(useTerminalSettingsStore.getState().fontSize).toBe(16);
+    expect(sizeOf(0)).toBe(19);
     act(() => events().onCommand({ type: "zoom", delta: 0 }));
-    expect(useTerminalSettingsStore.getState().fontSize).toBe(14);
+    expect(sizeOf(0)).toBe(18);
+    expect(useTerminalSettingsStore.getState().fontSize).toBe(18);
+
+    // Even with no zoom at all, Ctrl+0 leaves the saved size alone.
+    act(() => events().onCommand({ type: "zoom", delta: 0 }));
+    expect(useTerminalSettingsStore.getState().fontSize).toBe(18);
+  });
+
+  it("stops zooming at the largest and smallest size", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    for (let index = 0; index < 40; index += 1) act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    expect(sizeOf(0)).toBe(32);
+    act(() => events().onCommand({ type: "zoom", delta: -1 }));
+    expect(sizeOf(0)).toBe(31);
+    for (let index = 0; index < 60; index += 1) act(() => events().onCommand({ type: "zoom", delta: -1 }));
+    expect(sizeOf(0)).toBe(8);
+  });
+
+  it("keeps a tab's zoom when the saved size changes, and a new tab starts at the saved size", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    act(() => useTerminalSettingsStore.getState().update({ fontSize: 20 }));
+    expect(sizeOf(0)).toBe(21);
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    expect(sizeOf(1)).toBe(20);
+  });
+
+  it("starts a duplicated tab at the saved size", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    act(() => events().onCommand({ type: "zoom", delta: 1 }));
+    key(selectedTab(), { key: "D", code: "KeyD", ctrlKey: true, shiftKey: true });
+    expect([sizeOf(0), sizeOf(1)]).toEqual([15, 14]);
   });
 });
 
@@ -392,6 +460,131 @@ describe("launches while the terminal is open", () => {
     rerender(<TerminalApp window={terminalWindow({ profile: "linux" })} />);
     expect(launchApp).toHaveBeenCalledTimes(1);
     expect(tabNames()).toEqual(["PowerShell"]);
+  });
+
+  it("opens one emulator, not two, when a Linux launch reaches a terminal that is already open", () => {
+    const { rerender } = render(<TerminalApp window={terminalWindow()} />);
+    expect(launchApp).not.toHaveBeenCalled();
+    rerender(<TerminalApp window={terminalWindow({ profile: "linux" })} />);
+    expect(launchApp.mock.calls).toEqual([[{ appId: "v86" }]]);
+    expect(screen.getByRole("status").textContent).toContain(".img or .iso");
+    expect(tabNames()).toEqual(["PowerShell"]);
+  });
+
+  it("brings an emulator that is already open to the front instead of opening a second", () => {
+    useProcessStore.setState({ processes: [{ id: "process-v86", appId: "v86", status: "running", createdAt: 1 }] });
+    useWindowStore.setState({ windows: [{ id: "window-v86", processId: "process-v86", title: "Virtual x86", minimized: true }] } as never);
+    render(<TerminalApp window={terminalWindow()} />);
+    fireEvent.click(screen.getByRole("button", { name: "New tab menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Linux/ }));
+    expect(launchApp).not.toHaveBeenCalled();
+    expect(focusWindow).toHaveBeenCalledWith("window-v86");
+  });
+
+  it("spends a launch request once it has acted on it, so a reload cannot repeat it", () => {
+    const requested: WindowPayload = { profile: "linux" };
+    useProcessStore.setState({ processes: [{ id: "process-terminal", appId: "terminal", status: "focused", launchPayload: requested, createdAt: 1 }] });
+    const first = render(<TerminalApp window={terminalWindow(requested)} />);
+    expect(launchApp).toHaveBeenCalledTimes(1);
+    // What the process now holds is what a reload restores.
+    const restored = useProcessStore.getState().processes[0].launchPayload;
+    expect(restored).toEqual({});
+    first.unmount();
+
+    render(<TerminalApp window={terminalWindow(restored)} />);
+    expect(launchApp).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a tab each time the same profile is asked for, because the request is spent in between", () => {
+    const { rerender } = render(<TerminalApp window={terminalWindow()} />);
+    rerender(<TerminalApp window={terminalWindow({ profile: "cmd" })} />);
+    rerender(<TerminalApp window={terminalWindow({})} />);
+    rerender(<TerminalApp window={terminalWindow({ profile: "cmd" })} />);
+    expect(tabNames()).toEqual(["PowerShell", "Command Prompt", "Command Prompt"]);
+  });
+
+  it("spends the request the window was opened with too, but keeps the tab it made", () => {
+    useProcessStore.setState({ processes: [{ id: "process-terminal", appId: "terminal", status: "focused", launchPayload: { profile: "cmd", directoryPath: "/Documents" }, createdAt: 1 }] });
+    render(<TerminalApp window={terminalWindow({ profile: "cmd", directoryPath: "/Documents" })} />);
+    expect(tabNames()).toEqual(["Command Prompt"]);
+    expect(useProcessStore.getState().processes[0].launchPayload).toEqual({});
+  });
+});
+
+describe("focus when the window comes forward", () => {
+  const withState = (state: Partial<AppWindow>): AppWindow => ({ ...terminalWindow(), ...state });
+  const leave = () => (document.activeElement as HTMLElement | null)?.blur();
+
+  it("puts the cursor in the terminal when the window is brought to the front", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: false })} />);
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(mocks.focus).toHaveBeenCalledWith(newest().props.tabId);
+  });
+
+  it("does the same when the window is restored from minimized", () => {
+    const { rerender } = render(<TerminalApp window={withState({ minimized: true, focused: false })} />);
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ minimized: true, focused: true })} />);
+    expect(mocks.focus).not.toHaveBeenCalled();
+    rerender(<TerminalApp window={withState({ minimized: false, focused: true })} />);
+    expect(mocks.focus).toHaveBeenCalledWith(newest().props.tabId);
+  });
+
+  it("leaves focus alone while the window is behind another", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    expect(mocks.focus).not.toHaveBeenCalled();
+  });
+
+  it("does not move focus that is already somewhere inside the app", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: false })} />);
+    const settings = screen.getByRole("button", { name: "Terminal settings" });
+    settings.focus();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(document.activeElement).toBe(settings);
+    expect(mocks.focus).not.toHaveBeenCalled();
+  });
+
+  it("takes focus back to the find box, not to the terminal behind it", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    key(selectedTab(), { key: "F", code: "KeyF", ctrlKey: true, shiftKey: true });
+    const input = screen.getByLabelText("Find in terminal", { selector: "input" });
+    expect(document.activeElement).toBe(input);
+
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(document.activeElement).toBe(input);
+    expect(mocks.focus).not.toHaveBeenCalled();
+  });
+
+  it("takes focus back into the settings dialog", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    key(selectedTab(), { key: ",", code: "Comma", ctrlKey: true });
+    const scheme = screen.getByLabelText("Colour scheme");
+    expect(document.activeElement).toBe(scheme);
+
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    leave();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(document.activeElement).toBe(scheme);
+  });
+
+  it("falls back to the terminal when what had focus is gone", () => {
+    const { rerender } = render(<TerminalApp window={withState({ focused: true })} />);
+    key(selectedTab(), { key: "F", code: "KeyF", ctrlKey: true, shiftKey: true });
+    rerender(<TerminalApp window={withState({ focused: false })} />);
+    key(screen.getByLabelText("Find in terminal", { selector: "input" }), { key: "Escape" });
+    leave();
+    mocks.focus.mockClear();
+    rerender(<TerminalApp window={withState({ focused: true })} />);
+    expect(mocks.focus).toHaveBeenCalledWith(newest().props.tabId);
   });
 });
 
@@ -437,13 +630,33 @@ describe("what the shell asks for", () => {
     expect(launchApp).toHaveBeenCalledWith({ appId: "browser", payload: { externalUrl: "https://example.com/" } });
   });
 
-  it("tells the shell about the browser's offline state", () => {
+  it("opens the emulator once for wsl, and brings it forward when it is asked for again", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const id = newest().props.tabId as string;
+    act(() => events().onAction(id, { type: "launch-app", appId: "v86" }));
+    expect(launchApp.mock.calls).toEqual([[{ appId: "v86" }]]);
+
+    useProcessStore.setState({ processes: [{ id: "process-v86", appId: "v86", status: "running", createdAt: 1 }] });
+    useWindowStore.setState({ windows: [{ id: "window-v86", processId: "process-v86", title: "Virtual x86", minimized: false }] } as never);
+    act(() => events().onAction(id, { type: "launch-app", appId: "v86" }));
+    expect(launchApp).toHaveBeenCalledTimes(1);
+    expect(focusWindow).toHaveBeenCalledWith("window-v86");
+    // The shell printed the explanation itself: no second one in the notice area.
+    expect(screen.getByRole("status").textContent).toBe("");
+  });
+
+  it("follows airplane mode, Wi-Fi off and real outages from the tray", () => {
     render(<TerminalApp window={terminalWindow()} />);
     const host = newest().props.host as { isOffline: () => boolean };
-    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
-    expect(host.isOffline()).toBe(true);
-    vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const device = useDeviceStore.getState();
+    device.setBrowserOnline(true);
     expect(host.isOffline()).toBe(false);
+    device.setAirplaneMode(true);
+    expect(host.isOffline()).toBe(true);
+    device.setAirplaneMode(false);
+    device.setBrowserOnline(false);
+    expect(host.isOffline()).toBe(true);
+    device.resetDevice();
   });
 });
 
@@ -605,7 +818,7 @@ describe("context menus and paste", () => {
 
   it("asks before pasting several lines, with Cancel focused", () => {
     render(<TerminalApp window={terminalWindow()} />);
-    act(() => events().onPasteReview({ text: "ls\ncd ..\nrm x", review: { lines: 3, characters: 13, reason: "multiline" } }));
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "ls\ncd ..\nrm x", review: { lines: 3, characters: 13, reason: "multiline" } }));
 
     const dialog = screen.getByRole("alertdialog", { name: "Paste 3 lines?" });
     expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -618,15 +831,60 @@ describe("context menus and paste", () => {
 
   it("pastes once confirmed", () => {
     render(<TerminalApp window={terminalWindow()} />);
-    act(() => events().onPasteReview({ text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
     fireEvent.click(screen.getByRole("button", { name: "Paste anyway" }));
     expect(mocks.pasteText).toHaveBeenCalledWith("ls\ncd ..");
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
+  it("pastes into the tab that asked, not the tab in front when it is confirmed", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const asker = newest().props.tabId as string;
+    act(() => events().onPasteReview({ tabId: asker, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    // Nothing in the app can bring another tab forward while the dialog is open; if one did, the paste still goes back.
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    const other = newest().props.tabId as string;
+    expect(other).not.toBe(asker);
+    fireEvent.click(screen.getByRole("button", { name: "Paste anyway" }));
+    expect(mocks.pasteText).toHaveBeenCalledTimes(1);
+    expect(mocks.pasteText).toHaveBeenCalledWith("ls\ncd ..");
+  });
+
+  it("drops a waiting paste when its tab closes", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    const first = newest().props.tabId as string;
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    act(() => events().onPasteReview({ tabId: first, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    act(() => events().onAction(first, { type: "exit" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(mocks.pasteText).not.toHaveBeenCalled();
+  });
+
+  it("ignores the app's shortcuts while the paste dialog is open", () => {
+    render(<TerminalApp window={terminalWindow()} />);
+    fireEvent.click(screen.getByRole("button", { name: "New tab" }));
+    const [first] = screen.getAllByRole("tab");
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "ls\ncd ..", review: { lines: 2, characters: 8, reason: "multiline" } }));
+    const dialog = screen.getByRole("alertdialog");
+
+    key(dialog, { key: "1", code: "Digit1", ctrlKey: true, altKey: true });
+    key(dialog, { key: "D", code: "KeyD", ctrlKey: true, shiftKey: true });
+    key(dialog, { key: "T", code: "KeyT", ctrlKey: true, shiftKey: true });
+    act(() => events().onCommand({ type: "next-tab" }));
+    expect(tabNames()).toHaveLength(2);
+    expect(selectedTab()).not.toBe(first);
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    // Once it is closed they work again.
+    key(dialog, { key: "Escape" });
+    key(selectedTab(), { key: "1", code: "Digit1", ctrlKey: true, altKey: true });
+    expect(selectedTab()).toBe(screen.getAllByRole("tab")[0]);
+  });
+
   it("names a very large paste by its size", () => {
     render(<TerminalApp window={terminalWindow()} />);
-    act(() => events().onPasteReview({ text: "x".repeat(6000), review: { lines: 1, characters: 6000, reason: "large" } }));
+    act(() => events().onPasteReview({ tabId: newest().props.tabId, text: "x".repeat(6000), review: { lines: 1, characters: 6000, reason: "large" } }));
     expect(screen.getByRole("alertdialog", { name: "Paste a large amount of text?" }).textContent).toContain("6,000 characters");
   });
 });

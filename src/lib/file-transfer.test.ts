@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transferNodesRecord } from "@/lib/filesystem";
+import { getChangeRefusal, isLockedNode, isProtectedPath, transferNodesRecord } from "@/lib/filesystem";
 import { createShortcutNode } from "@/lib/shortcuts";
 import type { FileSystemRecord, VirtualDirectory, VirtualFile } from "@/types/system";
 
@@ -37,6 +37,28 @@ const seed = (): FileSystemRecord => ({
 });
 
 const options = { trashPath: "/Trash", now: 42 };
+
+describe("getChangeRefusal", () => {
+  it("tells callers why an item can't be deleted, moved or renamed", () => {
+    const nodes = seed();
+
+    expect(getChangeRefusal(nodes, "/Trash")).toBe("protected");
+    expect(getChangeRefusal(nodes, "/Desktop")).toBe("protected");
+    expect(getChangeRefusal(nodes, "/")).toBe("protected");
+    expect(getChangeRefusal(nodes, "/Documents/CV.pdf")).toBe("read-only");
+    expect(getChangeRefusal(nodes, "/Desktop/ghost.txt")).toBe("missing");
+    expect(getChangeRefusal(nodes, "/Desktop/a.txt")).toBeNull();
+    expect(getChangeRefusal(nodes, "\\Desktop\\Work\\")).toBeNull();
+  });
+
+  it("is what isLockedNode builds on", () => {
+    const nodes = seed();
+
+    expect(isProtectedPath("/Trash")).toBe(true);
+    expect(isLockedNode(nodes, "/Documents/CV.pdf")).toBe(true);
+    expect(isLockedNode(nodes, "/Desktop/a.txt")).toBe(false);
+  });
+});
 
 describe("transferNodesRecord", () => {
   it("moves several items in one pass and numbers collisions", () => {
@@ -114,6 +136,15 @@ describe("transferNodesRecord", () => {
   it("never copies or links into the Recycle Bin", () => {
     expect(transferNodesRecord(seed(), ["/Desktop/a.txt"], "/Trash", "copy", options).skipped[0].reason).toBe("not-allowed");
     expect(transferNodesRecord(seed(), ["/Desktop/a.txt"], "/Trash", "link", options).skipped[0].reason).toBe("not-allowed");
+  });
+
+  it("does not put things inside a folder that sits in the Recycle Bin", () => {
+    const recycled = transferNodesRecord(seed(), ["/Desktop/Work"], "/Trash", "move", options).nodes;
+    const result = transferNodesRecord(recycled, ["/Desktop/a.txt"], "/Trash/Work", "move", options);
+
+    expect(result.transferred).toEqual([]);
+    expect(result.skipped).toEqual([{ path: "/Desktop/a.txt", reason: "not-allowed" }]);
+    expect(result.nodes["/Desktop/a.txt"]).toBeTruthy();
   });
 
   it("protects system folders", () => {

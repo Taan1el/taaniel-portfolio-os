@@ -358,7 +358,7 @@ export function Taskbar({
 
   return (
     <>
-      <footer className={cn("taskbar", "w11-taskbar", taskbarMod.root)}>
+      <nav aria-label="Taskbar" className={cn("taskbar", "w11-taskbar", taskbarMod.root)}>
         <div className="w11-taskbar__center">
           <button
             className={cn("w11-taskbar__start", startMenuOpen && "is-active")}
@@ -455,7 +455,7 @@ export function Taskbar({
           onShowDesktop={onShowDesktop}
           onLaunchApp={onLaunchApp}
         />
-      </footer>
+      </nav>
 
       {previewNode}
       {jumpListNode}

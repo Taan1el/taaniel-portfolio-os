@@ -2,9 +2,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
-import type { TerminalAppearance } from "@/lib/terminal-appearance";
-import type { ShellEngine } from "@/lib/terminal-engines";
-import { loadHistory, recordHistory, saveHistory } from "@/lib/terminal-history";
+import { withColors, type ColorOverride, type TerminalAppearance } from "@/lib/terminal-appearance";
+import { getShellEngine, type ShellEngine } from "@/lib/terminal-engines";
+import { appendHistory, loadHistory } from "@/lib/terminal-history";
 import { classifyTerminalKey, FOCUS_ESCAPE_HINT, type ScrollTarget, type TerminalCommand } from "@/lib/terminal-keys";
 import {
   deleteBackward,
@@ -29,12 +29,16 @@ import {
   type LineState,
   type PasteReview,
 } from "@/lib/terminal-line";
+import { buildIncrementalRedraw } from "@/lib/terminal-line-render";
 import { safeLinkTarget } from "@/lib/terminal-links";
+import { splitPrompt } from "@/lib/terminal-prompt";
 import {
   createShellSession,
   sanitizeForTerminal,
+  stripAnsi,
   type ShellFileSystem,
   type ShellHost,
+  type ShellResult,
   type ShellSession,
   type TerminalAction,
 } from "@/lib/terminal-shell";
@@ -46,7 +50,8 @@ import {
  */
 
 const FONT_FAMILY = '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace';
-const SCROLLBACK = 5000;
+/** Windows Terminal's default history size. */
+const SCROLLBACK = 9001;
 /** A window that is still opening can report a sliver of width; text printed then wraps one character per line. */
 const MIN_COLUMNS = 20;
 const CLEAR_SCREEN = "\x1b[2J\x1b[3J\x1b[H";
@@ -90,11 +95,21 @@ export interface FindOptions {
   regex: boolean;
 }
 
+/** A tab can hold shells inside shells (typing `cmd` in PowerShell): this many, and no more. */
+export const MAX_NESTED_SHELLS = 8;
+
+/** The shells running in the tab, the one typed into last. */
+interface RunningShell {
+  engine: ShellEngine;
+  shell: ShellSession;
+}
+
 export class TerminalSession {
   readonly terminal: Terminal;
-  readonly shell: ShellSession;
 
   private readonly options: TerminalSessionOptions;
+  /** The shell the tab started with at the bottom; `cmd` and `pwsh` push another on top, and `exit` takes it off. */
+  private readonly stack: RunningShell[];
   private readonly fitAddon = new FitAddon();
   private readonly searchAddon: SearchAddon;
   private container: HTMLElement | null = null;
@@ -104,6 +119,10 @@ export class TerminalSession {
   private state: LineState = { line: "", cursor: 0 };
   /** Cursor offset within the input as it is currently drawn: needed to find the input's first row. */
   private drawnCursor = 0;
+  /** The input line as it is drawn, so screen reader mode can write only what changed. */
+  private drawnLine = "";
+  /** Columns at the last fit: a resize that changes nothing needs no repaint. */
+  private lastCols = 0;
   private walk: HistoryWalk;
   private busy = false;
   private queued = "";
@@ -111,15 +130,18 @@ export class TerminalSession {
   private started = false;
   private disposed = false;
   private appearance: TerminalAppearance;
+  /** Colours the shell chose for this tab (cmd's `color`); they outlast a change of colour scheme. */
+  private colors: ColorOverride | null = null;
   private lastZoomWheel = 0;
 
   constructor(options: TerminalSessionOptions) {
     this.options = options;
     this.appearance = options.appearance;
 
-    this.shell = createShellSession(options.startPath);
-    this.shell.history = loadHistory(options.engine.historyKey);
-    this.walk = startHistoryWalk(this.shell.history);
+    const base = createShellSession(options.startPath);
+    base.history = loadHistory(options.engine.historyKey);
+    this.stack = [{ engine: options.engine, shell: base }];
+    this.walk = startHistoryWalk(base.history);
 
     this.terminal = new Terminal({
       // Search highlights are decorations, which xterm still keeps behind this flag.
@@ -129,10 +151,17 @@ export class TerminalSession {
       fontFamily: FONT_FAMILY,
       fontSize: options.appearance.fontSize,
       lineHeight: 1.15,
+      // OSC 8 hyperlinks (an escape sequence in the output) would otherwise open any address through xterm's own
+      // confirm-and-window.open. They go through the same check and the in-OS browser as a plain URL does.
+      linkHandler: {
+        activate: (event, uri) => this.handleLink(event, uri),
+        hover: () => this.showLinkHint(),
+        leave: () => this.hideLinkHint(),
+      },
       minimumContrastRatio: options.appearance.minimumContrastRatio,
       screenReaderMode: options.appearance.screenReaderMode,
       scrollback: SCROLLBACK,
-      theme: options.appearance.theme,
+      theme: withColors(options.appearance.theme, this.colors),
     });
     this.searchAddon = new SearchAddon({ highlightLimit: 1000 });
   }
@@ -148,12 +177,8 @@ export class TerminalSession {
     terminal.loadAddon(this.searchAddon);
     terminal.loadAddon(
       new WebLinksAddon(this.handleLink, {
-        hover: () => {
-          container.title = this.options.coarsePointer ? "" : "Ctrl+Click to follow link";
-        },
-        leave: () => {
-          container.removeAttribute("title");
-        },
+        hover: () => this.showLinkHint(),
+        leave: () => this.hideLinkHint(),
       })
     );
     terminal.open(container);
@@ -209,6 +234,20 @@ export class TerminalSession {
 
   // -------------------------------------------------------------------- public
 
+  /** The shell being typed into: the innermost one. */
+  get shell(): ShellSession {
+    return this.stack[this.stack.length - 1].shell;
+  }
+
+  private get engine(): ShellEngine {
+    return this.stack[this.stack.length - 1].engine;
+  }
+
+  /** Shells running in this tab, counting the first. */
+  get shellDepth() {
+    return this.stack.length;
+  }
+
   focus() {
     if (!this.disposed) this.terminal.focus();
   }
@@ -227,16 +266,32 @@ export class TerminalSession {
     const { terminal } = this;
     const previous = this.appearance;
     this.appearance = next;
-    terminal.options.theme = next.theme;
+    this.applyTheme();
     terminal.options.cursorStyle = next.cursorShape;
     terminal.options.cursorBlink = next.cursorBlink;
     terminal.options.screenReaderMode = next.screenReaderMode;
     terminal.options.minimumContrastRatio = next.minimumContrastRatio;
+    // Switching screen reader mode changes how the line is drawn (no grey suggestion): draw it once in the new way.
+    if (next.screenReaderMode !== previous.screenReaderMode && this.started && !this.busy) this.render(true, true);
     if (next.fontSize !== previous.fontSize) {
       terminal.options.fontSize = next.fontSize;
       this.refit();
     }
     this.applyLabel();
+  }
+
+  /** The theme in use: the scheme's, with the colours the shell chose for this tab on top. */
+  private applyTheme() {
+    const theme = withColors(this.appearance.theme, this.colors);
+    this.terminal.options.theme = theme;
+    // The padding around the text takes the background too, or a recoloured tab would sit in a frame of the old colour.
+    if (this.container) this.container.style.background = theme.background ?? "";
+  }
+
+  setColors(colors: ColorOverride | null) {
+    if (this.disposed) return;
+    this.colors = colors;
+    this.applyTheme();
   }
 
   setLabel(label: string) {
@@ -249,7 +304,7 @@ export class TerminalSession {
     if (this.disposed) return;
     this.refit();
     if (!this.busy && this.started && !this.state.line) {
-      this.shell.history.splice(0, this.shell.history.length, ...loadHistory(this.options.engine.historyKey));
+      this.shell.history.splice(0, this.shell.history.length, ...loadHistory(this.engine.historyKey));
       this.walk = startHistoryWalk(this.shell.history);
     }
   }
@@ -348,8 +403,11 @@ export class TerminalSession {
 
   private refit() {
     if (this.disposed || !this.fitNow()) return;
+    const resized = this.terminal.cols !== this.lastCols;
+    this.lastCols = this.terminal.cols;
     if (!this.started) this.start();
-    else if (!this.busy) this.render();
+    // A screen reader would read the whole prompt and line again for a repaint that changes nothing.
+    else if (!this.busy && (resized || !this.appearance.screenReaderMode)) this.render(true, true);
   }
 
   private applyLabel() {
@@ -359,7 +417,8 @@ export class TerminalSession {
   private start() {
     if (this.started || this.disposed || this.terminal.cols < MIN_COLUMNS) return;
     this.started = true;
-    this.options.engine.banner().forEach((line) => this.terminal.writeln(line));
+    this.lastCols = this.terminal.cols;
+    this.engine.banner().forEach((line) => this.terminal.writeln(line));
     this.terminal.writeln(`\x1b[90m${FOCUS_ESCAPE_HINT}\x1b[0m`);
     this.terminal.writeln("");
     this.newPrompt();
@@ -368,22 +427,38 @@ export class TerminalSession {
   // ----------------------------------------------------------------- rendering
 
   private prompt() {
-    return this.options.engine.prompt(this.shell);
+    return this.engine.prompt(this.shell);
+  }
+
+  /**
+   * A prompt can take several lines (cmd's $_). Only the last one is repainted as the input changes: the
+   * lines above it are written once, when the prompt starts. Colour codes take no room, so the width is the text's.
+   */
+  private promptLayout() {
+    const { head, last } = splitPrompt(this.prompt());
+    return { head, last, width: stripAnsi(last).length };
   }
 
   /**
    * Repaint prompt + input in place, coloured like the shell colours it, with
    * the grey history prediction after the cursor. Wrap-safe: climbs to the
    * input's first row before redrawing.
+   *
+   * In screen reader mode an edit writes only what changed (see terminal-line-render.ts),
+   * because a screen reader reads out whatever is printed. `full` asks for the whole
+   * repaint anyway: after the screen was cleared, resized, or the prompt printed again.
    */
-  private render(showPrediction = true) {
+  private render(showPrediction = true, full = false) {
     if (this.disposed) return;
-    const { engine } = this.options;
+    if (this.appearance.screenReaderMode && !full) {
+      this.renderChanges();
+      return;
+    }
+    const { engine } = this;
     const { line, cursor } = this.state;
     const cols = this.terminal.cols;
-    const prompt = this.prompt();
-    const promptWidth = prompt.length;
-    const prediction = showPrediction && cursor === line.length ? engine.predict(line, this.shell.history) : "";
+    const { last: prompt, width: promptWidth } = this.promptLayout();
+    const prediction = showPrediction && !this.appearance.screenReaderMode && cursor === line.length ? engine.predict(line, this.shell.history) : "";
     const rowsUp = Math.floor((promptWidth + this.drawnCursor) / cols);
     let sequence = rowsUp > 0 ? `\x1b[${rowsUp}A` : "";
     sequence += `\r\x1b[J${prompt}${engine.highlight(line)}${prediction ? `\x1b[90m${prediction}\x1b[0m` : ""}`;
@@ -399,12 +474,36 @@ export class TerminalSession {
 
     this.terminal.write(sequence);
     this.drawnCursor = cursor;
+    this.drawnLine = line;
+  }
+
+  /** Screen reader mode: write only the difference between what is drawn and the line now. */
+  private renderChanges() {
+    const { line, cursor } = this.state;
+    const sequence = buildIncrementalRedraw({
+      promptWidth: this.promptLayout().width,
+      cols: this.terminal.cols,
+      previous: { line: this.drawnLine, cursor: this.drawnCursor },
+      next: { line, cursor },
+      highlight: this.engine.highlight,
+    });
+    if (sequence) this.terminal.write(sequence);
+    this.drawnCursor = cursor;
+    this.drawnLine = line;
   }
 
   private newPrompt() {
     this.state = { line: "", cursor: 0 };
     this.drawnCursor = 0;
-    this.terminal.write(this.prompt());
+    this.drawnLine = "";
+    this.writePrompt();
+  }
+
+  /** The prompt in full: its earlier lines, then the line the input goes on. */
+  private writePrompt() {
+    const { head, last } = this.promptLayout();
+    if (head) this.terminal.write(head.replace(/\r?\n/g, "\r\n"));
+    this.terminal.write(last);
   }
 
   private writeLines(lines: string[]) {
@@ -427,7 +526,8 @@ export class TerminalSession {
   /** Right arrow or End at the end of the line takes the grey prediction, as in PSReadLine. */
   private acceptPrediction() {
     const { line, cursor } = this.state;
-    const prediction = cursor === line.length ? this.options.engine.predict(line, this.shell.history) : "";
+    // Screen reader mode shows no grey suggestion, so there is nothing to accept.
+    const prediction = !this.appearance.screenReaderMode && cursor === line.length ? this.engine.predict(line, this.shell.history) : "";
     if (!prediction) return false;
     this.edit({ line: `${line}${prediction}`, cursor: line.length + prediction.length });
     return true;
@@ -447,27 +547,28 @@ export class TerminalSession {
     const controller = new AbortController();
     this.abort = controller;
     let interrupted = false;
+    // The shell this line was typed into: running it may start or end a shell, but the line belongs to this one.
+    const { engine, shell } = this.stack[this.stack.length - 1];
+    const hadHistory = shell.history.length > 0;
 
     try {
       const host: ShellHost = { ...this.options.host, signal: controller.signal };
-      const result = await this.options.engine.run(input, this.shell, this.options.fileSystem, host);
+      const result = await engine.run(input, shell, this.options.fileSystem, host);
       if (this.disposed) return;
-      if (result.interrupted) {
-        interrupted = true;
-      } else {
-        if (result.clear) this.terminal.write(CLEAR_SCREEN);
-        this.writeLines(result.lines);
-        result.actions.forEach((action) => this.options.callbacks.onAction(action));
-      }
+      if (result.interrupted) interrupted = true;
+      else await this.carryOut(result, controller.signal);
     } catch (error) {
       if (this.disposed) return;
       this.writeLines([`\x1b[91m${sanitizeForTerminal(error instanceof Error ? error.message : String(error))}\x1b[0m`]);
     }
 
     this.abort = null;
-    // Recorded after running, so Get-History excludes the command that is executing.
-    recordHistory(this.shell.history, input);
-    saveHistory(this.options.engine.historyKey, this.shell.history);
+    // Recorded after running, so Get-History excludes the command that is executing. It is added to what
+    // is stored now (other tabs may have saved commands meanwhile), and this tab then takes up the result.
+    // A command that emptied the list (Clear-History) starts the saved one over.
+    const cleared = hadHistory && shell.history.length === 0;
+    const saved = appendHistory(engine.historyKey, input, shell.history, cleared);
+    shell.history.splice(0, shell.history.length, ...saved);
     this.walk = startHistoryWalk(this.shell.history);
     this.busy = false;
     if (this.disposed) return;
@@ -484,9 +585,49 @@ export class TerminalSession {
     }
   }
 
+  /** Print what a command produced and do what it asked for: recolour, start or leave a shell, or hand it to the app. */
+  private async carryOut(result: ShellResult, signal: AbortSignal) {
+    if (result.clear) this.terminal.write(CLEAR_SCREEN);
+    this.writeLines(result.lines);
+    for (const action of result.actions) {
+      if (this.disposed) return;
+      // Colours are this screen's own business; everything else is for the app to carry out.
+      if (action.type === "set-colors") this.setColors({ foreground: action.foreground, background: action.background });
+      else if (action.type === "reset-colors") this.setColors(null);
+      // `exit` in a shell inside another one returns to it; in the first shell it closes the tab.
+      else if (action.type === "exit" && this.stack.length > 1) this.stack.pop();
+      else if (action.type === "enter-shell") await this.enterShell(action, signal);
+      else this.options.callbacks.onAction(action);
+    }
+  }
+
+  /** `cmd` or `pwsh` typed in a shell: a new shell in the same tab, starting in the folder the old one is in. */
+  private async enterShell(request: Extract<TerminalAction, { type: "enter-shell" }>, signal: AbortSignal) {
+    if (this.stack.length >= MAX_NESTED_SHELLS) {
+      this.writeLines([`\x1b[91mThis tab already has ${MAX_NESTED_SHELLS} shells inside each other. Type exit to leave one.\x1b[0m`]);
+      return;
+    }
+
+    const engine = getShellEngine(request.profile);
+    const child = createShellSession(this.shell.cwd);
+    child.history = loadHistory(engine.historyKey);
+    const stays = request.command === undefined || request.keep === true;
+    if (stays) {
+      this.stack.push({ engine, shell: child });
+      engine.banner().forEach((line) => this.writeLines([line]));
+    }
+    if (request.command === undefined) return;
+
+    const result = await engine.run(request.command, child, this.options.fileSystem, { ...this.options.host, signal });
+    if (result.interrupted || this.disposed) return;
+    // A command run with /c or -Command ends with its shell: an `exit` in it must not close the tab.
+    const actions = stays ? result.actions : result.actions.filter((action) => action.type !== "exit");
+    await this.carryOut({ ...result, actions }, signal);
+  }
+
   private complete() {
     const { line, cursor } = this.state;
-    const result = this.options.engine.complete(line, cursor, this.shell, this.options.fileSystem.getNodes());
+    const result = this.engine.complete(line, cursor, this.shell, this.options.fileSystem.getNodes());
     if (!result.candidates.length) {
       this.edit({ line: result.line, cursor: result.cursor });
       return;
@@ -506,7 +647,8 @@ export class TerminalSession {
     }
     this.state = { line, cursor };
     this.drawnCursor = 0;
-    this.render();
+    this.drawnLine = "";
+    this.render(true, true);
   }
 
   private showHistory(step: HistoryStep) {
@@ -629,7 +771,10 @@ export class TerminalSession {
         case "\x0c":
           this.terminal.write(CLEAR_SCREEN);
           this.drawnCursor = 0;
-          this.render();
+          this.drawnLine = "";
+          // The prompt's earlier lines go back on the cleared screen; the last one is repainted with the line.
+          this.terminal.write(this.promptLayout().head.replace(/\r?\n/g, "\r\n"));
+          this.render(true, true);
           break;
         case "\t":
           this.complete();
@@ -702,6 +847,14 @@ export class TerminalSession {
     const target = safeLinkTarget(uri);
     if (target) this.options.callbacks.onOpenLink(target);
   };
+
+  private showLinkHint() {
+    if (this.container) this.container.title = this.options.coarsePointer ? "" : "Ctrl+Click to follow link";
+  }
+
+  private hideLinkHint() {
+    this.container?.removeAttribute("title");
+  }
 
   private requestPaste(raw: string) {
     const text = sanitizePaste(raw);
