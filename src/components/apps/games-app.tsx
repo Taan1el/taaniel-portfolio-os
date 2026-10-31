@@ -30,7 +30,7 @@ const gameSections: GameSectionDefinition[] = [
   {
     id: "reviewed-ports",
     title: "Ports under review",
-    description: "Hextris, Dino, and Doom—ports limited or disabled.",
+    description: "Hextris and Dino—ports limited or disabled.",
     gameIds: bonusGameIds,
   },
 ];
