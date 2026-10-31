@@ -3,6 +3,7 @@ import { downloadFileNode } from "@/lib/filesystem";
 import { normalizePath } from "@/lib/filesystem";
 import { navigateShell } from "@/lib/shell-navigation";
 import { getDisplayName, resolveShortcut } from "@/lib/shortcuts";
+import { createLaunchNonce } from "@/lib/terminal-profiles";
 import { trackRecentFile } from "@/stores/recent-files-store";
 import { toast } from "@/stores/toast-store";
 import type { AppId, FileSystemRecord, VirtualNode, WindowPayload } from "@/types/system";
@@ -77,6 +78,8 @@ function launchNode(node: VirtualNode, nodes: FileSystemRecord, launchApp: Launc
     appId,
     payload: {
       filePath: node.path,
+      // Code keeps tabs: reopening a closed file must still count as a new request.
+      ...(appId === "editor" ? { launchNonce: createLaunchNonce() } : {}),
     },
   });
 }
