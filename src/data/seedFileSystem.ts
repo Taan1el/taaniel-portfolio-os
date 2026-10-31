@@ -151,6 +151,18 @@ It’s designed as a technical sample: you can click around, open apps, inspect 
 1. Open **Start menu** → type in search → launch an app.
 2. Open **Files** → browse \`/Portfolio/Case Studies\`.
 3. Open **Photos** and zoom/pan.
+
+## What grew out of it
+
+The first version looked like a desktop. The later work made it behave like one, using real engines rather than imitations wherever a browser allows it.
+
+- **Files are real.** The desktop is a folder on a virtual disk, stored in IndexedDB. Shortcuts are \`.lnk\` files, and one pointer-based drag controller moves, copies and links across the desktop, File Explorer and app windows, with Windows' Ctrl and Alt rules.
+- **Two shells written from scratch.** A PowerShell-style and a Command Prompt interpreter with pipelines of objects, hand-written expression parsing and no eval, plus tabs, find and Windows Terminal's colour schemes.
+- **Real engines in the browser.** CPython through Pyodide, in a worker so that Ctrl+C can stop a runaway loop. A Linux kernel on the v86 x86 emulator. Doom's engine as WebAssembly behind a small loader I wrote so it can pause and shut down cleanly.
+- **Code.** Monaco with tabs, search, a command palette and a live preview in a sandbox with no network access.
+- **A window system.** Snap Layouts, virtual desktops, and focus that moves the way keyboard and screen reader users expect.
+
+Large downloads load only when an app asks for them, so the first visit stays light.
 `;
 
 const appsCatalogMarkdown = `# Apps catalog
