@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardPaste,
+  SquareTerminal,
   Copy,
   FilePlus2,
   FolderPlus,
@@ -72,6 +73,7 @@ import { useRecentFilesStore } from "@/stores/recent-files-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useSystemStore } from "@/stores/system-store";
 import { toast } from "@/stores/toast-store";
+import { createLaunchNonce } from "@/lib/terminal-profiles";
 import type { AppComponentProps, ContextMenuAction, FileNode, VirtualFile } from "@/types/system";
 
 const explorerLocations: ExplorerSidebarLocation[] = [
@@ -430,6 +432,14 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       shortcut: "Ctrl+V",
       disabled: !clipboard || isTrashView,
       onSelect: pasteIntoCurrentDirectory,
+    });
+
+    actions.push({
+      id: "open-terminal",
+      label: "Open in Terminal",
+      icon: SquareTerminal,
+      disabled: isTrashView,
+      onSelect: () => launchApp({ appId: "terminal", payload: { directoryPath: currentDirectoryPath, launchNonce: createLaunchNonce() } }),
     });
 
     actions.push({ id: "sep-empty-2", label: "", separator: true, onSelect: () => {} });
