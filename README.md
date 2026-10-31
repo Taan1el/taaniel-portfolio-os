@@ -1,11 +1,11 @@
 # Taaniel OS
 
-Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows, a virtual filesystem (IndexedDB), taskbar with previews, Start menu, search, and bundled apps (terminal, Monaco editor, PDF/photo viewers, music player, games hub, and more).
+A desktop operating system that runs in the browser, built as the portfolio of Taaniel Vananurm. Files are real files on a virtual disk, windows snap and move between desktops, and the heavy apps use real engines: CPython, a Linux kernel, Doom and the Monaco editor. No server, no accounts: it all runs on GitHub Pages.
 
 <div align="center">
  <br />
  <a href="https://taan1el.github.io/taaniel-portfolio-os/">
-  <img src="public/assets/projects/portfolio-os.png" width="720" alt="Portfolio OS desktop and application window" />
+  <img src="docs/images/start-menu.png" width="760" alt="Taaniel OS desktop with the Start menu open" />
  </a>
  <br />
 </div>
@@ -23,9 +23,31 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 
 ## Start here (30 seconds)
 
-- Open the **Start menu** → type in search → launch an app
-- Open **OS Case Study.md** on the desktop for architecture notes
-- Open **Files** → browse `/Portfolio/Case Studies`
+- Open **Projects**: the briefcase opens onto one pocket per project
+- Open **Start** and type to search, or browse **All** by category
+- Open **OS Case Study.md** on the desktop for the architecture notes
+
+## What's inside
+
+| | |
+| --- | --- |
+| <img src="docs/images/projects-briefcase.png" width="400" alt="Projects open as a briefcase with a pocket per project" /> | <img src="docs/images/code.png" width="400" alt="Code editor beside a live preview" /> |
+| **Projects** opens like a briefcase, one pocket per project | **Code** is Monaco with tabs, search and a sandboxed live preview |
+| <img src="docs/images/terminal-python.png" width="400" alt="Terminal running Python" /> | <img src="docs/images/contact-inbox.png" width="400" alt="Contact app laid out as a mail inbox" /> |
+| **Terminal** has hand-written PowerShell and Command Prompt shells, plus real Python | **Contact** is an inbox, with one-click email, phone and CV |
+| <img src="docs/images/tv-radio.png" width="400" alt="TV and Radio app with Estonian channels" /> | <img src="docs/images/doom.png" width="400" alt="Doom running in a window" /> |
+| **TV & Radio** plays live Estonian public channels | **Doom** runs as WebAssembly, with its own small loader |
+
+Also here:
+
+- **File Explorer** over a real virtual disk: drag between the desktop and folders, `.lnk` shortcuts, Recycle Bin, keyboard and screen reader support
+- **Windows**: Snap Layouts, virtual desktops and Task View
+- **Linux** in Virtual x86: a real kernel on the v86 emulator
+- **Notepad** with Markdown formatting, plus Notes, Paint, Calculator, Photos, Music and Video
+- **Games**: Doom, Next Stop, Dino, Hextris, Snake and Tetris
+- **Settings** that do something: search, accent colours, taskbar alignment, clock formats, do not disturb, default apps, real storage figures, settings export and import
+
+What's planned next is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Project map
 
@@ -39,7 +61,8 @@ Browser-based desktop portfolio for Taaniel Vananurm—draggable icons, windows,
 
 - React 19, TypeScript, Vite
 - Zustand (shell, window, filesystem, explorer, process, system)
-- Framer Motion, react-rnd, xterm.js, Monaco, pdf.js
+- Framer Motion, react-rnd, xterm.js, Monaco, pdf.js, hls.js
+- Pyodide (Python), v86 (Linux), Doom compiled to WebAssembly. These load only when an app asks for them.
 - `@huggingface/transformers` runs the `all-MiniLM-L6-v2` embedding model in-browser via ONNX WASM to rerank Start menu search results. Model files must first be downloaded; inference runs locally.
 
 ## Development
@@ -88,7 +111,7 @@ The Browser app is intentionally an iframe-based web viewer, not a full browser 
 ## Security and limitations
 
 - **No server / no accounts**: this portfolio runs fully client-side (GitHub Pages). There is no login/auth model.
-- **Local persistence**: desktop layout, windows, and the virtual filesystem are stored in your browser (IndexedDB/localStorage). Use **Start → Reset session** to clear.
+- **Local persistence**: desktop layout, windows, and the virtual filesystem are stored in your browser (IndexedDB/localStorage). Use **Start → Power → Reset this PC** to clear.
 - **Embedded browser limits**: many sites block iframes (CSP / X-Frame-Options). When blocked, the Browser app shows a fallback UI and suggests opening a new tab.
 - **Untrusted content**: markdown and HTML previews are sanitized, but this is still a portfolio OS — avoid importing sensitive data.
 
@@ -100,5 +123,5 @@ The Browser app is intentionally an iframe-based web viewer, not a full browser 
 
 - **Embedded browser**: The Browser app uses capability detection before iframe loading. Known restricted hosts skip straight to fallback, while frame-friendly pages stay direct and no longer fall back after a successful load timeout cycle.
 - **Local browser paths**: Enter `/`, `/Documents`, `/Media`, or any other filesystem directory path in the Browser to get a lightweight directory index and open local previews inside the same window.
-- **Themes**: Defaults to **Cloud Archive**; change wallpaper and accent in **Settings**.
-- **Session data**: Desktop layout, windows, and the virtual filesystem persist in the browser (localStorage / IndexedDB). Use **Reset session** in the Start menu to clear.
+- **Themes**: Defaults to **Bloom (dark)**; change wallpaper and accent in **Settings**, or pick **Retro** for a 1995 look.
+- **TV & Radio**: streams come straight from the broadcasters to the visitor's browser. Some programmes have no web rights, so the broadcaster shows a slate instead, and some may be limited to Estonia.

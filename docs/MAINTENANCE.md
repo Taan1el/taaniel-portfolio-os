@@ -12,13 +12,16 @@ Completed:
 - Achievements, terminal extras, a Retro theme, and text size and contrast settings.
 - Explorer: focus moves onto items so screen readers read them, and it stays in
   the window after the focused item goes away. Taskbar buttons take arrow keys.
-
+- Start menu rebuilt: pins, Recommended, All by category, grid or list, account bar.
+- Notepad replaces the Markdown viewer. New TV & Radio app (adds hls.js).
+- Settings grew six pages and a search box.
+- Contact is an inbox, Projects is a briefcase. Popup tips and achievement toasts removed.
 A changed shipped document only reaches returning visitors if the hash of its old
 text is listed in `src/lib/portfolio-workspace.ts`. Add one whenever seed text changes.
 
 ### Validation
 
-- `tsc`, 121 test files (1399 tests) and `build:gh` pass.
+- `tsc`, 124 test files (1432 tests) and `build:gh` pass.
 - Real-input Chromium runs pass for the desktop, windows, Code, the extras and
   the About, Projects, CV, Contact and case study path, plus a 390px phone.
 - Not tested on a physical phone, or with a real screen reader.
