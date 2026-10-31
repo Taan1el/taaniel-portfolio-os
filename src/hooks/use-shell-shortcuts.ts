@@ -32,7 +32,8 @@ export function useShellShortcuts({
       }
 
       if (event.key === "Escape") {
-        onCloseOverlays();
+        // Layered surfaces such as Start claim Escape first.
+        if (!event.defaultPrevented) onCloseOverlays();
         return;
       }
 
@@ -43,6 +44,13 @@ export function useShellShortcuts({
       }
 
       if (event.altKey && event.key === "F4" && activeWindowId) {
+        event.preventDefault();
+        onCloseActiveWindow(activeWindowId);
+        return;
+      }
+
+      // Alt+F4 usually closes the browser on Windows, so this is the dependable one.
+      if (event.altKey && event.shiftKey && event.code === "KeyW" && activeWindowId) {
         event.preventDefault();
         onCloseActiveWindow(activeWindowId);
         return;

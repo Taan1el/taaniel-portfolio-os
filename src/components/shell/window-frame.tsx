@@ -1,4 +1,4 @@
-import { Suspense, forwardRef, useEffect, useRef, useState } from "react";
+import { Suspense, forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Rnd } from "react-rnd";
 import { createPortal } from "react-dom";
@@ -61,6 +61,15 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
   const Icon = definition.icon;
   const WindowComponent = getAppComponent(window.appId);
   const [interacting, setInteracting] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  useImperativeHandle(ref, () => sectionRef.current as HTMLElement);
+
+  // The active window owns keyboard focus, whichever way it became active.
+  // Apps that focus their own control have already done so: child effects run first.
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (active && section && !section.contains(document.activeElement)) section.focus({ preventScroll: true });
+  }, [active]);
   const [snapZone, setSnapZone] = useState<SnapZone | null>(null);
   const snapZoneRef = useRef<SnapZone | null>(null);
   const titlebarTabs = Boolean(definition.titlebarTabs);
@@ -171,7 +180,12 @@ export const WindowFrame = forwardRef<HTMLElement, WindowFrameProps>(function Wi
         className={cn("window-frame__rnd", !interacting && "is-animated")}
       >
         <motion.section
-          ref={ref}
+          ref={sectionRef}
+          tabIndex={-1}
+          aria-roledescription="window"
+          onFocusCapture={() => {
+            if (!active) onFocus();
+          }}
           data-window-preview-id={window.id}
           // A file dragged onto the window opens in it (or moves into the folder an Explorer window shows).
           {...windowDropProps(window.id, window.appId)}
