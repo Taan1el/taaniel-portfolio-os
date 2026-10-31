@@ -23,7 +23,7 @@
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.1",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "framer-motion": "^12.9.1",
     "html-to-image": "^1.11.13",
     "idb-keyval": "^6.2.1",
@@ -46,8 +46,8 @@
     "gh-pages": "^6.2.0",
     "jsdom": "^29.0.2",
     "typescript": "^6.0.3",
-    "vite": "~8.0.16",
-    "vitest": "^4.1.11"
+    "vite": "~8.3.5",
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "dompurify": "$dompurify",
