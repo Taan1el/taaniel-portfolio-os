@@ -23,7 +23,7 @@ export function ToastContainer() {
             <motion.div
               key={t.id}
               className={`toast toast--${t.type}`}
-              role="status"
+              role={t.type === "error" ? "alert" : undefined}
               initial={{ opacity: 0, y: 10, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 6, scale: 0.97 }}
