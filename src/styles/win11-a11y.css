@@ -82,6 +82,27 @@
   }
 }
 
+/* Settings > Accessibility > Text size. */
+.window-frame__body {
+  zoom: var(--os-text-zoom, 1);
+}
+
+/* Settings > Accessibility > More contrast. */
+:root[data-contrast="more"] {
+  --w11-text-2: var(--w11-text);
+  --w11-divider: currentColor;
+}
+
+:root[data-contrast="more"] :is(.w11-taskbar, .w11-start, .w11-flyout, .context-menu, .window-frame) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid currentColor;
+}
+
+:root[data-contrast="more"] :is(.w11-taskbar, .w11-start, .w11-flyout) {
+  background: var(--w11-surface-solid, #1a1a1a);
+}
+
 /* Toasts share the bottom-right corner with the tray flyouts; step aside while one is open. */
 body:has(.w11-quick) .toast-container,
 body:has(.w11-calendar) .toast-container {

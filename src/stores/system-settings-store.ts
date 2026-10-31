@@ -23,6 +23,10 @@ export interface SystemSettings {
   batterySaver: boolean;
   /** Settings > Accessibility > Visual effects > Animation effects, inverted. */
   reduceMotion: boolean;
+  /** Size of everything inside app windows, in percent. */
+  textSize: number;
+  /** Solid surfaces and stronger text and borders. */
+  moreContrast: boolean;
 }
 
 export const SYSTEM_SETTINGS_VERSION = 1;
@@ -36,7 +40,11 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   nightLightStrength: 50,
   batterySaver: false,
   reduceMotion: false,
+  textSize: 100,
+  moreContrast: false,
 };
+
+export const TEXT_SIZES = [100, 115, 130, 150];
 
 /** Windows steps the volume by 2 for each wheel notch over the speaker icon. */
 export const VOLUME_WHEEL_STEP = 2;
@@ -66,6 +74,10 @@ export const sanitizeBatterySaver = (value: unknown) =>
 export const sanitizeReduceMotion = (value: unknown) =>
   sanitizeFlag(value, DEFAULT_SYSTEM_SETTINGS.reduceMotion);
 
+export const sanitizeTextSize = (value: unknown) =>
+  TEXT_SIZES.includes(value as number) ? (value as number) : DEFAULT_SYSTEM_SETTINGS.textSize;
+export const sanitizeMoreContrast = (value: unknown) => sanitizeFlag(value, DEFAULT_SYSTEM_SETTINGS.moreContrast);
+
 const fieldSanitizers: { [Key in keyof SystemSettings]: (value: unknown) => SystemSettings[Key] } = {
   volume: sanitizeVolume,
   muted: sanitizeMuted,
@@ -74,6 +86,8 @@ const fieldSanitizers: { [Key in keyof SystemSettings]: (value: unknown) => Syst
   nightLightStrength: sanitizeNightLightStrength,
   batterySaver: sanitizeBatterySaver,
   reduceMotion: sanitizeReduceMotion,
+  textSize: sanitizeTextSize,
+  moreContrast: sanitizeMoreContrast,
 };
 
 export function sanitizeSystemSettings(value: unknown): SystemSettings {
@@ -103,6 +117,8 @@ interface SystemSettingsActions {
   setBatterySaver: (enabled: boolean) => void;
   toggleBatterySaver: () => void;
   setReduceMotion: (enabled: boolean) => void;
+  setTextSize: (size: number) => void;
+  setMoreContrast: (enabled: boolean) => void;
   resetSettings: () => void;
 }
 
@@ -134,6 +150,8 @@ export const useSystemSettingsStore = create<SystemSettingsState>()(
       setBatterySaver: (batterySaver) => set({ batterySaver }),
       toggleBatterySaver: () => set((state) => ({ batterySaver: !state.batterySaver })),
       setReduceMotion: (reduceMotion) => set({ reduceMotion }),
+      setTextSize: (size) => set({ textSize: sanitizeTextSize(size) }),
+      setMoreContrast: (moreContrast) => set({ moreContrast }),
       resetSettings: () => set({ ...DEFAULT_SYSTEM_SETTINGS }),
     }),
     {

@@ -29,8 +29,10 @@ function setFlag(root: HTMLElement, name: FlagName, enabled: boolean) {
  * which it relies on to re-evaluate prefersStaticWallpaper() for battery saver.
  */
 export function useShellServices() {
-  const { reduceMotion, batterySaver, nightLight } = useSystemSettingsStore(
+  const { reduceMotion, batterySaver, nightLight, textSize, moreContrast } = useSystemSettingsStore(
     useShallow((state) => ({
+      textSize: state.textSize,
+      moreContrast: state.moreContrast,
       reduceMotion: state.reduceMotion,
       batterySaver: state.batterySaver,
       nightLight: state.nightLight,
@@ -38,6 +40,17 @@ export function useShellServices() {
   );
 
   useEffect(() => startDeviceWatchers(), []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--os-text-zoom", String(textSize / 100));
+    if (moreContrast) root.setAttribute("data-contrast", "more");
+    else root.removeAttribute("data-contrast");
+    return () => {
+      root.style.removeProperty("--os-text-zoom");
+      root.removeAttribute("data-contrast");
+    };
+  }, [moreContrast, textSize]);
 
   useEffect(() => {
     const root = document.documentElement;
