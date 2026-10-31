@@ -77,11 +77,17 @@ describe("Settings navigation", () => {
       "System",
       "Display",
       "Sound",
+      "Notifications",
       "Power & battery",
+      "Storage",
       "Network & internet",
       "Personalization",
+      "Apps",
       "Accessibility",
+      "Privacy",
       "Time & language",
+      "Keyboard & input",
+      "About",
     ]);
   });
 

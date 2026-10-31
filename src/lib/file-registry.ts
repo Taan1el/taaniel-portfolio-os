@@ -1,5 +1,6 @@
 import type { AppId, FileAssociationDescriptor, VirtualNode } from "@/types/system";
 import { isNotesNode } from "@/lib/notes";
+import { getSystemSettings } from "@/stores/system-settings-store";
 
 const fileAssociations: Record<string, FileAssociationDescriptor> = {
   ".bmp": {
@@ -462,6 +463,12 @@ export function resolveOpenApp(node?: VirtualNode): AppId {
     return "notes";
   }
 
+  // Settings > Apps > Default apps. Only apps the Open with list offers are ever stored.
+  const chosen = getSystemSettings().defaultApps[normalizeExtensionKey(node.extension)];
+  if (chosen && getOpenWithOptionsForExtension(node.extension).includes(chosen)) {
+    return chosen;
+  }
+
   return getFileAssociationDescriptor(node.extension)?.openWith ?? resolveFallbackApp(node);
 }
 
@@ -487,6 +494,26 @@ const FAMILY_ALTERNATIVES: Partial<Record<string, AppId[]>> = {
   code: ["editor"],
   image: ["photos", "paint"],
 };
+
+/** Apps that can open a file type, without the visitor's default folded in. */
+export function getOpenWithOptionsForExtension(extension: string): AppId[] {
+  const assoc = getFileAssociationDescriptor(extension);
+  const options: AppId[] = [];
+  const add = (id: AppId | undefined | null) => {
+    if (id && !options.includes(id)) options.push(id);
+  };
+
+  add(assoc?.openWith);
+  add(assoc?.editWith);
+  for (const alt of FAMILY_ALTERNATIVES[assoc?.family ?? ""] ?? []) add(alt);
+
+  return options;
+}
+
+/** Every file type the OS knows, for the Default apps list. */
+export function getKnownExtensions(): string[] {
+  return Object.keys(fileAssociations);
+}
 
 export function getOpenWithOptions(node: VirtualNode): AppId[] {
   if (node.kind === "directory") return [];

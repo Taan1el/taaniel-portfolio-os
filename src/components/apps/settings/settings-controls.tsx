@@ -20,11 +20,13 @@ interface SettingsRowProps {
   /** The control on the right: a switch, a slider, a button. */
   children?: ReactNode;
   className?: string;
+  /** Names the row for Settings search, which scrolls to it. */
+  settingId?: string;
 }
 
-export function SettingsRow({ icon, title, description, children, className }: SettingsRowProps) {
+export function SettingsRow({ icon, title, description, children, className, settingId }: SettingsRowProps) {
   return (
-    <div className={cn("w11-settings__row", className)}>
+    <div className={cn("w11-settings__row", className)} data-setting-id={settingId}>
       {icon ? (
         <span className="w11-settings__row-icon" aria-hidden="true">
           {icon}

@@ -29,6 +29,7 @@ export function PowerPage() {
       <SettingsGroup title="Battery saver">
         <SettingsRow
           icon={<Leaf size={18} />}
+          settingId="battery-saver"
           title="Battery saver"
           description="Dims the screen, stops the animated wallpaper, turns off blur effects and pauses AI-assisted search."
         >

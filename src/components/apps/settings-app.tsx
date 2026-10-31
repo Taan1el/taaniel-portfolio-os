@@ -1,16 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AppContent, AppScaffold } from "@/components/apps/app-layout";
+import { AppContent, AppScaffold, SearchInput } from "@/components/apps/app-layout";
+import { AboutPage } from "@/components/apps/settings/about-page";
 import { AccessibilityPage } from "@/components/apps/settings/accessibility-page";
+import { AppsPage } from "@/components/apps/settings/apps-page";
 import { DisplayPage } from "@/components/apps/settings/display-page";
+import { InputPage } from "@/components/apps/settings/input-page";
 import { NetworkPage } from "@/components/apps/settings/network-page";
+import { NotificationsPage } from "@/components/apps/settings/notifications-page";
 import { PersonalizationPage } from "@/components/apps/settings/personalization-page";
 import { PowerPage } from "@/components/apps/settings/power-page";
+import { PrivacyPage } from "@/components/apps/settings/privacy-page";
 import { SETTINGS_SECTION_ICONS } from "@/components/apps/settings/section-icons";
+import { SettingsLinkRow } from "@/components/apps/settings/settings-controls";
 import { SoundPage } from "@/components/apps/settings/sound-page";
+import { StoragePage } from "@/components/apps/settings/storage-page";
 import { SystemPage } from "@/components/apps/settings/system-page";
 import { TimePage } from "@/components/apps/settings/time-page";
 import { LogoMark } from "@/components/ui/logo-mark";
 import { profile } from "@/data/portfolio";
+import { searchSettings } from "@/lib/settings-search";
 import {
   SETTINGS_SECTIONS,
   getSettingsSection,
@@ -39,6 +47,9 @@ export function SettingsApp({ window }: AppComponentProps) {
   const requestedSection = sanitizeSettingsSection(window.payload?.section);
   const [section, setSection] = useState<SettingsSectionId>(requestedSection);
   const seenRequest = useRef(requestedSection);
+  const [query, setQuery] = useState("");
+  const [jumpTo, setJumpTo] = useState<string | null>(null);
+  const results = searchSettings(query);
 
   // A deep link that arrives while Settings is already open (ms-settings: style).
   useEffect(() => {
@@ -54,6 +65,27 @@ export function SettingsApp({ window }: AppComponentProps) {
     rememberSection(window.processId, next);
   };
 
+  const openResult = (result: ReturnType<typeof searchSettings>[number]) => {
+    openSection(result.section);
+    setQuery("");
+    setJumpTo(result.id.startsWith("page:") ? null : result.id);
+  };
+
+  // Scroll to the setting a search result named and mark it for a moment.
+  useEffect(() => {
+    if (!jumpTo || query) return;
+
+    const frame = requestAnimationFrame(() => {
+      const row = document.querySelector<HTMLElement>(`[data-setting-id="${CSS.escape(jumpTo)}"]`);
+      row?.scrollIntoView({ block: "center" });
+      row?.classList.add("is-found");
+      globalThis.setTimeout(() => row?.classList.remove("is-found"), 2000);
+      setJumpTo(null);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [jumpTo, query, section]);
+
   const pages: Record<SettingsSectionId, ReactNode> = {
     system: <SystemPage onOpen={openSection} />,
     display: <DisplayPage />,
@@ -63,6 +95,12 @@ export function SettingsApp({ window }: AppComponentProps) {
     personalization: <PersonalizationPage />,
     accessibility: <AccessibilityPage />,
     time: <TimePage />,
+    notifications: <NotificationsPage />,
+    storage: <StoragePage />,
+    apps: <AppsPage />,
+    privacy: <PrivacyPage />,
+    input: <InputPage />,
+    about: <AboutPage />,
   };
   const current = getSettingsSection(section);
 
@@ -77,6 +115,21 @@ export function SettingsApp({ window }: AppComponentProps) {
               <small>Local account</small>
             </span>
           </div>
+          <SearchInput
+            containerClassName="w11-settings__search"
+            aria-label="Search settings"
+            placeholder="Find a setting"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && results[0]) openResult(results[0]);
+              if (event.key === "Escape" && query) {
+                event.preventDefault();
+                event.stopPropagation();
+                setQuery("");
+              }
+            }}
+          />
           <ul className="w11-settings__nav-list">
             {SETTINGS_SECTIONS.map((item) => {
               const Icon = SETTINGS_SECTION_ICONS[item.id];
@@ -103,12 +156,36 @@ export function SettingsApp({ window }: AppComponentProps) {
           padded
           className="w11-settings__page"
           role="region"
-          aria-label={current.title}
+          aria-label={query ? "Search results" : current.title}
           data-section={section}
         >
-          {/* Personalization keeps its own hero heading, so the page has one h1. */}
-          {section === "personalization" ? null : <h1 className="w11-settings__title">{current.title}</h1>}
-          {pages[section]}
+          {query ? (
+            <>
+              <h1 className="w11-settings__title">Search results</h1>
+              <div className="w11-settings__group" role="list" aria-label={`Results for ${query}`}>
+                {results.map((result) => {
+                  const Icon = SETTINGS_SECTION_ICONS[result.section];
+
+                  return (
+                    <SettingsLinkRow
+                      key={result.id}
+                      icon={<Icon size={18} />}
+                      title={result.title}
+                      description={result.id.startsWith("page:") ? "Settings page" : `Settings > ${result.pageTitle}`}
+                      onOpen={() => openResult(result)}
+                    />
+                  );
+                })}
+                {results.length === 0 ? <p className="w11-settings__note">No settings match "{query.trim()}".</p> : null}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Personalization keeps its own hero heading, so the page has one h1. */}
+              {section === "personalization" ? null : <h1 className="w11-settings__title">{current.title}</h1>}
+              {pages[section]}
+            </>
+          )}
         </AppContent>
       </div>
     </AppScaffold>

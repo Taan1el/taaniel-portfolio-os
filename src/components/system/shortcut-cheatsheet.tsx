@@ -5,17 +5,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { TERMINAL_SHORTCUTS } from "@/lib/terminal-keys";
 
-interface ShortcutEntry {
+export interface ShortcutEntry {
   keys: string[];
   label: string;
 }
 
-interface ShortcutGroup {
+export interface ShortcutGroup {
   title: string;
   shortcuts: ShortcutEntry[];
 }
 
-const SHORTCUT_GROUPS: ShortcutGroup[] = [
+export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: "Shell",
     shortcuts: [

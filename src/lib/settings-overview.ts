@@ -9,6 +9,9 @@ export interface SettingsOverviewInput {
   /** Name of the active theme, for the Personalization line. */
   themeName: string;
   timeZone: string;
+  doNotDisturb?: boolean;
+  appCount?: number;
+  osVersion?: string;
 }
 
 /** One live line under each page's name on the System overview, like Windows' Settings home. */
@@ -47,6 +50,12 @@ export function describeSettingsStatus(id: SettingsSectionId, input: SettingsOve
       return input.reduceMotion ? "Animation effects off" : "Animation effects on";
     case "time":
       return input.timeZone;
+    case "notifications":
+      return input.doNotDisturb ? "Do not disturb is on" : "Notifications on";
+    case "apps":
+      return input.appCount ? `${input.appCount} apps` : "";
+    case "about":
+      return input.osVersion ? `Taaniel OS ${input.osVersion}` : "";
     default:
       return "";
   }

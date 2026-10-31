@@ -19,7 +19,7 @@ export function AccessibilityPage() {
   return (
     <>
     <SettingsGroup title="Vision">
-      <SettingsRow icon={<Type size={18} />} title="Text size" description="Makes everything inside app windows larger.">
+      <SettingsRow icon={<Type size={18} />} settingId="text-size" title="Text size" description="Makes everything inside app windows larger.">
         <select aria-label="Text size" value={textSize} onChange={(event) => setTextSize(Number(event.target.value))}>
           {TEXT_SIZES.map((size) => (
             <option key={size} value={size}>
@@ -28,13 +28,14 @@ export function AccessibilityPage() {
           ))}
         </select>
       </SettingsRow>
-      <SettingsRow icon={<Contrast size={18} />} title="More contrast" description="Solid surfaces with stronger text and borders.">
+      <SettingsRow icon={<Contrast size={18} />} settingId="more-contrast" title="More contrast" description="Solid surfaces with stronger text and borders.">
         <ToggleSwitch label="More contrast" checked={moreContrast} onChange={setMoreContrast} />
       </SettingsRow>
     </SettingsGroup>
     <SettingsGroup title="Visual effects">
       <SettingsRow
         icon={<Sparkles size={18} />}
+        settingId="animation-effects"
         title="Animation effects"
         description={
           systemReducesMotion && !reduceMotion
