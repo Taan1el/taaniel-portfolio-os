@@ -32,6 +32,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: "Windows",
     shortcuts: [
       { keys: ["Alt", "Shift", "W"], label: "Close active window" },
+      { keys: ["Alt", "Shift", "Arrows"], label: "Snap, maximize or minimize" },
+      { keys: ["Ctrl", "Alt", "Left/Right"], label: "Switch desktop" },
       { keys: ["Alt", "]"], label: "Focus next window" },
       { keys: ["Alt", "["], label: "Focus previous window" },
     ],

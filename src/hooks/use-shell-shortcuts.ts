@@ -9,6 +9,8 @@ interface UseShellShortcutsOptions {
   onOpenTerminal: () => void;
   onToggleFullscreen: () => void;
   onToggleCheatsheet: () => void;
+  onSnapActiveWindow: (direction: "left" | "right" | "up" | "down") => void;
+  onSwitchDesktop: (step: 1 | -1) => void;
 }
 
 export function useShellShortcuts({
@@ -20,6 +22,8 @@ export function useShellShortcuts({
   onOpenTerminal,
   onToggleFullscreen,
   onToggleCheatsheet,
+  onSnapActiveWindow,
+  onSwitchDesktop,
 }: UseShellShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -46,6 +50,18 @@ export function useShellShortcuts({
       if (event.altKey && event.key === "F4" && activeWindowId) {
         event.preventDefault();
         onCloseActiveWindow(activeWindowId);
+        return;
+      }
+
+      if (event.altKey && event.shiftKey && event.key.startsWith("Arrow") && activeWindowId) {
+        event.preventDefault();
+        onSnapActiveWindow(event.key.slice(5).toLowerCase() as "left" | "right" | "up" | "down");
+        return;
+      }
+
+      if (event.ctrlKey && event.altKey && !event.getModifierState?.("AltGraph") && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        event.preventDefault();
+        onSwitchDesktop(event.key === "ArrowRight" ? 1 : -1);
         return;
       }
 
@@ -97,5 +113,7 @@ export function useShellShortcuts({
     onOpenLauncherSearch,
     onToggleStartMenu,
     onToggleCheatsheet,
+    onSnapActiveWindow,
+    onSwitchDesktop,
   ]);
 }

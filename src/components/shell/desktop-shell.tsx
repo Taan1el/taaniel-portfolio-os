@@ -49,7 +49,10 @@ import { selectNetworkStatus, useDeviceStore } from "@/stores/device-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import { useProcessStore } from "@/stores/process-store";
 import { useShellStore } from "@/stores/shell-store";
+import { getDesktopSize } from "@/stores/system-runtime";
 import { useSystemStore } from "@/stores/system-store";
+import { desktopOf, useWindowStore } from "@/stores/window-store";
+import { LEFT_HALF, RIGHT_HALF, zoneBounds } from "@/lib/snap-layouts";
 import type { DesktopEntry } from "@/types/system";
 
 export function DesktopShell() {
@@ -158,9 +161,10 @@ export function DesktopShell() {
     () => resolveDesktopWallpaper(theme, wallpaper),
     [theme, wallpaper]
   );
+  const activeDesktop = useWindowStore((state) => state.activeDesktop);
   const taskbarEntries = useMemo(
-    () => buildTaskbarWindowEntries(processes, windows),
-    [processes, windows]
+    () => buildTaskbarWindowEntries(processes, windows.filter((entry) => desktopOf(entry) === activeDesktop)),
+    [activeDesktop, processes, windows]
   );
   const searchIndex = useMemo(() => buildShellSearchIndex(nodes), [nodes]);
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -266,6 +270,17 @@ export function DesktopShell() {
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
+    onSnapActiveWindow: (direction) => {
+      if (!focusedWindowId) return;
+      const system = useSystemStore.getState();
+      if (direction === "up") system.toggleMaximize(focusedWindowId);
+      else if (direction === "down") system.toggleMinimize(focusedWindowId);
+      else useWindowStore.getState().snapWindow(focusedWindowId, zoneBounds(direction === "left" ? LEFT_HALF : RIGHT_HALF, getDesktopSize()));
+    },
+    onSwitchDesktop: (step) => {
+      const { activeDesktop, switchDesktop } = useWindowStore.getState();
+      switchDesktop(activeDesktop + step);
+    },
   });
 
   useEffect(() => {

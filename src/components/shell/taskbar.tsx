@@ -7,6 +7,7 @@ import { TaskbarTray } from "@/components/shell/taskbar-tray";
 import { LogoMark } from "@/components/ui/logo-mark";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { getAppDefinition } from "@/lib/app-registry";
+import { TaskViewButton } from "@/components/shell/task-view";
 import { taskbarDropProps } from "@/lib/dnd/dom";
 import { cn } from "@/lib/utils";
 import taskbarMod from "@/components/shell/taskbar.module.css";
@@ -381,6 +382,8 @@ export function Taskbar({
             onFocus={onSearchFieldFocus}
             onKeyDown={handleTaskbarSearchKeyDown}
           />
+
+          <TaskViewButton />
 
           <div className="w11-taskbar__apps" ref={windowsRef} onScroll={() => setPreviewEntry(null)}>
             {slots.map((slot) => {
