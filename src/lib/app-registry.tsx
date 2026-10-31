@@ -362,7 +362,7 @@ const registry: Record<AppId, AppDefinition> = {
   tv: defineApp({
     id: "tv",
     title: "TV & Radio",
-    description: "Live Estonian television and radio: ETV, ETV2, Vikerraadio and more.",
+    description: "Live television and radio from Estonia, the UK and the USA.",
     category: "Media",
     icon: TvIcon,
     accent: "#3b82f6",
