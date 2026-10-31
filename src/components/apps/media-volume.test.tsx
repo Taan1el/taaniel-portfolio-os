@@ -94,6 +94,12 @@ describe("video player master volume", () => {
 });
 
 describe("music player master volume", () => {
+  it("still has songs when told to open a path that is gone", () => {
+    const { container } = render(<MusicPlayerApp window={buildWindow("music", "/Documents/removed.mp3")} />);
+
+    expect(container.querySelector("audio")).not.toBeNull();
+  });
+
   it("scales its own slider by the master volume", () => {
     useSystemSettingsStore.getState().setVolume(50);
     const { container } = render(<MusicPlayerApp window={buildWindow("music", "/Media/Music/song.mp3")} />);
