@@ -259,6 +259,15 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     textLike: true,
     capabilities: ["open", "edit", "preview"],
   },
+  ".py": {
+    extension: ".py",
+    openWith: "editor",
+    editWith: "editor",
+    mimeType: "text/plain",
+    family: "code",
+    label: "Python script",
+    capabilities: ["open", "edit", "preview"],
+  },
   ".ps1": {
     extension: ".ps1",
     openWith: "editor",
