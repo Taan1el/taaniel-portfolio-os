@@ -1,0 +1,173 @@
+/* Boot animation and lock screen. Both sit over everything except the skip link. */
+
+.os-session {
+  position: fixed;
+  inset: 0;
+  z-index: 12500;
+  color: #fff;
+  font-family: var(--w11-font);
+}
+
+.os-boot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  height: 100%;
+  background: #000;
+}
+
+.os-boot__dots {
+  display: flex;
+  gap: 8px;
+}
+
+.os-boot__dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.2;
+  animation: os-boot-dot 1s ease-in-out infinite;
+}
+
+@keyframes os-boot-dot {
+  40% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+.os-lock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: min(11vh, 96px) 16px 56px;
+  background: var(--desktop-wallpaper, #050a18);
+  cursor: default;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 60%);
+}
+
+.os-lock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(4 8 20 / 35%);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.os-lock > * {
+  position: relative;
+}
+
+.os-lock__clock {
+  text-align: center;
+}
+
+.os-lock__clock time {
+  display: block;
+  font-size: clamp(64px, 12vw, 112px);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.os-lock__clock p {
+  margin: 12px 0 0;
+  font-size: clamp(18px, 3vw, 24px);
+}
+
+.os-lock__account {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.os-lock__avatar {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 16%);
+  border: 1px solid rgb(255 255 255 / 30%);
+}
+
+.os-lock__account strong {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.os-lock__account small {
+  font-size: 13px;
+}
+
+.os-lock__enter {
+  min-width: 132px;
+  padding: 8px 20px;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: var(--w11-radius-control);
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.os-lock__enter:hover {
+  background: rgb(255 255 255 / 26%);
+}
+
+.os-lock__portfolio {
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--w11-radius-control);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.os-lock button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgb(0 0 0 / 80%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-boot__dots span {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+:root[data-reduce-motion="true"] .os-boot__dots span {
+  animation: none;
+  opacity: 0.7;
+}
+
+:root[data-battery-saver="true"] .os-lock::before {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgb(4 8 20 / 60%);
+}
+
+@media (max-height: 460px) {
+  .os-lock {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .os-lock__avatar {
+    display: none;
+  }
+}

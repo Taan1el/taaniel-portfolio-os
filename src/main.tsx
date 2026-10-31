@@ -7,6 +7,7 @@ import "@/styles/win11.css";
 import "@/styles/win11-desktop.css";
 import "@/styles/win11-tray.css";
 import "@/styles/win11-a11y.css";
+import "@/styles/win11-session.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

@@ -31,6 +31,7 @@ import { OsOnboarding } from "@/components/landing/os-onboarding";
 import { ContextMenu } from "@/components/system/context-menu";
 import { DragLayer } from "@/components/system/drag-layer";
 import { OpenWithDialog } from "@/components/system/open-with-dialog";
+import { SessionScreen } from "@/components/shell/session-screen";
 import { ShortcutCheatsheet } from "@/components/system/shortcut-cheatsheet";
 import { ToastContainer } from "@/components/system/toast-container";
 import { DesktopManager } from "@/components/shell/desktop-manager";
@@ -485,6 +486,7 @@ export function DesktopShell() {
         Skip to the accessible portfolio
       </a>
       <h1 className="sr-only">Taaniel OS desktop</h1>
+      <SessionScreen />
       <OsOnboarding />
       {offlineBanner ? (
         <div className="os-offline-banner" role="status" aria-live="polite">

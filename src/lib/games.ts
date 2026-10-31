@@ -40,11 +40,11 @@ The arcade lineup lives inside the OS and launches through the same window syste
 
 - Snake
 - Tetris
+- Doom
 
 ## Ports under review
 
 - Dino
-- Doom
 - Hextris
 
 ## Notes
@@ -53,5 +53,5 @@ The arcade lineup lives inside the OS and launches through the same window syste
 - Third-party ports are still listed in the hub, but they currently open a safe notice while local replacements are prepared.
 `;
 
-export const primaryGameIds = ["snake", "tetris"] as const satisfies readonly AppId[];
-export const bonusGameIds = ["dino", "doom", "hextris"] as const satisfies readonly AppId[];
+export const primaryGameIds = ["snake", "tetris", "doom"] as const satisfies readonly AppId[];
+export const bonusGameIds = ["dino", "hextris"] as const satisfies readonly AppId[];

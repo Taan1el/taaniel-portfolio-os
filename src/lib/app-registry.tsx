@@ -173,11 +173,10 @@ const registry: Record<AppId, AppDefinition> = {
   doom: defineApp({
     id: "doom",
     title: "Doom",
-    description: "Experimental port currently paused during the security hardening pass.",
+    description: "The shareware episode of Doom, running as WebAssembly.",
     category: "Lab",
     icon: DoomIcon,
     accent: "#ff8a5c",
-    hidden: true,
     defaultPosition: { x: 224, y: 104 },
     defaultSize: { width: 980, height: 720 },
     load: async () => ({ default: (await import("@/components/apps/doom-app")).DoomApp }),
