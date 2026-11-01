@@ -256,6 +256,7 @@ describe("buildFileMenu", () => {
       "Move to…",
       "Copy to…",
       "Download",
+      "Properties",
     ]);
   });
 

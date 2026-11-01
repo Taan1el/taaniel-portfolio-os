@@ -13,6 +13,7 @@ import {
   Copy,
   FilePlus2,
   FolderPlus,
+  Info,
   LayoutGrid,
   List,
   ListFilter,
@@ -69,6 +70,7 @@ import { cn } from "@/lib/utils";
 import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
 import { useExplorerStore, type ExplorerSortKey } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { usePropertiesStore } from "@/stores/properties-store";
 import { useRecentFilesStore } from "@/stores/recent-files-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useSystemStore } from "@/stores/system-store";
@@ -489,6 +491,17 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       });
     }
 
+    if (!isRecycleBinRoot) {
+      actions.push({ id: "sep-empty-properties", label: "", separator: true, onSelect: () => {} });
+      actions.push({
+        id: "properties",
+        label: "Properties",
+        icon: Info,
+        shortcut: "Alt+Enter",
+        onSelect: () => usePropertiesStore.getState().open([currentDirectoryPath]),
+      });
+    }
+
     return actions;
   };
 
@@ -647,7 +660,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     const key = event.key;
     const ctrl = event.ctrlKey || event.metaKey;
 
-    if (event.altKey && key === "ArrowLeft") {
+    if (event.altKey && key === "Enter") {
+      event.preventDefault();
+      usePropertiesStore.getState().open(selectedPaths.length ? selectedPaths : [currentDirectoryPath]);
+    } else if (event.altKey && key === "ArrowLeft") {
       event.preventDefault();
       goBack(window.id);
     } else if (event.altKey && key === "ArrowRight") {

@@ -37,6 +37,7 @@ import { DesktopManager } from "@/components/shell/desktop-manager";
 import { DisplayFilterOverlay } from "@/components/shell/display-filter-overlay";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
+import { PropertiesDialog } from "@/components/system/properties-dialog";
 import { RunDialog } from "@/components/system/run-dialog";
 import { Taskbar } from "@/components/shell/taskbar";
 import { TrayFlyouts } from "@/components/shell/tray-flyouts";
@@ -567,6 +568,7 @@ export function DesktopShell() {
 
       <ShortcutCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
       <RunDialog open={runOpen} onClose={() => setRunOpen(false)} />
+      <PropertiesDialog />
 
       <OpenWithDialog
         target={openWithTarget}

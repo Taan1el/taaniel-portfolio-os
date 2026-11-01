@@ -7,6 +7,7 @@ import {
   FolderInput,
   FolderOpen,
   FolderOutput,
+  Info,
   LayoutGrid,
   Link2,
   MapPin,
@@ -32,6 +33,7 @@ import { getOpenWithOptions, resolveEditApp } from "@/lib/file-registry";
 import { downloadFileNode, getParentPath, isLockedNode, normalizePath } from "@/lib/filesystem";
 import { resolveShortcutNode } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import { usePropertiesStore } from "@/stores/properties-store";
 import { useTransferDialogStore } from "@/stores/transfer-dialog-store";
 import type { ClipboardState, ContextMenuAction, FileSystemRecord } from "@/types/system";
 
@@ -153,6 +155,9 @@ export function buildFileMenu(input: FileMenuInput): ContextMenuAction[] {
   if (single?.kind === "file" && !single.shortcut && !inTrash) {
     push({ id: "download", label: "Download", icon: Download, onSelect: () => void downloadFileNode(single) });
   }
+
+  push(separator("sep-properties"));
+  push({ id: "properties", label: "Properties", icon: Info, shortcut: "Alt+Enter", onSelect: () => usePropertiesStore.getState().open(paths) });
 
   return actions;
 }
