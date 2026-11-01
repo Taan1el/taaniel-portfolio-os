@@ -18,7 +18,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { ChannelLogo, TvGuide } from "@/components/apps/tv/tv-guide";
+import { ChannelLogo, ProgrammeBar, TvGuide } from "@/components/apps/tv/tv-guide";
 import { CHANNEL_CATEGORIES, LIVE_CHANNELS, type LiveChannel } from "@/data/live-channels";
 import { useMasterVolume } from "@/hooks/use-master-volume";
 import { formatTime } from "@/lib/clock-format";
@@ -111,6 +111,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
   const ambientRef = useRef<HTMLCanvasElement | null>(null);
   const hideTimer = useRef<number | undefined>(undefined);
   const numberTimer = useRef<number | undefined>(undefined);
+  const keepPictureInPicture = useRef(false);
   const dialled = useRef("");
 
   const [tab, setTab] = useState(saved.tab);
@@ -146,7 +147,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
     [favourites, tab]
   );
 
-  useMasterVolume(mediaRef, muted ? 0 : volume, channel?.id ?? null);
+  useMasterVolume(mediaRef, muted ? 0 : volume, attempt);
   useAmbientLight(mediaRef, ambientRef, channel?.kind === "tv" && status === "playing");
 
   useEffect(() => {
@@ -168,8 +169,13 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
     }
 
     setStatus("loading");
+    // Anything still running from this tuning after it ends must not touch the next channel.
+    let tuned = true;
     let hls: Hls | null = null;
     let recovered = false;
+    const fail = () => {
+      if (tuned) markOffAir(channel.id);
+    };
 
     if (channel.kind === "tv" && Hls.isSupported()) {
       hls = new Hls({ maxBufferLength: 20, capLevelToPlayerSize: true });
@@ -183,7 +189,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
           recovered = true;
           hls?.startLoad();
         } else {
-          markOffAir(channel.id);
+          fail();
         }
       });
       hls.loadSource(channel.url);
@@ -195,23 +201,33 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
 
     void media.play().catch((error: unknown) => {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      markOffAir(channel.id);
+      fail();
     });
 
     const watchdog = globalThis.setTimeout(() => {
-      if (media.readyState < 3) markOffAir(channel.id);
+      if (media.readyState < 3) fail();
     }, STALL_LIMIT_MS);
 
+    // Picture in picture belongs to the old element, so the new one has to ask again.
+    if (keepPictureInPicture.current && media instanceof HTMLVideoElement) {
+      keepPictureInPicture.current = false;
+      media.addEventListener("loadedmetadata", () => void media.requestPictureInPicture?.().catch(() => {}), { once: true });
+    }
+
     return () => {
+      tuned = false;
       globalThis.clearTimeout(watchdog);
-      hls?.destroy();
+      // Silence first, so the old channel cannot run on under the new one while this tears down.
+      media.muted = true;
       media.pause();
+      hls?.destroy();
       media.removeAttribute("src");
       media.load();
     };
   }, [attempt, channel, markOffAir]);
 
   const tune = useCallback((next: LiveChannel) => {
+    keepPictureInPicture.current = Boolean(document.pictureInPictureElement);
     setChannel(next);
     setLastId(next.id);
     setAttempt((value) => value + 1);
@@ -333,6 +349,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
             channels={channels}
             numberOf={numberOf}
             currentId={channel?.id}
+            playing={status === "playing"}
             favourites={favourites}
             offAir={offAir}
             guide={guide}
@@ -351,7 +368,9 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
 
           <div className="tv__screen">
             {channel?.kind === "tv" ? (
+              // A new element for every tuning: nothing of the last channel's playback can carry over.
               <video
+                key={attempt}
                 ref={mediaRef as React.RefObject<HTMLVideoElement>}
                 className="tv__video"
                 crossOrigin="anonymous"
@@ -365,6 +384,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
               />
             ) : (
               <audio
+                key={attempt}
                 ref={mediaRef as React.RefObject<HTMLAudioElement>}
                 onPlaying={() => setStatus("playing")}
                 onPause={() => setStatus((current) => (current === "playing" ? "paused" : current))}
@@ -380,13 +400,18 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
                 </span>
                 <strong>{channel.name}</strong>
                 <small>{playing ? "On air" : "Tuning in"}</small>
+                <span className={cn("tv__wave", playing && "is-on")} aria-hidden="true">
+                  {Array.from({ length: 24 }, (_, index) => (
+                    <i key={index} style={{ animationDelay: `${-(index * 137) % 900}ms` }} />
+                  ))}
+                </span>
               </div>
             ) : null}
 
             {!channel ? (
               <div className="tv__home">
-                <p className="tv__eyebrow">Nothing on yet</p>
-                <h1>Pick a channel</h1>
+                <p className="tv__eyebrow">{`On now · ${formatTime(new Date(now))}`}</p>
+                <h1>What are we watching?</h1>
                 {resume ? (
                   <button type="button" className="tv__resume" onClick={() => tune(resume)}>
                     <Play size={16} fill="currentColor" aria-hidden="true" />
@@ -394,12 +419,19 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
                   </button>
                 ) : null}
                 <div className="tv__tiles">
-                  {suggestions.map((item) => (
-                    <button key={item.id} type="button" className="tv__tile" onClick={() => tune(item)}>
-                      <ChannelLogo channel={item} />
-                      <span>{item.name}</span>
-                    </button>
-                  ))}
+                  {suggestions.map((item) => {
+                    const onNow = programmeAt(guide[item.id], now)?.current;
+                    return (
+                      <button key={item.id} type="button" className="tv__tile" onClick={() => tune(item)}>
+                        <ChannelLogo channel={item} />
+                        <span className="tv__row-text">
+                          <strong>{item.name}</strong>
+                          <small>{onNow?.title ?? item.category}</small>
+                          {onNow ? <ProgrammeBar programme={onNow} now={now} /> : null}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <p className="tv__keys">
                   <kbd>Up</kbd> <kbd>Down</kbd> change channel, a number tunes straight to it, <kbd>M</kbd> mutes, <kbd>F</kbd> fills the screen, <kbd>T</kbd> hides the guide
@@ -437,12 +469,29 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
               </div>
             ) : null}
 
-            {channel?.kind === "tv" && status === "loading" ? <div className="tv__tuning">Tuning in</div> : null}
+            {channel?.kind === "tv" && status === "loading" ? (
+              <div className="tv__tuning" role="status">
+                <span aria-hidden="true" />
+                Tuning in
+              </div>
+            ) : null}
             <div className="tv__flash" aria-hidden="true" />
           </div>
 
           {channel ? (
             <div className="tv__controls" role="group" aria-label="Player">
+              <div className="tv__meta">
+                <span className={cn("tv__live", playing && "is-on")}>Live</span>
+                <strong>{channel.name}</strong>
+                {listing ? (
+                  <>
+                    <span className="tv__title">{listing.current.title}</span>
+                    <time>{`${formatTime(new Date(listing.current.start))} – ${formatTime(new Date(listing.current.stop))}`}</time>
+                  </>
+                ) : null}
+              </div>
+              {listing ? <ProgrammeBar programme={listing.current} now={now} /> : null}
+              <div className="tv__buttons">
               <button type="button" aria-label="Previous channel" title="Previous channel (Up)" onClick={() => step(-1)}>
                 <ChevronUp size={18} />
               </button>
@@ -468,16 +517,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
                   setMuted(false);
                 }}
               />
-              <span className="tv__now">
-                <span className={cn("tv__live", playing && "is-on")}>Live</span>
-                <strong>{channel.name}</strong>
-                {listing ? (
-                  <small>
-                    {listing.current.title}
-                    {listing.next ? ` · ${formatTime(new Date(listing.next.start))} ${listing.next.title}` : ""}
-                  </small>
-                ) : null}
-              </span>
+              <span className="tv__next">{listing?.next ? `Next ${formatTime(new Date(listing.next.start))} ${listing.next.title}` : null}</span>
               <button
                 type="button"
                 className={cn(favourites.includes(channel.id) && "is-on")}
@@ -502,6 +542,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
                   </button>
                 </>
               ) : null}
+              </div>
             </div>
           ) : null}
         </div>

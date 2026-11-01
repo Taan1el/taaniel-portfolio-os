@@ -42,6 +42,29 @@ export function languageForExtension(extension: string) {
   return LANGUAGES[extension.toLowerCase()] ?? "plaintext";
 }
 
+const LANGUAGE_LABELS: Record<string, string> = {
+  css: "CSS",
+  html: "HTML",
+  javascript: "JavaScript",
+  json: "JSON",
+  markdown: "Markdown",
+  plaintext: "Plain Text",
+  powershell: "PowerShell",
+  python: "Python",
+  shell: "Shell Script",
+  typescript: "TypeScript",
+  xml: "XML",
+  yaml: "YAML",
+};
+
+/** The name the status bar shows, which tells TSX from plain TypeScript. */
+export function languageLabel(extension: string) {
+  const lower = extension.toLowerCase();
+  if (lower === "tsx") return "TypeScript JSX";
+  if (lower === "jsx") return "JavaScript JSX";
+  return LANGUAGE_LABELS[languageForExtension(lower)] ?? "Plain Text";
+}
+
 export function isTabDirty(tab: CodeTab) {
   return tab.value !== tab.saved;
 }

@@ -42,6 +42,11 @@ export function programmeAt(programmes: TvProgramme[] | undefined, now: number) 
   return { current: programmes[index], next: programmes[index + 1] ?? null };
 }
 
+/** How far through a programme we are, 0 to 1. */
+export function programmeProgress(programme: TvProgramme, now: number) {
+  return Math.min(1, Math.max(0, (now - programme.start) / (programme.stop - programme.start)));
+}
+
 /** Loads the guide once and ticks so what is on moves along. No file means no programme names. */
 export function useTvGuide() {
   const [guide, setGuide] = useState<TvGuideData>({});

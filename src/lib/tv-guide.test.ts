@@ -1,6 +1,19 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { programmeAt, sanitizeGuide } from "@/lib/tv-guide";
+import { programmeAt, programmeProgress, sanitizeGuide } from "@/lib/tv-guide";
+
+describe("programme progress", () => {
+  const programme = { start: 100, stop: 200, title: "A" };
+
+  it("measures how far through we are", () => {
+    expect(programmeProgress(programme, 125)).toBe(0.25);
+  });
+
+  it("stays between the two ends", () => {
+    expect(programmeProgress(programme, 50)).toBe(0);
+    expect(programmeProgress(programme, 250)).toBe(1);
+  });
+});
 
 describe("tv guide file", () => {
   it("reads good rows", () => {

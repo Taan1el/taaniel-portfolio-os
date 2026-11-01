@@ -1,5 +1,21 @@
 # Portfolio maintenance
 
+## 2026-11-01 (later)
+
+Completed:
+- Virtual x86: 9p now works, so `/mnt` is mounted and a Shared folder panel moves files both ways. The guest screen
+  fills the window and scales to fit.
+- TV: the picture has the whole stage with controls on top of it. Each tuning gets a new media element, so nothing of
+  the last channel's playback can carry over. Changing channel also closes and reopens picture in picture.
+- Code: rebuilt with a menu bar, breadcrumbs, minimap, Problems panel and Source Control. It opens this repo.
+
+### Code's project
+
+`scripts/build-project-source.mjs` packs every tracked file into `public/project-source.json`, which is not in git.
+Text comes with its content, and binaries and the lockfile are listed read-only so the tree matches the repo. It runs in `dev`, `build` and `build:gh`, and Code fetches it only when opened. Edits stay in the visitor's browser. Monaco
+still comes from its CDN, so the editor needs a connection. TypeScript checks syntax only, since the packages the source
+imports are not in the editor.
+
 ## 2026-11-01
 
 Completed:

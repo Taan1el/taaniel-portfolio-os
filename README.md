@@ -17,7 +17,7 @@ Files are real files on a virtual disk, windows snap and move between desktops, 
 | | |
 | --- | --- |
 | <img src="docs/images/projects-briefcase.png" width="400" alt="Projects open as a briefcase with a pocket per project" /> | <img src="docs/images/code.png" width="400" alt="Code editor beside a live preview" /> |
-| **Projects** opens like a briefcase, with a pocket for each project | **Code** is Monaco with tabs, search and a live preview |
+| **Projects** opens like a briefcase, with a pocket for each project | **Code** opens this repo's own source in Monaco, with tabs, search, diffs and a live preview |
 | <img src="docs/images/terminal-python.png" width="400" alt="Terminal running Python" /> | <img src="docs/images/contact-inbox.png" width="400" alt="Contact app laid out as a mail inbox" /> |
 | **Terminal** has two hand-written shells, plus real Python | **Contact** is an inbox with one-click email, phone and CV |
 | <img src="docs/images/tv-radio.png" width="400" alt="TV and Radio app with a channel guide" /> | <img src="docs/images/doom.png" width="400" alt="Doom running in a window" /> |

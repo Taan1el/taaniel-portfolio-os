@@ -7,9 +7,9 @@
     "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "build:gh": "tsc && vite build --base=/taaniel-portfolio-os/ && node scripts/copy-404.mjs",
+    "dev": "node scripts/build-project-source.mjs && vite",
+    "build": "node scripts/build-project-source.mjs && tsc && vite build",
+    "build:gh": "node scripts/build-project-source.mjs && tsc && vite build --base=/taaniel-portfolio-os/ && node scripts/copy-404.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "deploy:gh": "npm run build:gh && npx gh-pages -d dist"

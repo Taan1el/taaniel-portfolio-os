@@ -4,7 +4,7 @@ import gsap from "gsap";
 import { Search, Star } from "lucide-react";
 import type { LiveChannel } from "@/data/live-channels";
 import { prefersStillMotion } from "@/lib/motion";
-import { programmeAt, type TvGuideData } from "@/lib/tv-guide";
+import { programmeAt, programmeProgress, type TvGuideData, type TvProgramme } from "@/lib/tv-guide";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP);
@@ -23,6 +23,15 @@ export function ChannelLogo({ channel }: { channel: LiveChannel }) {
   );
 }
 
+/** How far through its programme a channel is. Only drawn when a listing says so. */
+export function ProgrammeBar({ programme, now }: { programme: TvProgramme; now: number }) {
+  return (
+    <span className="tv__bar" aria-hidden="true">
+      <i style={{ transform: `scaleX(${programmeProgress(programme, now)})` }} />
+    </span>
+  );
+}
+
 export function TvGuide({
   tabs,
   tab,
@@ -35,6 +44,7 @@ export function TvGuide({
   channels,
   numberOf,
   currentId,
+  playing,
   favourites,
   offAir,
   guide,
@@ -53,6 +63,7 @@ export function TvGuide({
   channels: LiveChannel[];
   numberOf: (channel: LiveChannel) => number;
   currentId?: string;
+  playing: boolean;
   favourites: string[];
   offAir: string[];
   guide: TvGuideData;
@@ -101,16 +112,26 @@ export function TvGuide({
           {channels.map((channel) => {
             const favourite = favourites.includes(channel.id);
             const down = offAir.includes(channel.id);
-            const onNow = programmeAt(guide[channel.id], now)?.current.title;
+            const onNow = programmeAt(guide[channel.id], now)?.current;
+            const current = currentId === channel.id;
 
             return (
-              <li key={channel.id} className={cn("tv__row", currentId === channel.id && "is-active", down && "is-down")}>
-                <button type="button" className="tv__tune" aria-current={currentId === channel.id ? "true" : undefined} onClick={() => onPlay(channel)}>
-                  <span className="tv__number">{String(numberOf(channel)).padStart(2, "0")}</span>
+              <li key={channel.id} className={cn("tv__row", current && "is-active", down && "is-down")}>
+                <button type="button" className="tv__tune" aria-current={current ? "true" : undefined} onClick={() => onPlay(channel)}>
+                  {current && playing ? (
+                    <span className="tv__eq" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  ) : (
+                    <span className="tv__number">{String(numberOf(channel)).padStart(2, "0")}</span>
+                  )}
                   <ChannelLogo channel={channel} />
                   <span className="tv__row-text">
                     <strong>{channel.name}</strong>
-                    <small>{down ? "Off air right now" : (onNow ?? channel.category)}</small>
+                    <small>{down ? "Off air right now" : (onNow?.title ?? channel.category)}</small>
+                    {onNow && !down ? <ProgrammeBar programme={onNow} now={now} /> : null}
                   </span>
                 </button>
                 <button
@@ -130,7 +151,7 @@ export function TvGuide({
         <p className="tv__none">{tab === "saved" && !query ? "Star a channel to keep it here." : "No channels match."}</p>
       )}
 
-      <p className="tv__credit">Free public streams, found through iptv-org. Some stop or stay in their own country. Programme names come from public listings and can be out.</p>
+      <p className="tv__credit">Public streams via iptv-org. Some stop or stay in their own country, and listings can be out.</p>
     </aside>
   );
 }

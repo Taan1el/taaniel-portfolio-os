@@ -18,6 +18,8 @@ declare module "v86" {
     hda?: V86ImageLike;
     fda?: V86ImageLike;
     initial_state?: V86ImageLike;
+    /** Presence alone adds the 9p device the bundled Linux mounts at /mnt. */
+    filesystem?: { baseurl?: string; basefs?: string };
   }
 
   /** The browser audio output; absent where Web Audio is unavailable or the speaker is disabled. */
@@ -31,6 +33,10 @@ declare module "v86" {
   export class V86 {
     constructor(options: V86StarterOptions);
     speaker_adapter?: V86SpeakerAdapter | null;
+    /** Only there when `filesystem` was passed. Paths start at the shared folder's root. */
+    fs9p?: { read_dir(path: string): string[] | undefined };
+    create_file(path: string, data: Uint8Array): Promise<void>;
+    read_file(path: string): Promise<Uint8Array>;
     add_listener(event: string, listener: (...args: any[]) => void): void;
     remove_listener(event: string, listener: (...args: any[]) => void): void;
     destroy(): void;
@@ -44,5 +50,6 @@ declare module "v86" {
     screen_set_scale(scaleX: number, scaleY: number): void;
     screen_go_fullscreen(): void;
     keyboard_send_text(text: string): void;
+    serial0_send(text: string): void;
   }
 }
