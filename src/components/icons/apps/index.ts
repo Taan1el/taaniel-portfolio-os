@@ -26,6 +26,7 @@ export { SettingsIcon } from "./settings";
 export { SnakeIcon } from "./snake";
 export { TerminalIcon } from "./terminal";
 export { TvIcon } from "./tv";
+export { CheckersIcon } from "./checkers";
 export { SudokuIcon } from "./sudoku";
 export { TetrisIcon } from "./tetris";
 export { V86Icon } from "./v86";
