@@ -4,6 +4,23 @@ import { normalizePath } from "@/lib/filesystem";
 export type ExplorerSortKey = "name" | "date" | "size" | "type";
 export type ExplorerSortDirection = "asc" | "desc";
 
+/** What a tab keeps while another one is showing. */
+export interface ExplorerTab {
+  id: string;
+  currentPath: string;
+  history: string[];
+  historyIndex: number;
+  searchQuery: string;
+  viewMode: ExplorerSession["viewMode"];
+  sortKey: ExplorerSortKey;
+  sortDirection: ExplorerSortDirection;
+}
+
+/**
+ * One per window, and it always shows the active tab: everything that looks up
+ * a window's folder, such as dragging onto it, keeps working. Switching tabs
+ * swaps what is in here with what the tab saved.
+ */
 export interface ExplorerSession {
   windowId: string;
   currentPath: string;
@@ -19,6 +36,9 @@ export interface ExplorerSession {
   viewMode: "grid" | "list";
   sortKey: ExplorerSortKey;
   sortDirection: ExplorerSortDirection;
+  previewOpen: boolean;
+  tabs: ExplorerTab[];
+  activeTabId: string;
 }
 
 interface ExplorerStoreState {
@@ -40,14 +60,34 @@ interface ExplorerStoreState {
   setSearchQuery: (windowId: string, query: string) => void;
   setViewMode: (windowId: string, viewMode: ExplorerSession["viewMode"]) => void;
   setSort: (windowId: string, key: ExplorerSortKey, direction: ExplorerSortDirection) => void;
+  togglePreview: (windowId: string) => void;
+  /** Opens a tab beside the active one and shows it: on `path`, or the same folder. */
+  openTab: (windowId: string, path?: string) => void;
+  switchTab: (windowId: string, tabId: string) => void;
+  /** The last tab stays: closing it means closing the window. */
+  closeTab: (windowId: string, tabId: string) => void;
 }
 
 function lastOf(paths: string[]): string | null {
   return paths.length > 0 ? paths[paths.length - 1] : null;
 }
 
+let tabCount = 0;
+const createTabId = () => `tab-${(tabCount += 1)}`;
+
+function saveTab(session: ExplorerSession): ExplorerTab {
+  const { currentPath, history, historyIndex, searchQuery, viewMode, sortKey, sortDirection, activeTabId } = session;
+  return { id: activeTabId, currentPath, history, historyIndex, searchQuery, viewMode, sortKey, sortDirection };
+}
+
+function showTab(session: ExplorerSession, tabs: ExplorerTab[], tab: ExplorerTab): ExplorerSession {
+  const { id, ...saved } = tab;
+  return { ...session, ...saved, tabs, activeTabId: id, selectedPaths: [], selectedPath: null, renamingPath: null };
+}
+
 function createSession(windowId: string, initialPath: string): ExplorerSession {
   const normalizedPath = normalizePath(initialPath);
+  const activeTabId = createTabId();
 
   return {
     windowId,
@@ -61,6 +101,20 @@ function createSession(windowId: string, initialPath: string): ExplorerSession {
     viewMode: "grid",
     sortKey: "name",
     sortDirection: "asc",
+    previewOpen: false,
+    activeTabId,
+    tabs: [
+      {
+        id: activeTabId,
+        currentPath: normalizedPath,
+        history: [normalizedPath],
+        historyIndex: 0,
+        searchQuery: "",
+        viewMode: "grid",
+        sortKey: "name",
+        sortDirection: "asc",
+      },
+    ],
   };
 }
 
@@ -347,5 +401,35 @@ export const useExplorerStore = create<ExplorerStoreState>((set, get) => ({
         sortKey: key,
         sortDirection: direction,
       }))
+    ),
+  togglePreview: (windowId) =>
+    set((state) => updateSession(state, windowId, (session) => ({ ...session, previewOpen: !session.previewOpen }))),
+  openTab: (windowId, path) =>
+    set((state) =>
+      updateSession(state, windowId, (session) => {
+        const saved = saveTab(session);
+        const start = normalizePath(path ?? session.currentPath);
+        const tab: ExplorerTab = { ...saved, id: createTabId(), currentPath: start, history: [start], historyIndex: 0, searchQuery: "" };
+        const tabs = session.tabs.flatMap((entry) => (entry.id === session.activeTabId ? [saved, tab] : [entry]));
+        return showTab(session, tabs, tab);
+      })
+    ),
+  switchTab: (windowId, tabId) =>
+    set((state) =>
+      updateSession(state, windowId, (session) => {
+        const tab = session.tabs.find((entry) => entry.id === tabId);
+        if (!tab || tabId === session.activeTabId) return session;
+        const saved = saveTab(session);
+        return showTab(session, session.tabs.map((entry) => (entry.id === session.activeTabId ? saved : entry)), tab);
+      })
+    ),
+  closeTab: (windowId, tabId) =>
+    set((state) =>
+      updateSession(state, windowId, (session) => {
+        const index = session.tabs.findIndex((entry) => entry.id === tabId);
+        if (index === -1 || session.tabs.length === 1) return session;
+        const tabs = session.tabs.filter((entry) => entry.id !== tabId);
+        return tabId === session.activeTabId ? showTab(session, tabs, tabs[Math.min(index, tabs.length - 1)]) : { ...session, tabs };
+      })
     ),
 }));

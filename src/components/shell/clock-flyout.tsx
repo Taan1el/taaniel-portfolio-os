@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Settings as SettingsIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Settings as SettingsIcon } from "lucide-react";
 import { useFlyout } from "@/hooks/use-flyout";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
 import { useSecondClock } from "@/hooks/use-second-clock";
@@ -18,8 +18,11 @@ import {
   type CalendarMonth,
 } from "@/lib/calendar";
 import type { SettingsSectionId } from "@/lib/settings-sections";
+import { eventTimeAsDate, eventsOn } from "@/lib/calendar-events";
 import { cn } from "@/lib/utils";
+import { useCalendarStore } from "@/stores/calendar-store";
 import { useShellStore } from "@/stores/shell-store";
+import { useSystemStore } from "@/stores/system-store";
 
 interface ClockFlyoutProps {
   onOpenSettings: (section: SettingsSectionId) => void;
@@ -70,6 +73,10 @@ export function ClockFlyout({ onOpenSettings }: ClockFlyoutProps) {
   const [focusTick, setFocusTick] = useState(0);
 
   const weeks = useMemo(() => buildMonthGrid(visible, startOfDay(now), weekStart), [now, visible, weekStart]);
+  const events = useCalendarStore((state) => state.events);
+  const shownDay = selected ?? now;
+  const shownKey = toDateKey(shownDay);
+  const shownEvents = eventsOn(events, shownKey);
 
   // The one day that takes Tab; falls back to the 1st if the focused day is off this grid.
   const focusedKey = toDateKey(focused);
@@ -233,7 +240,36 @@ export function ClockFlyout({ onOpenSettings }: ClockFlyoutProps) {
         </table>
       </section>
 
+      {shownEvents.length ? (
+        <section className="w11-clock__events" aria-label={`Events on ${dayLabelFormat.format(shownDay)}`}>
+          <ul>
+            {shownEvents.slice(0, 3).map((event) => {
+              const time = eventTimeAsDate(event, shownKey);
+
+              return (
+                <li key={event.id}>
+                  <small>{time ? formatTime(time, prefs) : "All day"}</small>
+                  <span>{event.title}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {shownEvents.length > 3 ? <small>+{shownEvents.length - 3} more</small> : null}
+        </section>
+      ) : null}
+
       <footer className="w11-clock__footer">
+        <button
+          type="button"
+          className="w11-clock__settings"
+          onClick={() => {
+            close();
+            useSystemStore.getState().launchApp({ appId: "calendar" });
+          }}
+        >
+          <CalendarDays size={16} aria-hidden="true" />
+          Open Calendar
+        </button>
         <button type="button" className="w11-clock__settings" onClick={() => onOpenSettings("time")}>
           <SettingsIcon size={16} aria-hidden="true" />
           Date and time settings

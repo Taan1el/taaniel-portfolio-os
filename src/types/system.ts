@@ -46,7 +46,16 @@ export type AppId =
   | "paint"
   | "calculator"
   | "achievements"
-  | "tv";
+  | "tv"
+  | "chess"
+  | "documents"
+  | "spreadsheet"
+  | "calendar"
+  | "whiteboard"
+  | "task-manager"
+  | "solitaire"
+  | "checkers"
+  | "sudoku";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System" | "Lab";
 

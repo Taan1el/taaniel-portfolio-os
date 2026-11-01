@@ -24,6 +24,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ["Esc"], label: "Close overlays" },
       { keys: ["F11"], label: "Toggle fullscreen" },
       { keys: ["Ctrl", "Alt", "T"], label: "Open Terminal" },
+      { keys: ["Ctrl", "Alt", "R"], label: "Open Run" },
       { keys: ["Shift", "F10"], label: "Open the context menu" },
       { keys: ["?"], label: "Show this cheatsheet" },
     ],

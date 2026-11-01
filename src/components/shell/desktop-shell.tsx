@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
@@ -37,6 +37,7 @@ import { DesktopManager } from "@/components/shell/desktop-manager";
 import { DisplayFilterOverlay } from "@/components/shell/display-filter-overlay";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
+import { PropertiesDialog } from "@/components/system/properties-dialog";
 import { Taskbar } from "@/components/shell/taskbar";
 import { TrayFlyouts } from "@/components/shell/tray-flyouts";
 import { WindowHost } from "@/components/shell/window-host";
@@ -53,6 +54,11 @@ import { useSystemStore } from "@/stores/system-store";
 import { desktopOf, useWindowStore } from "@/stores/window-store";
 import { LEFT_HALF, RIGHT_HALF, zoneBounds } from "@/lib/snap-layouts";
 import type { DesktopEntry } from "@/types/system";
+
+// Run brings the terminal's command tables with it, so it waits until someone asks for it.
+const loadRunDialog = () => import("@/components/system/run-dialog");
+const RunDialog = lazy(async () => ({ default: (await loadRunDialog()).RunDialog }));
+const RUN_PRELOAD_DELAY_MS = 4_000;
 
 export function DesktopShell() {
   useShellServices();
@@ -178,6 +184,14 @@ export function DesktopShell() {
 
   const shellSearchBrowseRef = useRef<ShellSearchResultsHandle>(null);
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
+
+  // Fetched once the desktop has settled, so typing straight after Ctrl+Alt+R is not lost.
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadRunDialog().catch(() => {}), RUN_PRELOAD_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const navigate = useNavigate();
 
   const openExternal = (url: string) => {
@@ -206,6 +220,9 @@ export function DesktopShell() {
         return;
       case "open-external":
         openExternal(action.url);
+        return;
+      case "open-run":
+        setRunOpen(true);
     }
   };
 
@@ -220,6 +237,7 @@ export function DesktopShell() {
     setContextMenu(null);
     setOpenWithTarget(null);
     setCheatsheetOpen(false);
+    setRunOpen(false);
   };
 
   // With no window left to take it, focus returns to the desktop instead of being lost.
@@ -267,6 +285,7 @@ export function DesktopShell() {
     onOpenLauncherSearch: openLauncherSearch,
     onCloseActiveWindow: closeWindow,
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
+    onOpenRun: () => setRunOpen(true),
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
     onSnapActiveWindow: (direction) => {
@@ -559,6 +578,12 @@ export function DesktopShell() {
       <ToastContainer />
 
       <ShortcutCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
+      {runOpen ? (
+        <Suspense fallback={null}>
+          <RunDialog open onClose={() => setRunOpen(false)} />
+        </Suspense>
+      ) : null}
+      <PropertiesDialog />
 
       <OpenWithDialog
         target={openWithTarget}
@@ -586,6 +611,7 @@ export function DesktopShell() {
         onCloseWindow={closeWindow}
         onPinApp={pinApp}
         onUnpinApp={unpinApp}
+        onOpenRun={() => setRunOpen(true)}
         onShowDesktop={showDesktop}
       />
     </div>

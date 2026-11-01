@@ -4,6 +4,7 @@ import gsap from "gsap";
 import { Search, Star } from "lucide-react";
 import type { LiveChannel } from "@/data/live-channels";
 import { prefersStillMotion } from "@/lib/motion";
+import { programmeAt, type TvGuideData } from "@/lib/tv-guide";
 import { cn } from "@/lib/utils";
 
 gsap.registerPlugin(useGSAP);
@@ -36,6 +37,8 @@ export function TvGuide({
   currentId,
   favourites,
   offAir,
+  guide,
+  now,
   onPlay,
   onFavourite,
 }: {
@@ -52,6 +55,8 @@ export function TvGuide({
   currentId?: string;
   favourites: string[];
   offAir: string[];
+  guide: TvGuideData;
+  now: number;
   onPlay: (channel: LiveChannel) => void;
   onFavourite: (id: string) => void;
 }) {
@@ -96,6 +101,7 @@ export function TvGuide({
           {channels.map((channel) => {
             const favourite = favourites.includes(channel.id);
             const down = offAir.includes(channel.id);
+            const onNow = programmeAt(guide[channel.id], now)?.current.title;
 
             return (
               <li key={channel.id} className={cn("tv__row", currentId === channel.id && "is-active", down && "is-down")}>
@@ -104,7 +110,7 @@ export function TvGuide({
                   <ChannelLogo channel={channel} />
                   <span className="tv__row-text">
                     <strong>{channel.name}</strong>
-                    <small>{down ? "Off air right now" : channel.category}</small>
+                    <small>{down ? "Off air right now" : (onNow ?? channel.category)}</small>
                   </span>
                 </button>
                 <button
@@ -124,7 +130,7 @@ export function TvGuide({
         <p className="tv__none">{tab === "saved" && !query ? "Star a channel to keep it here." : "No channels match."}</p>
       )}
 
-      <p className="tv__credit">Free public streams, found through iptv-org. Some stop or stay in their own country.</p>
+      <p className="tv__credit">Free public streams, found through iptv-org. Some stop or stay in their own country. Programme names come from public listings and can be out.</p>
     </aside>
   );
 }

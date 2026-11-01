@@ -8,6 +8,7 @@ import {
   liveDemoUrl,
   profile,
   repoUrl,
+  resumeAlternate,
   socialLinks,
 } from "@/data/portfolio";
 import { SafeImage } from "@/components/ui/safe-image";
@@ -43,7 +44,10 @@ export function RecruiterView() {
           <p className={styles.lead}>{profile.availability}</p>
           <div className={styles.actions}>
             <a className={styles.primaryBtn} href={primaryCv} download>
-              <Download size={17} aria-hidden="true" /> Download CV (Estonian PDF)
+              <Download size={17} aria-hidden="true" /> Download CV (PDF)
+            </a>
+            <a className={styles.secondaryBtn} href={resumeAlternate.href} download>
+              <Download size={17} aria-hidden="true" /> {resumeAlternate.label}
             </a>
             <a className={styles.secondaryBtn} href={profile.email}>
               <Mail size={17} aria-hidden="true" /> Email me

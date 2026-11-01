@@ -103,6 +103,7 @@ interface TaskbarProps {
   onPinApp: (appId: AppId) => void;
   onUnpinApp: (appId: AppId) => void;
   onShowDesktop: () => void;
+  onOpenRun: () => void;
 }
 
 export function Taskbar({
@@ -122,6 +123,7 @@ export function Taskbar({
   onPinApp,
   onUnpinApp,
   onShowDesktop,
+  onOpenRun,
 }: TaskbarProps) {
   const [previewEntry, setPreviewEntry] = useState<TaskbarPreviewEntry | null>(null);
   const [previewImages, setPreviewImages] = useState<Record<string, string | null>>({});
@@ -140,6 +142,11 @@ export function Taskbar({
       taskbarSearchInputRef.current?.focus();
     }
   }, [startMenuSearchFocusNonce]);
+
+  // On a narrow bar the row scrolls, so the app in front must stay in view.
+  useEffect(() => {
+    windowsRef.current?.querySelector(".w11-taskbar__app.is-active")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [entries]);
 
   const handleTaskbarSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
@@ -367,6 +374,24 @@ export function Taskbar({
             aria-label="Start"
             aria-pressed={startMenuOpen}
             onClick={onToggleStartMenu}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              useShellStore.getState().setContextMenu({
+                x: event.clientX,
+                y: event.clientY,
+                title: "Quick access",
+                actions: [
+                  { id: "tasks", label: "Task Manager", onSelect: () => onLaunchApp("task-manager") },
+                  { id: "settings", label: "Settings", onSelect: () => onLaunchApp("settings") },
+                  { id: "files", label: "File Explorer", onSelect: () => onLaunchApp("files") },
+                  { id: "terminal", label: "Terminal", onSelect: () => onLaunchApp("terminal") },
+                  { id: "sep", label: "", separator: true, onSelect: () => {} },
+                  { id: "run", label: "Run", shortcut: "Ctrl+Alt+R", onSelect: onOpenRun },
+                  { id: "desktop", label: "Desktop", onSelect: onShowDesktop },
+                ],
+              });
+            }}
           >
             <LogoMark size={18} />
           </button>

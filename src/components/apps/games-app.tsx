@@ -9,7 +9,7 @@ import {
   StatusBar,
 } from "@/components/apps/app-layout";
 import { getAppDefinition } from "@/lib/app-registry";
-import { originalGameIds, primaryGameIds } from "@/lib/games";
+import { boardGameIds, originalGameIds, primaryGameIds } from "@/lib/games";
 import { useSystemStore } from "@/stores/system-store";
 import type { AppComponentProps, AppDefinition, AppId } from "@/types/system";
 
@@ -30,8 +30,14 @@ const gameSections: GameSectionDefinition[] = [
   {
     id: "arcade-classics",
     title: "Arcade classics",
-    description: "Snake and Tetris.",
+    description: "Quick games to pick up and play.",
     gameIds: primaryGameIds,
+  },
+  {
+    id: "board-games",
+    title: "Board and card games",
+    description: "Take your time. Games save themselves.",
+    gameIds: boardGameIds,
   },
 ];
 
@@ -63,7 +69,7 @@ export function GamesApp({ window }: AppComponentProps) {
         <section className="games-hub__intro">
           <p className="eyebrow">Arcade</p>
           <h2>Pick a game</h2>
-          <p className="lead">Arcade games run locally; some legacy ports are still disabled.</p>
+          <p className="lead">Everything here runs in your browser and works offline once loaded.</p>
         </section>
 
         <div className="games-hub__sections">
@@ -114,8 +120,7 @@ export function GamesApp({ window }: AppComponentProps) {
 
       <StatusBar className="games-hub__statusbar">
         <span>{bundledGames.length} bundled games</span>
-        <span>Launches through the app registry</span>
-        <span>Unsafe third-party bundles are disabled instead of silently executing</span>
+        <span>Each one opens in its own window</span>
       </StatusBar>
     </AppScaffold>
   );

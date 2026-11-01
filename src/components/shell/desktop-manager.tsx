@@ -18,6 +18,7 @@ import { isLockedNode } from "@/lib/filesystem";
 import { toStoredName } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
 import { subscribeFileSystemMoves, useFileSystemStore } from "@/stores/filesystem-store";
+import { usePropertiesStore } from "@/stores/properties-store";
 import { useShellStore } from "@/stores/shell-store";
 import type { DesktopEntry, FileSystemRecord } from "@/types/system";
 
@@ -257,6 +258,12 @@ export function DesktopManager({
       const key = event.key;
       const ctrl = event.ctrlKey || event.metaKey;
       const paths = pathsOf(ids);
+
+      if (event.altKey && key === "Enter" && paths.length > 0) {
+        event.preventDefault();
+        usePropertiesStore.getState().open(paths);
+        return;
+      }
 
       if (key === "Enter" && ids.length > 0) {
         event.preventDefault();

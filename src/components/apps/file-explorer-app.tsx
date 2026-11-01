@@ -13,9 +13,11 @@ import {
   Copy,
   FilePlus2,
   FolderPlus,
+  Info,
   LayoutGrid,
   List,
   ListFilter,
+  PanelRight,
   Pencil,
   Plus,
   RotateCcw,
@@ -32,6 +34,8 @@ import {
   StatusBar,
 } from "@/components/apps/app-layout";
 import { ExplorerGridItem, ExplorerListItem, type ExplorerItemHandlers } from "@/components/apps/explorer/explorer-items";
+import { ExplorerPreview } from "@/components/apps/explorer/explorer-preview";
+import { ExplorerTabs } from "@/components/apps/explorer/explorer-tabs";
 import {
   buildBreadcrumbs,
   formatSize,
@@ -69,12 +73,14 @@ import { cn } from "@/lib/utils";
 import { useMarqueeSelection } from "@/hooks/use-marquee-selection";
 import { useExplorerStore, type ExplorerSortKey } from "@/stores/explorer-store";
 import { useFileSystemStore } from "@/stores/filesystem-store";
+import { usePropertiesStore } from "@/stores/properties-store";
 import { useRecentFilesStore } from "@/stores/recent-files-store";
 import { useShellStore } from "@/stores/shell-store";
 import { useSystemStore } from "@/stores/system-store";
 import { toast } from "@/stores/toast-store";
 import { createLaunchNonce } from "@/lib/terminal-profiles";
 import type { AppComponentProps, ContextMenuAction, FileNode, VirtualFile } from "@/types/system";
+import "@/styles/explorer-panes.css";
 
 const explorerLocations: ExplorerSidebarLocation[] = [
   { label: SHELL_USER, path: "/", icon: FilesIcon },
@@ -96,6 +102,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const importFiles = useFileSystemStore((state) => state.importFiles);
   const rename = useFileSystemStore((state) => state.rename);
   const launchApp = useSystemStore((state) => state.launchApp);
+  const closeWindow = useSystemStore((state) => state.closeWindow);
   const recentPaths = useRecentFilesStore((state) => state.recentPaths);
   const clearRecent = useRecentFilesStore((state) => state.clearRecent);
 
@@ -117,6 +124,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     setSearchQuery,
     setViewMode,
     setSort,
+    togglePreview,
+    openTab,
+    switchTab,
+    closeTab,
   } = useExplorerStore(
     useShallow((state) => ({
       session: state.sessions[window.id],
@@ -132,6 +143,10 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       setSearchQuery: state.setSearchQuery,
       setViewMode: state.setViewMode,
       setSort: state.setSort,
+      togglePreview: state.togglePreview,
+      openTab: state.openTab,
+      switchTab: state.switchTab,
+      closeTab: state.closeTab,
     }))
   );
 
@@ -158,6 +173,9 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const viewMode = session?.viewMode ?? "grid";
   const sortKey = session?.sortKey ?? "name";
   const sortDirection = session?.sortDirection ?? "asc";
+  const previewOpen = session?.previewOpen ?? false;
+  const tabs = session?.tabs ?? [];
+  const activeTabId = session?.activeTabId ?? "";
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const currentNode = nodes[currentPath];
   const currentDirectoryPath =
@@ -379,6 +397,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       onOpen: () => openPaths(targets),
       onRename: () => beginRename(window.id, node.path),
       onOpenInNewWindow: () => launchApp({ appId: "files", payload: { directoryPath: node.path } }),
+      onOpenInNewTab: () => openTab(window.id, node.path),
     });
 
     // Duplicate is File Explorer's own convenience, next to Copy.
@@ -486,6 +505,17 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         icon: Trash2,
         danger: true,
         onSelect: emptyRecycleBin,
+      });
+    }
+
+    if (!isRecycleBinRoot) {
+      actions.push({ id: "sep-empty-properties", label: "", separator: true, onSelect: () => {} });
+      actions.push({
+        id: "properties",
+        label: "Properties",
+        icon: Info,
+        shortcut: "Alt+Enter",
+        onSelect: () => usePropertiesStore.getState().open([currentDirectoryPath]),
       });
     }
 
@@ -647,7 +677,25 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     const key = event.key;
     const ctrl = event.ctrlKey || event.metaKey;
 
-    if (event.altKey && key === "ArrowLeft") {
+    if (event.altKey && key === "Enter") {
+      event.preventDefault();
+      usePropertiesStore.getState().open(selectedPaths.length ? selectedPaths : [currentDirectoryPath]);
+    } else if (event.altKey && !ctrl && !event.shiftKey && event.code === "KeyP") {
+      event.preventDefault();
+      togglePreview(window.id);
+    } else if (event.altKey && !ctrl && !event.shiftKey && event.code === "KeyT") {
+      event.preventDefault();
+      openTab(window.id);
+    } else if (event.altKey && !ctrl && !event.shiftKey && event.code === "KeyW") {
+      event.preventDefault();
+      closeExplorerTab(activeTabId);
+    } else if (event.altKey && !ctrl && !event.shiftKey && /^Digit[1-9]$/.test(event.code)) {
+      const tab = tabs[Number(event.code.slice(-1)) - 1];
+      if (tab) {
+        event.preventDefault();
+        switchTab(window.id, tab.id);
+      }
+    } else if (event.altKey && key === "ArrowLeft") {
       event.preventDefault();
       goBack(window.id);
     } else if (event.altKey && key === "ArrowRight") {
@@ -777,6 +825,16 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     }
   };
 
+  const closeExplorerTab = (tabId: string) => {
+    if (tabs.length <= 1) {
+      closeWindow(window.id);
+      return;
+    }
+    closeTab(window.id, tabId);
+    // Closing with the tab's own button takes that button away, and with it the keyboard.
+    requestAnimationFrame(() => contentRef.current?.focus({ preventScroll: true }));
+  };
+
   const hasSelection = selectedPaths.length > 0;
   const selectionLocked = selectedPaths.some((path) => isLockedNode(nodes, path));
   const sortMenu = (): ContextMenuAction[] => {
@@ -799,6 +857,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const viewMenu = (): ContextMenuAction[] => [
     { id: "view-large", label: "Large icons", icon: viewMode === "grid" ? Check : LayoutGrid, onSelect: () => setViewMode(window.id, "grid") },
     { id: "view-details", label: "Details", icon: viewMode === "list" ? Check : List, onSelect: () => setViewMode(window.id, "list") },
+    { id: "sep-view", label: "", separator: true, onSelect: () => {} },
+    { id: "view-preview", label: "Preview pane", icon: previewOpen ? Check : PanelRight, shortcut: "Alt+P", onSelect: () => togglePreview(window.id) },
   ];
 
   const commands: ExplorerCommand[] = isRecycleBinRoot
@@ -891,6 +951,14 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         }}
       />
 
+      <ExplorerTabs
+        tabs={tabs.map((tab) => ({ id: tab.id, path: tab.id === activeTabId ? currentDirectoryPath : tab.currentPath }))}
+        activeId={activeTabId}
+        onSelect={(id) => switchTab(window.id, id)}
+        onClose={closeExplorerTab}
+        onNew={() => openTab(window.id)}
+      />
+
       <ExplorerToolbar
         currentPath={currentDirectoryPath}
         breadcrumbs={breadcrumbs.map((crumb) => (crumb.path === TRASH_PATH ? { ...crumb, label: "Recycle Bin" } : crumb))}
@@ -911,7 +979,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         getCrumbDropProps={dropProps}
       />
 
-      <AppContent className="explorer-window__layout" padded={false} scrollable={false} stacked={false}>
+      <AppContent className={cn("explorer-window__layout", previewOpen && "has-preview")} padded={false} scrollable={false} stacked={false}>
         <ExplorerSidebar
           locations={navLocations}
           activePath={currentDirectoryPath}
@@ -1065,6 +1133,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
             </div>
           </ScrollArea>
         </section>
+
+        {previewOpen ? <ExplorerPreview nodes={nodes} paths={selectedPaths} /> : null}
       </AppContent>
 
       <StatusBar className="explorer-window__statusbar w11-explorer__status">

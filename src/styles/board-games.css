@@ -1,0 +1,419 @@
+/* Shared by the board games: a square board that fits its window, with a side panel. */
+.board-game .arcade-game-shell__content {
+  min-height: 0;
+  container-type: size;
+}
+
+.board-game__layout {
+  --board-size: min(100cqh - 24px, 100cqw - 268px);
+
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px;
+}
+
+.board-game__side {
+  display: flex;
+  width: 220px;
+  min-width: 0;
+  flex: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-game__result {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(70, 211, 154, 0.14);
+  color: #7fe9bd;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.board-game__status {
+  margin: 0;
+  color: var(--w11-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.board-game__hint {
+  margin: 0;
+  color: var(--w11-text-2);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.board-game__tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.board-game__tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.board-game__tools button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.board-game__tools button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.board-game__tools button.is-on {
+  border-color: var(--w11-accent);
+  background: rgba(96, 205, 255, 0.16);
+}
+
+.board-game__select select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: #2a2c31;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+
+/* Sudoku */
+.sudoku__board {
+  display: grid;
+  width: var(--board-size);
+  height: var(--board-size);
+  flex: none;
+  grid-template-rows: repeat(9, minmax(0, 1fr));
+  border: 2px solid #8a93a6;
+  border-radius: 4px;
+  background: #171a21;
+}
+
+.sudoku__row {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+.sudoku__row:nth-child(3n):not(:last-child) .sudoku__cell {
+  border-bottom: 2px solid #8a93a6;
+}
+
+.sudoku__cell {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid #39404f;
+  border-bottom: 1px solid #39404f;
+  background: transparent;
+  color: #7cc4ff;
+  font-family: var(--w11-font);
+  font-size: calc(var(--board-size) / 18);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sudoku__cell:nth-child(3n):not(:last-child) {
+  border-right: 2px solid #8a93a6;
+}
+
+.sudoku__cell.is-given {
+  color: #f2f3f5;
+  font-weight: 700;
+}
+
+.sudoku__cell.is-peer {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sudoku__cell.is-match {
+  background: rgba(96, 205, 255, 0.2);
+}
+
+.sudoku__cell.is-selected {
+  background: rgba(96, 205, 255, 0.34);
+  outline: none;
+}
+
+.sudoku__cell:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
+.sudoku__cell.is-clash {
+  color: #ff7b85;
+}
+
+.sudoku__notes {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  place-items: center;
+  color: #aab3c4;
+  font-size: calc(var(--board-size) / 44);
+  font-weight: 400;
+}
+
+.sudoku__pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sudoku__pad button {
+  position: relative;
+  height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sudoku__pad button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sudoku__pad button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sudoku__pad small {
+  position: absolute;
+  right: 6px;
+  bottom: 3px;
+  color: var(--w11-text-2);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+@container (max-aspect-ratio: 1 / 1) {
+  .board-game__layout {
+    --board-size: min(100cqw - 24px, 100cqh - 210px);
+
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .board-game__side {
+    width: min(100%, var(--board-size));
+    gap: 8px;
+  }
+
+  .sudoku__pad {
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .sudoku__pad button {
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .sudoku__pad small {
+    display: none;
+  }
+
+  .board-game__tools {
+    display: flex;
+  }
+
+  .board-game__tools button {
+    min-width: 0;
+    flex: 1;
+    white-space: nowrap;
+  }
+}
+
+/* The 8 by 8 board shared by Checkers and Chess */
+.board-grid {
+  display: grid;
+  width: var(--board-size);
+  height: var(--board-size);
+  flex: none;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  overflow: hidden;
+  border: 3px solid #4a3528;
+  border-radius: 4px;
+}
+
+.board-grid__square {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+.board-grid__square.is-dark {
+  background: #7a5a44;
+}
+
+.board-grid__square.is-light {
+  background: #e7d6bf;
+}
+
+.board-grid__square:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}
+
+.board-grid__square.is-last {
+  box-shadow: inset 0 0 0 100px rgba(255, 214, 90, 0.22);
+}
+
+.board-grid__square.is-picked {
+  box-shadow: inset 0 0 0 100px rgba(96, 205, 255, 0.4);
+}
+
+.board-grid__square.is-target::after {
+  position: absolute;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(96, 205, 255, 0.85);
+  content: "";
+}
+
+.checkers__piece {
+  display: grid;
+  width: 76%;
+  height: 76%;
+  place-items: center;
+  border-radius: 50%;
+  transition: transform 0.12s ease;
+}
+
+.checkers__piece.is-red {
+  background: radial-gradient(circle at 50% 40%, #f26b6b, #c62828 72%);
+  box-shadow: 0 3px 0 #7f1616;
+  color: #ffe08a;
+}
+
+.checkers__piece.is-white {
+  background: radial-gradient(circle at 50% 40%, #fff7ea, #dcc9ab 72%);
+  box-shadow: 0 3px 0 #a08a6b;
+  color: #8a6420;
+}
+
+.board-grid__square.is-movable:hover .checkers__piece {
+  transform: translateY(-2px);
+}
+
+.board-grid__square.is-movable .checkers__piece {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+:root[data-reduce-motion] .checkers__piece {
+  transition: none;
+}
+
+/* Chess */
+.chess__piece {
+  font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "Apple Symbols", serif;
+  font-size: calc(var(--board-size) / 10);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.chess__piece.is-white {
+  color: #fffdf8;
+  text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.chess__piece.is-black {
+  color: #1c1f24;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.board-grid__square.is-check {
+  box-shadow: inset 0 0 0 100px rgba(229, 72, 77, 0.65);
+}
+
+.board-grid__square.is-capture::after {
+  position: absolute;
+  inset: 6%;
+  border: 4px solid rgba(96, 205, 255, 0.85);
+  border-radius: 50%;
+  content: "";
+}
+
+.chess__moves {
+  display: grid;
+  min-height: 0;
+  max-height: 100%;
+  flex: 1;
+  grid-template-columns: 28px repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 2px 6px;
+  margin: 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--w11-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  list-style: none;
+}
+
+.chess__moves:empty {
+  display: none;
+}
+
+.chess__moves dt {
+  color: var(--w11-text-2);
+}
+
+.chess__moves dd {
+  margin: 0;
+}
+
+.chess__promotion {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.chess__promotion button {
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: #e7d6bf;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}

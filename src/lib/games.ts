@@ -44,6 +44,13 @@ The arcade lineup lives inside the OS and launches through the same window syste
 - Dino
 - Hextris
 
+## Board and card games
+
+- Chess: full rules and an AI opponent with three levels
+- Sudoku: three levels, pencil marks and a unique solution every time
+- Checkers: forced captures and a small search AI
+- Solitaire: Klondike with drag and drop, undo and auto-finish
+
 ## By Taaniel
 
 - Next Stop: drive a steam train, explore country stations, restore a fence or fish by the lake.
@@ -59,3 +66,4 @@ The arcade lineup lives inside the OS and launches through the same window syste
 
 export const primaryGameIds = ["snake", "tetris", "doom", "dino", "hextris"] as const satisfies readonly AppId[];
 export const originalGameIds = ["next-stop"] as const satisfies readonly AppId[];
+export const boardGameIds = ["chess", "sudoku", "checkers", "solitaire"] as const satisfies readonly AppId[];

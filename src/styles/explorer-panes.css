@@ -1,0 +1,203 @@
+/* The window is the container, so the panes can restack in a narrow one. */
+.w11-explorer {
+  container: explorer / inline-size;
+}
+
+.w11-explorer .explorer-window__layout.has-preview {
+  grid-template-columns: auto minmax(0, 1fr) 260px;
+}
+
+.explorer-preview {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-left: 1px solid var(--w11-explorer-line);
+  background: var(--w11-explorer-chrome);
+  color: #fff;
+  font-size: 13px;
+}
+
+.explorer-preview__note {
+  margin: auto;
+  padding: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.explorer-preview__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.explorer-preview__body .explorer-preview__note {
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.explorer-preview__body img,
+.explorer-preview__body video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--w11-radius-control);
+  object-fit: contain;
+}
+
+.explorer-preview__body audio {
+  width: 100%;
+}
+
+.explorer-preview__body pre {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.explorer-preview__details {
+  display: grid;
+  flex: none;
+  gap: 4px 8px;
+  grid-template-columns: 72px minmax(0, 1fr);
+  margin: 0;
+  padding: 12px;
+  border-top: 1px solid var(--w11-explorer-line);
+}
+
+.explorer-preview__details dt {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.explorer-preview__details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Too narrow for three columns: the pane goes under the files. */
+@container explorer (max-width: 720px) {
+  .w11-explorer .explorer-window__layout.has-preview {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 42%);
+  }
+
+  .w11-explorer .explorer-window__layout.has-preview .explorer-window__sidebar {
+    display: none;
+  }
+
+  .explorer-preview {
+    border-top: 1px solid var(--w11-explorer-line);
+    border-left: 0;
+  }
+
+  .explorer-preview__details {
+    padding: 8px 12px;
+  }
+}
+
+.explorer-tabs {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 8px 0;
+  background: var(--w11-explorer-chrome);
+  color: #fff;
+  font-size: 12px;
+}
+
+.explorer-tabs__list {
+  display: flex;
+  min-width: 0;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.explorer-tabs__tab {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  width: 148px;
+  height: 30px;
+  border-radius: var(--w11-radius-control) var(--w11-radius-control) 0 0;
+}
+
+.explorer-tabs__tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.explorer-tabs__tab.is-active {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.explorer-tabs__tab > button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.explorer-tabs__tab > [role="tab"] {
+  overflow: hidden;
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  padding: 0 4px 0 10px;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-tabs__close,
+.explorer-tabs__new {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  margin-right: 3px;
+  border-radius: var(--w11-radius-control);
+}
+
+.explorer-tabs__new {
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.explorer-tabs__close:hover,
+.explorer-tabs__new:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (pointer: coarse) {
+  .explorer-tabs__tab {
+    width: 132px;
+    height: 36px;
+  }
+
+  .explorer-tabs__close {
+    width: 32px;
+    height: 32px;
+  }
+
+  .explorer-tabs__new {
+    width: 36px;
+    height: 36px;
+  }
+}

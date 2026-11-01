@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Brush, Download, Eraser, PaintBucket, Save } from "lucide-react";
+import { Brush, Download, Eraser, PaintBucket, Redo2, Save, Undo2 } from "lucide-react";
 import {
   AppContent,
   AppFooter,
@@ -9,6 +9,7 @@ import {
   IconButton,
 } from "@/components/apps/app-layout";
 import { getNodeByPath, getParentPath } from "@/lib/filesystem";
+import { UndoHistory, undoKey } from "@/lib/undo-history";
 import { getBaseName } from "@/lib/utils";
 import { useFileSystemStore } from "@/stores/filesystem-store";
 import type { AppComponentProps, VirtualFile } from "@/types/system";
@@ -20,6 +21,10 @@ const DIRECT_SAVE_TYPES: Record<string, { mimeType: string; extension: string }>
   jpeg: { mimeType: "image/jpeg", extension: "jpeg" },
   webp: { mimeType: "image/webp", extension: "webp" },
 };
+
+/** Each step is a full copy of the canvas, so the depth shrinks on very large ones. */
+const UNDO_BYTES = 200 * 1024 * 1024;
+const UNDO_STEPS = 50;
 
 function isPaintEditable(node: VirtualFile) {
   return ["bmp", "gif", "ico", "jpg", "jpeg", "png", "webp"].includes(node.extension);
@@ -54,6 +59,9 @@ export function PaintApp({ window }: AppComponentProps) {
     x: 0,
     y: 0,
   });
+  const historyRef = useRef(new UndoHistory<ImageData>(UNDO_STEPS));
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [tool, setTool] = useState<"brush" | "eraser">("brush");
   const [color, setColor] = useState(COLOR_SWATCHES[0]);
   const [brushSize, setBrushSize] = useState(8);
@@ -111,6 +119,52 @@ export function PaintApp({ window }: AppComponentProps) {
     if (snapshot) {
       context.drawImage(snapshot, 0, 0, nextWidth, nextHeight);
     }
+  };
+
+  const syncHistory = () => {
+    setCanUndo(historyRef.current.canUndo);
+    setCanRedo(historyRef.current.canRedo);
+  };
+
+  const readCanvas = () => {
+    const canvas = canvasRef.current;
+    return canvas?.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height);
+  };
+
+  /** Called just before anything changes the canvas. */
+  const rememberCanvas = () => {
+    const before = readCanvas();
+    if (!before) return;
+    historyRef.current.record(before, Math.max(1, Math.min(UNDO_STEPS, Math.floor(UNDO_BYTES / before.data.byteLength))));
+    syncHistory();
+  };
+
+  const restoreCanvas = (snapshot: ImageData) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    if (snapshot.width === canvas.width && snapshot.height === canvas.height) {
+      context.putImageData(snapshot, 0, 0);
+      return;
+    }
+
+    // The window was resized since this step, so scale it to fit.
+    const copy = document.createElement("canvas");
+    copy.width = snapshot.width;
+    copy.height = snapshot.height;
+    copy.getContext("2d")?.putImageData(snapshot, 0, 0);
+    context.drawImage(copy, 0, 0, canvas.width, canvas.height);
+  };
+
+  const stepHistory = (direction: "undo" | "redo") => {
+    const current = readCanvas();
+    if (!current) return;
+    const snapshot = direction === "undo" ? historyRef.current.undo(current) : historyRef.current.redo(current);
+    if (!snapshot) return;
+    restoreCanvas(snapshot);
+    syncHistory();
+    setStatusMessage(direction === "undo" ? "Undone" : "Redone");
   };
 
   const clearCanvasSurface = (message = "Canvas cleared") => {
@@ -172,6 +226,8 @@ export function PaintApp({ window }: AppComponentProps) {
     }
 
     setLoadError(null);
+    historyRef.current.clear();
+    syncHistory();
     syncCanvasResolution(false);
     clearCanvasSurface("Ready");
 
@@ -195,6 +251,21 @@ export function PaintApp({ window }: AppComponentProps) {
         setLoadError(error.message);
       });
   }, [activeFile]);
+
+  useEffect(() => {
+    if (!window.focused) return undefined;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const direction = undoKey(event);
+      const field = event.target instanceof HTMLInputElement && event.target.type !== "range";
+      if (!direction || field || pointerRef.current.drawing) return;
+      event.preventDefault();
+      stepHistory(direction);
+    };
+
+    globalThis.window.addEventListener("keydown", onKeyDown);
+    return () => globalThis.window.removeEventListener("keydown", onKeyDown);
+  }, [window.focused]);
 
   const getCanvasCoordinates = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -298,7 +369,20 @@ export function PaintApp({ window }: AppComponentProps) {
           >
             <Eraser size={15} />
           </IconButton>
-          <Button type="button" variant="ghost" onClick={() => clearCanvasSurface()}>
+          <IconButton type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={() => stepHistory("undo")}>
+            <Undo2 size={15} />
+          </IconButton>
+          <IconButton type="button" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!canRedo} onClick={() => stepHistory("redo")}>
+            <Redo2 size={15} />
+          </IconButton>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              rememberCanvas();
+              clearCanvasSurface();
+            }}
+          >
             <PaintBucket size={15} />
             Clear
           </Button>
@@ -351,11 +435,14 @@ export function PaintApp({ window }: AppComponentProps) {
             onPointerDown={(event) => {
               const point = getCanvasCoordinates(event);
               event.currentTarget.setPointerCapture(event.pointerId);
+              rememberCanvas();
               pointerRef.current = {
                 drawing: true,
                 x: point.x,
                 y: point.y,
               };
+              // A round line almost no length long, so a single click leaves a dot.
+              drawLine(point.x, point.y, point.x + 0.01, point.y, point.scale);
             }}
             onPointerMove={(event) => {
               if (!pointerRef.current.drawing) {

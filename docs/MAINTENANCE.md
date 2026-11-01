@@ -1,5 +1,44 @@
 # Portfolio maintenance
 
+## 2026-11-01
+
+Completed:
+- Phone taskbar: running apps scroll instead of sliding under the tray.
+- English CV PDF for English visitors, with a test that keeps its facts in line with the Estonian one.
+- New apps: Sudoku, Checkers, Solitaire, Chess, Task Manager, Whiteboard, Calendar, Spreadsheet and Documents.
+- Run dialog, Paint undo and redo. File Explorer gained Properties, a preview pane and tabs.
+- TV: a daily channel check and a what's on now guide.
+- 406 lines of old Start menu CSS removed. Screenshots of Start were byte-identical before and after.
+- First-load speed measured in `docs/PERFORMANCE.md`. The Run dialog now loads when opened.
+
+### Scheduled jobs
+
+- **Check TV channels** (`.github/workflows/channel-check.yml`) runs daily. It walks each stream to a real
+  video segment, and retries failures after 90 seconds. It keeps one issue, "TV channels not playing", up to date, and
+  closes it when every channel is back. Removing a channel stays a person's decision.
+- A channel that answers 401, 403 or 451 is listed as refused, not dead, and does not open an issue by itself. The
+  runner is in the USA, and region locking looks just like this. So a region-locked channel that really dies stays hidden
+  until someone reads the report.
+- **Deploy GitHub Pages** now also runs every four hours to rebuild `tv-guide.json`, which is not in git. The free
+  listings mostly look only five or six hours ahead, so one run a day would leave the guide empty most of the day.
+- GitHub turns off scheduled jobs after 60 days with no activity in the repo. Re-enable them on the Actions tab.
+
+### TV guide sources
+
+Telia's public guide for ETV, ETV2 and ETV+, and XMLTV from i.mjh.nz, epgshare01 and epg.pw for the UK and USA. None
+of them promises to stay up, and Telia's is an unofficial endpoint. A source that fails is skipped, and its channels
+show their category instead of a programme.
+
+Names must match exactly within a region, so the wrong programme should not appear. Listings are for the same channel
+on other services, so a regional schedule can still differ. Four channels were played and compared with their listing, and all four matched.
+
+### Validation
+
+- Figures for the final branch are in the pull request. Every app has a real-input Chromium check at desktop and 390px.
+- Not tested on a physical phone, or with a real screen reader.
+- `terminal-app-integration` ("opens a Command Prompt tab") failed once under load and passed 3 of 3 alone, so it is a
+  known flaky test, not a fixed one.
+
 ## 2026-10-31
 
 Completed:
@@ -16,6 +55,9 @@ Completed:
 - Notepad replaces the Markdown viewer. New TV & Radio app with 88 channels and ERR radio (adds hls.js, gsap and @gsap/react).
 - Settings grew six pages and a search box.
 - Contact is an inbox, Projects is a briefcase. Popup tips and achievement toasts removed.
+The CV has two sources, `docs/cv.html` (Estonian) and `docs/cv.en.html` (English). Print each to an A4 PDF in
+`public/assets` after an edit; a test checks that both keep the same links, dates and numbers.
+
 A changed shipped document only reaches returning visitors if the hash of its old
 text is listed in `src/lib/portfolio-workspace.ts`. Add one whenever seed text changes.
 

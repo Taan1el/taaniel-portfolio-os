@@ -830,6 +830,16 @@
   .w11-taskbar__search.search-input {
     display: none;
   }
+
+  /* Fill the column, so a long row of apps scrolls here instead of sliding under the tray. */
+  .w11-taskbar__center {
+    justify-self: stretch;
+  }
+
+  .w11-taskbar__apps {
+    max-width: none;
+    flex: 1;
+  }
 }
 
 /* The sci-fi layers over the wallpaper (screen-blend glow, dot grid, noise)

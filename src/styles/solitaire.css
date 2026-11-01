@@ -1,0 +1,189 @@
+.solitaire .arcade-game-shell__content {
+  min-height: 0;
+  container-type: size;
+}
+
+.solitaire__table {
+  --gap: 8px;
+  --card-w: min((100cqw - 24px - 6 * var(--gap)) / 7, (100cqh - 24px - var(--gap)) / 4.6);
+  --card-h: calc(var(--card-w) * 1.4);
+  --step: calc(var(--card-h) * 0.26);
+  --room: calc(100cqh - 24px - var(--gap) - var(--card-h) - var(--card-h));
+
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap);
+  padding: 12px;
+  background: radial-gradient(circle at 50% 30%, #2f6b53, #173a2d 80%);
+  font-family: var(--w11-font);
+  user-select: none;
+}
+
+.solitaire__top,
+.solitaire__columns {
+  display: grid;
+  grid-template-columns: repeat(7, var(--card-w));
+  gap: var(--gap);
+}
+
+.solitaire__columns {
+  min-height: 0;
+  flex: 1;
+}
+
+.solitaire__column {
+  position: relative;
+  min-height: var(--card-h);
+}
+
+.solitaire__slot,
+.solitaire__card {
+  width: var(--card-w);
+  height: var(--card-h);
+  padding: 0;
+  border-radius: calc(var(--card-w) * 0.08);
+}
+
+.solitaire__slot {
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.14);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+
+span.solitaire__slot {
+  cursor: default;
+}
+
+.solitaire__suit {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: calc(var(--card-w) * 0.46);
+}
+
+.solitaire__card {
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  background: #fbfaf6;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.solitaire__column .solitaire__card {
+  position: absolute;
+  top: min(calc(var(--step) * var(--index, 0)), calc(var(--room) * var(--index, 0) / var(--count, 1)));
+  left: 0;
+}
+
+.solitaire__back {
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  background: repeating-linear-gradient(45deg, #2563eb 0 4px, #1e40af 4px 8px);
+  box-shadow: inset 0 0 0 3px #fff, 0 1px 2px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+span.solitaire__back {
+  cursor: default;
+}
+
+.solitaire__card.is-picked {
+  outline: 3px solid #ffd65a;
+  outline-offset: -1px;
+}
+
+.solitaire__card.is-dragged {
+  opacity: 0.25;
+}
+
+.solitaire :is(button):focus-visible {
+  z-index: 5;
+  outline: 3px solid #fff;
+  outline-offset: -1px;
+}
+
+.solitaire__face {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: #1c2330;
+}
+
+.solitaire__face.is-red {
+  color: #c62828;
+}
+
+.solitaire__corner {
+  position: absolute;
+  top: 2%;
+  left: 7%;
+  display: flex;
+  gap: 1px;
+  font-size: calc(var(--card-w) * 0.24);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.solitaire__pip {
+  position: absolute;
+  right: 6%;
+  bottom: 2%;
+  font-size: calc(var(--card-w) * 0.52);
+  line-height: 1;
+}
+
+.solitaire__tools {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+}
+
+.solitaire__tools button {
+  display: grid;
+  width: min(32px, 46%);
+  aspect-ratio: 1;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.26);
+  color: #fff;
+  cursor: pointer;
+}
+
+.solitaire__tools button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.solitaire__ghost {
+  position: absolute;
+  z-index: 200;
+  width: var(--card-w);
+  margin: calc(var(--card-h) * -0.2) 0 0 calc(var(--card-w) * -0.5);
+  pointer-events: none;
+}
+
+.solitaire__ghost .solitaire__card {
+  position: absolute;
+  top: calc(var(--step) * var(--index, 0));
+  left: 0;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.solitaire__won {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f2c20;
+  white-space: nowrap;
+}

@@ -394,6 +394,8 @@
 
 .tv__now strong {
   overflow: hidden;
+  flex: 0 0 auto;
+  max-width: 60%;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -650,4 +652,16 @@
     font-size: 20px;
     line-height: 24px;
   }
+}
+
+.tv__now small {
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+  flex: 0 1 auto;
+  color: var(--tv-text-2);
+  font-size: 11px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

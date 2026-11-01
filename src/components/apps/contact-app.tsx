@@ -18,7 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { getResumeDownloadUrls, profile, repoUrl, socialLinks } from "@/data/portfolio";
+import { getResumeDownloadUrls, profile, repoUrl, resumeAlternate, socialLinks } from "@/data/portfolio";
 import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
 import { cn } from "@/lib/utils";
 import { toast } from "@/stores/toast-store";
@@ -72,7 +72,10 @@ const INBOX: Message[] = [
     subject: "My CV",
     snippet: "The same PDF as Resume.pdf on the desktop.",
     body: ["Here is my CV as a PDF, the same file as Resume.pdf on the desktop."],
-    links: [{ label: "CV_Taaniel_Vananurm.pdf", detail: "PDF", href: getResumeDownloadUrls()[0], download: true }],
+    links: [
+      { label: "Taaniel Vananurm CV", detail: "PDF", href: getResumeDownloadUrls()[0], download: true },
+      { label: resumeAlternate.label, detail: "PDF", href: resumeAlternate.href, download: true },
+    ],
   },
   {
     id: "links",

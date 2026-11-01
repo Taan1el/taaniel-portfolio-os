@@ -7,12 +7,14 @@ import {
   FolderInput,
   FolderOpen,
   FolderOutput,
+  Info,
   LayoutGrid,
   Link2,
   MapPin,
   Pencil,
   RotateCcw,
   Scissors,
+  SquarePlus,
   Trash2,
 } from "lucide-react";
 import {
@@ -32,6 +34,7 @@ import { getOpenWithOptions, resolveEditApp } from "@/lib/file-registry";
 import { downloadFileNode, getParentPath, isLockedNode, normalizePath } from "@/lib/filesystem";
 import { resolveShortcutNode } from "@/lib/shortcuts";
 import { TRASH_PATH } from "@/lib/system-workspace";
+import { usePropertiesStore } from "@/stores/properties-store";
 import { useTransferDialogStore } from "@/stores/transfer-dialog-store";
 import type { ClipboardState, ContextMenuAction, FileSystemRecord } from "@/types/system";
 
@@ -46,6 +49,8 @@ export interface FileMenuInput {
   onRename?: () => void;
   /** Explorer: "Open in new window" for a folder. */
   onOpenInNewWindow?: () => void;
+  /** Explorer: "Open in new tab" for a folder. */
+  onOpenInNewTab?: () => void;
   /**
    * Show "Open file location" for every item (the desktop, where it is the way
    * to get from an icon to its folder) rather than only for shortcuts.
@@ -61,7 +66,7 @@ const separator = (id: string): ContextMenuAction => ({ id, label: "", separator
  * and Open file location mean exactly the same in both.
  */
 export function buildFileMenu(input: FileMenuInput): ContextMenuAction[] {
-  const { nodes, clipboard, onOpen, onRename, onOpenInNewWindow, locationForAll } = input;
+  const { nodes, clipboard, onOpen, onRename, onOpenInNewWindow, onOpenInNewTab, locationForAll } = input;
   const paths = Array.from(new Set(input.paths.map(normalizePath))).filter((path) => nodes[path]);
   const count = paths.length;
 
@@ -94,6 +99,8 @@ export function buildFileMenu(input: FileMenuInput): ContextMenuAction[] {
   }
 
   push({ id: "open", label: "Open", icon: single?.kind === "directory" ? FolderOpen : ExternalLink, onSelect: onOpen });
+
+  push(single?.kind === "directory" && onOpenInNewTab && { id: "open-new-tab", label: "Open in new tab", icon: SquarePlus, onSelect: onOpenInNewTab });
 
   push(
     single?.kind === "directory" &&
@@ -153,6 +160,9 @@ export function buildFileMenu(input: FileMenuInput): ContextMenuAction[] {
   if (single?.kind === "file" && !single.shortcut && !inTrash) {
     push({ id: "download", label: "Download", icon: Download, onSelect: () => void downloadFileNode(single) });
   }
+
+  push(separator("sep-properties"));
+  push({ id: "properties", label: "Properties", icon: Info, shortcut: "Alt+Enter", onSelect: () => usePropertiesStore.getState().open(paths) });
 
   return actions;
 }

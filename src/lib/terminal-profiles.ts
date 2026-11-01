@@ -47,7 +47,9 @@ const PROFILE_ALIASES: Record<string, TerminalProfileId> = {
 /** Read a launch payload's profile field. Anything unrecognised means "the default profile". */
 export function resolveLaunchProfile(value: unknown): TerminalProfileId | null {
   if (typeof value !== "string") return null;
-  return PROFILE_ALIASES[value.trim().toLowerCase()] ?? null;
+  const alias = value.trim().toLowerCase();
+  // Own keys only: "constructor" is not a profile.
+  return Object.hasOwn(PROFILE_ALIASES, alias) ? PROFILE_ALIASES[alias] : null;
 }
 
 /** A unique value for WindowPayload.launchNonce, so repeating the same launch still opens a new tab. */

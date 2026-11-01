@@ -937,6 +937,7 @@ const EXECUTABLES: Record<string, AppId> = {
   // The Windows Subsystem for Linux, here: the v86 x86 emulator running a real Linux.
   wsl: "v86",
   bash: "v86",
+  taskmgr: "task-manager",
 };
 
 const PATH_SHORTCUTS: Record<string, string> = {
@@ -988,6 +989,16 @@ function openSettingsUri(uri: string, ctx: Ctx): Output {
   }
   ctx.actions.push({ type: "launch-app", appId: "settings", payload: { section } });
   return ok();
+}
+
+/** The app a program name runs, shared with the Run dialog. */
+export const resolveProgramApp = (name: string) => own(EXECUTABLES, name.toLowerCase().replace(/\.exe$/, ""));
+
+/** A file or folder that exists, from a path in either style or a word like `cv`. Shared with the Run dialog. */
+export function resolveRunPath(input: string, nodes: FileSystemRecord) {
+  const shortcut = own(PATH_SHORTCUTS, input.toLowerCase());
+  const path = shortcut ?? resolveShellPath(input, TERMINAL_HOME_PATH, nodes);
+  return nodes[path] ? path : null;
 }
 
 /** True for names that launch an app by themselves: notepad, calc, explorer, ms-settings:display... */
