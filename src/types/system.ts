@@ -47,6 +47,7 @@ export type AppId =
   | "calculator"
   | "achievements"
   | "tv"
+  | "solitaire"
   | "checkers"
   | "sudoku";
 
