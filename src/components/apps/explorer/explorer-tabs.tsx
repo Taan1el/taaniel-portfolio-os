@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { Plus, X } from "lucide-react";
 import { TRASH_PATH } from "@/lib/system-workspace";
 import { SHELL_USER } from "@/lib/windows-path";
@@ -24,6 +24,14 @@ interface ExplorerTabsProps {
 }
 
 export function ExplorerTabs({ tabs, activeId, onSelect, onClose, onNew }: ExplorerTabsProps) {
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // A new tab can land past the edge of the strip.
+  useEffect(() => {
+    const tab = listRef.current?.querySelector<HTMLElement>(`[data-tab-id="${activeId}"]`)?.parentElement;
+    tab?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [activeId, tabs.length]);
+
   const moveFocus = (event: KeyboardEvent<HTMLElement>) => {
     const index = tabs.findIndex((tab) => tab.id === activeId);
     const next = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: tabs.length - 1 }[event.key];
@@ -38,7 +46,7 @@ export function ExplorerTabs({ tabs, activeId, onSelect, onClose, onNew }: Explo
 
   return (
     <div className="explorer-tabs">
-      <div className="explorer-tabs__list" role="tablist" aria-label="Open folders" onKeyDown={moveFocus}>
+      <div ref={listRef} className="explorer-tabs__list" role="tablist" aria-label="Open folders" onKeyDown={moveFocus}>
         {tabs.map((tab) => {
           const label = getTabLabel(tab.path);
           const active = tab.id === activeId;
