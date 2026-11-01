@@ -257,7 +257,6 @@
 
 /* ── 6. Menus & popovers — stronger glass blur ──────────────── */
 .context-menu,
-.start-menu,
 .calendar-popover {
   backdrop-filter: blur(24px) saturate(1.5);
 }
@@ -414,10 +413,6 @@
   bottom: 80px;
 }
 
-.start-menu {
-  bottom: 80px;
-}
-
 .search-panel {
   bottom: 80px;
 }
@@ -536,7 +531,7 @@
     color: var(--text);
   }
 
-  .start-menu, .search-panel, .calendar-panel {
+  .search-panel, .calendar-panel {
     bottom: 120px;
   }
 
