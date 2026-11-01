@@ -1046,3 +1046,37 @@
     width: 100%;
   }
 }
+
+/* Events on the day shown in the clock flyout. */
+.w11-clock__events {
+  display: grid;
+  gap: 4px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--w11-divider);
+  font-size: 12px;
+}
+
+.w11-clock__events ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.w11-clock__events li {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.w11-clock__events li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w11-clock__events small {
+  color: var(--w11-text-2);
+  font-size: 12px;
+}
