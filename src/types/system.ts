@@ -46,7 +46,8 @@ export type AppId =
   | "paint"
   | "calculator"
   | "achievements"
-  | "tv";
+  | "tv"
+  | "sudoku";
 
 export type AppCategory = "Portfolio" | "Workspace" | "Media" | "System" | "Lab";
 

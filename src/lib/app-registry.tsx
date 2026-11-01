@@ -25,6 +25,7 @@ import {
   TerminalIcon,
   TetrisIcon,
   TvIcon,
+  SudokuIcon,
   V86Icon,
   VideoIcon,
 } from "@/components/icons/apps";
@@ -358,6 +359,18 @@ const registry: Record<AppId, AppDefinition> = {
     multiple: true,
     load: async () => ({ default: (await import("@/components/apps/pdf-viewer-app")).PdfViewerApp }),
     resolveTitle: (payload) => (payload?.filePath ? getBaseName(payload.filePath) : "Resume"),
+  }),
+  sudoku: defineApp({
+    id: "sudoku",
+    title: "Sudoku",
+    description: "Three levels of puzzles, each with one solution. Pencil notes and undo included.",
+    category: "Lab",
+    icon: SudokuIcon,
+    accent: "#60a5fa",
+    defaultPosition: { x: 240, y: 70 },
+    defaultSize: { width: 760, height: 620 },
+    minSize: { width: 340, height: 480 },
+    load: async () => ({ default: (await import("@/components/apps/sudoku-app")).SudokuApp }),
   }),
   tv: defineApp({
     id: "tv",
