@@ -532,7 +532,8 @@ function scoreEntry(entry: ShellSearchEntry, intent: SearchIntent): ShellSearchR
     entry.aliases.some((alias) => normalizeSearchValue(alias) === intent.titleQuery)
   ) {
     // On an exact name an app beats a folder or file of the same name, as in Windows.
-    score += entry.section === "apps" ? 1100 : 920;
+    // The gap is more than a file can gain from its path and preview also matching.
+    score += entry.section === "apps" ? 1500 : 920;
     matchMode = "exact";
   }
 

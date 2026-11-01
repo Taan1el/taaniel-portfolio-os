@@ -113,6 +113,13 @@ describe("shell search", () => {
     });
   });
 
+  it("puts an app ahead of a folder with the same name", () => {
+    const index = buildShellSearchIndex(buildSeedFileSystem());
+    const first = queryShellSearch(index, "documents")[0];
+
+    expect(first.results[0].action).toMatchObject({ type: "launch-app", appId: "documents" });
+  });
+
   it("surfaces the default note file in file search", () => {
     const index = buildShellSearchIndex(buildSeedFileSystem());
     const sections = queryShellSearch(index, "Notes To-do");
