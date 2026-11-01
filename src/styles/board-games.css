@@ -247,3 +247,90 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* The 8 by 8 board shared by Checkers and Chess */
+.board-grid {
+  display: grid;
+  width: var(--board-size);
+  height: var(--board-size);
+  flex: none;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  overflow: hidden;
+  border: 3px solid #4a3528;
+  border-radius: 4px;
+}
+
+.board-grid__square {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+.board-grid__square.is-dark {
+  background: #7a5a44;
+}
+
+.board-grid__square.is-light {
+  background: #e7d6bf;
+}
+
+.board-grid__square:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}
+
+.board-grid__square.is-last {
+  box-shadow: inset 0 0 0 100px rgba(255, 214, 90, 0.22);
+}
+
+.board-grid__square.is-picked {
+  box-shadow: inset 0 0 0 100px rgba(96, 205, 255, 0.4);
+}
+
+.board-grid__square.is-target::after {
+  position: absolute;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(96, 205, 255, 0.85);
+  content: "";
+}
+
+.checkers__piece {
+  display: grid;
+  width: 76%;
+  height: 76%;
+  place-items: center;
+  border-radius: 50%;
+  transition: transform 0.12s ease;
+}
+
+.checkers__piece.is-red {
+  background: radial-gradient(circle at 50% 40%, #f26b6b, #c62828 72%);
+  box-shadow: 0 3px 0 #7f1616;
+  color: #ffe08a;
+}
+
+.checkers__piece.is-white {
+  background: radial-gradient(circle at 50% 40%, #fff7ea, #dcc9ab 72%);
+  box-shadow: 0 3px 0 #a08a6b;
+  color: #8a6420;
+}
+
+.board-grid__square.is-movable:hover .checkers__piece {
+  transform: translateY(-2px);
+}
+
+.board-grid__square.is-movable .checkers__piece {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+:root[data-reduce-motion] .checkers__piece {
+  transition: none;
+}
