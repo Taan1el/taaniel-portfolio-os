@@ -24,8 +24,17 @@ export const landingCopy = {
     "A focused portfolio overview is one click away. The OS shell is a live React + TypeScript project you can explore in more depth.",
 };
 
-/** Primary CV URL (served from /public). Add a mirror if the main host blocks PDF fetch. */
-export const resumePdfPath = resolvePublicAssetUrl("assets/CV_Taaniel_Vananurm.pdf");
+const resumePdfEnglish = resolvePublicAssetUrl("assets/CV_Taaniel_Vananurm_EN.pdf");
+const resumePdfEstonian = resolvePublicAssetUrl("assets/CV_Taaniel_Vananurm.pdf");
+const estonianVisitor = /^et\b/i.test(globalThis.navigator?.language ?? "");
+
+/** Primary CV URL (served from /public): English, unless the browser is set to Estonian. */
+export const resumePdfPath = estonianVisitor ? resumePdfEstonian : resumePdfEnglish;
+
+/** The same CV in the other language. */
+export const resumeAlternate = estonianVisitor
+  ? { label: "CV in English", href: resumePdfEnglish }
+  : { label: "CV in Estonian", href: resumePdfEstonian };
 
 /** Optional absolute URL (e.g. GitHub raw). Tried in the PDF viewer if the primary URL fails. */
 export const resumePdfFallbackUrl: string | null = null;

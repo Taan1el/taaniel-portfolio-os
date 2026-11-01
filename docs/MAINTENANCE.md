@@ -16,6 +16,9 @@ Completed:
 - Notepad replaces the Markdown viewer. New TV & Radio app with 88 channels and ERR radio (adds hls.js, gsap and @gsap/react).
 - Settings grew six pages and a search box.
 - Contact is an inbox, Projects is a briefcase. Popup tips and achievement toasts removed.
+The CV has two sources, `docs/cv.html` (Estonian) and `docs/cv.en.html` (English). Print each to an A4 PDF in
+`public/assets` after an edit; a test checks that both keep the same links, dates and numbers.
+
 A changed shipped document only reaches returning visitors if the hash of its old
 text is listed in `src/lib/portfolio-workspace.ts`. Add one whenever seed text changes.
 

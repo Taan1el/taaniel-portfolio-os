@@ -4,7 +4,7 @@ A desktop operating system that runs in your browser, built as the portfolio of 
 
 Files are real files on a virtual disk, windows snap and move between desktops, and the big apps use real engines: Python, a Linux kernel, Doom and the Monaco editor. There is no server and no account. It all runs on GitHub Pages.
 
-**[Try it live](https://taan1el.github.io/taaniel-portfolio-os/)** · [Quick portfolio](https://taan1el.github.io/taaniel-portfolio-os/portfolio/) · [Download CV](https://taan1el.github.io/taaniel-portfolio-os/assets/CV_Taaniel_Vananurm.pdf)
+**[Try it live](https://taan1el.github.io/taaniel-portfolio-os/)** · [Quick portfolio](https://taan1el.github.io/taaniel-portfolio-os/portfolio/) · [Download CV](https://taan1el.github.io/taaniel-portfolio-os/assets/CV_Taaniel_Vananurm_EN.pdf)
 
 <p align="center">
   <a href="https://taan1el.github.io/taaniel-portfolio-os/">
