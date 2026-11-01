@@ -21,8 +21,10 @@ import {
 import { ChannelLogo, TvGuide } from "@/components/apps/tv/tv-guide";
 import { CHANNEL_CATEGORIES, LIVE_CHANNELS, type LiveChannel } from "@/data/live-channels";
 import { useMasterVolume } from "@/hooks/use-master-volume";
+import { formatTime } from "@/lib/clock-format";
 import { prefersStillMotion } from "@/lib/motion";
 import { readLocalStorage, writeLocalStorage } from "@/lib/safe-storage";
+import { programmeAt, useTvGuide } from "@/lib/tv-guide";
 import { cn } from "@/lib/utils";
 import { getIsNetworkBlocked } from "@/stores/device-store";
 import type { AppComponentProps } from "@/types/system";
@@ -124,6 +126,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
   const [offAir, setOffAir] = useState<string[]>([]);
   const [theatre, setTheatre] = useState(false);
   const [controlsShown, setControlsShown] = useState(true);
+  const { guide, now } = useTvGuide();
 
   const lineUp = useMemo(() => lineUpOf(tab, favourites), [favourites, tab]);
   const categories = useMemo(
@@ -308,6 +311,7 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
   }, [favourites, tab]);
   const offline = getIsNetworkBlocked();
   const playing = status === "playing";
+  const listing = channel ? programmeAt(guide[channel.id], now) : null;
 
   return (
     <div ref={rootRef} className="tv" tabIndex={-1} onKeyDown={handleKeyDown}>
@@ -331,6 +335,8 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
             currentId={channel?.id}
             favourites={favourites}
             offAir={offAir}
+            guide={guide}
+            now={now}
             onPlay={tune}
             onFavourite={toggleFavourite}
           />
@@ -465,6 +471,12 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
               <span className="tv__now">
                 <span className={cn("tv__live", playing && "is-on")}>Live</span>
                 <strong>{channel.name}</strong>
+                {listing ? (
+                  <small>
+                    {listing.current.title}
+                    {listing.next ? ` · ${formatTime(new Date(listing.next.start))} ${listing.next.title}` : ""}
+                  </small>
+                ) : null}
               </span>
               <button
                 type="button"
