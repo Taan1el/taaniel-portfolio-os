@@ -26,6 +26,7 @@ export { SettingsIcon } from "./settings";
 export { SnakeIcon } from "./snake";
 export { TerminalIcon } from "./terminal";
 export { TvIcon } from "./tv";
+export { SpreadsheetIcon } from "./spreadsheet";
 export { CalendarIcon } from "./calendar";
 export { WhiteboardIcon } from "./whiteboard";
 export { TaskManagerIcon } from "./task-manager";

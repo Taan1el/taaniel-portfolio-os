@@ -141,6 +141,15 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     textLike: true,
     capabilities: ["open", "edit"],
   },
+  ".sheet": {
+    extension: ".sheet",
+    openWith: "spreadsheet",
+    mimeType: "application/json",
+    family: "document",
+    label: "Spreadsheet",
+    textLike: true,
+    capabilities: ["open", "edit"],
+  },
   ".pdf": {
     extension: ".pdf",
     openWith: "pdf",
@@ -310,7 +319,7 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
   },
   ".csv": {
     extension: ".csv",
-    openWith: "editor",
+    openWith: "spreadsheet",
     editWith: "editor",
     mimeType: "text/csv",
     family: "text",
