@@ -59,3 +59,4 @@ The arcade lineup lives inside the OS and launches through the same window syste
 
 export const primaryGameIds = ["snake", "tetris", "doom", "dino", "hextris"] as const satisfies readonly AppId[];
 export const originalGameIds = ["next-stop"] as const satisfies readonly AppId[];
+export const boardGameIds = ["sudoku"] as const satisfies readonly AppId[];
