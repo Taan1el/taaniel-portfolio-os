@@ -1,13 +1,13 @@
-/* A dark room with the set on. Amber is the signal colour. */
+/* A dark room with the set on: the picture lights the walls. Amber is the signal colour. */
 .tv {
-  --tv-ink: #0a0c10;
-  --tv-panel: #12151b;
-  --tv-raised: #1c2029;
-  --tv-line: rgba(255, 255, 255, 0.08);
-  --tv-text: #f2f3f5;
-  --tv-text-2: #9aa1ad;
+  --tv-ink: #07080b;
+  --tv-panel: #0e1014;
+  --tv-raised: #181b21;
+  --tv-line: rgba(255, 255, 255, 0.07);
+  --tv-text: #f4f4f2;
+  --tv-text-2: #979ca6;
   --tv-signal: #ffb224;
-  --tv-mono: "Cascadia Code", "Cascadia Mono", Consolas, "Courier New", monospace;
+  --tv-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
 
   height: 100%;
   min-height: 0;
@@ -30,7 +30,7 @@
   display: grid;
   height: 100%;
   min-height: 0;
-  grid-template-columns: 288px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
 }
 
 .tv__frame.is-theatre {
@@ -49,19 +49,23 @@
   display: flex;
   flex: none;
   gap: 2px;
-  padding: 8px 8px 0;
+  margin: 10px 12px 0;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--tv-raised);
 }
 
 .tv__tabs button {
   flex: 1;
-  height: 32px;
+  height: 28px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 7px;
   background: transparent;
   color: var(--tv-text-2);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .tv__tabs button:hover {
@@ -69,8 +73,8 @@
 }
 
 .tv__tabs button.is-active {
-  border-bottom-color: var(--tv-signal);
-  color: var(--tv-text);
+  background: var(--tv-text);
+  color: #111318;
 }
 
 .tv__search {
@@ -78,12 +82,16 @@
   flex: none;
   align-items: center;
   gap: 8px;
-  height: 32px;
-  margin: 12px 12px 8px;
+  height: 34px;
+  margin: 8px 12px;
   padding: 0 12px;
-  border-radius: 8px;
-  background: var(--tv-raised);
+  border: 1px solid var(--tv-line);
+  border-radius: 9px;
   color: var(--tv-text-2);
+}
+
+.tv__search:focus-within {
+  border-color: var(--tv-signal);
 }
 
 .tv__search input {
@@ -125,16 +133,17 @@
   min-height: 0;
   flex: 1;
   margin: 0;
-  padding: 0 4px 8px;
+  padding: 0 6px 8px;
   overflow-y: auto;
   list-style: none;
   scrollbar-width: thin;
 }
 
 .tv__row {
+  position: relative;
   display: flex;
   align-items: center;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .tv__row:hover {
@@ -142,12 +151,11 @@
 }
 
 .tv__row.is-active {
-  background: var(--tv-raised);
-  box-shadow: inset 3px 0 0 var(--tv-signal);
+  background: linear-gradient(90deg, rgba(255, 178, 36, 0.16), var(--tv-raised) 70%);
 }
 
 .tv__row.is-down {
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
 .tv__tune {
@@ -156,7 +164,7 @@
   flex: 1;
   align-items: center;
   gap: 10px;
-  height: 48px;
+  height: 56px;
   padding: 0 4px 0 8px;
   border: 0;
   background: transparent;
@@ -164,31 +172,67 @@
   cursor: pointer;
 }
 
-.tv__number {
+.tv__number,
+.tv__eq {
   flex: none;
-  width: 20px;
-  color: var(--tv-text-2);
-  font-family: var(--tv-mono);
-  font-size: 12px;
+  width: 18px;
 }
 
-.tv__row.is-active .tv__number {
-  color: var(--tv-signal);
+.tv__number {
+  color: var(--tv-text-2);
+  font-family: var(--tv-mono);
+  font-size: 11px;
+}
+
+/* The row on the air keeps time with it. */
+.tv__eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.tv__eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--tv-signal);
+  transform-origin: bottom;
+  animation: tv-level 0.9s ease-in-out infinite alternate;
+}
+
+.tv__eq i:nth-child(2) {
+  animation-delay: -0.35s;
+}
+
+.tv__eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+@keyframes tv-level {
+  from {
+    transform: scaleY(0.25);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
 }
 
 .tv__logo {
   display: grid;
   flex: none;
   place-items: center;
-  width: 44px;
-  height: 32px;
+  width: 48px;
+  height: 36px;
   overflow: hidden;
-  border-radius: 4px;
-  background: #232833;
+  border: 1px solid var(--tv-line);
+  border-radius: 6px;
+  background: linear-gradient(145deg, #262b35, #171a20);
   color: var(--tv-text);
   font-family: var(--tv-mono);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .tv__logo img {
@@ -200,6 +244,7 @@
 
 .tv__row-text {
   min-width: 0;
+  flex: 1;
 }
 
 .tv__row-text strong,
@@ -217,7 +262,24 @@
 .tv__row-text small {
   color: var(--tv-text-2);
   font-size: 11px;
-  line-height: 14px;
+  line-height: 15px;
+}
+
+/* Scaled rather than sized, so a tick of the clock costs no layout. */
+.tv__bar {
+  display: block;
+  height: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tv__bar i {
+  display: block;
+  height: 100%;
+  background: var(--tv-signal);
+  transform-origin: left;
 }
 
 .tv__star {
@@ -266,50 +328,29 @@
 
 .tv__stage {
   position: relative;
-  display: flex;
   min-width: 0;
   min-height: 0;
-  flex-direction: column;
   overflow: hidden;
   background: var(--tv-ink);
 }
 
-/* The glow: 32 by 18 pixels of the current frame, stretched and blurred behind the screen. */
+/* The glow: 32 by 18 pixels of the current frame, stretched and blurred across the bars either side of the picture. */
 .tv__ambient {
   position: absolute;
   inset: -12%;
   width: 124%;
   height: 124%;
-  filter: blur(48px) saturate(1.5);
-  opacity: 0.7;
+  filter: blur(56px) saturate(1.5) brightness(0.8);
+  opacity: 0.85;
   pointer-events: none;
 }
 
 .tv__screen {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: grid;
-  min-height: 0;
-  flex: 1;
-  margin: 16px 16px 8px;
   overflow: hidden;
   place-items: center;
-  border-radius: 10px;
-  background: #000;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 40px rgba(0, 0, 0, 0.5);
-}
-
-.tv__stage:fullscreen .tv__screen {
-  margin: 0;
-  border-radius: 0;
-}
-
-.tv__stage:fullscreen .tv__controls {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
-  border-radius: 10px;
-  background: rgba(10, 12, 16, 0.82);
 }
 
 .tv__video {
@@ -330,50 +371,114 @@
 
 .tv__tuning {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
-  padding: 2px 10px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.7);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.6);
   color: var(--tv-signal);
   font-family: var(--tv-mono);
   font-size: 12px;
   pointer-events: none;
 }
 
+.tv__tuning span {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 178, 36, 0.3);
+  border-top-color: var(--tv-signal);
+  border-radius: 50%;
+  animation: tv-turn 0.8s linear infinite;
+}
+
+@keyframes tv-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Sits on the picture, so the set gets the whole stage when nobody is touching it. */
 .tv__controls {
-  position: relative;
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  height: 44px;
-  margin: 0 16px 8px;
-  transition: opacity 0.25s ease;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 44px 14px 8px;
+  background: linear-gradient(transparent, rgba(5, 6, 9, 0.72) 42%, rgba(5, 6, 9, 0.92));
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .tv__stage.is-quiet .tv__controls {
   opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
 }
 
 .tv__stage.is-quiet {
   cursor: none;
 }
 
-.tv__controls button {
+.tv__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.tv__meta strong {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv__title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tv-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv__meta time {
+  flex: none;
+  margin-left: auto;
+  color: var(--tv-text-2);
+  font-family: var(--tv-mono);
+  font-size: 11px;
+}
+
+.tv__controls .tv__bar {
+  height: 3px;
+  margin: 6px 4px 2px;
+}
+
+.tv__buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 38px;
+}
+
+.tv__buttons button {
   display: grid;
   flex: none;
   width: 36px;
   height: 36px;
   place-items: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
 }
 
-.tv__controls button:hover {
-  background: rgba(255, 255, 255, 0.1);
+.tv__buttons button:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .tv__volume {
@@ -382,34 +487,29 @@
   accent-color: var(--tv-signal);
 }
 
-.tv__now {
-  display: flex;
+.tv__next {
   min-width: 0;
   flex: 1;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 8px;
-}
-
-.tv__now strong {
   overflow: hidden;
-  flex: 0 0 auto;
-  max-width: 60%;
-  font-weight: 600;
+  padding: 0 12px;
+  color: var(--tv-text-2);
+  font-size: 12px;
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .tv__live {
   flex: none;
+  align-self: center;
   padding: 0 6px;
   border: 1px solid var(--tv-line);
   border-radius: 3px;
   color: var(--tv-text-2);
   font-family: var(--tv-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  line-height: 16px;
   text-transform: uppercase;
 }
 
@@ -420,12 +520,15 @@
 }
 
 .tv__home {
+  position: relative;
   display: grid;
-  width: min(100%, 560px);
-  justify-items: center;
-  gap: 12px;
+  width: min(100%, 620px);
+  max-height: 100%;
+  justify-items: start;
+  gap: 8px;
   padding: 24px;
-  text-align: center;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .tv__eyebrow {
@@ -433,25 +536,25 @@
   color: var(--tv-signal);
   font-family: var(--tv-mono);
   font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .tv__home h1 {
-  margin: 0;
-  font-size: 30px;
+  margin: 0 0 8px;
+  font-size: 34px;
   font-weight: 700;
-  line-height: 36px;
+  letter-spacing: -0.02em;
+  line-height: 40px;
 }
 
 .tv__resume {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 16px;
+  height: 38px;
+  margin-bottom: 8px;
+  padding: 0 18px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 19px;
   background: var(--tv-signal);
   color: #1a1204 !important;
   font-weight: 600 !important;
@@ -461,9 +564,8 @@
 .tv__tiles {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 8px;
 }
 
 .tv__tile {
@@ -471,10 +573,10 @@
   min-width: 0;
   align-items: center;
   gap: 10px;
-  height: 52px;
-  padding: 0 10px;
+  height: 64px;
+  padding: 0 12px;
   border: 1px solid var(--tv-line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--tv-panel);
   text-align: left;
   cursor: pointer;
@@ -484,13 +586,6 @@
 .tv__tile:hover {
   border-color: var(--tv-signal);
   transform: translateY(-2px);
-}
-
-.tv__tile > span:last-child {
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .tv__keys {
@@ -509,8 +604,9 @@
 
 .tv__radio,
 .tv__offair {
+  position: relative;
   display: grid;
-  max-width: 380px;
+  max-width: 400px;
   justify-items: center;
   gap: 8px;
   padding: 24px;
@@ -518,8 +614,8 @@
 }
 
 .tv__radio strong {
-  font-size: 24px;
-  line-height: 30px;
+  font-size: 26px;
+  line-height: 32px;
 }
 
 .tv__radio small,
@@ -548,7 +644,33 @@
   }
 }
 
-:root[data-reduce-motion] .tv__dial.is-on {
+.tv__wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+  margin-top: 8px;
+  opacity: 0.25;
+  transition: opacity 0.3s ease;
+}
+
+.tv__wave.is-on {
+  opacity: 1;
+}
+
+.tv__wave i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--tv-signal);
+  transform: scaleY(0.15);
+}
+
+.tv__wave.is-on i {
+  animation: tv-level 0.9s ease-in-out infinite alternate;
+}
+
+:root[data-reduce-motion] :is(.tv__dial.is-on, .tv__eq i, .tv__wave.is-on i, .tv__tuning span) {
   animation: none;
 }
 
@@ -598,6 +720,19 @@
   outline-offset: -2px;
 }
 
+@container (max-width: 760px) {
+  .tv__next,
+  .tv__keys {
+    display: none;
+  }
+
+  .tv__buttons .tv__volume {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+}
+
 @container (max-width: 680px) {
   .tv__frame {
     grid-template-columns: minmax(0, 1fr);
@@ -610,20 +745,26 @@
 
   .tv__stage {
     order: -1;
-    height: 52cqw;
-    min-height: 240px;
+    height: 56.25cqw;
+    min-height: 220px;
   }
 
   .tv__frame.is-theatre .tv__stage {
     height: auto;
   }
 
-  .tv__screen {
-    margin: 8px 8px 4px;
+  .tv__controls {
+    padding: 24px 6px 2px;
   }
 
-  .tv__controls {
-    margin: 0 4px 4px;
+  .tv__meta time,
+  .tv__title,
+  .tv__buttons .tv__volume {
+    display: none;
+  }
+
+  .tv__buttons {
+    justify-content: space-between;
   }
 
   .tv__guide {
@@ -631,37 +772,28 @@
     border-top: 1px solid var(--tv-line);
   }
 
-  .tv__volume,
-  .tv__keys {
-    display: none;
-  }
-
-  .tv__tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .tv__tile:nth-child(n + 5) {
     display: none;
   }
 
+  .tv__tile {
+    height: 52px;
+    padding: 0 8px;
+  }
+
   .tv__home {
+    gap: 4px;
     padding: 8px;
   }
 
   .tv__home h1 {
-    font-size: 20px;
+    margin: 0;
+    font-size: 18px;
     line-height: 24px;
   }
-}
 
-.tv__now small {
-  display: block;
-  overflow: hidden;
-  min-width: 0;
-  flex: 0 1 auto;
-  color: var(--tv-text-2);
-  font-size: 11px;
-  line-height: 14px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  .tv__resume {
+    height: 32px;
+    margin: 4px 0;
+  }
 }
