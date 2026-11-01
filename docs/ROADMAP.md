@@ -7,9 +7,9 @@ S is an evening, M a few days, L a week or more. Icons and names are our own.
 
 | App | Size | Plan |
 | --- | --- | --- |
-| Whiteboard | S | Pan and zoom canvas with pen, shapes and sticky notes, saved as a file. Shares tools with Paint. |
-| Spreadsheet | M | Grid with our own formula parser (no eval), `.csv` import and export, simple charts. |
-| Documents | M | Rich text editor, saved to the virtual disk, exports HTML or PDF through the print dialog. |
+| Whiteboard | Done | Pan and zoom with pen, shapes and sticky notes, saved as a `.board` file. |
+| Spreadsheet | Done | 28 functions on our own parser with no eval. Opens and saves `.csv`. Charts are still to come. |
+| Documents | Done | Rich text with a strict allowlist, saved to the virtual disk, prints to PDF. |
 | Presentation | M | Slides as data, a thumbnail rail, and a full-screen slideshow. |
 | PDF Editor | L | Annotate, fill in and sign with `pdf-lib`, on top of the existing PDF viewer. |
 
@@ -17,7 +17,7 @@ S is an evening, M a few days, L a week or more. Icons and names are our own.
 
 | App | Size | Plan |
 | --- | --- | --- |
-| Calendar | S | Month view with local events, joined to the clock flyout. |
+| Calendar | Done | Month view with local events, joined to the clock flyout. |
 | Contacts | S | Address book stored locally, linked to Contact's Compose. |
 | Signatures | S | Draw a signature and stamp it onto a PDF, all in the browser. Do after PDF Editor. |
 | Email | Done | Contact is now an inbox. Real sending stays in the visitor's own mail app. |
@@ -28,10 +28,10 @@ S is an evening, M a few days, L a week or more. Icons and names are our own.
 
 | Game | Size | Plan |
 | --- | --- | --- |
-| Sudoku | S | Generator with a unique solution, three levels, pencil marks. |
-| Checkers | S | Rules engine with a small search AI. |
-| Solitaire | M | Klondike with drag and drop on the OS pointer controller, undo, and auto-finish. |
-| Chess | M | Own rules engine and a small AI. Stockfish in WebAssembly is GPL, so it would need its licence shipped. |
+| Sudoku | Done | Generator with a unique solution, three levels, pencil marks. |
+| Checkers | Done | Rules engine with a small search AI. |
+| Solitaire | Done | Klondike with drag and drop, undo, and auto-finish. |
+| Chess | Done | Own rules engine, checked with perft, and a small AI in a worker. |
 | Backgammon | M | Rules, dice and a basic AI. |
 | BlockArena-style shooter | L | Single-player arena with bots in Three.js. Multiplayer needs a server. |
 
@@ -39,11 +39,11 @@ S is an evening, M a few days, L a week or more. Icons and names are our own.
 
 | Feature | Size | Notes |
 | --- | --- | --- |
-| Task Manager | M | Real windows and processes, End task, frame rate and JS heap where the browser exposes it. |
-| Run dialog | S | `calc`, `cmd`, `notepad` and paths open the matching app. |
-| Paint undo and redo | S | Ctrl+Z and Ctrl+Y. |
-| Explorer Properties and preview pane | M | Size, type, dates and location, plus a preview beside the list. |
-| Explorer tabs | M | The same tab model as Terminal. |
+| Task Manager | Done | Real windows, End task, frame rate and JS heap where the browser exposes it. |
+| Run dialog | Done | `calc`, `cmd`, `notepad` and paths open the matching app. |
+| Paint undo and redo | Done | Ctrl+Z and Ctrl+Y. |
+| Explorer Properties and preview pane | Done | Size, type, dates and location, plus a preview beside the list. |
+| Explorer tabs | Done | Alt+T, Alt+W and Alt+1 to 9, because the browser keeps Ctrl+T and Ctrl+W. |
 | Quiet notification history | M | A list in the clock flyout, nothing popping up. |
 | Clipboard history | S | Remembers what was copied inside the OS. |
 | Snipping tool | M | Region capture of the OS by redrawing it to a canvas. Cross-origin content stays blank. |
@@ -56,15 +56,14 @@ sees them, so these need their own keys, such as the existing Ctrl+Alt ones.
 
 ## TV & Radio
 
-- **What's on now.** iptv-org/epg needs a job to build guide data, so a scheduled
-  GitHub Action could commit a small JSON file each day. M.
+- **What's on now.** Done. The deploy job builds `tv-guide.json` from public listings.
+- **Recheck the list.** Done. A daily job opens or updates one issue when a channel stops playing.
+- **More listings.** 29 of the 88 channels have no match yet, so they show no programme. S each.
 - **More countries.** Add channels only after playing each one over HTTPS from a browser. S each.
-- **Recheck the list.** Streams die. A scheduled check could flag channels that stopped playing. S.
 
 ## Suggested order
 
-1. Sudoku, Checkers and Solitaire: quick, and they fill the Games app.
-2. Task Manager and Run dialog: the most "real OS" for the effort.
-3. Whiteboard and Calendar.
-4. Spreadsheet and Documents.
-5. Chess, then Explorer Properties and tabs.
+1. Contacts and Clipboard history: small, and they join up what is already there.
+2. Presentation, which completes the office apps.
+3. Quiet notification history and the Widgets board.
+4. PDF Editor, then Signatures.
