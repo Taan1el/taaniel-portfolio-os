@@ -25,6 +25,11 @@ export async function sourceToArrayBuffer(source: string) {
   return response.arrayBuffer();
 }
 
+/** Keeps a file name usable in the shared folder, which has no subfolders from this side. */
+export function sharedFileName(name: string) {
+  return name.replace(/[/\\\u0000-\u001f]/g, "_").replace(/^\.+/, "_").slice(0, 120) || "file";
+}
+
 export function resolveVirtualX86Drive(file: VirtualFile) {
   const extension = file.extension.toLowerCase();
 

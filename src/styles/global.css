@@ -2425,8 +2425,7 @@ h3 {
   padding: 0.72rem;
 }
 
-.browser-app__fallback-icon,
-.v86-app__hero-icon {
+.browser-app__fallback-icon {
   display: grid;
   width: 2.65rem;
   height: 2.65rem;
@@ -2492,6 +2491,11 @@ h3 {
   flex-direction: column;
   gap: 0.45rem;
   padding: 0.5rem;
+}
+
+.v86-app__content {
+  gap: 0;
+  padding: 0;
 }
 
 .music-player__content {
@@ -2903,51 +2907,81 @@ h3 {
   overflow: hidden;
 }
 
-.v86-app__hero {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 1rem;
-}
-
-.v86-app__hero-copy {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.v86-app__status-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border-radius: 0.9rem;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.v86-app__viewport {
+.v86-app__stage {
+  position: relative;
   flex: 1;
   min-height: 0;
   min-width: 0;
-  padding: 0.9rem;
-  border-radius: 0.95rem;
-  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  background: #000;
 }
 
+/* Sized by the guest. The fit in v86-app.tsx scales it into the stage. */
 .v86-app__screen {
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  border-radius: 0.8rem;
-  background: #02060c;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max-content;
+  transform: translate(-50%, -50%);
+  color: #fff;
+}
+
+/* The guest's text mode: a grid, so it stays 80 by 25 however little is on it. */
+.v86-app__screen > div {
+  min-width: 80ch;
+  min-height: 400px;
+  font: 16px/16px Consolas, "Cascadia Mono", "IBM Plex Mono", monospace;
+  white-space: pre;
 }
 
 .v86-app__screen canvas {
   display: block;
-  max-width: 100%;
+}
+
+.v86-app__shared {
+  flex: none;
+  max-height: 40%;
+  overflow-y: auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.v86-app__shared-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v86-app__shared-head span {
+  flex: 1;
+  min-width: 0;
+}
+
+.v86-app__shared ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v86-app__shared li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.v86-app__shared li span {
+  overflow: hidden;
+  font-family: "IBM Plex Mono", monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v86-app__shared p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
 }
 
 .v86-app__empty,
