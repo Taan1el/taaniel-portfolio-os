@@ -132,6 +132,15 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     browserRenderable: true,
     capabilities: ["open", "edit", "preview", "inline-preview"],
   },
+  ".board": {
+    extension: ".board",
+    openWith: "whiteboard",
+    mimeType: "application/json",
+    family: "document",
+    label: "Whiteboard",
+    textLike: true,
+    capabilities: ["open", "edit"],
+  },
   ".pdf": {
     extension: ".pdf",
     openWith: "pdf",

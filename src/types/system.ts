@@ -47,6 +47,7 @@ export type AppId =
   | "calculator"
   | "achievements"
   | "tv"
+  | "whiteboard"
   | "task-manager"
   | "solitaire"
   | "checkers"
