@@ -141,6 +141,11 @@ export function Taskbar({
     }
   }, [startMenuSearchFocusNonce]);
 
+  // On a narrow bar the row scrolls, so the app in front must stay in view.
+  useEffect(() => {
+    windowsRef.current?.querySelector(".w11-taskbar__app.is-active")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [entries]);
+
   const handleTaskbarSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
       event.stopPropagation();
