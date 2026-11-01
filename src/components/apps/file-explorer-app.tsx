@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   List,
   ListFilter,
+  PanelRight,
   Pencil,
   Plus,
   RotateCcw,
@@ -33,6 +34,7 @@ import {
   StatusBar,
 } from "@/components/apps/app-layout";
 import { ExplorerGridItem, ExplorerListItem, type ExplorerItemHandlers } from "@/components/apps/explorer/explorer-items";
+import { ExplorerPreview } from "@/components/apps/explorer/explorer-preview";
 import {
   buildBreadcrumbs,
   formatSize,
@@ -77,6 +79,7 @@ import { useSystemStore } from "@/stores/system-store";
 import { toast } from "@/stores/toast-store";
 import { createLaunchNonce } from "@/lib/terminal-profiles";
 import type { AppComponentProps, ContextMenuAction, FileNode, VirtualFile } from "@/types/system";
+import "@/styles/explorer-panes.css";
 
 const explorerLocations: ExplorerSidebarLocation[] = [
   { label: SHELL_USER, path: "/", icon: FilesIcon },
@@ -119,6 +122,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     setSearchQuery,
     setViewMode,
     setSort,
+    togglePreview,
   } = useExplorerStore(
     useShallow((state) => ({
       session: state.sessions[window.id],
@@ -134,6 +138,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       setSearchQuery: state.setSearchQuery,
       setViewMode: state.setViewMode,
       setSort: state.setSort,
+      togglePreview: state.togglePreview,
     }))
   );
 
@@ -160,6 +165,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const viewMode = session?.viewMode ?? "grid";
   const sortKey = session?.sortKey ?? "name";
   const sortDirection = session?.sortDirection ?? "asc";
+  const previewOpen = session?.previewOpen ?? false;
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const currentNode = nodes[currentPath];
   const currentDirectoryPath =
@@ -663,6 +669,9 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     if (event.altKey && key === "Enter") {
       event.preventDefault();
       usePropertiesStore.getState().open(selectedPaths.length ? selectedPaths : [currentDirectoryPath]);
+    } else if (event.altKey && !ctrl && !event.shiftKey && event.code === "KeyP") {
+      event.preventDefault();
+      togglePreview(window.id);
     } else if (event.altKey && key === "ArrowLeft") {
       event.preventDefault();
       goBack(window.id);
@@ -815,6 +824,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const viewMenu = (): ContextMenuAction[] => [
     { id: "view-large", label: "Large icons", icon: viewMode === "grid" ? Check : LayoutGrid, onSelect: () => setViewMode(window.id, "grid") },
     { id: "view-details", label: "Details", icon: viewMode === "list" ? Check : List, onSelect: () => setViewMode(window.id, "list") },
+    { id: "sep-view", label: "", separator: true, onSelect: () => {} },
+    { id: "view-preview", label: "Preview pane", icon: previewOpen ? Check : PanelRight, shortcut: "Alt+P", onSelect: () => togglePreview(window.id) },
   ];
 
   const commands: ExplorerCommand[] = isRecycleBinRoot
@@ -927,7 +938,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
         getCrumbDropProps={dropProps}
       />
 
-      <AppContent className="explorer-window__layout" padded={false} scrollable={false} stacked={false}>
+      <AppContent className={cn("explorer-window__layout", previewOpen && "has-preview")} padded={false} scrollable={false} stacked={false}>
         <ExplorerSidebar
           locations={navLocations}
           activePath={currentDirectoryPath}
@@ -1081,6 +1092,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
             </div>
           </ScrollArea>
         </section>
+
+        {previewOpen ? <ExplorerPreview nodes={nodes} paths={selectedPaths} /> : null}
       </AppContent>
 
       <StatusBar className="explorer-window__statusbar w11-explorer__status">

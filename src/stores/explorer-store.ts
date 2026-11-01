@@ -19,6 +19,7 @@ export interface ExplorerSession {
   viewMode: "grid" | "list";
   sortKey: ExplorerSortKey;
   sortDirection: ExplorerSortDirection;
+  previewOpen: boolean;
 }
 
 interface ExplorerStoreState {
@@ -40,6 +41,7 @@ interface ExplorerStoreState {
   setSearchQuery: (windowId: string, query: string) => void;
   setViewMode: (windowId: string, viewMode: ExplorerSession["viewMode"]) => void;
   setSort: (windowId: string, key: ExplorerSortKey, direction: ExplorerSortDirection) => void;
+  togglePreview: (windowId: string) => void;
 }
 
 function lastOf(paths: string[]): string | null {
@@ -61,6 +63,7 @@ function createSession(windowId: string, initialPath: string): ExplorerSession {
     viewMode: "grid",
     sortKey: "name",
     sortDirection: "asc",
+    previewOpen: false,
   };
 }
 
@@ -348,4 +351,6 @@ export const useExplorerStore = create<ExplorerStoreState>((set, get) => ({
         sortDirection: direction,
       }))
     ),
+  togglePreview: (windowId) =>
+    set((state) => updateSession(state, windowId, (session) => ({ ...session, previewOpen: !session.previewOpen }))),
 }));
