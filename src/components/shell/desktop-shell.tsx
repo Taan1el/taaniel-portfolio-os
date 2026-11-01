@@ -56,7 +56,9 @@ import { LEFT_HALF, RIGHT_HALF, zoneBounds } from "@/lib/snap-layouts";
 import type { DesktopEntry } from "@/types/system";
 
 // Run brings the terminal's command tables with it, so it waits until someone asks for it.
-const RunDialog = lazy(async () => ({ default: (await import("@/components/system/run-dialog")).RunDialog }));
+const loadRunDialog = () => import("@/components/system/run-dialog");
+const RunDialog = lazy(async () => ({ default: (await loadRunDialog()).RunDialog }));
+const RUN_PRELOAD_DELAY_MS = 4_000;
 
 export function DesktopShell() {
   useShellServices();
@@ -183,6 +185,13 @@ export function DesktopShell() {
   const shellSearchBrowseRef = useRef<ShellSearchResultsHandle>(null);
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const [runOpen, setRunOpen] = useState(false);
+
+  // Fetched once the desktop has settled, so typing straight after Ctrl+Alt+R is not lost.
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadRunDialog().catch(() => {}), RUN_PRELOAD_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const navigate = useNavigate();
 
   const openExternal = (url: string) => {
