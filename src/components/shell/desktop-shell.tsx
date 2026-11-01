@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
@@ -38,7 +38,6 @@ import { DisplayFilterOverlay } from "@/components/shell/display-filter-overlay"
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
 import { PropertiesDialog } from "@/components/system/properties-dialog";
-import { RunDialog } from "@/components/system/run-dialog";
 import { Taskbar } from "@/components/shell/taskbar";
 import { TrayFlyouts } from "@/components/shell/tray-flyouts";
 import { WindowHost } from "@/components/shell/window-host";
@@ -55,6 +54,9 @@ import { useSystemStore } from "@/stores/system-store";
 import { desktopOf, useWindowStore } from "@/stores/window-store";
 import { LEFT_HALF, RIGHT_HALF, zoneBounds } from "@/lib/snap-layouts";
 import type { DesktopEntry } from "@/types/system";
+
+// Run brings the terminal's command tables with it, so it waits until someone asks for it.
+const RunDialog = lazy(async () => ({ default: (await import("@/components/system/run-dialog")).RunDialog }));
 
 export function DesktopShell() {
   useShellServices();
@@ -567,7 +569,11 @@ export function DesktopShell() {
       <ToastContainer />
 
       <ShortcutCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
-      <RunDialog open={runOpen} onClose={() => setRunOpen(false)} />
+      {runOpen ? (
+        <Suspense fallback={null}>
+          <RunDialog open onClose={() => setRunOpen(false)} />
+        </Suspense>
+      ) : null}
       <PropertiesDialog />
 
       <OpenWithDialog
