@@ -244,7 +244,13 @@
   }
 
   .board-game__tools {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
+  }
+
+  .board-game__tools button {
+    min-width: 0;
+    flex: 1;
+    white-space: nowrap;
   }
 }
 
@@ -333,4 +339,81 @@
 
 :root[data-reduce-motion] .checkers__piece {
   transition: none;
+}
+
+/* Chess */
+.chess__piece {
+  font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "Apple Symbols", serif;
+  font-size: calc(var(--board-size) / 10);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.chess__piece.is-white {
+  color: #fffdf8;
+  text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.chess__piece.is-black {
+  color: #1c1f24;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.board-grid__square.is-check {
+  box-shadow: inset 0 0 0 100px rgba(229, 72, 77, 0.65);
+}
+
+.board-grid__square.is-capture::after {
+  position: absolute;
+  inset: 6%;
+  border: 4px solid rgba(96, 205, 255, 0.85);
+  border-radius: 50%;
+  content: "";
+}
+
+.chess__moves {
+  display: grid;
+  min-height: 0;
+  max-height: 100%;
+  flex: 1;
+  grid-template-columns: 28px repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 2px 6px;
+  margin: 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--w11-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  list-style: none;
+}
+
+.chess__moves:empty {
+  display: none;
+}
+
+.chess__moves dt {
+  color: var(--w11-text-2);
+}
+
+.chess__moves dd {
+  margin: 0;
+}
+
+.chess__promotion {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.chess__promotion button {
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: #e7d6bf;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
 }

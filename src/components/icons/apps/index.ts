@@ -26,6 +26,7 @@ export { SettingsIcon } from "./settings";
 export { SnakeIcon } from "./snake";
 export { TerminalIcon } from "./terminal";
 export { TvIcon } from "./tv";
+export { ChessIcon } from "./chess";
 export { DocumentsIcon } from "./documents";
 export { SpreadsheetIcon } from "./spreadsheet";
 export { CalendarIcon } from "./calendar";
