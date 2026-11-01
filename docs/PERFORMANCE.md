@@ -53,7 +53,7 @@ includes the short boot screen.
 ### What changed
 
 The first attempt added 47 KB of JavaScript. Nearly all of it was the terminal's command
-tables, pulled into the first load by the Run dialog. Run now loads when it is first opened.
+tables, pulled into the first load by the Run dialog. Run now loads about four seconds after the desktop appears, or at once if it is asked for sooner, so it no longer competes with the first paint. The byte figures are taken at the lock screen, before that happens, so the visitor still downloads those 37 KB in the background.
 
 The 9 KB left is real: the registry entries and icons for the new apps, which Start and
 Search need straight away. The phone's lock screen came out about 70 ms slower in both
