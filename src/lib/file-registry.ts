@@ -150,6 +150,15 @@ const fileAssociations: Record<string, FileAssociationDescriptor> = {
     textLike: true,
     capabilities: ["open", "edit"],
   },
+  ".document": {
+    extension: ".document",
+    openWith: "documents",
+    mimeType: "text/html",
+    family: "document",
+    label: "Document",
+    textLike: true,
+    capabilities: ["open", "edit"],
+  },
   ".pdf": {
     extension: ".pdf",
     openWith: "pdf",
