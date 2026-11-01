@@ -1,0 +1,49 @@
+name: Check TV channels
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: channel-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Check every channel
+        id: check
+        run: node scripts/check-channels.mjs
+
+      - name: Keep one issue up to date
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILING: ${{ steps.check.outputs.failing }}
+          TITLE: TV channels not playing
+        run: |
+          number=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number // empty')
+          if [ "$FAILING" -gt 0 ]; then
+            if [ -n "$number" ]; then
+              gh issue edit "$number" --body-file channel-report.md
+            else
+              gh issue create --title "$TITLE" --body-file channel-report.md
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "Every channel is playing again."
+          fi

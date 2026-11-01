@@ -16,3 +16,5 @@ vite.config.ts.timestamp*
 .omx/
 .playwright-cli/
 output/
+channel-report.md
+public/tv-guide.json
