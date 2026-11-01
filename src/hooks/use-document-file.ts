@@ -31,6 +31,8 @@ export function useDocumentFile(appWindow: AppWindow, { defaultName, extension, 
   const readOnly = Boolean(file?.readonly);
   const [status, setStatus] = useState<"new" | "saved" | "unsaved">(path ? "saved" : "new");
   const pending = useRef<{ path: string; text: string } | null>(null);
+  const fileType = useRef({ extension, mimeType });
+  fileType.current = { extension: file?.extension ?? extension, mimeType: file?.mimeType ?? mimeType };
   const timer = useRef<number | undefined>(undefined);
 
   const flush = useCallback(() => {
@@ -38,10 +40,11 @@ export function useDocumentFile(appWindow: AppWindow, { defaultName, extension, 
     const write = pending.current;
     pending.current = null;
     if (!write) return;
-    void writeFile(write.path, write.text, { extension, mimeType }).then(() => {
+    // A file keeps its own type: a .csv opened in Spreadsheet stays a .csv.
+    void writeFile(write.path, write.text, { extension: fileType.current.extension, mimeType: fileType.current.mimeType }).then(() => {
       if (!pending.current) setStatus("saved");
     });
-  }, [extension, mimeType, writeFile]);
+  }, [writeFile]);
 
   // Closing the window must not lose the last moments of work.
   useEffect(() => flush, [flush]);
