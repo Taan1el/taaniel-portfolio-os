@@ -18,3 +18,4 @@ vite.config.ts.timestamp*
 output/
 channel-report.md
 public/tv-guide.json
+public/project-source.json
