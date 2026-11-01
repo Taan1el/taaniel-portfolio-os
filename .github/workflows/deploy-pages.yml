@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  # Rebuilds with a fresh TV guide. The free listings only look five or six hours ahead.
+  schedule:
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 permissions:
@@ -32,6 +35,10 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Fetch the TV guide
+        continue-on-error: true
+        run: node scripts/build-tv-guide.mjs
 
       - name: Build GitHub Pages bundle
         run: npm run build:gh
