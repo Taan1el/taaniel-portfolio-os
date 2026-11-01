@@ -25,7 +25,8 @@ export type ShellSearchMatchMode = "exact" | "semantic" | "keyword";
 export type ShellSearchAction =
   | { type: "launch-app"; appId: AppId; payload?: WindowPayload; title?: string }
   | { type: "open-path"; path: string }
-  | { type: "open-external"; url: string };
+  | { type: "open-external"; url: string }
+  | { type: "open-run" };
 
 export interface ShellSearchEntry {
   id: string;
@@ -681,7 +682,23 @@ function buildSettingsEntries(apps: AppDefinition[]) {
     return [];
   }
 
-  return SETTINGS_SECTIONS.filter((section) => section.id !== DEFAULT_SETTINGS_SECTION).map<ShellSearchEntry>(
+  const run: ShellSearchEntry = {
+    id: "system:run",
+    section: "apps",
+    type: "app",
+    title: "Run",
+    subtitle: "Open a program, folder, file or website",
+    icon: settingsApp.icon,
+    accent: settingsApp.accent,
+    action: { type: "open-run" },
+    actionLabel: "Open",
+    aliases: ["run", "run dialog", "run box"],
+    semanticTags: ["system"],
+    tokens: joinSearchParts("run dialog program command open"),
+    requiresDirectMatch: true,
+  };
+
+  return [run, ...SETTINGS_SECTIONS.filter((section) => section.id !== DEFAULT_SETTINGS_SECTION).map<ShellSearchEntry>(
     (section) => {
       const title = `${section.title} settings`;
       const aliases = uniqueTerms([section.title, ...section.keywords]);
@@ -704,7 +721,7 @@ function buildSettingsEntries(apps: AppDefinition[]) {
         requiresDirectMatch: true,
       };
     }
-  );
+  )];
 }
 
 function buildFileEntries(nodes: FileSystemRecord) {

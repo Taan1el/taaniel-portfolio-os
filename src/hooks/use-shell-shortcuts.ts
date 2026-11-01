@@ -7,6 +7,7 @@ interface UseShellShortcutsOptions {
   onOpenLauncherSearch: () => void;
   onCloseActiveWindow: (windowId: string) => void;
   onOpenTerminal: () => void;
+  onOpenRun: () => void;
   onToggleFullscreen: () => void;
   onToggleCheatsheet: () => void;
   onSnapActiveWindow: (direction: "left" | "right" | "up" | "down") => void;
@@ -20,6 +21,7 @@ export function useShellShortcuts({
   onOpenLauncherSearch,
   onCloseActiveWindow,
   onOpenTerminal,
+  onOpenRun,
   onToggleFullscreen,
   onToggleCheatsheet,
   onSnapActiveWindow,
@@ -85,6 +87,13 @@ export function useShellShortcuts({
         return;
       }
 
+      // The real OS keeps Win+R, so Run has its own keys.
+      if (event.ctrlKey && event.altKey && event.code === "KeyR" && !event.getModifierState?.("AltGraph")) {
+        event.preventDefault();
+        onOpenRun();
+        return;
+      }
+
       // ? key (no modifier) or Ctrl+/ — open cheatsheet
       const target = event.target as HTMLElement | null;
       const inInput = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
@@ -109,6 +118,7 @@ export function useShellShortcuts({
     onCloseActiveWindow,
     onCloseOverlays,
     onOpenTerminal,
+    onOpenRun,
     onToggleFullscreen,
     onOpenLauncherSearch,
     onToggleStartMenu,

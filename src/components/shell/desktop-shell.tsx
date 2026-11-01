@@ -37,6 +37,7 @@ import { DesktopManager } from "@/components/shell/desktop-manager";
 import { DisplayFilterOverlay } from "@/components/shell/display-filter-overlay";
 import type { ShellSearchResultsHandle } from "@/components/shell/shell-search-results";
 import { StartMenu } from "@/components/shell/start-menu";
+import { RunDialog } from "@/components/system/run-dialog";
 import { Taskbar } from "@/components/shell/taskbar";
 import { TrayFlyouts } from "@/components/shell/tray-flyouts";
 import { WindowHost } from "@/components/shell/window-host";
@@ -178,6 +179,7 @@ export function DesktopShell() {
 
   const shellSearchBrowseRef = useRef<ShellSearchResultsHandle>(null);
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
   const navigate = useNavigate();
 
   const openExternal = (url: string) => {
@@ -206,6 +208,9 @@ export function DesktopShell() {
         return;
       case "open-external":
         openExternal(action.url);
+        return;
+      case "open-run":
+        setRunOpen(true);
     }
   };
 
@@ -220,6 +225,7 @@ export function DesktopShell() {
     setContextMenu(null);
     setOpenWithTarget(null);
     setCheatsheetOpen(false);
+    setRunOpen(false);
   };
 
   // With no window left to take it, focus returns to the desktop instead of being lost.
@@ -267,6 +273,7 @@ export function DesktopShell() {
     onOpenLauncherSearch: openLauncherSearch,
     onCloseActiveWindow: closeWindow,
     onOpenTerminal: () => launchApp({ appId: "terminal" }),
+    onOpenRun: () => setRunOpen(true),
     onToggleFullscreen: toggleFullscreen,
     onToggleCheatsheet: () => setCheatsheetOpen((v) => !v),
     onSnapActiveWindow: (direction) => {
@@ -559,6 +566,7 @@ export function DesktopShell() {
       <ToastContainer />
 
       <ShortcutCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
+      <RunDialog open={runOpen} onClose={() => setRunOpen(false)} />
 
       <OpenWithDialog
         target={openWithTarget}
@@ -586,6 +594,7 @@ export function DesktopShell() {
         onCloseWindow={closeWindow}
         onPinApp={pinApp}
         onUnpinApp={unpinApp}
+        onOpenRun={() => setRunOpen(true)}
         onShowDesktop={showDesktop}
       />
     </div>
