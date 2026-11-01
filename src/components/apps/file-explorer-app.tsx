@@ -35,6 +35,7 @@ import {
 } from "@/components/apps/app-layout";
 import { ExplorerGridItem, ExplorerListItem, type ExplorerItemHandlers } from "@/components/apps/explorer/explorer-items";
 import { ExplorerPreview } from "@/components/apps/explorer/explorer-preview";
+import { ExplorerTabs } from "@/components/apps/explorer/explorer-tabs";
 import {
   buildBreadcrumbs,
   formatSize,
@@ -101,6 +102,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const importFiles = useFileSystemStore((state) => state.importFiles);
   const rename = useFileSystemStore((state) => state.rename);
   const launchApp = useSystemStore((state) => state.launchApp);
+  const closeWindow = useSystemStore((state) => state.closeWindow);
   const recentPaths = useRecentFilesStore((state) => state.recentPaths);
   const clearRecent = useRecentFilesStore((state) => state.clearRecent);
 
@@ -123,6 +125,9 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     setViewMode,
     setSort,
     togglePreview,
+    openTab,
+    switchTab,
+    closeTab,
   } = useExplorerStore(
     useShallow((state) => ({
       session: state.sessions[window.id],
@@ -139,6 +144,9 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       setViewMode: state.setViewMode,
       setSort: state.setSort,
       togglePreview: state.togglePreview,
+      openTab: state.openTab,
+      switchTab: state.switchTab,
+      closeTab: state.closeTab,
     }))
   );
 
@@ -166,6 +174,8 @@ export function FileExplorerApp({ window }: AppComponentProps) {
   const sortKey = session?.sortKey ?? "name";
   const sortDirection = session?.sortDirection ?? "asc";
   const previewOpen = session?.previewOpen ?? false;
+  const tabs = session?.tabs ?? [];
+  const activeTabId = session?.activeTabId ?? "";
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const currentNode = nodes[currentPath];
   const currentDirectoryPath =
@@ -387,6 +397,7 @@ export function FileExplorerApp({ window }: AppComponentProps) {
       onOpen: () => openPaths(targets),
       onRename: () => beginRename(window.id, node.path),
       onOpenInNewWindow: () => launchApp({ appId: "files", payload: { directoryPath: node.path } }),
+      onOpenInNewTab: () => openTab(window.id, node.path),
     });
 
     // Duplicate is File Explorer's own convenience, next to Copy.
@@ -672,6 +683,18 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     } else if (event.altKey && !ctrl && !event.shiftKey && event.code === "KeyP") {
       event.preventDefault();
       togglePreview(window.id);
+    } else if (event.altKey && !ctrl && !event.shiftKey && event.code === "KeyT") {
+      event.preventDefault();
+      openTab(window.id);
+    } else if (event.altKey && !ctrl && !event.shiftKey && event.code === "KeyW") {
+      event.preventDefault();
+      closeExplorerTab(activeTabId);
+    } else if (event.altKey && !ctrl && !event.shiftKey && /^Digit[1-9]$/.test(event.code)) {
+      const tab = tabs[Number(event.code.slice(-1)) - 1];
+      if (tab) {
+        event.preventDefault();
+        switchTab(window.id, tab.id);
+      }
     } else if (event.altKey && key === "ArrowLeft") {
       event.preventDefault();
       goBack(window.id);
@@ -802,6 +825,16 @@ export function FileExplorerApp({ window }: AppComponentProps) {
     }
   };
 
+  const closeExplorerTab = (tabId: string) => {
+    if (tabs.length <= 1) {
+      closeWindow(window.id);
+      return;
+    }
+    closeTab(window.id, tabId);
+    // Closing with the tab's own button takes that button away, and with it the keyboard.
+    requestAnimationFrame(() => contentRef.current?.focus({ preventScroll: true }));
+  };
+
   const hasSelection = selectedPaths.length > 0;
   const selectionLocked = selectedPaths.some((path) => isLockedNode(nodes, path));
   const sortMenu = (): ContextMenuAction[] => {
@@ -916,6 +949,14 @@ export function FileExplorerApp({ window }: AppComponentProps) {
           void uploadIntoFolder(event.target.files);
           event.target.value = "";
         }}
+      />
+
+      <ExplorerTabs
+        tabs={tabs.map((tab) => ({ id: tab.id, path: tab.id === activeTabId ? currentDirectoryPath : tab.currentPath }))}
+        activeId={activeTabId}
+        onSelect={(id) => switchTab(window.id, id)}
+        onClose={closeExplorerTab}
+        onNew={() => openTab(window.id)}
       />
 
       <ExplorerToolbar

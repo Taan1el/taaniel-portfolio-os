@@ -14,6 +14,7 @@ import {
   Pencil,
   RotateCcw,
   Scissors,
+  SquarePlus,
   Trash2,
 } from "lucide-react";
 import {
@@ -48,6 +49,8 @@ export interface FileMenuInput {
   onRename?: () => void;
   /** Explorer: "Open in new window" for a folder. */
   onOpenInNewWindow?: () => void;
+  /** Explorer: "Open in new tab" for a folder. */
+  onOpenInNewTab?: () => void;
   /**
    * Show "Open file location" for every item (the desktop, where it is the way
    * to get from an icon to its folder) rather than only for shortcuts.
@@ -63,7 +66,7 @@ const separator = (id: string): ContextMenuAction => ({ id, label: "", separator
  * and Open file location mean exactly the same in both.
  */
 export function buildFileMenu(input: FileMenuInput): ContextMenuAction[] {
-  const { nodes, clipboard, onOpen, onRename, onOpenInNewWindow, locationForAll } = input;
+  const { nodes, clipboard, onOpen, onRename, onOpenInNewWindow, onOpenInNewTab, locationForAll } = input;
   const paths = Array.from(new Set(input.paths.map(normalizePath))).filter((path) => nodes[path]);
   const count = paths.length;
 
@@ -96,6 +99,8 @@ export function buildFileMenu(input: FileMenuInput): ContextMenuAction[] {
   }
 
   push({ id: "open", label: "Open", icon: single?.kind === "directory" ? FolderOpen : ExternalLink, onSelect: onOpen });
+
+  push(single?.kind === "directory" && onOpenInNewTab && { id: "open-new-tab", label: "Open in new tab", icon: SquarePlus, onSelect: onOpenInNewTab });
 
   push(
     single?.kind === "directory" &&
