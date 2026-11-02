@@ -1,0 +1,1 @@
+import{t as e}from"./purify.es-B9ve_eFf.js";var t=null;function n(){return typeof window>`u`?null:(t||=e(window),t)}function r(e){if(!e)return``;let t=n();return t?t.sanitize(e,{USE_PROFILES:{html:!0},FORBID_TAGS:[`script`,`style`]}):e}export{r as t};
