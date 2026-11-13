@@ -95,21 +95,24 @@ function LockScreen() {
           <LogoMark size={30} color="#fff" />
         </span>
         <strong>{profile.name}</strong>
-        <button type="button" className="os-lock__enter">
-          Sign in
-        </button>
-        <small>Press any key or click anywhere</small>
+        <span className="os-lock__role">{profile.role}</span>
+        <span className="os-lock__actions">
+          <button type="button" className="os-lock__enter">
+            Sign in
+          </button>
+          <button
+            type="button"
+            className="os-lock__portfolio"
+            onClick={() => {
+              signIn();
+              navigate("/portfolio");
+            }}
+          >
+            Skip to CV and projects
+          </button>
+        </span>
+        <small>Press any key or click anywhere to sign in</small>
       </div>
-      <button
-        type="button"
-        className="os-lock__portfolio"
-        onClick={() => {
-          signIn();
-          navigate("/portfolio");
-        }}
-      >
-        View the plain portfolio
-      </button>
     </div>
   );
 }

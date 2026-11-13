@@ -107,6 +107,20 @@
   font-size: 13px;
 }
 
+.os-lock__role {
+  margin-top: -6px;
+  font-size: 14px;
+  opacity: 0.9;
+  text-align: center;
+}
+
+.os-lock__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 .os-lock__enter {
   min-width: 132px;
   padding: 8px 20px;
@@ -123,18 +137,18 @@
 }
 
 .os-lock__portfolio {
-  position: absolute;
-  right: 20px;
-  bottom: 18px;
-  padding: 8px 10px;
-  border: 0;
+  min-width: 132px;
+  padding: 8px 20px;
+  border: 1px solid rgb(255 255 255 / 45%);
   border-radius: var(--w11-radius-control);
   background: transparent;
   color: #fff;
   font: inherit;
-  font-size: 13px;
-  text-decoration: underline;
   cursor: pointer;
+}
+
+.os-lock__portfolio:hover {
+  background: rgb(255 255 255 / 14%);
 }
 
 .os-lock button:focus-visible {

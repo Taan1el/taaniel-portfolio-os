@@ -52,7 +52,7 @@ describe("session screen", () => {
     fireEvent.keyDown(window, { key: "Tab" });
     fireEvent.keyDown(window, { key: "Shift" });
     expect(useSessionScreenStore.getState().screen).toBe("lock");
-    expect(screen.getByRole("button", { name: "View the plain portfolio" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Skip to CV and projects" })).toBeTruthy();
   });
 
   it("locks and restarts on request", () => {
