@@ -387,6 +387,8 @@
 
 .mail__letter {
   display: grid;
+  /* Without this the one column grows to its longest line and a narrow window cuts the letter off. */
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   flex: 1;
   align-content: start;
@@ -636,10 +638,12 @@
   }
 
   .mail__quick {
-    flex-wrap: nowrap;
     max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
+  }
+
+  .mail__quick a,
+  .mail__quick button {
+    flex: none;
   }
 
   .mail__card-text small {
