@@ -79,11 +79,12 @@ describe("the terminal app with real screens", () => {
     paste("wt -p cmd\r");
     await waitFor(() => expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["PowerShell", "Command Prompt"]));
     expect(screen.getByRole("tab", { selected: true }).textContent).toBe("Command Prompt");
-    expect(screen.getAllByLabelText("Command Prompt terminal input")).toHaveLength(1);
+    // The new tab's screen is created an effect later than its tab.
+    expect(await screen.findAllByLabelText("Command Prompt terminal input")).toHaveLength(1);
     // The PowerShell screen keeps running behind it, hidden.
     expect(document.querySelectorAll(".terminal-pane[hidden]")).toHaveLength(1);
     // And the new tab is ready to type in.
-    expect(document.activeElement).toBe(screen.getByLabelText("Command Prompt terminal input"));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Command Prompt terminal input")));
   });
 
   it("closes the window when the last shell exits", async () => {
