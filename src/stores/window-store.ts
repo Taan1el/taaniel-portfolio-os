@@ -174,6 +174,31 @@ const initialWindowState = {
   desktopCount: 1,
 };
 
+function sanitizePersistedWindowState(persistedState: unknown) {
+  const state = persistedState as
+    | {
+        windows?: PersistedWindowV1[];
+        activeWindowId?: string | null;
+        nextZ?: number;
+        activeDesktop?: number;
+        desktopCount?: number;
+      }
+    | undefined;
+
+  const windows = sanitizePersistedWindows(state?.windows);
+  const desktopCount = sanitizeDesktop(state?.desktopCount) ?? 1;
+  const activeDesktop = Math.min(sanitizeDesktop(state?.activeDesktop) ?? 1, desktopCount);
+  const runtime = syncWindowRuntime(windows, typeof state?.activeWindowId === "string" ? state.activeWindowId : null, activeDesktop);
+
+  return {
+    windows: runtime.windows,
+    activeWindowId: runtime.activeWindowId,
+    nextZ: typeof state?.nextZ === "number" && Number.isFinite(state.nextZ) ? state.nextZ : 2,
+    activeDesktop,
+    desktopCount,
+  };
+}
+
 export const useWindowStore = create<WindowStoreState>()(
   persist(
     (set, get) => ({
@@ -258,7 +283,7 @@ export const useWindowStore = create<WindowStoreState>()(
             : windowState
         );
 
-        set(syncWindowRuntime(windows, get().activeWindowId));
+        set(syncWindowRuntime(windows, get().activeWindowId, get().activeDesktop));
       },
       closeWindow: (windowId) => {
         const windows = get().windows.filter((windowState) => windowState.id !== windowId);
@@ -429,30 +454,9 @@ export const useWindowStore = create<WindowStoreState>()(
       name: WINDOW_STORAGE_KEY,
       version: 3,
       storage: createJSONStorage(getSafeLocalStorage),
-      migrate: (persistedState) => {
-        const state = persistedState as
-          | {
-              windows?: PersistedWindowV1[];
-              activeWindowId?: string | null;
-              nextZ?: number;
-              activeDesktop?: number;
-              desktopCount?: number;
-            }
-          | undefined;
-
-        const windows = sanitizePersistedWindows(state?.windows);
-        const desktopCount = sanitizeDesktop(state?.desktopCount) ?? 1;
-        const activeDesktop = Math.min(sanitizeDesktop(state?.activeDesktop) ?? 1, desktopCount);
-        const runtime = syncWindowRuntime(windows, state?.activeWindowId ?? null, activeDesktop);
-
-        return {
-          windows: runtime.windows,
-          activeWindowId: runtime.activeWindowId,
-          nextZ: state?.nextZ ?? 2,
-          activeDesktop,
-          desktopCount,
-        };
-      },
+      migrate: sanitizePersistedWindowState,
+      // Whatever was saved is checked on every load, not only when the version changes.
+      merge: (persistedState, currentState) => ({ ...currentState, ...sanitizePersistedWindowState(persistedState) }),
       partialize: (state) => ({
         windows: state.windows,
         activeWindowId: state.activeWindowId,

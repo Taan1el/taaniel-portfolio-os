@@ -136,13 +136,14 @@ export const useProcessStore = create<ProcessStoreState>()(
       name: PROCESS_STORAGE_KEY,
       version: 2,
       storage: createJSONStorage(getSafeLocalStorage),
-      migrate: (persistedState) => {
-        const state = persistedState as { processes?: PersistedProcessV1[] } | undefined;
-
-        return {
-          processes: sanitizePersistedProcesses(state?.processes),
-        };
-      },
+      migrate: (persistedState) => ({
+        processes: sanitizePersistedProcesses((persistedState as { processes?: unknown } | undefined)?.processes),
+      }),
+      // Whatever was saved is checked on every load, so an app that no longer exists cannot come back.
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        processes: sanitizePersistedProcesses((persistedState as { processes?: unknown } | undefined)?.processes),
+      }),
       partialize: (state) => ({
         processes: state.processes,
       }),

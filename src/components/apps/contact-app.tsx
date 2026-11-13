@@ -278,7 +278,7 @@ export function ContactApp({ window: appWindow }: AppComponentProps) {
       </header>
 
       <nav className="mail__rail" aria-label="Mail">
-        <button type="button" className="mail__compose-button" onClick={() => setComposing({ subject: "" })}>
+        <button type="button" className="mail__compose-button" aria-label="Compose" onClick={() => setComposing({ subject: "" })}>
           <PenLine size={18} aria-hidden="true" />
           <span>Compose</span>
         </button>
@@ -287,6 +287,7 @@ export function ContactApp({ window: appWindow }: AppComponentProps) {
             key={id}
             type="button"
             className={cn("mail__folder", folder === id && "is-active")}
+            aria-label={label}
             aria-current={folder === id ? "page" : undefined}
             onClick={() => {
               setFolder(id);

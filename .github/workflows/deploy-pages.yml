@@ -33,7 +33,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # A scheduled run only refreshes the TV guide. This commit's tests ran when it was pushed.
       - name: Run tests
+        if: github.event_name != 'schedule'
         run: npm test
 
       - name: Fetch the TV guide

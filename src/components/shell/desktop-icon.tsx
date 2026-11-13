@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { RecycleBinEmptyIcon, RecycleBinFullIcon } from "@/components/icons/apps";
 import { NodeIcon } from "@/components/icons/node-icon";
 import { InlineRenameInput } from "@/components/system/inline-rename-input";
@@ -98,6 +98,8 @@ export const DesktopIcon = memo(function DesktopIcon({
 }: DesktopIconProps) {
   const lastPointerType = useRef("mouse");
   const [launching, setLaunching] = useState(false);
+  const launchTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(launchTimer.current), []);
 
   // The app a shortcut runs, so its icon can show a window of it is open.
   const shortcutAppId: AppId | null = node?.kind === "file" && node.shortcut?.type === "app" ? node.shortcut.appId : null;
@@ -107,7 +109,8 @@ export const DesktopIcon = memo(function DesktopIcon({
 
   const activate = () => {
     setLaunching(true);
-    window.setTimeout(() => setLaunching(false), 400);
+    window.clearTimeout(launchTimer.current);
+    launchTimer.current = window.setTimeout(() => setLaunching(false), 400);
     onActivate(entry);
   };
 
