@@ -204,9 +204,11 @@ export function TvApp({ window: appWindow }: AppComponentProps) {
       fail();
     });
 
+    // Only for a channel that never starts. One that played and is rebuffering is not off air.
     const watchdog = globalThis.setTimeout(() => {
       if (media.readyState < 3) fail();
     }, STALL_LIMIT_MS);
+    media.addEventListener("playing", () => globalThis.clearTimeout(watchdog), { once: true });
 
     // Picture in picture belongs to the old element, so the new one has to ask again.
     if (keepPictureInPicture.current && media instanceof HTMLVideoElement) {
