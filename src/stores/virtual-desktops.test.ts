@@ -30,6 +30,14 @@ describe("virtual desktops", () => {
     expect(store().activeWindowId).toBeNull();
   });
 
+  it("keeps focus on this desktop when a window here is retitled", () => {
+    open("a");
+    store().addDesktop();
+    const here = open("b");
+    store().setWindowTitle(here, "Renamed");
+    expect(store().activeWindowId).toBe(here);
+  });
+
   it("follows a window that is brought forward from another desktop", () => {
     const first = open("a");
     store().addDesktop();
