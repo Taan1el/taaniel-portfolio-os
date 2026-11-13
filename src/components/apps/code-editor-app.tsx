@@ -333,6 +333,15 @@ export function CodeEditorApp({ window: appWindow }: AppComponentProps) {
 
   useEffect(() => () => stopMarkers.current?.(), []);
 
+  // Closing the window must not lose work, as in the document apps: unsaved tabs are saved.
+  const saveRef = useRef<(path: string) => Promise<void>>(async () => {});
+  useEffect(
+    () => () => {
+      for (const tab of tabsRef.current.filter(isTabDirty)) void saveRef.current(tab.path);
+    },
+    []
+  );
+
   const storeEdits = (next: ProjectEdits) => {
     editsRef.current = next;
     setEdits(next);
@@ -354,6 +363,8 @@ export function CodeEditorApp({ window: appWindow }: AppComponentProps) {
     },
     [updateTextFile]
   );
+
+  saveRef.current = save;
 
   const saveAll = () => tabs.filter(isTabDirty).forEach((tab) => void save(tab.path));
 
