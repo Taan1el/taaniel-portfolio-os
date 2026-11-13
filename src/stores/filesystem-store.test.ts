@@ -13,7 +13,7 @@ vi.mock("@/lib/system-workspace", async (importOriginal) => {
   return { ...actual, ensureSystemWorkspace: (nodes: FileSystemRecord) => nodes };
 });
 
-import { subscribeFileSystemMoves, useFileSystemStore } from "@/stores/filesystem-store";
+import { sanitizeStoredNodes, subscribeFileSystemMoves, useFileSystemStore } from "@/stores/filesystem-store";
 import { useToastStore } from "@/stores/toast-store";
 
 const dir = (path: string, name: string): VirtualDirectory => ({
@@ -372,5 +372,18 @@ describe("move events", () => {
     await useFileSystemStore.getState().transferNodes(["/Documents/notes.txt"], "/Documents", "move");
 
     expect(heard).toEqual([]);
+  });
+});
+describe("a disk read back from storage", () => {
+  it("keeps files and folders and drops anything else", () => {
+    const good = dir("/Documents", "Documents");
+    const nodes = sanitizeStoredNodes({ "/Documents": good, "/broken": null, "/odd": { kind: "link", path: "/odd", name: "odd" }, "/moved": dir("/elsewhere", "x") });
+    expect(Object.keys(nodes ?? {})).toEqual(["/Documents"]);
+  });
+
+  it("counts as no disk when nothing usable is left", () => {
+    expect(sanitizeStoredNodes(undefined)).toBeNull();
+    expect(sanitizeStoredNodes([])).toBeNull();
+    expect(sanitizeStoredNodes({ "/x": 5 })).toBeNull();
   });
 });

@@ -32,7 +32,7 @@ import {
   type TransferResult,
 } from "@/lib/filesystem";
 import { TRASH_PATH, ensureSystemWorkspace } from "@/lib/system-workspace";
-import type { FileNode, FileSystemRecord } from "@/types/system";
+import type { FileNode, FileSystemRecord, VirtualNode } from "@/types/system";
 
 interface FileSystemState {
   nodes: FileSystemRecord;
@@ -199,6 +199,22 @@ async function persistNodes(nodes: FileSystemRecord) {
   }
 }
 
+/** Drops anything that is not a file or folder record. The disk is only as trusted as the browser's storage. */
+export function sanitizeStoredNodes(stored: unknown): FileSystemRecord | null {
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return null;
+  const nodes: FileSystemRecord = {};
+
+  for (const [path, node] of Object.entries(stored)) {
+    const record = node as Partial<VirtualNode> | null;
+    if (!record || typeof record !== "object") continue;
+    if (record.kind !== "file" && record.kind !== "directory") continue;
+    if (record.path !== path || typeof record.name !== "string") continue;
+    nodes[path] = record as VirtualNode;
+  }
+
+  return Object.keys(nodes).length > 0 ? nodes : null;
+}
+
 export const useFileSystemStore = create<FileSystemState>((set, get) => ({
   nodes: {},
   initialized: false,
@@ -209,7 +225,7 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
 
     let storedNodes;
     try {
-      storedNodes = await loadFileSystem();
+      storedNodes = sanitizeStoredNodes(await loadFileSystem());
     } catch {
       // IndexedDB unavailable (e.g. Safari private browsing, storage quota
       // exceeded). Fall back to the seed filesystem so the app still loads.
@@ -217,9 +233,15 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
       storedNodes = null;
     }
 
-    const nodes = ensureSystemWorkspace(
-      storedNodes ? await refreshPortfolioWorkspace(storedNodes) : buildSeedFileSystem()
-    );
+    let nodes;
+    try {
+      nodes = ensureSystemWorkspace(storedNodes ? await refreshPortfolioWorkspace(storedNodes) : buildSeedFileSystem());
+    } catch {
+      // A disk this build cannot read must not leave the desktop on its loading screen.
+      console.warn("[fs] stored files could not be read — falling back to seed filesystem");
+      storedNodes = null;
+      nodes = ensureSystemWorkspace(buildSeedFileSystem());
+    }
 
     if (storedNodes !== null && nodes !== storedNodes) {
       await persistNodes(nodes);
@@ -412,7 +434,13 @@ export const useFileSystemStore = create<FileSystemState>((set, get) => ({
     return result;
   },
   importFiles: async (directoryPath, files) => {
-    const { nodes, importedPaths } = await importFilesRecord(get().nodes, directoryPath, files);
+    const imported = await importFilesRecord(get().nodes, directoryPath, files);
+    const { importedPaths } = imported;
+    if (importedPaths.length === 0) return importedPaths;
+    // Reading the files took a while. Lay only the new ones over the disk as it is now,
+    // so a save or delete made in the meantime is kept.
+    const nodes = { ...get().nodes };
+    for (const path of importedPaths) nodes[path] = imported.nodes[path];
     set({ nodes });
     await persistNodes(nodes);
     toast(
