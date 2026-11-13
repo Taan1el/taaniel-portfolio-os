@@ -199,6 +199,8 @@ export function StartMenu({
       }
 
       onRequestClose();
+      // Escape closed the menu, so the keyboard goes back to the button that opens it.
+      document.querySelector<HTMLElement>(".w11-taskbar__start")?.focus({ preventScroll: true });
     };
 
     window.addEventListener("keydown", onKeyDown, true);
