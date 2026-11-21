@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <!--
+    Dark Bloom: the night-time sibling of bloom.svg, drawn for this portfolio.
+    Folded blue petals open from a glowing core right of centre, on a deep
+    navy sky, so white desktop labels on the left stay easy to read.
+  -->
+  <defs>
+    <radialGradient id="sky" cx="0.6" cy="0.62" r="0.75">
+      <stop offset="0" stop-color="#0f2457" />
+      <stop offset="0.45" stop-color="#071230" />
+      <stop offset="1" stop-color="#02050e" />
+    </radialGradient>
+
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#2f6bff" stop-opacity="0.55" />
+      <stop offset="0.6" stop-color="#1238a8" stop-opacity="0.18" />
+      <stop offset="1" stop-color="#0a1a4a" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- petal fills run from the core (y=1) to the tip (y=0) -->
+    <linearGradient id="back" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#06164a" />
+      <stop offset="0.55" stop-color="#0f3497" />
+      <stop offset="1" stop-color="#2a63e8" />
+    </linearGradient>
+    <linearGradient id="mid" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#0a2470" />
+      <stop offset="0.5" stop-color="#1b55d6" />
+      <stop offset="1" stop-color="#4d92ff" />
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1340b0" />
+      <stop offset="0.5" stop-color="#2f7cff" />
+      <stop offset="1" stop-color="#9bd0ff" />
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="1" stop-color="#cfe6ff" stop-opacity="0.16" />
+    </linearGradient>
+
+    <radialGradient id="core" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e8f4ff" />
+      <stop offset="0.35" stop-color="#8cc6ff" stop-opacity="0.85" />
+      <stop offset="1" stop-color="#2f6bff" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- one petal: base at the origin, tip at (0,-1); scaled per layer -->
+    <path id="petal" d="M0 0 C0.42 -0.28 0.36 -0.8 0 -1 C-0.36 -0.8 -0.42 -0.28 0 0 Z" />
+    <path id="petal-fold" d="M0 0 C0.42 -0.28 0.36 -0.8 0 -1 Z" />
+
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="60" />
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18" />
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#sky)" />
+
+  <!-- halo behind the bloom -->
+  <ellipse cx="1160" cy="640" rx="760" ry="560" fill="url(#halo)" />
+
+  <g transform="translate(1160 790)">
+    <!-- lower petals give the flower depth -->
+    <g fill="url(#back)" stroke="#5f9bff" stroke-opacity="0.18" stroke-width="0.004" opacity="0.8">
+      <use href="#petal" transform="rotate(-118) scale(330 300)" />
+      <use href="#petal" transform="rotate(118) scale(330 300)" />
+    </g>
+
+    <!-- back layer -->
+    <g fill="url(#back)" stroke="#6aa5ff" stroke-opacity="0.22" stroke-width="0.004">
+      <use href="#petal" transform="rotate(-82) scale(520 560)" />
+      <use href="#petal" transform="rotate(-41) scale(520 600)" />
+      <use href="#petal" transform="rotate(0) scale(500 620)" />
+      <use href="#petal" transform="rotate(41) scale(520 600)" />
+      <use href="#petal" transform="rotate(82) scale(520 560)" />
+    </g>
+    <g fill="url(#fold)">
+      <use href="#petal-fold" transform="rotate(-82) scale(520 560)" />
+      <use href="#petal-fold" transform="rotate(-41) scale(520 600)" />
+      <use href="#petal-fold" transform="rotate(0) scale(500 620)" />
+      <use href="#petal-fold" transform="rotate(41) scale(520 600)" />
+      <use href="#petal-fold" transform="rotate(82) scale(520 560)" />
+    </g>
+
+    <!-- middle layer -->
+    <g fill="url(#mid)" stroke="#8cc0ff" stroke-opacity="0.26" stroke-width="0.004">
+      <use href="#petal" transform="rotate(-62) scale(430 470)" />
+      <use href="#petal" transform="rotate(-21) scale(430 500)" />
+      <use href="#petal" transform="rotate(21) scale(430 500)" />
+      <use href="#petal" transform="rotate(62) scale(430 470)" />
+    </g>
+    <g fill="url(#fold)">
+      <use href="#petal-fold" transform="rotate(-62) scale(430 470)" />
+      <use href="#petal-fold" transform="rotate(-21) scale(430 500)" />
+      <use href="#petal-fold" transform="rotate(21) scale(430 500)" />
+      <use href="#petal-fold" transform="rotate(62) scale(430 470)" />
+    </g>
+
+    <!-- front layer -->
+    <g fill="url(#front)" stroke="#c4e2ff" stroke-opacity="0.3" stroke-width="0.004">
+      <use href="#petal" transform="rotate(-40) scale(330 360)" />
+      <use href="#petal" transform="rotate(0) scale(320 390)" />
+      <use href="#petal" transform="rotate(40) scale(330 360)" />
+    </g>
+    <g fill="url(#fold)">
+      <use href="#petal-fold" transform="rotate(-40) scale(330 360)" />
+      <use href="#petal-fold" transform="rotate(0) scale(320 390)" />
+      <use href="#petal-fold" transform="rotate(40) scale(330 360)" />
+    </g>
+
+    <!-- glowing core -->
+    <ellipse cx="0" cy="-30" rx="150" ry="110" fill="#3d82ff" opacity="0.5" filter="url(#glow)" />
+    <circle cx="0" cy="-24" r="90" fill="url(#core)" />
+  </g>
+
+  <!-- floor light so the bloom does not end in a hard edge -->
+  <ellipse cx="1160" cy="960" rx="620" ry="150" fill="#123a9e" opacity="0.35" filter="url(#soft)" />
+</svg>
