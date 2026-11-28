@@ -1,0 +1,1 @@
+import{sn as e}from"./index-D8gz7Vzr.js";var t=null,n=0,r=e(e=>({request:null,ask:r=>new Promise(i=>{t?.(!1),t=i,n+=1,e({request:{...r,id:n}})}),answer:n=>{let r=t;t=null,e({request:null}),r?.(n)}}));function i(e){return r.getState().ask(e)}export{r as n,i as t};
